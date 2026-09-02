@@ -27,6 +27,9 @@ enum class MuscleGroup(val displayName: String) {
 /** How an exercise is normally loaded. Drives which performance metric is tracked. */
 enum class Modality { WEIGHTED, BODYWEIGHT, ISOMETRIC, CARDIO }
 
+/** Whether an entry contributes lifting volume, independent of how its sets are recorded. */
+enum class TrainingModality { STRENGTH, CARDIO, SKILL, WARMUP }
+
 /** Classification of a single logged set (see parsing rule 6). */
 enum class SetType { WEIGHTED, BODYWEIGHT, ISOMETRIC, CARDIO }
 
@@ -42,6 +45,11 @@ data class Exercise(
     /** Per-dumbbell loads are logged for these; the UI labels weights accordingly. */
     val isDumbbell: Boolean = false,
     val isBuiltIn: Boolean = false,
+    val trainingModality: TrainingModality = when {
+        "prep" in name.lowercase() -> TrainingModality.WARMUP
+        modality == Modality.CARDIO -> TrainingModality.CARDIO
+        else -> TrainingModality.STRENGTH
+    },
 )
 
 data class SetEntry(

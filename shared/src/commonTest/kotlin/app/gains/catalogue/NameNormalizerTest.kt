@@ -31,3 +31,22 @@ class NameNormalizerTest {
         assertEquals(ids.size, ids.toSet().size)
     }
 }
+
+class ExerciseCatalogueMappingTest {
+    @kotlin.test.Test
+    fun catalogueStrengthEntriesAreMappedAndSideDeltsAreAuthored() {
+        val strength = ExerciseCatalogue.builtIn.filter { it.trainingModality == app.gains.domain.TrainingModality.STRENGTH }
+        kotlin.test.assertTrue(strength.all { it.muscleGroups.isNotEmpty() })
+        for (id in listOf("lateral_raise", "upright_row")) {
+            kotlin.test.assertTrue(ExerciseCatalogue.byId(id)!!.muscleGroups.any {
+                it.group == app.gains.domain.MuscleGroup.SIDE_DELTS
+            })
+        }
+    }
+
+    @kotlin.test.Test
+    fun preparationAndNonStrengthEntriesDoNotClaimLiftingVolume() {
+        kotlin.test.assertEquals(app.gains.domain.TrainingModality.WARMUP, ExerciseCatalogue.byId("wrist_prep")!!.trainingModality)
+        kotlin.test.assertEquals(app.gains.domain.TrainingModality.SKILL, ExerciseCatalogue.byId("face_to_wall_handstand_45")!!.trainingModality)
+    }
+}

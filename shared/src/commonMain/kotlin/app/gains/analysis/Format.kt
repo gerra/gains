@@ -33,7 +33,7 @@ object Format {
 
     fun percent(fraction: Double): String = number(fraction * 100, 0) + "%"
 
-    fun seconds(seconds: Int): String = if (seconds >= 60) "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')} min" else "$seconds s"
+    fun seconds(seconds: Int): String = if (seconds >= 60) "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}" else "$seconds s"
 
     fun km(km: Double): String = number(km, 2) + " km"
 

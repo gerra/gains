@@ -26,7 +26,7 @@ data class RawExercise(
 )
 
 data class RawSession(
-    /** Stable identifier derived from the timestamp (ISO-8601, no zone). */
+    /** Stable identifier derived from the calendar date (ISO-8601). */
     val id: String,
     val timestamp: LocalDateTime,
     val durationMinutes: Int?,

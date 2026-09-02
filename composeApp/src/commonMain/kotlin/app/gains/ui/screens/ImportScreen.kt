@@ -165,7 +165,6 @@ private fun Centered(content: @Composable () -> Unit) {
 @Composable
 private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel: () -> Unit) {
     val p = s.preview
-    val today = Dates.today()
     val palette = GainsColors.palette
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
@@ -202,7 +201,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
             GainsCard(Modifier.fillMaxWidth()) {
                 val range = p.dateRange
                 KeyValueRow("Sessions found", p.candidates.size.toString())
-                KeyValueRow("Date range", if (range == null) "-" else "${Dates.contextual(range.start, today)} – ${Dates.contextual(range.endInclusive, today)}")
+                KeyValueRow("Date range", if (range == null) "-" else "${Dates.shortWithYear(range.start)} – ${Dates.shortWithYear(range.endInclusive)}")
                 KeyValueRow("New sessions", p.newCount.toString(), valueColor = if (p.newCount > 0) palette.volt else null)
                 if (p.changedCount > 0) KeyValueRow("Changed since last import", p.changedCount.toString(), valueColor = palette.cyan)
                 if (p.unchangedCount > 0) KeyValueRow("Already imported (skipped)", p.unchangedCount.toString())
@@ -210,7 +209,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                 if (p.duplicates.isNotEmpty()) KeyValueRow("Duplicate sessions (skipped)", p.duplicates.size.toString(), valueColor = palette.amber)
                 if (p.corruptDurationCount > 0) KeyValueRow("Durations discarded (>4 h)", p.corruptDurationCount.toString(), valueColor = palette.amber)
                 if (p.newExercises.isNotEmpty()) KeyValueRow("New exercises", p.newExercises.size.toString())
-                for ((reason, count) in p.skippedByReason) KeyValueRow("Rows skipped: ${reason.label}", count.toString(), valueColor = palette.muted)
+                for ((reason, count) in p.skippedByReason) KeyValueRow(if (reason == app.gains.csv.SkipReason.EMPTY_ROW) "Empty rows skipped" else "${reason.label} rows skipped", count.toString(), valueColor = palette.muted)
             }
         }
         if (p.newExercises.isNotEmpty()) {
@@ -229,7 +228,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
             item { SectionHeader("Duplicates detected") }
             items(p.duplicates) { d ->
                 GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = app.gains.ui.components.Dp16.Tight) {
-                    Text("${Dates.contextual(d.date, today)} · logged twice" + if (d.keptIsAlreadyStored) " (already stored)" else "", style = MaterialTheme.typography.titleSmall)
+                    Text("${Dates.shortWithYear(d.date)} · logged twice" + if (d.keptIsAlreadyStored) " (already stored)" else "", style = MaterialTheme.typography.titleSmall)
                     Text(d.exerciseNames.joinToString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -242,17 +241,21 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                 })
                 Text("These isometric durations are more than 5× the usual hold for the exercise. Unticked holds are discarded.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
             }
-            items(p.outliers) { o ->
+            items(p.outliers.groupBy { "${it.date}|${it.exerciseId}" }.values.toList()) { group ->
+                val o = group.first()
+                val keys = group.map { it.key }.toSet()
+                val checked = keys.all { it in s.confirmedOutliers }
                 GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = app.gains.ui.components.Dp16.Tight) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(
-                            checked = o.key in s.confirmedOutliers, onCheckedChange = { model.toggleOutlier(o.key) },
+                            checked = checked,
+                            onCheckedChange = { keep -> keys.forEach { key -> if ((key in s.confirmedOutliers) != keep) model.toggleOutlier(key) } },
                             colors = CheckboxDefaults.colors(checkedColor = palette.volt, checkmarkColor = MaterialTheme.colorScheme.onPrimary),
                         )
                         Spacer(Modifier.width(4.dp))
                         Column {
-                            Text("${o.exerciseName} · ${Format.seconds(o.seconds)}", style = MaterialTheme.typography.titleSmall)
-                            Text("${Dates.contextual(o.date, today)}, set ${o.setOrder + 1} · usual hold ${Format.seconds(o.medianSeconds)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${o.exerciseName} — ${Dates.shortWithYear(o.date)}", style = MaterialTheme.typography.titleSmall)
+                            Text("${group.size} sets at ${Format.seconds(o.seconds)} (usual ${Format.seconds(o.medianSeconds)}) · these look like timer defaults", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
