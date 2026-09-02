@@ -7,16 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F6A5F7933FD0450692911CD3 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC735ADC88494CDFB83E94D6 /* iOSApp.swift */; };
 		1A40B90C7E8844F48DB0A227 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122CB644AC9849C7845AE9A7 /* ContentView.swift */; };
+		F6A5F7933FD0450692911CD3 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC735ADC88494CDFB83E94D6 /* iOSApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		122CB644AC9849C7845AE9A7 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		3499E407BE3142D882C516DE /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		5EE831CA06674C458816A360 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6A6FFE7D7607407EB9A33E45 /* Gains.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Gains.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC735ADC88494CDFB83E94D6 /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
-		122CB644AC9849C7845AE9A7 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		5EE831CA06674C458816A360 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		3499E407BE3142D882C516DE /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -30,15 +30,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		6D2D7EE0315D4DF48EB31799 = {
-			isa = PBXGroup;
-			children = (
-				44D1EB64611045EC8535800A /* iosApp */,
-				91C85B50D61A4B08B9B27F23 /* Configuration */,
-				64525F1FE9FC4C0F90C61D35 /* Products */,
-			);
-			sourceTree = "<group>";
-		};
 		44D1EB64611045EC8535800A /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
@@ -49,20 +40,29 @@
 			path = iosApp;
 			sourceTree = "<group>";
 		};
-		91C85B50D61A4B08B9B27F23 /* Configuration */ = {
-			isa = PBXGroup;
-			children = (
-				3499E407BE3142D882C516DE /* Config.xcconfig */,
-			);
-			path = Configuration;
-			sourceTree = "<group>";
-		};
 		64525F1FE9FC4C0F90C61D35 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				6A6FFE7D7607407EB9A33E45 /* Gains.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		6D2D7EE0315D4DF48EB31799 = {
+			isa = PBXGroup;
+			children = (
+				44D1EB64611045EC8535800A /* iosApp */,
+				91C85B50D61A4B08B9B27F23 /* Configuration */,
+				64525F1FE9FC4C0F90C61D35 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		91C85B50D61A4B08B9B27F23 /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				3499E407BE3142D882C516DE /* Config.xcconfig */,
+			);
+			path = Configuration;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -223,7 +223,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "$(TEAM_ID)";
+				DEVELOPMENT_TEAM = V5Y8M5GKZ6;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -255,7 +255,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "$(TEAM_ID)";
+				DEVELOPMENT_TEAM = V5Y8M5GKZ6;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
