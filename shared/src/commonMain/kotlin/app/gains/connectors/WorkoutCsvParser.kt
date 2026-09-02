@@ -120,11 +120,44 @@ class WorkoutCsvParser(
                 RawSet(record.lineNumber, order, type, weightKg, repsInt, secondsInt, distanceKm, rpe)))
         }
 
+        // A workout session is a calendar day, not an export timestamp. Build timestamp
+        // blocks first so exact duplicate blocks can be discarded, then merge every
+        // remaining block on the date. The earliest timestamp remains ordering metadata.
         val sessions = rows.groupBy { it.timestamp }
             .map { (timestamp, sessionRows) -> buildSession(timestamp, sessionRows) }
+            .groupBy { it.date }
+            .map { (date, sameDay) -> mergeDay(date, sameDay) }
             .sortedBy { it.timestamp }
         return ParsedCsv(sessions = sessions, skipped = skipped, rowCount = records.size - 1)
     }
+
+    private fun mergeDay(date: LocalDate, sessions: List<RawSession>): RawSession {
+        val unique = sessions.sortedBy { it.timestamp }.distinctBy { rawContentKey(it) }
+        val first = unique.first()
+        val exercises = LinkedHashMap<String, MutableList<RawSet>>()
+        val notes = LinkedHashMap<String, MutableList<String>>()
+        for (session in unique) for (exercise in session.exercises) {
+            exercises.getOrPut(exercise.name) { ArrayList() }.addAll(exercise.sets)
+            exercise.note?.let { notes.getOrPut(exercise.name) { ArrayList() }.add(it) }
+        }
+        return first.copy(
+            id = date.toString(),
+            durationMinutes = unique.mapNotNull { it.durationMinutes }.sum().takeIf { it > 0 },
+            durationDiscarded = unique.any { it.durationDiscarded },
+            exercises = exercises.map { (name, sets) ->
+                RawExercise(name, sets.mapIndexed { index, set -> set.copy(order = index) },
+                    notes[name]?.distinct()?.joinToString("\n"))
+            },
+        )
+    }
+
+    private fun rawContentKey(session: RawSession): String = session.exercises
+        .sortedBy { it.name }
+        .joinToString("|") { exercise ->
+            exercise.name + exercise.sets.joinToString(";") { set ->
+                "${set.type}:${set.weightKg}:${set.reps}:${set.seconds}:${set.distanceKm}"
+            }
+        }
 
     private fun buildSession(timestamp: LocalDateTime, rows: List<ParsedRow>): RawSession {
         val exercises = LinkedHashMap<String, MutableList<ParsedRow>>()

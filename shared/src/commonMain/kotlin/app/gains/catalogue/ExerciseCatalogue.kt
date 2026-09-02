@@ -5,6 +5,7 @@ import app.gains.domain.Modality
 import app.gains.domain.MuscleContribution
 import app.gains.domain.MuscleGroup
 import app.gains.domain.MuscleGroup.*
+import app.gains.domain.TrainingModality
 
 /**
  * Built-in exercises with muscle-group contributions (1.0 primary, 0.5 secondary)
@@ -23,10 +24,11 @@ object ExerciseCatalogue {
             dumbbell: Boolean = false,
             primary: List<MuscleGroup>,
             secondary: List<MuscleGroup> = emptyList(),
+            trainingModality: TrainingModality = if (modality == Modality.CARDIO) TrainingModality.CARDIO else TrainingModality.STRENGTH,
             vararg alias: String,
         ) {
             val groups = primary.map { MuscleContribution(it, 1.0) } + secondary.map { MuscleContribution(it, 0.5) }
-            exercises.add(Exercise(id, name, name, groups, modality, dumbbell, isBuiltIn = true))
+            exercises.add(Exercise(id, name, name, groups, modality, dumbbell, isBuiltIn = true, trainingModality = trainingModality))
             aliases[NameNormalizer.normalize(name)] = id
             alias.forEach { aliases[NameNormalizer.normalize(it)] = id }
         }
@@ -42,21 +44,21 @@ object ExerciseCatalogue {
         ex("chest_press_machine", "Chest Press (Machine)", primary = listOf(CHEST), secondary = listOf(TRICEPS, FRONT_DELTS), alias = arrayOf("Machine Chest Press", "Chest Press", "Seated Chest Press"))
         ex("chest_fly", "Chest Fly", primary = listOf(CHEST), alias = arrayOf("Dumbbell Fly", "Dumbbell Chest Fly", "Pec Deck", "Chest Fly (Machine)", "Machine Fly", "Pec Fly"))
         ex("cable_fly", "Cable Fly", primary = listOf(CHEST), alias = arrayOf("Cable Crossover", "Cable Chest Fly", "Low Cable Fly", "High Cable Fly"))
-        ex("push_up", "Push Up", modality = Modality.BODYWEIGHT, primary = listOf(CHEST), secondary = listOf(TRICEPS, FRONT_DELTS), alias = arrayOf("Push-Up", "Pushup", "Push Ups", "Pushups", "Press Up"))
-        ex("dip", "Dip", modality = Modality.BODYWEIGHT, primary = listOf(CHEST, TRICEPS), secondary = listOf(FRONT_DELTS), alias = arrayOf("Dips", "Chest Dip", "Chest Dips", "Weighted Dip", "Parallel Bar Dip", "Tricep Dip"))
+        ex("push_up", "Push Ups", modality = Modality.BODYWEIGHT, primary = listOf(CHEST), secondary = listOf(TRICEPS, FRONT_DELTS), alias = arrayOf("Push-Up", "Pushup", "Push Ups", "Pushups", "Press Up"))
+        ex("dip", "Dips", modality = Modality.BODYWEIGHT, primary = listOf(CHEST, TRICEPS), secondary = listOf(FRONT_DELTS), alias = arrayOf("Dips", "Chest Dip", "Chest Dips", "Weighted Dip", "Parallel Bar Dip", "Tricep Dip"))
 
         // Shoulders
         ex("overhead_press", "Overhead Press", primary = listOf(FRONT_DELTS, SIDE_DELTS), secondary = listOf(TRICEPS), alias = arrayOf("Barbell Overhead Press", "Military Press", "Standing Overhead Press", "Strict Press", "Shoulder Press (Barbell)", "Barbell Shoulder Press", "OHP"))
-        ex("db_shoulder_press", "Dumbbell Shoulder Press", dumbbell = true, primary = listOf(FRONT_DELTS, SIDE_DELTS), secondary = listOf(TRICEPS), alias = arrayOf("Seated Dumbbell Shoulder Press", "Seated Shoulder Press", "Shoulder Press", "Seated Dumbbell Press", "Dumbbell Overhead Press", "Seated DB Press", "Shoulder Press (Dumbbell)", "Standing Dumbbell Shoulder Press"))
+        ex("db_shoulder_press", "Seated Dumbbell Shoulder Press", dumbbell = true, primary = listOf(FRONT_DELTS, SIDE_DELTS), secondary = listOf(TRICEPS), alias = arrayOf("Seated Dumbbell Shoulder Press", "Seated Shoulder Press", "Shoulder Press", "Seated Dumbbell Press", "Dumbbell Overhead Press", "Seated DB Press", "Shoulder Press (Dumbbell)", "Standing Dumbbell Shoulder Press"))
         ex("shoulder_press_machine", "Shoulder Press (Machine)", primary = listOf(FRONT_DELTS, SIDE_DELTS), secondary = listOf(TRICEPS), alias = arrayOf("Machine Shoulder Press", "Seated Shoulder Press (Machine)"))
         ex("arnold_press", "Arnold Press", dumbbell = true, primary = listOf(FRONT_DELTS, SIDE_DELTS), secondary = listOf(TRICEPS))
-        ex("lateral_raise", "Lateral Raise", dumbbell = true, primary = listOf(SIDE_DELTS), alias = arrayOf("Dumbbell Lateral Raise", "Seated Dumbbell Lateral Raise", "Seated Lateral Raise", "Side Lateral Raise", "Lateral Raise (Dumbbell)", "DB Lateral Raise", "Side Raise"))
+        ex("lateral_raise", "Dumbbell Lateral Raise", dumbbell = true, primary = listOf(SIDE_DELTS), alias = arrayOf("Dumbbell Lateral Raise", "Seated Dumbbell Lateral Raise", "Seated Lateral Raise", "Side Lateral Raise", "Lateral Raise (Dumbbell)", "DB Lateral Raise", "Side Raise"))
         ex("cable_lateral_raise", "Cable Lateral Raise", primary = listOf(SIDE_DELTS), alias = arrayOf("Lateral Raise (Cable)", "Single Arm Cable Lateral Raise"))
         ex("lateral_raise_machine", "Lateral Raise (Machine)", primary = listOf(SIDE_DELTS), alias = arrayOf("Machine Lateral Raise"))
         ex("front_raise", "Front Raise", dumbbell = true, primary = listOf(FRONT_DELTS), alias = arrayOf("Dumbbell Front Raise", "Plate Front Raise", "Cable Front Raise"))
         ex("rear_delt_fly", "Rear Delt Fly", dumbbell = true, primary = listOf(REAR_DELTS), secondary = listOf(UPPER_BACK), alias = arrayOf("Reverse Fly", "Rear Delt Raise", "Reverse Pec Deck", "Rear Delt Fly (Machine)", "Bent Over Reverse Fly", "Dumbbell Reverse Fly", "Rear Delt Machine", "Reverse Fly (Machine)"))
         ex("face_pull", "Face Pull", primary = listOf(REAR_DELTS), secondary = listOf(UPPER_BACK, TRAPS), alias = arrayOf("Cable Face Pull", "Face Pulls"))
-        ex("upright_row", "Upright Row", primary = listOf(SIDE_DELTS, TRAPS), alias = arrayOf("Barbell Upright Row", "Cable Upright Row"))
+        ex("upright_row", "Upright Row", primary = listOf(SIDE_DELTS, TRAPS), secondary = listOf(BICEPS), alias = arrayOf("Barbell Upright Row", "Cable Upright Row", "EZ Bar Upright Row", "EZ-Bar Upright Row"))
 
         // Back
         ex("pull_up", "Pull Up", modality = Modality.BODYWEIGHT, primary = listOf(LATS), secondary = listOf(BICEPS, UPPER_BACK), alias = arrayOf("Pull-Up", "Pullup", "Pull Ups", "Pullups", "Weighted Pull Up", "Wide Grip Pull Up"))
@@ -69,7 +71,7 @@ object ExerciseCatalogue {
         ex("t_bar_row", "T-Bar Row", primary = listOf(UPPER_BACK), secondary = listOf(LATS, BICEPS), alias = arrayOf("T Bar Row", "Landmine Row"))
         ex("straight_arm_pulldown", "Straight Arm Pulldown", primary = listOf(LATS), alias = arrayOf("Cable Pullover", "Straight-Arm Pulldown", "Rope Pullover"))
         ex("db_pullover", "Dumbbell Pullover", dumbbell = true, primary = listOf(LATS, CHEST), alias = arrayOf("Pullover"))
-        ex("shrug", "Shrug", primary = listOf(TRAPS), alias = arrayOf("Barbell Shrug", "Dumbbell Shrug", "Shrugs", "Trap Bar Shrug", "Shrug (Dumbbell)", "Shrug (Barbell)"))
+        ex("shrug", "Dumbbell Shrug", primary = listOf(TRAPS), alias = arrayOf("Barbell Shrug", "Dumbbell Shrug", "Shrugs", "Trap Bar Shrug", "Shrug (Dumbbell)", "Shrug (Barbell)"))
         ex("deadlift", "Deadlift", primary = listOf(HAMSTRINGS, GLUTES, LOWER_BACK), secondary = listOf(UPPER_BACK, TRAPS, QUADS, FOREARMS), alias = arrayOf("Barbell Deadlift", "Conventional Deadlift", "Deadlift (Barbell)"))
         ex("sumo_deadlift", "Sumo Deadlift", primary = listOf(GLUTES, QUADS, HAMSTRINGS), secondary = listOf(LOWER_BACK, UPPER_BACK))
         ex("trap_bar_deadlift", "Trap Bar Deadlift", primary = listOf(QUADS, GLUTES, HAMSTRINGS), secondary = listOf(LOWER_BACK, TRAPS), alias = arrayOf("Hex Bar Deadlift"))
@@ -134,11 +136,24 @@ object ExerciseCatalogue {
         ex("neck_extension", "Neck Extension", primary = listOf(NECK), alias = arrayOf("Neck Extensions", "Plate Neck Extension", "Neck Harness", "Neck Harness Extension"))
         ex("neck_side", "Lateral Neck Flexion", primary = listOf(NECK), alias = arrayOf("Neck Side Flexion", "Side Neck Curl"))
 
+        // Liftoff/custom names with deliberately authored mappings. Do not bucket unknown names.
+        ex("incline_db_fly", "Incline Dumbbell Fly", dumbbell = true, primary = listOf(CHEST), secondary = listOf(FRONT_DELTS))
+        ex("high_to_low_cable_fly", "High to Low Cable Fly", primary = listOf(CHEST), secondary = listOf(FRONT_DELTS))
+        ex("pike_push_ups", "Pike Push Ups", modality = Modality.BODYWEIGHT, primary = listOf(FRONT_DELTS), secondary = listOf(TRICEPS, CHEST))
+        ex("pseudo_planche_push_ups", "Pseudo Planche Push Ups", modality = Modality.BODYWEIGHT, primary = listOf(FRONT_DELTS), secondary = listOf(CHEST, TRICEPS))
+        ex("face_to_wall_handstand_45", "Face to wall handstand (45)", modality = Modality.ISOMETRIC, primary = listOf(FRONT_DELTS), secondary = listOf(CORE), trainingModality = TrainingModality.SKILL)
+        ex("abdominal_set", "Abdominal set", modality = Modality.BODYWEIGHT, primary = listOf(CORE))
+        ex("wrist_prep", "Wrist prep", modality = Modality.ISOMETRIC, primary = emptyList(), trainingModality = TrainingModality.WARMUP)
+        ex("shoulders_prep", "Shoulders prep", modality = Modality.ISOMETRIC, primary = emptyList(), trainingModality = TrainingModality.WARMUP)
+        ex("core_prep", "Core prep", modality = Modality.ISOMETRIC, primary = emptyList(), trainingModality = TrainingModality.WARMUP)
+        ex("boxing", "Boxing", modality = Modality.CARDIO, primary = emptyList(), trainingModality = TrainingModality.CARDIO)
+        ex("hiit", "HIIT", modality = Modality.CARDIO, primary = emptyList(), trainingModality = TrainingModality.CARDIO)
+
         // Cardio
         ex("running", "Running", modality = Modality.CARDIO, primary = emptyList(), alias = arrayOf("Run", "Treadmill", "Treadmill Running", "Jogging", "Outdoor Run", "Running (Treadmill)", "Running (Outdoor)"))
         ex("walking", "Walking", modality = Modality.CARDIO, primary = emptyList(), alias = arrayOf("Walk", "Incline Walk", "Treadmill Walk", "Incline Treadmill Walk", "Walking (Treadmill)"))
         ex("cycling", "Cycling", modality = Modality.CARDIO, primary = emptyList(), alias = arrayOf("Bike", "Stationary Bike", "Spin Bike", "Cycling (Indoor)", "Cycling (Outdoor)", "Assault Bike", "Air Bike", "Exercise Bike"))
-        ex("rowing", "Rowing", modality = Modality.CARDIO, primary = emptyList(), alias = arrayOf("Rowing Machine", "Row Machine", "Rower", "Erg", "Rowing (Machine)", "Concept 2"))
+        ex("rowing", "Rowing Machine", modality = Modality.CARDIO, primary = emptyList(), alias = arrayOf("Rowing Machine", "Row Machine", "Rower", "Erg", "Rowing (Machine)", "Concept 2"))
         ex("elliptical", "Elliptical", modality = Modality.CARDIO, primary = emptyList(), alias = arrayOf("Elliptical Trainer", "Cross Trainer", "Elliptical Machine"))
         ex("stair_climber", "Stair Climber", modality = Modality.CARDIO, primary = emptyList(), alias = arrayOf("Stairmaster", "StairMaster", "Stair Master", "Stairs", "Stair Stepper"))
         ex("swimming", "Swimming", modality = Modality.CARDIO, primary = emptyList(), alias = arrayOf("Swim"))
@@ -150,21 +165,20 @@ object ExerciseCatalogue {
 
     fun byId(id: String): Exercise? = builtIn.firstOrNull { it.id == id }
 
-    /** Guesses muscle groups and modality for a name that matches nothing in the catalogue. */
+    /** Creates an explicitly unmapped custom exercise. Unknown names are never keyword-classified. */
     fun guess(rawName: String, modalityHint: Modality?): Exercise {
         val n = NameNormalizer.normalize(rawName)
-        val groups = MuscleGuesser.guess(n)
-        val modality = modalityHint ?: if (groups.isEmpty() && MuscleGuesser.looksLikeCardio(n)) Modality.CARDIO else Modality.WEIGHTED
-        return Exercise(
-            id = NameNormalizer.toId(rawName),
-            name = rawName.trim(),
-            canonicalName = rawName.trim(),
-            muscleGroups = groups,
-            modality = modality,
+        val training = when {
+            "prep" in n -> TrainingModality.WARMUP
+            MuscleGuesser.looksLikeCardio(n) -> TrainingModality.CARDIO
+            else -> TrainingModality.STRENGTH
+        }
+        val load = if (training == TrainingModality.CARDIO) Modality.CARDIO else (modalityHint ?: Modality.WEIGHTED)
+        return Exercise(NameNormalizer.toId(rawName), rawName.trim(), rawName.trim(), emptyList(), load,
             isDumbbell = "dumbbell" in n || n.startsWith("db ") || " db " in n,
-            isBuiltIn = false,
-        )
+            isBuiltIn = false, trainingModality = training)
     }
+
 }
 
 object NameNormalizer {

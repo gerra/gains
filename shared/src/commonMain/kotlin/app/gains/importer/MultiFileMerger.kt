@@ -3,7 +3,7 @@ package app.gains.importer
 import app.gains.csv.ParsedCsv
 import app.gains.csv.RawSession
 
-/** Combines several parsed exports into one, keeping each session (by timestamp) once. */
+/** Combines several parsed exports into one, keeping each calendar-date session once. */
 object MultiFileMerger {
     data class Result(val csv: ParsedCsv, val sessionsInSeveralFiles: Int)
 

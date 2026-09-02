@@ -14,19 +14,19 @@ class LiftoffCsvParserTest {
     fun convertsLbsToRoundKgAndClassifiesSetTypes() {
         val parsed = parser.parse(Fixtures.SAMPLE)
         assertEquals(0, parsed.skipped.size)
-        val bench = parsed.sessions.first { it.id == "2026-02-18T20:40:47" }.exercises.first { it.name == "Bench Press" }
+        val bench = parsed.sessions.first { it.id == "2026-02-18" }.exercises.first { it.name == "Bench Press" }
         assertEquals(listOf(20.0, 50.0, 60.0), bench.sets.map { it.weightKg })
         assertEquals(listOf(20, 12, 8), bench.sets.map { it.reps })
         assertTrue(bench.sets.all { it.type == SetType.WEIGHTED })
 
-        val raise = parsed.sessions.first { it.id == "2026-02-18T20:40:47" }.exercises.first { it.name == "Dumbbell Lateral Raise" }
+        val raise = parsed.sessions.first { it.id == "2026-02-18" }.exercises.first { it.name == "Dumbbell Lateral Raise" }
         assertEquals(6.0, raise.sets.first().weightKg)
 
-        val legPress = parsed.sessions.first { it.id == "2026-01-13T22:04:26" }.exercises.single()
+        val legPress = parsed.sessions.first { it.id == "2026-01-13" }.exercises.single()
         assertEquals(53.0, legPress.sets.single().weightKg)
         assertEquals("+53kg", legPress.note)
 
-        val march = parsed.sessions.first { it.id == "2026-03-21T13:29:26" }
+        val march = parsed.sessions.first { it.id == "2026-03-21" }
         val hang = march.exercises.first { it.name == "Dead Hang" }.sets.single()
         assertEquals(SetType.ISOMETRIC, hang.type)
         assertEquals(60, hang.seconds)
@@ -35,7 +35,7 @@ class LiftoffCsvParserTest {
         assertEquals(SetType.BODYWEIGHT, pullUp.type)
         assertEquals(8, pullUp.reps)
 
-        val run = parsed.sessions.first { it.id == "2026-04-27T17:22:29" }.exercises.single().sets.single()
+        val run = parsed.sessions.first { it.id == "2026-04-27" }.exercises.single().sets.single()
         assertEquals(SetType.CARDIO, run.type)
         assertEquals(6.437376, run.distanceKm)
         assertEquals(1980, run.seconds)
@@ -45,7 +45,7 @@ class LiftoffCsvParserTest {
     fun sortsSessionsChronologicallyRegardlessOfFileOrder() {
         val parsed = parser.parse(Fixtures.OUT_OF_ORDER)
         assertEquals(
-            listOf("2023-01-05T09:00", "2024-11-20T07:15", "2025-06-01T10:00", "2026-02-10T18:30"),
+            listOf("2023-01-05", "2024-11-20", "2025-06-01", "2026-02-10"),
             parsed.sessions.map { it.id },
         )
         assertEquals(2, parsed.sessions.first().setCount)
@@ -55,14 +55,14 @@ class LiftoffCsvParserTest {
     fun discardsImplausibleDurations() {
         val parsed = parser.parse(Fixtures.CORRUPT_DURATIONS)
         val byId = parsed.sessions.associateBy { it.id }
-        assertNull(byId.getValue("2026-01-01T10:00").durationMinutes)
-        assertTrue(byId.getValue("2026-01-01T10:00").durationDiscarded)
-        assertNull(byId.getValue("2026-01-02T10:00").durationMinutes)
-        assertNull(byId.getValue("2026-01-03T10:00").durationMinutes)
-        assertEquals(101, byId.getValue("2026-01-04T10:00").durationMinutes)
-        assertNull(byId.getValue("2026-01-05T10:00").durationMinutes)
-        assertEquals(false, byId.getValue("2026-01-05T10:00").durationDiscarded)
-        assertEquals(240, byId.getValue("2026-01-06T10:00").durationMinutes)
+        assertNull(byId.getValue("2026-01-01").durationMinutes)
+        assertTrue(byId.getValue("2026-01-01").durationDiscarded)
+        assertNull(byId.getValue("2026-01-02").durationMinutes)
+        assertNull(byId.getValue("2026-01-03").durationMinutes)
+        assertEquals(101, byId.getValue("2026-01-04").durationMinutes)
+        assertNull(byId.getValue("2026-01-05").durationMinutes)
+        assertEquals(false, byId.getValue("2026-01-05").durationDiscarded)
+        assertEquals(240, byId.getValue("2026-01-06").durationMinutes)
         assertEquals(3, parsed.corruptDurationCount)
     }
 
@@ -130,4 +130,17 @@ class LiftoffCsvParserTest {
         assertEquals(20.0, set.weightKg)
         assertEquals(45, set.seconds)
     }
+    @Test
+    fun groupsDifferentTimestampsAndEmptyRowsByCalendarDate() {
+        val text = Fixtures.HEADER + "\n" +
+            "2026-07-06 10:00:00,,,Squat,0,100,5,0,0,,\n" +
+            "2026-07-06 20:00:00,,,Bench Press,0,100,5,0,0,,\n" +
+            "2026-07-06 21:00:00,,,,0,0,0,0,0,,"
+        val parsed = parser.parse(text)
+        assertEquals(1, parsed.sessions.size)
+        assertEquals("2026-07-06", parsed.sessions.single().id)
+        assertEquals(2, parsed.sessions.single().setCount)
+        assertEquals(1, parsed.skipped.size)
+    }
+
 }

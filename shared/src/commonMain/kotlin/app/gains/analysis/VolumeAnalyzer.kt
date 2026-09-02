@@ -5,6 +5,7 @@ import app.gains.domain.Exercise
 import app.gains.domain.MuscleGroup
 import app.gains.domain.Session
 import app.gains.domain.SetType
+import app.gains.domain.TrainingModality
 import kotlinx.datetime.LocalDate
 
 data class WeekVolume(
@@ -34,6 +35,7 @@ object VolumeAnalyzer {
         val result = HashMap<MuscleGroup, Double>()
         for (entry in session.exercises) {
             val exercise = exercisesById[entry.exerciseId] ?: continue
+            if (exercise.trainingModality != TrainingModality.STRENGTH) continue
             val working = entry.sets.count { it.isWorking && it.type != SetType.CARDIO }
             if (working == 0) continue
             for (c in exercise.muscleGroups) {
