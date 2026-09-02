@@ -81,9 +81,13 @@ class WorkoutCsvParser(
             val exerciseName = f[col.exercise].trim()
             val weight = parseDouble(f[col.weight])
             val reps = parseDouble(f[col.reps])
-            val distance = col.distance?.let { parseDouble(f[it]) } ?: 0.0
-            val seconds = col.seconds?.let { parseDouble(f[it]) } ?: 0.0
-            if (weight == null || reps == null || distance == null || seconds == null) {
+            val parsedDistance = col.distance?.let { parseDouble(f[it]) }
+            val parsedSeconds = col.seconds?.let { parseDouble(f[it]) }
+            val distance = parsedDistance ?: 0.0
+            val seconds = parsedSeconds ?: 0.0
+            if (weight == null || reps == null || (col.distance != null && parsedDistance == null) ||
+                (col.seconds != null && parsedSeconds == null)
+            ) {
                 skipped.add(SkippedRow(record.lineNumber, SkipReason.BAD_NUMBER, excerpt(f)))
                 continue
             }
