@@ -36,6 +36,10 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            // SQLDelight's native driver calls the platform SQLite C API. Because this
+            // is the final Kotlin framework consumed by Xcode, keep that native linker
+            // dependency on the exported framework as well as on the Xcode app target.
+            linkerOpts("-lsqlite3")
         }
     }
 
