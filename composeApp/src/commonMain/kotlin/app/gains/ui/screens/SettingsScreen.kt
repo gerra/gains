@@ -137,7 +137,7 @@ fun SettingsScreen() {
             GainsCard(Modifier.fillMaxWidth()) {
                 ChipRow(WeightUnit.entries, state.unit, { it.label }, { model.setUnit(it) })
                 Spacer(Modifier.height(10.dp))
-                Text("Weights are stored in kg (rounded to 0.25 kg) whatever you display. Dumbbell exercises show the per-dumbbell weight, as Liftoff logs it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Weights are stored in kg (rounded to 0.25 kg) whatever you display. Dumbbell exercises show the per-dumbbell weight.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         item {

@@ -66,12 +66,21 @@ data class ExerciseEntry(
     val workingSets: List<SetEntry> get() = sets.filter { it.isWorking }
 }
 
+/** Where a session came from: a connector id ("liftoff", "strong", …) or [Session.MANUAL]. */
 data class Session(
     val id: String,
     val timestamp: LocalDateTime,
     val durationMinutes: Int? = null,
     val exercises: List<ExerciseEntry>,
+    val source: String = IMPORTED,
 ) {
+    val isManual: Boolean get() = source == MANUAL
+
+    companion object {
+        const val MANUAL = "manual"
+        const val IMPORTED = "import"
+    }
+
     val date: LocalDate get() = timestamp.date
     val setCount: Int get() = exercises.sumOf { it.sets.size }
 }

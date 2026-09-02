@@ -1,16 +1,17 @@
-# Gains — workout progress analyzer
+# Gains — training log and progress analyzer
 
-A local-only Kotlin Multiplatform app that ingests CSV exports from the Liftoff
-workout logger and tells you what's actually moving, what's stalled and what's
-gone backwards. iOS is the primary target; Android and a desktop (JVM) build
-share the same code. There is no backend, no account and no network access.
+A Kotlin Multiplatform app that keeps your training history, lets you log and edit
+workouts, imports history from other apps through connectors, and tells you what's
+actually moving, what's stalled and what's gone backwards. iOS is the primary target;
+Android and a desktop (JVM) build share the same code. Data lives on the device; a
+self-hosted sync server is planned.
 
 ## Layout
 
 | Module        | Contents |
 |---------------|----------|
-| `shared/`     | CSV reader and Liftoff parser, domain model, exercise catalogue, import analyzer, SQLDelight persistence, insight engine and analysis code. All pure Kotlin, unit-tested. |
-| `composeApp/` | Compose Multiplatform UI (home insights, import preview, lifts, volume, bodyweight, consistency, settings), Canvas charts, and the Android / iOS / desktop entry points. |
+| `shared/`     | Import connectors (Liftoff, Strong, Hevy, generic CSV) over a shared row-per-set parser, domain model, exercise catalogue, import analyzer, SQLDelight persistence, insight engine and analysis code. All pure Kotlin, unit-tested. |
+| `composeApp/` | Compose Multiplatform UI (home insights, history with a workout editor, import preview, lifts, volume, bodyweight, settings), Canvas charts, and the Android / iOS / desktop entry points. |
 | `iosApp/`     | Xcode project wrapping the `ComposeApp` framework in SwiftUI. Registers the app as a CSV handler so "Open in Gains" appears in the share sheet. |
 
 ## Design
@@ -48,6 +49,29 @@ server. The token exchange against the server is left as a TODO in `AccountRepos
 the Hetzner backend exists. Settings shows the current account and lets you return to the
 sign-in screen; local data is kept.
 
+## Connectors
+
+Every source implements `ImportConnector` (`shared/src/commonMain/kotlin/app/gains/connectors`):
+it recognises a file by its header and turns it into sessions. The registry in `Connectors`
+auto-detects the format, so the user just picks files. Shipped connectors:
+
+| Connector | Notes |
+|-----------|-------|
+| Liftoff   | Fixed column order, weights in lbs at float precision. |
+| Strong    | Old and new export layouts, per-row weight/distance units when present, `1h 5m` durations. |
+| Hevy      | `weight_kg`/`weight_lbs` columns, `5 Jan 2026, 18:30` timestamps, duration from start/end. |
+| Workout CSV | Anything with date, exercise, weight and reps columns under common names. |
+
+Adding a connector means a `ColumnSpec` plus a `match` function; the parser, duplicate
+detection and outlier handling are shared. Sessions remember their connector in the
+`source` column, and workouts logged in the app carry `manual`.
+
+## Logging and editing
+
+The History tab lists every session. Tap one to edit its date, time, duration, exercises,
+sets and notes, or delete it; the plus button logs a new workout. Exercises come from the
+catalogue or can be created by name. Edits feed straight into the same analyses as imports.
+
 ## How the import works
 
 Several exports can be imported at once (multi-select in the Files picker, Android's document
@@ -58,9 +82,9 @@ single file would be.
 
 
 1. The file is read with a real RFC 4180 parser (quoted notes with commas and line breaks are fine).
-2. Rows are grouped into sessions by their `Date` timestamp and sorted; file order is never trusted.
-3. Weights are converted from lbs to kg and rounded to 0.25 kg (`132.277357311` → `60 kg`). The
-   preview lets you say the file is already in kg if you use a different exporter.
+2. Rows are grouped into sessions by their timestamp and sorted; file order is never trusted.
+3. Weights are converted to kg and rounded to 0.25 kg (`132.277357311 lbs` → `60 kg`). For files
+   that do not state their unit the preview lets you choose it.
 4. Each set is classified as weighted, bodyweight, isometric or cardio; empty rows are discarded
    and listed in the summary with the reason; durations over 4 hours are dropped as timer errors.
 5. Exercise names are mapped onto the built-in catalogue (`Seated Shoulder Press` and
@@ -99,9 +123,10 @@ flagged as maintenance and over 22 as likely junk volume.
   out-of-order rows, duplicates, corrupt durations, isometric outliers, quoted notes, empty rows;
   insight rules; an in-memory SQLite integration test; a 10,000-row import timing test that
   parses and analyzes in well under a second).
-- The desktop app was run against a generated one-year export containing every defect from the
-  spec, and every screen was exercised: import preview and commit, re-import (idempotent), home
-  insights, lift detail charts, volume dashboard, bodyweight entry, consistency calendar, settings.
+- The desktop app was run against generated exports containing every defect from the
+  spec, and every screen was exercised: sign-in, import preview and commit, multi-file and
+  re-import (idempotent), home insights, history and the workout editor, lift detail charts,
+  volume dashboard, bodyweight entry, settings.
 - `shared` and `composeApp` compile to Kotlin/Native klibs for `iosArm64` and `iosSimulatorArm64`
   (including the UIKit document-picker code). Linking and running the iOS app needs Xcode on a Mac.
 - The Android source set (SAF picker, share-sheet intents, SQLDelight Android driver) is written

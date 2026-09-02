@@ -67,14 +67,16 @@ class ImportModel(private val importService: ImportService = inject()) : ScreenM
     val state: StateFlow<ImportState> = _state
     private var lastFiles: List<PickedFile> = emptyList()
 
-    fun load(files: List<PickedFile>, unit: WeightUnit = WeightUnit.LBS) {
+    fun load(files: List<PickedFile>, unit: WeightUnit? = null) {
         if (files.isEmpty()) return
         lastFiles = files
         _state.value = ImportState.Parsing(files.size)
         scope.launch {
             try {
-                val preview = importService.preview(files.map { CsvFile(it.name, it.content) }, unit)
-                _state.value = ImportState.Preview(preview, emptySet(), unit)
+                val csvFiles = files.map { CsvFile(it.name, it.content) }
+                val preview = importService.preview(csvFiles, unit)
+                val shownUnit = unit ?: csvFiles.firstNotNullOfOrNull { importService.detect(it)?.defaultWeightUnit } ?: WeightUnit.KG
+                _state.value = ImportState.Preview(preview, emptySet(), shownUnit)
             } catch (e: CsvFormatException) {
                 _state.value = ImportState.Error(e.message ?: "Could not read the file.")
             } catch (e: Exception) {
@@ -127,8 +129,8 @@ fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
 
     when (val s = state) {
         ImportState.Idle -> EmptyState(
-            title = "Import Liftoff exports",
-            body = "Pick one or more CSV files. You'll see a summary before anything is saved. Overlapping exports are safe: a session is only ever stored once, whether it appears in several files or was imported earlier.",
+            title = "Import your history",
+            body = "Liftoff, Strong and Hevy exports are recognised automatically, and any CSV with date, exercise, weight and reps columns works too. Pick one or more files; you'll see a summary before anything is saved, and a session is only ever stored once.",
             emoji = "↑",
             action = { PrimaryButton("Choose CSV files", pick) },
         )
@@ -168,14 +170,14 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
             ScreenTitle("Import", subtitle = "${Format.plural(p.files.size, "file")} · ${Format.plural(p.rowCount, "row")}")
-            if (p.files.size > 1 || p.files.any { it.error != null }) {
+            run {
                 GainsCard(Modifier.fillMaxWidth(), contentPadding = app.gains.ui.components.Dp16.Tight) {
                     for (f in p.files) {
                         Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(f.name, style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    f.error ?: "${Format.plural(f.rowCount, "row")} · ${Format.plural(f.sessionCount, "session")}",
+                                    f.error ?: "${f.connector ?: "CSV"} · ${Format.plural(f.rowCount, "row")} · ${Format.plural(f.sessionCount, "session")}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (f.error != null) palette.coral else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -193,7 +195,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
             SectionHeader("Weights in the file are in")
             ChipRow(WeightUnit.entries, s.unit, { it.label }, { model.setUnit(it) })
             Spacer(Modifier.height(6.dp))
-            Text("Liftoff exports lbs even when you log in kg; they're converted and rounded to 0.25 kg.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Used for files that don't state their unit (Liftoff exports lbs even when you log in kg). Weights are stored in kg, rounded to 0.25 kg.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
             SectionHeader("Summary")

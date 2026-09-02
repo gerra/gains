@@ -4,7 +4,8 @@ CREATE TABLE session (
   date TEXT NOT NULL,
   duration_minutes INTEGER,
   fingerprint TEXT NOT NULL,
-  content_hash TEXT NOT NULL
+  content_hash TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'import'
 );
 
 CREATE INDEX session_date ON session(date);
@@ -35,8 +36,8 @@ CREATE TABLE set_entry (
 CREATE INDEX set_entry_entry ON set_entry(entry_id);
 
 insertSession:
-INSERT OR REPLACE INTO session(id, timestamp, date, duration_minutes, fingerprint, content_hash)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO session(id, timestamp, date, duration_minutes, fingerprint, content_hash, source)
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 deleteEntriesForSession:
 DELETE FROM exercise_entry WHERE session_id = ?;
@@ -61,7 +62,7 @@ selectSummaries:
 SELECT id, date, fingerprint, content_hash FROM session;
 
 selectSessions:
-SELECT id, timestamp, duration_minutes FROM session ORDER BY timestamp;
+SELECT id, timestamp, duration_minutes, source FROM session ORDER BY timestamp;
 
 selectEntries:
 SELECT id, session_id, exercise_id, position, note FROM exercise_entry ORDER BY session_id, position;

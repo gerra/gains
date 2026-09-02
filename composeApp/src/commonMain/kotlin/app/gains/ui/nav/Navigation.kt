@@ -7,18 +7,20 @@ sealed interface Screen {
     data object Exercises : Screen
     data object Volume : Screen
     data object Body : Screen
-    data object Consistency : Screen
+    data object History : Screen
     data object Settings : Screen
     data object Import : Screen
     data class ExerciseDetail(val exerciseId: String) : Screen
+    /** null = log a new workout. */
+    data class EditSession(val sessionId: String?) : Screen
 }
 
 enum class Tab(val label: String, val root: Screen) {
     HOME("Home", Screen.Home),
+    HISTORY("History", Screen.History),
     EXERCISES("Lifts", Screen.Exercises),
     VOLUME("Volume", Screen.Volume),
     BODY("Body", Screen.Body),
-    CONSISTENCY("Calendar", Screen.Consistency),
 }
 
 class Navigator {

@@ -46,6 +46,7 @@ class SessionRepository(
                 id = s.id,
                 timestamp = LocalDateTime.parse(s.timestamp),
                 durationMinutes = s.duration_minutes?.toInt(),
+                source = s.source,
                 exercises = (entriesBySession[s.id] ?: emptyList()).sortedBy { it.position }.map { e ->
                     ExerciseEntry(
                         exerciseId = e.exercise_id,
@@ -91,6 +92,7 @@ class SessionRepository(
                     duration_minutes = session.durationMinutes?.toLong(),
                     fingerprint = ImportAnalyzer.fingerprint(session),
                     content_hash = ImportAnalyzer.contentHash(session),
+                    source = session.source,
                 )
                 session.exercises.forEachIndexed { position, entry ->
                     q.insertEntry(session.id, entry.exerciseId, position.toLong(), entry.note)
@@ -109,6 +111,16 @@ class SessionRepository(
                     }
                 }
             }
+        }
+    }
+
+    suspend fun upsert(session: Session) = upsertAll(listOf(session))
+
+    suspend fun deleteSession(id: String) = withContext(io) {
+        db.transaction {
+            q.deleteSetsForSession(id)
+            q.deleteEntriesForSession(id)
+            q.deleteSession(id)
         }
     }
 

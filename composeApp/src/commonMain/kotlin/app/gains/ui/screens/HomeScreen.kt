@@ -89,7 +89,7 @@ class HomeModel(
 }
 
 @Composable
-fun HomeScreen(onImport: () -> Unit, onOpenExercise: (String) -> Unit, onOpenVolume: () -> Unit) {
+fun HomeScreen(onImport: () -> Unit, onLog: () -> Unit, onOpenExercise: (String) -> Unit, onOpenVolume: () -> Unit) {
     val model = rememberScreenModel { HomeModel() }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
@@ -100,9 +100,15 @@ fun HomeScreen(onImport: () -> Unit, onOpenExercise: (String) -> Unit, onOpenVol
         }
         state.sessionCount == 0 -> EmptyState(
             title = "No workouts yet",
-            body = "Export a CSV from Liftoff and import it here. Everything stays on this device.",
+            body = "Log your first session, or bring your history in from Liftoff, Strong, Hevy or any workout CSV.",
             emoji = "↑",
-            action = { PrimaryButton("Import CSV", onImport) },
+            action = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    PrimaryButton("Log a workout", onLog)
+                    Spacer(Modifier.height(10.dp))
+                    app.gains.ui.components.SecondaryButton("Import history", onImport)
+                }
+            },
         )
         else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {

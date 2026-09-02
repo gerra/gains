@@ -58,7 +58,8 @@ import app.gains.ui.nav.Navigator
 import app.gains.ui.nav.Screen
 import app.gains.ui.nav.Tab
 import app.gains.ui.screens.BodyweightScreen
-import app.gains.ui.screens.ConsistencyScreen
+import app.gains.ui.screens.HistoryScreen
+import app.gains.ui.screens.SessionEditorScreen
 import app.gains.ui.screens.ExerciseDetailScreen
 import app.gains.ui.screens.ExercisesScreen
 import app.gains.ui.screens.HomeScreen
@@ -114,13 +115,18 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
                             when (current) {
                                 Screen.Home -> HomeScreen(
                                     onImport = { navigator.push(Screen.Import) },
+                                    onLog = { navigator.push(Screen.EditSession(null)) },
                                     onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
                                     onOpenVolume = { navigator.switchTab(Tab.VOLUME) },
                                 )
                                 Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
                                 Screen.Volume -> VolumeScreen()
                                 Screen.Body -> BodyweightScreen()
-                                Screen.Consistency -> ConsistencyScreen()
+                                Screen.History -> HistoryScreen(
+                                    onOpen = { navigator.push(Screen.EditSession(it)) },
+                                    onLog = { navigator.push(Screen.EditSession(null)) },
+                                )
+                                is Screen.EditSession -> SessionEditorScreen(current.sessionId, onDone = { navigator.pop() })
                                 Screen.Settings -> SettingsScreen()
                                 Screen.Import -> ImportScreen(filePicker, onDone = { navigator.pop() })
                                 is Screen.ExerciseDetail -> ExerciseDetailScreen(current.exerciseId)
@@ -218,8 +224,8 @@ private val AccountLoading = app.gains.auth.Account(app.gains.auth.AccountKind.G
 
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.HOME -> Icons.Default.Home
+    Tab.HISTORY -> Icons.Default.DateRange
     Tab.EXERCISES -> Icons.AutoMirrored.Filled.List
     Tab.VOLUME -> Icons.Default.Star
     Tab.BODY -> Icons.Default.Favorite
-    Tab.CONSISTENCY -> Icons.Default.DateRange
 }

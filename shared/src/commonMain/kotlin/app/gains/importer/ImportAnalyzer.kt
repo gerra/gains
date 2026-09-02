@@ -69,6 +69,8 @@ data class ImportedFile(
     val sessionCount: Int,
     /** Set when the file could not be parsed; the others still import. */
     val error: String? = null,
+    /** Display name of the connector that recognised the file. */
+    val connector: String? = null,
 )
 
 data class ImportPreview(
@@ -207,7 +209,7 @@ class ImportAnalyzer(
             }
             entries[exercise.id] = WorkingSets.apply(merged, ratios[exercise.id] ?: WorkingSets.DEFAULT_RATIO)
         }
-        return Session(raw.id, raw.timestamp, raw.durationMinutes, entries.values.toList())
+        return Session(raw.id, raw.timestamp, raw.durationMinutes, entries.values.toList(), source = raw.source)
     }
 
     private fun detectOutliers(
