@@ -53,7 +53,7 @@ class ConnectorsTest {
     @Test
     fun strongExportsParseInTheUsersUnit() {
         val parsed = StrongConnector.parse(strong, ImportOptions(weightUnit = WeightUnit.KG))
-        assertEquals(listOf("2026-02-27T07:30", "2026-03-02T18:05"), parsed.sessions.map { it.id })
+        assertEquals(listOf("2026-02-27", "2026-03-02"), parsed.sessions.map { it.id })
         val push = parsed.sessions.last()
         assertEquals(65, push.durationMinutes)
         val bench = push.exercises.first { it.name == "Bench Press (Barbell)" }
@@ -82,7 +82,7 @@ class ConnectorsTest {
         val parsed = HevyConnector.parse(hevy, ImportOptions())
         assertEquals(2, parsed.sessions.size)
         val push = parsed.sessions.first { it.workoutName == "Push Day" }
-        assertEquals("2026-01-05T18:30", push.id)
+        assertEquals("2026-01-05", push.id)
         assertEquals(65, push.durationMinutes)
         val bench = push.exercises.first { it.name == "Bench Press (Barbell)" }
         assertEquals(listOf(40.0, 60.0), bench.sets.map { it.weightKg })

@@ -81,7 +81,7 @@ data class ImportPreview(
     val newExercises: List<Exercise>,
     val rowCount: Int,
     val files: List<ImportedFile> = emptyList(),
-    /** Sessions with the same timestamp found in more than one of the files; kept once. */
+    /** Sessions with the same calendar date found in more than one of the files; kept once. */
     val sessionsInSeveralFiles: Int = 0,
 ) {
     val importable: List<CandidateSession> get() = candidates.filter { it.disposition != SessionDisposition.DUPLICATE }

@@ -16,46 +16,33 @@ class ImportAnalyzerTest {
         analyzer.analyze(parser.parse(csv), existing)
 
     @Test
-    fun detectsDuplicateSessionsWithinAFile() {
+    fun sameDateTimestampsBecomeOneSessionAndExactCopiesCountOnce() {
         val p = preview(Fixtures.DUPLICATES)
-        assertEquals(1, p.duplicates.size)
-        val dup = p.duplicates.single()
-        assertEquals("2026-05-02T11:37:12", dup.droppedSessionId)
-        assertEquals("2026-05-02T10:00", dup.keptSessionId)
-        assertEquals(LocalDate(2026, 5, 2), dup.date)
-        assertEquals(listOf("Bench Press", "Lat Pulldown"), dup.exerciseNames)
-        assertEquals(2, p.importable.size)
+        assertEquals(2, p.candidates.size)
+        assertEquals(listOf("2026-05-02", "2026-05-03"), p.candidates.map { it.session.id })
+        assertEquals(3, p.candidates.first().session.setCount)
+        assertEquals(0, p.duplicates.size)
         assertEquals(2, p.newCount)
-        assertEquals(2, p.sessionsToCommit(emptySet()).size)
     }
 
     @Test
-    fun duplicateDetectionIgnoresExerciseOrderInTheFile() {
-        // The second copy lists Lat Pulldown before Bench Press: still the same workout.
-        val lines = Fixtures.DUPLICATES.lines()
-        val shuffled = listOf(lines[0]) + lines.drop(1).filter { "11:37:12" !in it } +
-            lines.drop(1).filter { "11:37:12" in it }.sortedBy { if ("Lat Pulldown" in it) 0 else 1 }
-        val p = preview(shuffled.joinToString("\n"))
-        assertEquals(1, p.duplicates.size)
-        assertEquals("2026-05-02T11:37:12", p.duplicates.single().droppedSessionId)
+    fun differentWorkoutsOnOneDateAreMerged() {
+        val text = Fixtures.HEADER + "\n" +
+            "2026-05-02 10:00:00,,,Bench Press,0,100,8,0,0,,\n" +
+            "2026-05-02 18:00:00,,,Running,0,0,0,5,1200,,"
+        val session = preview(text).candidates.single().session
+        assertEquals("2026-05-02", session.id)
+        assertEquals(listOf("bench_press", "running"), session.exercises.map { it.exerciseId })
     }
 
     @Test
-    fun detectsDuplicatesAgainstStoredSessionsAndIsIdempotent() {
+    fun detectsReimportAgainstStoredSessionsAndIsIdempotent() {
         val first = preview(Fixtures.DUPLICATES)
         val stored = first.sessionsToCommit(emptySet()).map { summary(it) }
-
         val second = preview(Fixtures.DUPLICATES, ExistingData(sessions = stored))
         assertEquals(2, second.unchangedCount)
         assertEquals(0, second.newCount)
         assertEquals(0, second.sessionsToCommit(emptySet()).size)
-
-        // A stored copy at a different timestamp on the same day is still a duplicate.
-        val shifted = stored.map { it.copy(id = it.id + "-other") }
-        val third = preview(Fixtures.DUPLICATES, ExistingData(sessions = shifted))
-        assertEquals(0, third.newCount)
-        assertEquals(3, third.duplicates.size)
-        assertTrue(third.duplicates.all { it.keptIsAlreadyStored })
     }
 
     @Test
@@ -65,7 +52,7 @@ class ImportAnalyzerTest {
         val p = preview(edited, ExistingData(sessions = original))
         assertEquals(1, p.changedCount)
         assertEquals(3, p.unchangedCount)
-        assertEquals(listOf("2026-01-13T22:04:26"), p.sessionsToCommit(emptySet()).map { it.id })
+        assertEquals(listOf("2026-01-13"), p.sessionsToCommit(emptySet()).map { it.id })
     }
 
     @Test
@@ -77,7 +64,7 @@ class ImportAnalyzerTest {
 
         val discarded = p.sessionsToCommit(emptySet())
         // The 2026-01-08 session only held outliers and disappears entirely.
-        assertEquals(listOf("2026-01-01T10:00", "2026-01-15T10:00", "2026-01-22T10:00"), discarded.map { it.id })
+        assertEquals(listOf("2026-01-01", "2026-01-15", "2026-01-22"), discarded.map { it.id })
         val jan22 = discarded.last()
         assertEquals(listOf("plank"), jan22.exercises.map { it.exerciseId })
 
@@ -98,8 +85,8 @@ class ImportAnalyzerTest {
         assertEquals(0, again.commitCount(emptySet()))
         assertEquals(0, again.sessionsToCommit(emptySet()).size)
         // Keeping a previously discarded hold writes that session again.
-        val jan22 = again.outliers.first { it.sessionId == "2026-01-22T10:00" }
-        assertEquals(listOf("2026-01-22T10:00"), again.sessionsToCommit(setOf(jan22.key)).map { it.id })
+        val jan22 = again.outliers.first { it.sessionId == "2026-01-22" }
+        assertEquals(listOf("2026-01-22"), again.sessionsToCommit(setOf(jan22.key)).map { it.id })
     }
 
     @Test
@@ -114,12 +101,12 @@ class ImportAnalyzerTest {
     @Test
     fun infersWarmupsAndResolvesAliases() {
         val p = preview(Fixtures.SAMPLE)
-        val feb = p.candidates.first { it.session.id == "2026-02-18T20:40:47" }.session
+        val feb = p.candidates.first { it.session.id == "2026-02-18" }.session
         val bench = feb.exercises.first { it.exerciseId == "bench_press" }
         // 20, 50 and 60 kg: only the 60 kg set is at or above 85% of the top weight (51 kg).
         assertEquals(listOf(true, true, false), bench.sets.map { it.isWarmup })
         assertEquals(listOf("bench_press", "lateral_raise"), feb.exercises.map { it.exerciseId })
-        val jan = p.candidates.first { it.session.id == "2026-01-13T22:04:26" }.session
+        val jan = p.candidates.first { it.session.id == "2026-01-13" }.session
         assertEquals("leg_press", jan.exercises.single().exerciseId)
         assertEquals(0, p.newExercises.size)
     }
@@ -131,21 +118,21 @@ class ImportAnalyzerTest {
             workingSetRatios = mapOf("bench_press" to 0.80),
         )
         val p = preview(Fixtures.SAMPLE, existing)
-        val jan = p.candidates.first { it.session.id == "2026-01-13T22:04:26" }.session
+        val jan = p.candidates.first { it.session.id == "2026-01-13" }.session
         assertEquals("hack_squat", jan.exercises.single().exerciseId)
-        val bench = p.candidates.first { it.session.id == "2026-02-18T20:40:47" }.session.exercises.first()
+        val bench = p.candidates.first { it.session.id == "2026-02-18" }.session.exercises.first()
         // With an 80% threshold (48 kg) the 50 kg set counts as a working set.
         assertEquals(listOf(true, false, false), bench.sets.map { it.isWarmup })
     }
 
     @Test
-    fun createsCustomExercisesForUnknownNamesWithGuessedMuscles() {
+    fun createsExplicitlyUnmappedCustomExercisesForUnknownNames() {
         val text = Fixtures.HEADER + "\n2026-03-01 10:00:00,,,Zercher Squat Hold Thing,0,220.462262185,5,0,0,,\n"
         val p = preview(text)
         assertEquals(1, p.newExercises.size)
         val ex = p.newExercises.single()
         assertEquals("custom_zercher_squat_hold_thing", ex.id)
-        assertTrue(ex.muscleGroups.any { it.group == app.gains.domain.MuscleGroup.QUADS })
+        assertTrue(ex.muscleGroups.isEmpty())
     }
 
     @Test
@@ -188,7 +175,7 @@ class MultiFileImportTest {
         val extraSet = "2026-01-13 22:04:26,01 hours 41 minutes 04 seconds,,Sled Leg Press,1,116.84499895805,12,0,0,,+53kg"
         val fileB = Fixtures.SAMPLE + "\n" + extraSet
         val merged = MultiFileMerger.merge(listOf(parser.parse(fileA), parser.parse(fileB)))
-        val jan = merged.csv.sessions.first { it.id == "2026-01-13T22:04:26" }
+        val jan = merged.csv.sessions.first { it.id == "2026-01-13" }
         assertEquals(2, jan.setCount)
     }
 

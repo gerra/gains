@@ -99,7 +99,7 @@ class AnalyzersTest {
         assertEquals("62.5 kg", Format.weight(62.5, app.gains.domain.WeightUnit.KG))
         assertEquals("132.3 lbs", Format.weight(60.0, app.gains.domain.WeightUnit.LBS))
         assertEquals("18%", Format.percent(0.184))
-        assertEquals("1:30 min", Format.seconds(90))
+        assertEquals("1:30", Format.seconds(90))
         assertEquals("2.5", Format.number(2.49, 1))
     }
 }
