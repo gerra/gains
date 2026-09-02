@@ -38,7 +38,24 @@ On a machine without an Android SDK (a CI box that only runs the shared tests, f
 example) pass `-Pgains.android=false` to configure the build without the Android
 Gradle Plugin. Everything else is unaffected.
 
+## Accounts and sync
+
+On first launch the app asks how to continue. **Continue as guest** keeps everything in the local
+database. **Continue with Google / Apple** are present but disabled: they light up once
+`AuthConfig` (see `shared/src/commonMain/kotlin/app/gains/auth/Account.kt`, provided in
+`SharedModule`) carries a Google client id, an Apple service id and the base URL of the sync
+server. The token exchange against the server is left as a TODO in `AccountRepository` for when
+the Hetzner backend exists. Settings shows the current account and lets you return to the
+sign-in screen; local data is kept.
+
 ## How the import works
+
+Several exports can be imported at once (multi-select in the Files picker, Android's document
+picker, or the desktop dialog; the share sheet accepts several files too). Files are parsed
+independently, a session that appears in more than one file is stored once (the copy with more
+sets wins), and the merged set is then de-duplicated against itself and the database exactly as a
+single file would be.
+
 
 1. The file is read with a real RFC 4180 parser (quoted notes with commas and line breaks are fine).
 2. Rows are grouped into sessions by their `Date` timestamp and sorted; file order is never trusted.

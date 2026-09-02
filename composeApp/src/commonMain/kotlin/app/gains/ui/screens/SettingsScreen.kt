@@ -27,6 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.TrainingData
+import app.gains.auth.Account
+import app.gains.auth.AccountRepository
+import app.gains.auth.AuthConfig
 import app.gains.data.ExerciseRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
@@ -51,6 +54,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class SettingsState(
+    val account: Account? = null,
     val unit: WeightUnit = WeightUnit.KG,
     val theme: ThemeMode = ThemeMode.DARK,
     val customExercises: List<Exercise> = emptyList(),
@@ -62,14 +66,18 @@ data class SettingsState(
 
 class SettingsModel(
     private val settings: SettingsRepository = inject(),
+    private val accounts: AccountRepository = inject(),
+    val authConfig: AuthConfig = inject(),
     private val exercises: ExerciseRepository = inject(),
     private val sessions: SessionRepository = inject(),
     trainingData: TrainingData = inject(),
 ) : ScreenModel() {
     val state: StateFlow<SettingsState> = combine(
-        settings.observeUnit(), settings.observeThemeMode(), trainingData.snapshot, exercises.observeAliases(), exercises.observeWorkingSetRatios(),
-    ) { unit, theme, snapshot, aliases, overrides ->
+        combine(settings.observeUnit(), settings.observeThemeMode(), accounts.observeAccount()) { u, t, a -> Triple(u, t, a) },
+        trainingData.snapshot, exercises.observeAliases(), exercises.observeWorkingSetRatios(),
+    ) { (unit, theme, account), snapshot, aliases, overrides ->
         SettingsState(
+            account = account,
             unit = unit,
             theme = theme,
             customExercises = snapshot.exercises.filter { !it.isBuiltIn }.sortedBy { it.name },
@@ -82,6 +90,7 @@ class SettingsModel(
 
     fun setUnit(unit: WeightUnit) { scope.launch { settings.setUnit(unit) } }
     fun setTheme(mode: ThemeMode) { scope.launch { settings.setThemeMode(mode) } }
+    fun signOut() { scope.launch { accounts.signOut() } }
     fun merge(custom: Exercise, into: Exercise) { scope.launch { exercises.merge(custom.id, into.id, custom.name) } }
     fun removeAlias(raw: String) { scope.launch { exercises.removeAlias(raw) } }
     fun clearOverride(exerciseId: String) { scope.launch { exercises.setWorkingSetRatio(exerciseId, null) } }
@@ -98,6 +107,28 @@ fun SettingsScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
             ScreenTitle("Settings")
+            SectionHeader("Account")
+            GainsCard(Modifier.fillMaxWidth()) {
+                val account = state.account
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(account?.displayName ?: account?.kind?.label ?: "Not signed in", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            when {
+                                account == null -> ""
+                                account.isGuest -> "Data is saved on this device only. Sign in later to back it up and sync."
+                                else -> account.email ?: "Synced to your server"
+                            },
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(onClick = { model.signOut() }) { Text(if (account?.isGuest == true) "Sign in" else "Sign out", color = palette.volt) }
+                }
+                if (!model.authConfig.googleEnabled && !model.authConfig.appleEnabled) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("Google and Apple sign-in are not configured yet; the sync server is coming later.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             SectionHeader("Appearance")
             GainsCard(Modifier.fillMaxWidth()) {
                 ChipRow(ThemeMode.entries, state.theme, { it.label }, { model.setTheme(it) })
@@ -148,7 +179,7 @@ fun SettingsScreen() {
         item {
             SectionHeader("Data")
             GainsCard(Modifier.fillMaxWidth()) {
-                Text("Everything is stored on this device only. There are no accounts and no network access.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Imported workouts and bodyweight entries live in a local database on this device. Nothing leaves the device until sync exists and you sign in.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 SecondaryButton("Delete all imported sessions", onClick = { confirmDelete = true })
             }

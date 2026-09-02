@@ -160,3 +160,61 @@ class ImportAnalyzerTest {
         id = s.id, date = s.date, fingerprint = ImportAnalyzer.fingerprint(s), contentHash = ImportAnalyzer.contentHash(s),
     )
 }
+
+class MultiFileImportTest {
+    private val parser = LiftoffCsvParser()
+
+    private fun rows(csv: String) = csv.lines().drop(1)
+
+    @Test
+    fun sessionsPresentInSeveralFilesAreKeptOnce() {
+        // File B is a later export: it repeats everything in A and adds one new session.
+        val fileA = Fixtures.SAMPLE
+        val fileB = Fixtures.HEADER + "\n" + rows(Fixtures.SAMPLE).joinToString("\n") +
+            "\n2026-05-01 10:00:00,01 hours 00 minutes 00 seconds,,Bench Press,0,132.277357311,8,0,0,,"
+        val merged = MultiFileMerger.merge(listOf(parser.parse(fileA), parser.parse(fileB)))
+        assertEquals(4, merged.sessionsInSeveralFiles)
+        assertEquals(5, merged.csv.sessions.size)
+        assertEquals(merged.csv.sessions.map { it.id }, merged.csv.sessions.map { it.id }.sorted())
+
+        val preview = ImportAnalyzer().analyze(merged.csv, ExistingData())
+        assertEquals(5, preview.newCount)
+        assertEquals(0, preview.duplicates.size)
+    }
+
+    @Test
+    fun fullerCopyOfASessionWins() {
+        val fileA = Fixtures.SAMPLE
+        val extraSet = "2026-01-13 22:04:26,01 hours 41 minutes 04 seconds,,Sled Leg Press,1,116.84499895805,12,0,0,,+53kg"
+        val fileB = Fixtures.SAMPLE + "\n" + extraSet
+        val merged = MultiFileMerger.merge(listOf(parser.parse(fileA), parser.parse(fileB)))
+        val jan = merged.csv.sessions.first { it.id == "2026-01-13T22:04:26" }
+        assertEquals(2, jan.setCount)
+    }
+
+    @Test
+    fun nearDuplicatesAcrossFilesAreDetected() {
+        // The same workout logged twice on one day, but the two copies live in different files.
+        val all = rows(Fixtures.DUPLICATES)
+        val fileA = Fixtures.HEADER + "\n" + all.filter { "11:37:12" !in it }.joinToString("\n")
+        val fileB = Fixtures.HEADER + "\n" + all.filter { "11:37:12" in it }.joinToString("\n")
+        val merged = MultiFileMerger.merge(listOf(parser.parse(fileA), parser.parse(fileB)))
+        val preview = ImportAnalyzer().analyze(merged.csv, ExistingData())
+        assertEquals(1, preview.duplicates.size)
+        assertEquals(2, preview.newCount)
+    }
+
+    @Test
+    fun importingTheSameFilesAgainChangesNothing() {
+        val merged = MultiFileMerger.merge(listOf(parser.parse(Fixtures.SAMPLE), parser.parse(Fixtures.DUPLICATES)))
+        val first = ImportAnalyzer().analyze(merged.csv, ExistingData())
+        val stored = first.sessionsToCommit(emptySet()).map {
+            StoredSessionSummary(it.id, it.date, ImportAnalyzer.fingerprint(it), ImportAnalyzer.contentHash(it))
+        }
+        val again = ImportAnalyzer().analyze(merged.csv, ExistingData(sessions = stored))
+        assertEquals(0, again.newCount)
+        assertEquals(0, again.changedCount)
+        assertEquals(stored.size, again.unchangedCount)
+        assertEquals(0, again.commitCount(emptySet()))
+    }
+}

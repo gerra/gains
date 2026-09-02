@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import app.gains.auth.AccountRepository
 import app.gains.data.ExerciseRepository
 import app.gains.data.SettingsRepository
 import app.gains.data.ThemeMode
@@ -63,6 +64,7 @@ import app.gains.ui.screens.ExercisesScreen
 import app.gains.ui.screens.HomeScreen
 import app.gains.ui.screens.ImportScreen
 import app.gains.ui.screens.SettingsScreen
+import app.gains.ui.screens.SignInScreen
 import app.gains.ui.screens.VolumeScreen
 import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.GainsTheme
@@ -76,7 +78,10 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
 
     // Files shared into the app open the import screen.
     val incoming by IncomingFiles.pending.collectAsState()
-    LaunchedEffect(incoming) { if (incoming != null && navigator.current != Screen.Import) navigator.push(Screen.Import) }
+    LaunchedEffect(incoming) { if (incoming.isNotEmpty() && navigator.current != Screen.Import) navigator.push(Screen.Import) }
+    val accounts = remember { inject<AccountRepository>() }
+    // null = still loading the preference; Optional-ish wrapper keeps "no account" distinct from "unknown".
+    val accountState by accounts.observeAccount().collectAsState(initial = AccountLoading)
     LaunchedEffect(navigator) { onBackHandler { navigator.pop() } }
 
     val settings = remember { inject<SettingsRepository>() }
@@ -90,6 +95,8 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
         val screen = navigator.current
         // Surface sets the content colour for every Text below it and paints the background.
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
+            if (accountState === AccountLoading) return@Surface
+            if (accountState == null) { Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) { SignInScreen() }; return@Surface }
             Column(Modifier.fillMaxSize().statusBarsPadding()) {
                 TopBar(navigator, screen)
                 Box(Modifier.weight(1f)) {
@@ -205,6 +212,9 @@ private fun BottomNav(navigator: Navigator) {
         }
     }
 }
+
+/** Sentinel for "account preference not read yet", so the sign-in screen does not flash on launch. */
+private val AccountLoading = app.gains.auth.Account(app.gains.auth.AccountKind.GUEST, displayName = "__loading__")
 
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.HOME -> Icons.Default.Home

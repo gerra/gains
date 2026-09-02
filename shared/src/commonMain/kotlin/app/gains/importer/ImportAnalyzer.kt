@@ -62,6 +62,15 @@ data class CandidateSession(
     val durationDiscarded: Boolean,
 )
 
+/** One file of a multi-file import, for the summary. */
+data class ImportedFile(
+    val name: String,
+    val rowCount: Int,
+    val sessionCount: Int,
+    /** Set when the file could not be parsed; the others still import. */
+    val error: String? = null,
+)
+
 data class ImportPreview(
     val candidates: List<CandidateSession>,
     val skipped: List<SkippedRow>,
@@ -69,6 +78,9 @@ data class ImportPreview(
     val outliers: List<IsometricOutlier>,
     val newExercises: List<Exercise>,
     val rowCount: Int,
+    val files: List<ImportedFile> = emptyList(),
+    /** Sessions with the same timestamp found in more than one of the files; kept once. */
+    val sessionsInSeveralFiles: Int = 0,
 ) {
     val importable: List<CandidateSession> get() = candidates.filter { it.disposition != SessionDisposition.DUPLICATE }
     val newCount: Int get() = candidates.count { it.disposition == SessionDisposition.NEW }

@@ -27,9 +27,10 @@
                 <data android:mimeType="text/csv" />
                 <data android:mimeType="text/comma-separated-values" />
             </intent-filter>
-            <!-- Share sheet -->
+            <!-- Share sheet, one or several files -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/csv" />
                 <data android:mimeType="text/comma-separated-values" />

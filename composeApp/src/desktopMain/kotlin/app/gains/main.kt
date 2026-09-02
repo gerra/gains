@@ -17,11 +17,8 @@ import java.io.File
 
 fun main(args: Array<String>) {
     initKoin(module { single<DatabaseDriverFactory> { DesktopDriverFactory() } })
-    // `gains path/to/export.csv` opens straight into the import preview.
-    args.firstOrNull()?.let { path ->
-        val file = File(path)
-        if (file.isFile) IncomingFiles.offer(PickedFile(file.name, file.readText()))
-    }
+    // `gains a.csv b.csv` opens straight into the import preview with those files.
+    IncomingFiles.offer(args.map(::File).filter { it.isFile }.map { PickedFile(it.name, it.readText()) })
     application {
         Window(
             onCloseRequest = ::exitApplication,
@@ -34,14 +31,11 @@ fun main(args: Array<String>) {
 }
 
 class DesktopFilePicker : CsvFilePicker {
-    override fun pick(onResult: (PickedFile?) -> Unit) {
-        val dialog = FileDialog(null as Frame?, "Choose a Liftoff CSV export", FileDialog.LOAD)
+    override fun pick(onResult: (List<PickedFile>) -> Unit) {
+        val dialog = FileDialog(null as Frame?, "Choose Liftoff CSV exports", FileDialog.LOAD)
         dialog.setFilenameFilter { _, name -> name.endsWith(".csv", ignoreCase = true) }
+        dialog.isMultipleMode = true
         dialog.isVisible = true
-        val dir = dialog.directory
-        val name = dialog.file
-        if (dir == null || name == null) { onResult(null); return }
-        val file = File(dir, name)
-        onResult(PickedFile(file.name, file.readText()))
+        onResult(dialog.files.filter { it.isFile }.map { PickedFile(it.name, it.readText()) })
     }
 }

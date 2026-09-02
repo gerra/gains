@@ -12,17 +12,17 @@ import app.gains.platform.IncomingFiles
 import app.gains.platform.PickedFile
 
 class MainActivity : ComponentActivity() {
-    private var pendingPick: ((PickedFile?) -> Unit)? = null
+    private var pendingPick: ((List<PickedFile>) -> Unit)? = null
 
-    private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+    private val openDocuments = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
         val callback = pendingPick
         pendingPick = null
-        callback?.invoke(uri?.let { read(it) })
+        callback?.invoke(uris.mapNotNull { read(it) })
     }
 
     private val filePicker = CsvFilePicker { onResult ->
         pendingPick = onResult
-        openDocument.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream", "*/*"))
+        openDocuments.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream", "*/*"))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,14 +38,16 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
-    /** ACTION_VIEW / ACTION_SEND from a file manager or the share sheet. */
+    /** ACTION_VIEW / ACTION_SEND / ACTION_SEND_MULTIPLE from a file manager or the share sheet. */
+    @Suppress("DEPRECATION")
     private fun handleIntent(intent: Intent?) {
-        val uri: Uri? = when (intent?.action) {
-            Intent.ACTION_VIEW -> intent.data
-            Intent.ACTION_SEND -> @Suppress("DEPRECATION") (intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri)
-            else -> null
+        val uris: List<Uri> = when (intent?.action) {
+            Intent.ACTION_VIEW -> listOfNotNull(intent.data)
+            Intent.ACTION_SEND -> listOfNotNull(intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri)
+            Intent.ACTION_SEND_MULTIPLE -> intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM).orEmpty()
+            else -> emptyList()
         }
-        uri?.let { read(it) }?.let { IncomingFiles.offer(it) }
+        IncomingFiles.offer(uris.mapNotNull { read(it) })
     }
 
     private fun read(uri: Uri): PickedFile? = runCatching {

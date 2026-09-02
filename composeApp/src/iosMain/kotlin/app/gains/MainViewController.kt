@@ -50,12 +50,12 @@ class IosFilePicker : CsvFilePicker {
     // Keep a strong reference: UIKit only holds the delegate weakly.
     private var delegate: PickerDelegate? = null
 
-    override fun pick(onResult: (PickedFile?) -> Unit) {
+    override fun pick(onResult: (List<PickedFile>) -> Unit) {
         val types = listOfNotNull<UTType>(UTTypeCommaSeparatedText, UTTypePlainText)
         val picker = UIDocumentPickerViewController(forOpeningContentTypes = types, asCopy = true)
         delegate = PickerDelegate { file -> onResult(file); delegate = null }
         picker.delegate = delegate
-        picker.allowsMultipleSelection = false
+        picker.allowsMultipleSelection = true
         rootViewController()?.presentViewController(picker, animated = true, completion = null)
     }
 
@@ -65,19 +65,19 @@ class IosFilePicker : CsvFilePicker {
         return vc
     }
 
-    private class PickerDelegate(private val onResult: (PickedFile?) -> Unit) : NSObject(), UIDocumentPickerDelegateProtocol {
+    private class PickerDelegate(private val onResult: (List<PickedFile>) -> Unit) : NSObject(), UIDocumentPickerDelegateProtocol {
         override fun documentPicker(controller: UIDocumentPickerViewController, didPickDocumentsAtURLs: List<*>) {
-            val url = didPickDocumentsAtURLs.firstOrNull() as? NSURL
-            if (url == null) { onResult(null); return }
-            val accessing = url.startAccessingSecurityScopedResource()
-            try {
-                val text = NSString.stringWithContentsOfURL(url, NSUTF8StringEncoding, null)
-                onResult(text?.let { PickedFile(url.lastPathComponent ?: "export.csv", it) })
-            } finally {
-                if (accessing) url.stopAccessingSecurityScopedResource()
+            val files = didPickDocumentsAtURLs.mapNotNull { it as? NSURL }.mapNotNull { url ->
+                val accessing = url.startAccessingSecurityScopedResource()
+                try {
+                    NSString.stringWithContentsOfURL(url, NSUTF8StringEncoding, null)?.let { PickedFile(url.lastPathComponent ?: "export.csv", it) }
+                } finally {
+                    if (accessing) url.stopAccessingSecurityScopedResource()
+                }
             }
+            onResult(files)
         }
 
-        override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) = onResult(null)
+        override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) = onResult(emptyList())
     }
 }

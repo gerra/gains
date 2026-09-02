@@ -29,6 +29,7 @@ import app.gains.analysis.Dates
 import app.gains.analysis.Format
 import app.gains.csv.CsvFormatException
 import app.gains.domain.WeightUnit
+import app.gains.importer.CsvFile
 import app.gains.importer.ImportPreview
 import app.gains.importer.ImportResult
 import app.gains.importer.ImportService
@@ -54,8 +55,8 @@ import kotlinx.coroutines.launch
 
 sealed interface ImportState {
     data object Idle : ImportState
-    data class Parsing(val fileName: String) : ImportState
-    data class Preview(val fileName: String, val preview: ImportPreview, val confirmedOutliers: Set<String>, val unit: WeightUnit) : ImportState
+    data class Parsing(val fileCount: Int) : ImportState
+    data class Preview(val preview: ImportPreview, val confirmedOutliers: Set<String>, val unit: WeightUnit) : ImportState
     data object Committing : ImportState
     data class Done(val result: ImportResult) : ImportState
     data class Error(val message: String) : ImportState
@@ -64,15 +65,16 @@ sealed interface ImportState {
 class ImportModel(private val importService: ImportService = inject()) : ScreenModel() {
     private val _state = MutableStateFlow<ImportState>(ImportState.Idle)
     val state: StateFlow<ImportState> = _state
-    private var lastFile: PickedFile? = null
+    private var lastFiles: List<PickedFile> = emptyList()
 
-    fun load(file: PickedFile, unit: WeightUnit = WeightUnit.LBS) {
-        lastFile = file
-        _state.value = ImportState.Parsing(file.name)
+    fun load(files: List<PickedFile>, unit: WeightUnit = WeightUnit.LBS) {
+        if (files.isEmpty()) return
+        lastFiles = files
+        _state.value = ImportState.Parsing(files.size)
         scope.launch {
             try {
-                val preview = importService.preview(file.content, unit)
-                _state.value = ImportState.Preview(file.name, preview, emptySet(), unit)
+                val preview = importService.preview(files.map { CsvFile(it.name, it.content) }, unit)
+                _state.value = ImportState.Preview(preview, emptySet(), unit)
             } catch (e: CsvFormatException) {
                 _state.value = ImportState.Error(e.message ?: "Could not read the file.")
             } catch (e: Exception) {
@@ -81,10 +83,7 @@ class ImportModel(private val importService: ImportService = inject()) : ScreenM
         }
     }
 
-    fun setUnit(unit: WeightUnit) {
-        val file = lastFile ?: return
-        load(file, unit)
-    }
+    fun setUnit(unit: WeightUnit) = load(lastFiles, unit)
 
     fun toggleOutlier(key: String) {
         _state.update { s ->
@@ -122,18 +121,18 @@ fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
     val palette = GainsColors.palette
 
     LaunchedEffect(Unit) {
-        IncomingFiles.consume()?.let { model.load(it) }
+        model.load(IncomingFiles.consume())
     }
-    val pick = { filePicker.pick { file -> if (file != null) model.load(file) } }
+    val pick = { filePicker.pick { files -> model.load(files) } }
 
     when (val s = state) {
         ImportState.Idle -> EmptyState(
-            title = "Import a Liftoff export",
-            body = "Pick the CSV file. You'll see a summary before anything is saved. Re-importing an overlapping export is safe: sessions already stored are skipped.",
+            title = "Import Liftoff exports",
+            body = "Pick one or more CSV files. You'll see a summary before anything is saved. Overlapping exports are safe: a session is only ever stored once, whether it appears in several files or was imported earlier.",
             emoji = "↑",
-            action = { PrimaryButton("Choose CSV", pick) },
+            action = { PrimaryButton("Choose CSV files", pick) },
         )
-        is ImportState.Parsing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text("Reading ${s.fileName}…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        is ImportState.Parsing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text(if (s.fileCount == 1) "Reading the file…" else "Reading ${s.fileCount} files…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         ImportState.Committing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text("Saving…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         is ImportState.Error -> EmptyState("Couldn't import", s.message, emoji = "!", action = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -168,7 +167,29 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
     val palette = GainsColors.palette
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle("Import", subtitle = "${s.fileName} · ${Format.plural(p.rowCount, "row")}")
+            ScreenTitle("Import", subtitle = "${Format.plural(p.files.size, "file")} · ${Format.plural(p.rowCount, "row")}")
+            if (p.files.size > 1 || p.files.any { it.error != null }) {
+                GainsCard(Modifier.fillMaxWidth(), contentPadding = app.gains.ui.components.Dp16.Tight) {
+                    for (f in p.files) {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(f.name, style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    f.error ?: "${Format.plural(f.rowCount, "row")} · ${Format.plural(f.sessionCount, "session")}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (f.error != null) palette.coral else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    if (p.sessionsInSeveralFiles > 0) {
+                        Text(
+                            "${Format.plural(p.sessionsInSeveralFiles, "session")} appeared in more than one file and will be stored once.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                }
+            }
             SectionHeader("Weights in the file are in")
             ChipRow(WeightUnit.entries, s.unit, { it.label }, { model.setUnit(it) })
             Spacer(Modifier.height(6.dp))
@@ -183,6 +204,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                 KeyValueRow("New sessions", p.newCount.toString(), valueColor = if (p.newCount > 0) palette.volt else null)
                 if (p.changedCount > 0) KeyValueRow("Changed since last import", p.changedCount.toString(), valueColor = palette.cyan)
                 if (p.unchangedCount > 0) KeyValueRow("Already imported (skipped)", p.unchangedCount.toString())
+                if (p.sessionsInSeveralFiles > 0) KeyValueRow("In more than one file (merged)", p.sessionsInSeveralFiles.toString())
                 if (p.duplicates.isNotEmpty()) KeyValueRow("Duplicate sessions (skipped)", p.duplicates.size.toString(), valueColor = palette.amber)
                 if (p.corruptDurationCount > 0) KeyValueRow("Durations discarded (>4 h)", p.corruptDurationCount.toString(), valueColor = palette.amber)
                 if (p.newExercises.isNotEmpty()) KeyValueRow("New exercises", p.newExercises.size.toString())

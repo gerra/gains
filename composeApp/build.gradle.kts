@@ -74,8 +74,8 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "app.gains.MainKt"
-        // `./gradlew :composeApp:run -Pgains.openFile=path/to/export.csv` opens straight into the import preview.
-        project.findProperty("gains.openFile")?.toString()?.let { args += it }
+        // `./gradlew :composeApp:run -Pgains.openFile=a.csv,b.csv` opens straight into the import preview.
+        project.findProperty("gains.openFile")?.toString()?.split(',')?.filter { it.isNotBlank() }?.let { args += it }
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Gains"
