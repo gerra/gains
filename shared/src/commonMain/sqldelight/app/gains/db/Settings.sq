@@ -1,0 +1,10 @@
+CREATE TABLE setting (
+  key TEXT NOT NULL PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+selectValue:
+SELECT value FROM setting WHERE key = ?;
+
+upsert:
+INSERT OR REPLACE INTO setting(key, value) VALUES (?, ?);

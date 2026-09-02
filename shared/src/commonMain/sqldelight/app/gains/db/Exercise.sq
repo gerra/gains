@@ -1,0 +1,55 @@
+CREATE TABLE exercise (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  canonical_name TEXT NOT NULL,
+  modality TEXT NOT NULL,
+  is_dumbbell INTEGER NOT NULL DEFAULT 0,
+  is_builtin INTEGER NOT NULL DEFAULT 0,
+  -- "CHEST:1.0,TRICEPS:0.5"
+  muscles TEXT NOT NULL
+);
+
+CREATE TABLE exercise_alias (
+  raw_name TEXT NOT NULL PRIMARY KEY,
+  exercise_id TEXT NOT NULL
+);
+
+CREATE TABLE exercise_override (
+  exercise_id TEXT NOT NULL PRIMARY KEY,
+  working_set_ratio REAL
+);
+
+upsertExercise:
+INSERT OR REPLACE INTO exercise(id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+insertExerciseIfMissing:
+INSERT OR IGNORE INTO exercise(id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectExercises:
+SELECT id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles FROM exercise ORDER BY name;
+
+selectAliases:
+SELECT raw_name, exercise_id FROM exercise_alias;
+
+upsertAlias:
+INSERT OR REPLACE INTO exercise_alias(raw_name, exercise_id) VALUES (?, ?);
+
+deleteAlias:
+DELETE FROM exercise_alias WHERE raw_name = ?;
+
+selectOverrides:
+SELECT exercise_id, working_set_ratio FROM exercise_override;
+
+upsertOverride:
+INSERT OR REPLACE INTO exercise_override(exercise_id, working_set_ratio) VALUES (?, ?);
+
+deleteOverride:
+DELETE FROM exercise_override WHERE exercise_id = ?;
+
+updateEntriesExercise:
+UPDATE exercise_entry SET exercise_id = ? WHERE exercise_id = ?;
+
+deleteExercise:
+DELETE FROM exercise WHERE id = ? AND is_builtin = 0;

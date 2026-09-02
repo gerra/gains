@@ -1,0 +1,27 @@
+// Android application configuration for :composeApp (applied only when gains.android=true).
+android {
+    namespace "app.gains"
+    compileSdk libs.versions.android.compileSdk.get().toInteger()
+
+    defaultConfig {
+        applicationId "app.gains"
+        minSdk libs.versions.android.minSdk.get().toInteger()
+        targetSdk libs.versions.android.targetSdk.get().toInteger()
+        versionCode 1
+        versionName "1.0"
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

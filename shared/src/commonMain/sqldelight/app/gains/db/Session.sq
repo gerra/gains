@@ -1,0 +1,87 @@
+CREATE TABLE session (
+  id TEXT NOT NULL PRIMARY KEY,
+  timestamp TEXT NOT NULL,
+  date TEXT NOT NULL,
+  duration_minutes INTEGER,
+  fingerprint TEXT NOT NULL,
+  content_hash TEXT NOT NULL
+);
+
+CREATE INDEX session_date ON session(date);
+
+CREATE TABLE exercise_entry (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL REFERENCES session(id) ON DELETE CASCADE,
+  exercise_id TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  note TEXT
+);
+
+CREATE INDEX exercise_entry_session ON exercise_entry(session_id);
+CREATE INDEX exercise_entry_exercise ON exercise_entry(exercise_id);
+
+CREATE TABLE set_entry (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  entry_id INTEGER NOT NULL REFERENCES exercise_entry(id) ON DELETE CASCADE,
+  set_order INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  weight_kg REAL,
+  reps INTEGER,
+  seconds INTEGER,
+  distance_km REAL,
+  rpe REAL
+);
+
+CREATE INDEX set_entry_entry ON set_entry(entry_id);
+
+insertSession:
+INSERT OR REPLACE INTO session(id, timestamp, date, duration_minutes, fingerprint, content_hash)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteEntriesForSession:
+DELETE FROM exercise_entry WHERE session_id = ?;
+
+deleteSetsForSession:
+DELETE FROM set_entry WHERE entry_id IN (SELECT id FROM exercise_entry WHERE session_id = ?);
+
+deleteSession:
+DELETE FROM session WHERE id = ?;
+
+insertEntry:
+INSERT INTO exercise_entry(session_id, exercise_id, position, note) VALUES (?, ?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+insertSet:
+INSERT INTO set_entry(entry_id, set_order, type, weight_kg, reps, seconds, distance_km, rpe)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+selectSummaries:
+SELECT id, date, fingerprint, content_hash FROM session;
+
+selectSessions:
+SELECT id, timestamp, duration_minutes FROM session ORDER BY timestamp;
+
+selectEntries:
+SELECT id, session_id, exercise_id, position, note FROM exercise_entry ORDER BY session_id, position;
+
+selectSets:
+SELECT id, entry_id, set_order, type, weight_kg, reps, seconds, distance_km, rpe FROM set_entry ORDER BY entry_id, set_order;
+
+selectIsometricSeconds:
+SELECT exercise_entry.exercise_id, set_entry.seconds
+FROM set_entry JOIN exercise_entry ON set_entry.entry_id = exercise_entry.id
+WHERE set_entry.type = 'ISOMETRIC' AND set_entry.seconds IS NOT NULL;
+
+countSessions:
+SELECT COUNT(*) FROM session;
+
+deleteAllSets:
+DELETE FROM set_entry;
+
+deleteAllEntries:
+DELETE FROM exercise_entry;
+
+deleteAllSessions:
+DELETE FROM session;
