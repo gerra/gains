@@ -1,33 +1,55 @@
 package app.gains
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import app.gains.data.ExerciseRepository
+import app.gains.data.SettingsRepository
+import app.gains.data.ThemeMode
+import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.ui.inject
@@ -42,10 +64,10 @@ import app.gains.ui.screens.HomeScreen
 import app.gains.ui.screens.ImportScreen
 import app.gains.ui.screens.SettingsScreen
 import app.gains.ui.screens.VolumeScreen
+import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.GainsTheme
 
 /** Root of the shared UI. [filePicker] is supplied by each platform entry point. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}) {
     val navigator = remember { Navigator() }
@@ -57,63 +79,131 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
     LaunchedEffect(incoming) { if (incoming != null && navigator.current != Screen.Import) navigator.push(Screen.Import) }
     LaunchedEffect(navigator) { onBackHandler { navigator.pop() } }
 
-    GainsTheme {
+    val settings = remember { inject<SettingsRepository>() }
+    val themeMode by settings.observeThemeMode().collectAsState(ThemeMode.DARK)
+    val dark = when (themeMode) {
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+    GainsTheme(darkTheme = dark) {
         val screen = navigator.current
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text(title(screen)) },
-                    navigationIcon = {
-                        if (navigator.canGoBack) IconButton(onClick = { navigator.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-                    },
-                    actions = {
-                        if (screen != Screen.Import) IconButton(onClick = { navigator.push(Screen.Import) }) { Icon(Icons.Default.Add, "Import CSV") }
-                        if (screen != Screen.Settings) IconButton(onClick = { navigator.push(Screen.Settings) }) { Icon(Icons.Default.Settings, "Settings") }
-                    },
-                )
-            },
-            bottomBar = {
-                NavigationBar {
-                    for (tab in Tab.entries) {
-                        NavigationBarItem(
-                            selected = navigator.currentTab == tab && !navigator.canGoBack,
-                            onClick = { navigator.switchTab(tab) },
-                            icon = { Icon(tab.icon(), tab.label) },
-                            label = { Text(tab.label) },
-                        )
+        // Surface sets the content colour for every Text below it and paints the background.
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
+            Column(Modifier.fillMaxSize().statusBarsPadding()) {
+                TopBar(navigator, screen)
+                Box(Modifier.weight(1f)) {
+                    AnimatedContent(
+                        targetState = screen,
+                        transitionSpec = {
+                            val forward = navigator.stack.size > 1 && targetState !is Screen.Home
+                            val enter = fadeIn(tween(220)) + slideInHorizontally(tween(260)) { if (forward) it / 12 else -it / 12 }
+                            val exit = fadeOut(tween(160)) + slideOutHorizontally(tween(220)) { if (forward) -it / 16 else it / 16 }
+                            enter togetherWith exit
+                        },
+                        label = "screen",
+                    ) { current ->
+                        Box(Modifier.fillMaxSize()) {
+                            when (current) {
+                                Screen.Home -> HomeScreen(
+                                    onImport = { navigator.push(Screen.Import) },
+                                    onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
+                                    onOpenVolume = { navigator.switchTab(Tab.VOLUME) },
+                                )
+                                Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
+                                Screen.Volume -> VolumeScreen()
+                                Screen.Body -> BodyweightScreen()
+                                Screen.Consistency -> ConsistencyScreen()
+                                Screen.Settings -> SettingsScreen()
+                                Screen.Import -> ImportScreen(filePicker, onDone = { navigator.pop() })
+                                is Screen.ExerciseDetail -> ExerciseDetailScreen(current.exerciseId)
+                            }
+                        }
                     }
                 }
-            },
-        ) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) {
-                when (screen) {
-                    Screen.Home -> HomeScreen(
-                        onImport = { navigator.push(Screen.Import) },
-                        onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
-                        onOpenVolume = { navigator.switchTab(Tab.VOLUME) },
-                    )
-                    Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
-                    Screen.Volume -> VolumeScreen()
-                    Screen.Body -> BodyweightScreen()
-                    Screen.Consistency -> ConsistencyScreen()
-                    Screen.Settings -> SettingsScreen()
-                    Screen.Import -> ImportScreen(filePicker, onDone = { navigator.pop() })
-                    is Screen.ExerciseDetail -> ExerciseDetailScreen(screen.exerciseId)
-                }
+                BottomNav(navigator)
             }
         }
     }
 }
 
-private fun title(screen: Screen): String = when (screen) {
-    Screen.Home -> "Gains"
-    Screen.Exercises -> "Lifts"
-    Screen.Volume -> "Weekly volume"
-    Screen.Body -> "Bodyweight"
-    Screen.Consistency -> "Consistency"
-    Screen.Settings -> "Settings"
-    Screen.Import -> "Import"
-    is Screen.ExerciseDetail -> "Lift"
+@Composable
+private fun TopBar(navigator: Navigator, screen: Screen) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (navigator.canGoBack) {
+            IconCircle(Icons.AutoMirrored.Filled.ArrowBack, "Back") { navigator.pop() }
+            Spacer(Modifier.size(8.dp))
+        } else {
+            Text(
+                "GAINS",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        if (screen != Screen.Import) IconCircle(Icons.Default.Add, "Import CSV") { navigator.push(Screen.Import) }
+        Spacer(Modifier.size(8.dp))
+        if (screen != Screen.Settings) IconCircle(Icons.Default.Settings, "Settings") { navigator.push(Screen.Settings) }
+    }
+}
+
+@Composable
+private fun IconCircle(icon: ImageVector, description: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, description, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+private fun BottomNav(navigator: Navigator) {
+    val palette = GainsColors.palette
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            for (tab in Tab.entries) {
+                val selected = navigator.currentTab == tab && !navigator.canGoBack
+                val interaction = remember { MutableInteractionSource() }
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .clip(CircleShape)
+                        .background(if (selected) palette.volt else androidx.compose.ui.graphics.Color.Transparent)
+                        .clickable(interaction, indication = null) { navigator.switchTab(tab) }
+                        .padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(
+                        tab.icon(), tab.label,
+                        tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        tab.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
 }
 
 private fun Tab.icon(): ImageVector = when (this) {

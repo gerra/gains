@@ -1,6 +1,7 @@
 package app.gains.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,9 +29,12 @@ import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
 import app.gains.ui.charts.LineChart
 import app.gains.ui.charts.LineSeries
+import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
+import app.gains.ui.components.GainsCard
+import app.gains.ui.components.MetricTile
+import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SectionHeader
-import app.gains.ui.components.StatCard
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -73,36 +77,43 @@ fun ConsistencyScreen() {
     val state by model.state.collectAsState()
     if (state.loading) return
     if (state.totalSessions == 0) {
-        EmptyState("No sessions", "Your training calendar and sessions-per-week trend appear here after an import.")
+        EmptyState("No sessions", "Your training calendar and sessions-per-week trend appear here after an import.", emoji = "▦")
         return
     }
     val today = Dates.today()
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
+    val palette = GainsColors.palette
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
+            ScreenTitle("Consistency", subtitle = "How often you actually show up")
             val stats = state.stats
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Per week", stats?.let { Format.number(it.recentSessionsPerWeek, 1) } ?: "-", Modifier.weight(1f), caption = "last ${stats?.weeks ?: 4} weeks")
-                StatCard(
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MetricTile("Per week", stats?.let { Format.number(it.recentSessionsPerWeek, 1) } ?: "-", Modifier.weight(1f), caption = "last ${stats?.weeks ?: 4} weeks", accent = palette.volt)
+                MetricTile(
                     "Trend",
                     when (stats?.trend) { Trend.UP -> "Up"; Trend.DOWN -> "Down"; else -> "Steady" },
                     Modifier.weight(1f),
-                    caption = stats?.previousSessionsPerWeek?.let { "was ${Format.number(it, 1)}/week" },
+                    caption = stats?.previousSessionsPerWeek?.let { "was ${Format.number(it, 1)}/wk" },
+                    accent = when (stats?.trend) { Trend.UP -> palette.progress; Trend.DOWN -> palette.regression; else -> null },
                 )
-                StatCard("Streak", Format.plural(state.streakWeeks, "week"), Modifier.weight(1f))
+                MetricTile("Streak", state.streakWeeks.toString(), Modifier.weight(1f), caption = if (state.streakWeeks == 1) "week" else "weeks")
             }
         }
         item {
             SectionHeader("Last 26 weeks")
-            CalendarHeatmap(state.perDay, today, weeks = 26)
+            GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+                CalendarHeatmap(state.perDay, today, weeks = 26)
+            }
         }
         item {
             SectionHeader("Sessions per week")
-            if (state.weeks.size < 2) {
-                Text("Only one week of history so far.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                val weekly = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.sessions.toDouble()) }, GainsColors.Muted, "Sessions", showDots = true, dashed = true)
-                val rolling = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.rollingAverage) }, MaterialTheme.colorScheme.primary, "4-week average", showDots = false)
-                LineChart(listOf(weekly, rolling), yMinZero = true, yLabel = { Format.number(it, 0) })
+            GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+                if (state.weeks.size < 2) {
+                    Text("Only one week of history so far.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    val rolling = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.rollingAverage) }, palette.volt, "4-week average", showDots = false, fill = true)
+                    val weekly = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.sessions.toDouble()) }, palette.muted, "Sessions", showDots = true, dashed = true, smooth = false)
+                    LineChart(listOf(rolling, weekly), yMinZero = true, yLabel = { Format.number(it, 0) })
+                }
             }
             Spacer(Modifier.height(24.dp))
         }

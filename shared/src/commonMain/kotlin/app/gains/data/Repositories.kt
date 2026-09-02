@@ -75,7 +75,7 @@ class SessionRepository(
 
     suspend fun isometricHistory(): Map<String, List<Int>> = withContext(io) {
         q.selectIsometricSeconds().executeAsList()
-            .groupBy({ it.exercise_id }, { it.seconds!!.toInt() })
+            .groupBy({ it.exercise_id }, { it.seconds.toInt() })
     }
 
     /** Inserts or replaces whole sessions in one transaction. */
@@ -258,7 +258,17 @@ class SettingsRepository(
 
     suspend fun set(key: String, value: String) = withContext(io) { q.upsert(key, value) }
 
+    fun observeThemeMode(): Flow<ThemeMode> = q.selectValue(KEY_THEME).asFlow().map { query ->
+        withContext(io) { query.executeAsOneOrNull()?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK }
+    }
+
+    suspend fun setThemeMode(mode: ThemeMode) = withContext(io) { q.upsert(KEY_THEME, mode.name) }
+
     companion object {
         const val KEY_UNIT = "weight_unit"
+        const val KEY_THEME = "theme_mode"
     }
 }
+
+/** Appearance preference. Dark is the default look. */
+enum class ThemeMode(val label: String) { DARK("Dark"), LIGHT("Light"), SYSTEM("System") }

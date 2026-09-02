@@ -38,7 +38,7 @@ fun MainViewController(): UIViewController {
 fun handleIncomingFile(url: NSURL) {
     val accessing = url.startAccessingSecurityScopedResource()
     try {
-        val text = NSString.stringWithContentsOfURL(url, NSUTF8StringEncoding, null) as? String ?: return
+        val text = NSString.stringWithContentsOfURL(url, NSUTF8StringEncoding, null) ?: return
         IncomingFiles.offer(PickedFile(url.lastPathComponent ?: "export.csv", text))
     } finally {
         if (accessing) url.stopAccessingSecurityScopedResource()
@@ -71,7 +71,7 @@ class IosFilePicker : CsvFilePicker {
             if (url == null) { onResult(null); return }
             val accessing = url.startAccessingSecurityScopedResource()
             try {
-                val text = NSString.stringWithContentsOfURL(url, NSUTF8StringEncoding, null) as? String
+                val text = NSString.stringWithContentsOfURL(url, NSUTF8StringEncoding, null)
                 onResult(text?.let { PickedFile(url.lastPathComponent ?: "export.csv", it) })
             } finally {
                 if (accessing) url.stopAccessingSecurityScopedResource()

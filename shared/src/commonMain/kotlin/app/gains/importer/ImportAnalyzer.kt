@@ -82,20 +82,26 @@ data class ImportPreview(
     }
     val skippedByReason: Map<SkipReason, Int> get() = skipped.groupingBy { it.reason }.eachCount()
 
+    /** Number of sessions [sessionsToCommit] would write for these outlier decisions. */
+    fun commitCount(confirmedOutlierKeys: Set<String>): Int = sessionsToCommit(confirmedOutlierKeys).size
+
+    private fun candidatesToWrite(confirmedOutlierKeys: Set<String>): List<CandidateSession> {
+        val keptOutlierSessions = outliers.filter { it.key in confirmedOutlierKeys }.map { it.sessionId }.toSet()
+        return candidates.filter {
+            it.disposition == SessionDisposition.NEW || it.disposition == SessionDisposition.CHANGED ||
+                // A stored session only counts as changed if the user now wants a previously discarded hold back.
+                (it.disposition == SessionDisposition.UNCHANGED && it.session.id in keptOutlierSessions)
+        }
+    }
+
     /** Sessions to write, with outliers removed according to [confirmedOutlierKeys]. */
     fun sessionsToCommit(confirmedOutlierKeys: Set<String>): List<Session> {
         val discard = outliers.filter { it.key !in confirmedOutlierKeys }
             .groupBy { it.sessionId }
-        return candidates
-            .filter { it.disposition == SessionDisposition.NEW || it.disposition == SessionDisposition.CHANGED }
+        return candidatesToWrite(confirmedOutlierKeys)
             .map { candidate ->
                 val toDrop = discard[candidate.session.id] ?: return@map candidate.session
-                candidate.session.copy(
-                    exercises = candidate.session.exercises.map { entry ->
-                        val dropOrders = toDrop.filter { it.exerciseId == entry.exerciseId }.map { it.setOrder }.toSet()
-                        entry.copy(sets = entry.sets.filter { it.order !in dropOrders })
-                    }.filter { it.sets.isNotEmpty() }
-                )
+                ImportAnalyzer.removeSets(candidate.session, toDrop)
             }
             .filter { it.exercises.isNotEmpty() }
     }
@@ -153,8 +159,18 @@ class ImportAnalyzer(
         // 3. Isometric outliers: holds more than outlierFactor × the (lower) median for that exercise.
         val outliers = detectOutliers(candidates.filter { it.disposition != SessionDisposition.DUPLICATE }, existing.isometricHistory, resolver)
 
+        // 4. A stored session that differs from the file only by outliers discarded last time is unchanged.
+        val outliersBySession = outliers.groupBy { it.sessionId }
+        val reconciled = candidates.map { c ->
+            val flagged = outliersBySession[c.session.id]
+            if (c.disposition != SessionDisposition.CHANGED || flagged == null) return@map c
+            val stored = storedById[c.session.id] ?: return@map c
+            val withoutOutliers = removeSets(c.session, flagged)
+            if (contentHash(withoutOutliers) == stored.contentHash) c.copy(disposition = SessionDisposition.UNCHANGED) else c
+        }
+
         return ImportPreview(
-            candidates = candidates,
+            candidates = reconciled,
             skipped = parsed.skipped,
             duplicates = duplicates,
             outliers = outliers,
@@ -211,15 +227,27 @@ class ImportAnalyzer(
     }
 
     companion object {
+        /** [session] without the sets named by [toDrop]; entries left empty are removed. */
+        fun removeSets(session: Session, toDrop: List<IsometricOutlier>): Session = session.copy(
+            exercises = session.exercises.map { entry ->
+                val dropOrders = toDrop.filter { it.exerciseId == entry.exerciseId }.map { it.setOrder }.toSet()
+                entry.copy(sets = entry.sets.filter { it.order !in dropOrders })
+            }.filter { it.sets.isNotEmpty() }
+        )
+
         /** Lower median: robust when half of the samples are the same bad value. */
         fun lowerMedian(values: List<Int>): Int {
             val sorted = values.sorted()
             return sorted[(sorted.size - 1) / 2]
         }
 
-        /** Same date + same exercise list + same set count: the near-duplicate signature. */
+        /**
+         * Same date + same exercise list + same set count: the near-duplicate signature.
+         * Exercise ids are sorted because the export shuffles rows, so two copies of one
+         * workout can list their exercises in different orders.
+         */
         fun fingerprint(session: Session): String =
-            session.date.toString() + "|" + session.exercises.joinToString(",") { it.exerciseId } + "|" + session.setCount
+            session.date.toString() + "|" + session.exercises.map { it.exerciseId }.sorted().joinToString(",") + "|" + session.setCount
 
         fun contentHash(session: Session): String {
             val sb = StringBuilder()

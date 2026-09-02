@@ -30,6 +30,17 @@ class ImportAnalyzerTest {
     }
 
     @Test
+    fun duplicateDetectionIgnoresExerciseOrderInTheFile() {
+        // The second copy lists Lat Pulldown before Bench Press: still the same workout.
+        val lines = Fixtures.DUPLICATES.lines()
+        val shuffled = listOf(lines[0]) + lines.drop(1).filter { "11:37:12" !in it } +
+            lines.drop(1).filter { "11:37:12" in it }.sortedBy { if ("Lat Pulldown" in it) 0 else 1 }
+        val p = preview(shuffled.joinToString("\n"))
+        assertEquals(1, p.duplicates.size)
+        assertEquals("2026-05-02T11:37:12", p.duplicates.single().droppedSessionId)
+    }
+
+    @Test
     fun detectsDuplicatesAgainstStoredSessionsAndIsIdempotent() {
         val first = preview(Fixtures.DUPLICATES)
         val stored = first.sessionsToCommit(emptySet()).map { summary(it) }
@@ -73,6 +84,22 @@ class ImportAnalyzerTest {
         val confirmed = p.sessionsToCommit(p.outliers.map { it.key }.toSet())
         assertEquals(4, confirmed.size)
         assertEquals(2, confirmed[1].setCount)
+    }
+
+    @Test
+    fun reimportAfterDiscardingOutliersIsUnchanged() {
+        val first = preview(Fixtures.ISOMETRIC_OUTLIERS)
+        val stored = first.sessionsToCommit(emptySet()).map { summary(it) }
+        val again = preview(Fixtures.ISOMETRIC_OUTLIERS, ExistingData(sessions = stored, isometricHistory = mapOf("hollow_hold" to listOf(50, 55, 60))))
+        // The 2026-01-08 session was never stored (it only held outliers), so it is new again; the rest are unchanged.
+        assertEquals(1, again.newCount)
+        assertEquals(0, again.changedCount)
+        assertEquals(3, again.unchangedCount)
+        assertEquals(0, again.commitCount(emptySet()))
+        assertEquals(0, again.sessionsToCommit(emptySet()).size)
+        // Keeping a previously discarded hold writes that session again.
+        val jan22 = again.outliers.first { it.sessionId == "2026-01-22T10:00" }
+        assertEquals(listOf("2026-01-22T10:00"), again.sessionsToCommit(setOf(jan22.key)).map { it.id })
     }
 
     @Test

@@ -2,6 +2,7 @@ package app.gains.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,13 +12,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,12 +28,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.BodyweightAnalyzer
 import app.gains.analysis.BodyweightPoint
 import app.gains.analysis.Dates
-import app.gains.analysis.Epley
 import app.gains.analysis.ExerciseAnalysis
 import app.gains.analysis.Format
 import app.gains.analysis.TrainingData
@@ -49,9 +47,14 @@ import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
 import app.gains.ui.charts.LineChart
 import app.gains.ui.charts.LineSeries
+import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
+import app.gains.ui.components.GainsCard
+import app.gains.ui.components.MetricTile
+import app.gains.ui.components.PrimaryButton
+import app.gains.ui.components.ScreenTitle
+import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
-import app.gains.ui.components.StatCard
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -112,53 +115,59 @@ fun BodyweightScreen() {
     if (state.loading) return
     val today = Dates.today()
     val unit = state.unit
+    val palette = GainsColors.palette
     var showEntry by remember { mutableStateOf(state.points.isEmpty()) }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Bodyweight", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                TextButton(onClick = { showEntry = !showEntry }) { Text(if (showEntry) "Hide" else "Add entry") }
+            ScreenTitle("Bodyweight", subtitle = "Daily entries with a 7-day average", trailing = {
+                TextButton(onClick = { showEntry = !showEntry }) { Text(if (showEntry) "Hide" else "+ Add", color = palette.volt) }
+            })
+            if (showEntry) GainsCard(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                EntryForm(unit, today, onAdd = { d, kg -> model.add(d, kg); showEntry = false })
             }
-            if (showEntry) EntryForm(unit, today, onAdd = { d, kg -> model.add(d, kg); showEntry = false })
         }
         if (state.points.isEmpty()) {
-            item { EmptyState("No bodyweight entries", "Log your weight here. A 7-day average smooths the daily noise, and you can overlay it on a lift's strength trend.") }
+            item { EmptyState("No bodyweight entries", "Log your weight here. A 7-day average smooths the daily noise, and you can overlay it on a lift's strength trend.", emoji = "♡") }
             return@LazyColumn
         }
         item {
             val last = state.points.last()
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Latest", Format.weight(last.weightKg, unit, 1), Modifier.weight(1f), caption = Dates.contextual(last.date, today))
-                StatCard("7-day average", Format.weight(last.rollingAverageKg, unit, 1), Modifier.weight(1f))
-                val first = state.points.first()
-                StatCard("Change", (if (last.rollingAverageKg >= first.rollingAverageKg) "+" else "") + Format.weight(last.rollingAverageKg - first.rollingAverageKg, unit, 1), Modifier.weight(1f), caption = "since ${Dates.contextual(first.date, today)}")
+            val first = state.points.first()
+            val change = last.rollingAverageKg - first.rollingAverageKg
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MetricTile("Latest", Format.weightValue(last.weightKg, unit), Modifier.weight(1f), caption = "${unit.label} · ${Dates.contextual(last.date, today)}", accent = palette.volt)
+                MetricTile("7-day avg", Format.weightValue(last.rollingAverageKg, unit), Modifier.weight(1f), caption = unit.label)
+                MetricTile("Change", (if (change >= 0) "+" else "") + Format.weightValue(change, unit), Modifier.weight(1f), caption = "since ${Dates.contextual(first.date, today)}", accent = if (change == 0.0) null else if (change > 0) palette.amber else palette.cyan)
             }
         }
         item {
             SectionHeader("Trend")
-            if (state.points.size == 1) {
-                Text("One entry so far. The chart appears after a second one.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                val daily = LineSeries(state.points.map { ChartPoint(it.date.x(), Units.display(it.weightKg, unit)) }, GainsColors.Muted, "Daily", showDots = true, dashed = true)
-                val avg = LineSeries(state.points.map { ChartPoint(it.date.x(), Units.display(it.rollingAverageKg, unit)) }, MaterialTheme.colorScheme.primary, "7-day avg", showDots = false)
-                val overlay = state.overlayExercise?.let { ex ->
-                    LineSeries(state.overlayPoints.map { (d, v) -> ChartPoint(d.x(), Units.display(v, unit)) }, GainsColors.Stall, "${ex.name} e1RM", showDots = true, secondaryAxis = true)
+            GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+                if (state.points.size == 1) {
+                    Text("One entry so far. The chart appears after a second one.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    val daily = LineSeries(state.points.map { ChartPoint(it.date.x(), Units.display(it.weightKg, unit)) }, palette.muted, "Daily", showDots = true, dashed = true, smooth = false)
+                    val avg = LineSeries(state.points.map { ChartPoint(it.date.x(), Units.display(it.rollingAverageKg, unit)) }, palette.volt, "7-day avg", showDots = false, fill = true)
+                    val overlay = state.overlayExercise?.let { ex ->
+                        LineSeries(state.overlayPoints.map { (d, v) -> ChartPoint(d.x(), Units.display(v, unit)) }, palette.amber, "${ex.name} e1RM", showDots = true, secondaryAxis = true)
+                    }
+                    LineChart(listOfNotNull(avg, daily, overlay), yLabel = { Format.number(it, 1) }, secondaryLabel = { Format.number(it, 0) })
                 }
-                LineChart(listOfNotNull(daily, avg, overlay), yLabel = { Format.number(it, 1) }, secondaryLabel = { Format.number(it, 0) })
             }
             SectionHeader("Overlay a lift")
             OverlayPicker(state.weightedExercises, state.overlayExercise, onPick = { model.setOverlay(it?.id) })
         }
         item { SectionHeader("Entries") }
         items(state.points.asReversed(), key = { it.date.toString() }) { p ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(Dates.contextual(p.date, today), Modifier.weight(1f))
-                Text(Format.weight(p.weightKg, unit, 1), fontWeight = FontWeight.Medium)
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = { model.delete(p.date) }) { Text("Delete") }
+            GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(Dates.contextual(p.date, today), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                    Text(Format.weight(p.weightKg, unit, 1), style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(onClick = { model.delete(p.date) }) { Text("Delete", color = palette.coral) }
+                }
             }
-            HorizontalDivider()
         }
     }
 }
@@ -168,14 +177,16 @@ private fun EntryForm(unit: WeightUnit, today: LocalDate, onAdd: (LocalDate, Dou
     var dateText by remember { mutableStateOf(today.toString()) }
     var weightText by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    val palette = GainsColors.palette
+    val colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = palette.volt, unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant)
+    Column(Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(dateText, { dateText = it }, label = { Text("Date (YYYY-MM-DD)") }, singleLine = true, modifier = Modifier.weight(1f))
-            OutlinedTextField(weightText, { weightText = it }, label = { Text("Weight (${unit.label})") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedTextField(dateText, { dateText = it }, label = { Text("Date (YYYY-MM-DD)") }, singleLine = true, modifier = Modifier.weight(1f), colors = colors, shape = MaterialTheme.shapes.medium)
+            OutlinedTextField(weightText, { weightText = it }, label = { Text("Weight (${unit.label})") }, singleLine = true, modifier = Modifier.weight(1f), colors = colors, shape = MaterialTheme.shapes.medium)
         }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = {
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp)) }
+        Spacer(Modifier.height(12.dp))
+        PrimaryButton("Save entry", onClick = {
             val date = runCatching { LocalDate.parse(dateText.trim()) }.getOrNull()
             val weight = weightText.trim().replace(',', '.').toDoubleOrNull()
             when {
@@ -183,7 +194,7 @@ private fun EntryForm(unit: WeightUnit, today: LocalDate, onAdd: (LocalDate, Dou
                 weight == null || weight <= 0 -> error = "Enter a weight."
                 else -> { error = null; onAdd(date, Units.fromDisplay(weight, unit)) }
             }
-        }) { Text("Save") }
+        })
     }
 }
 
@@ -195,13 +206,13 @@ private fun OverlayPicker(exercises: List<Exercise>, selected: Exercise?, onPick
         return
     }
     Column {
-        OutlinedButton(onClick = { open = true }) { Text(selected?.name ?: "None") }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        SecondaryButton(selected?.name ?: "Choose a lift", onClick = { open = true })
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = MaterialTheme.shapes.medium) {
             DropdownMenuItem(text = { Text("None") }, onClick = { onPick(null); open = false })
             for (e in exercises) DropdownMenuItem(text = { Text(e.name) }, onClick = { onPick(e); open = false })
         }
         if (selected != null) {
-            Text("Right axis: estimated 1RM per session (Epley: weight × (1 + reps/30)).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Right axis: estimated 1RM per session (Epley: weight × (1 + reps/30)).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
         }
     }
 }

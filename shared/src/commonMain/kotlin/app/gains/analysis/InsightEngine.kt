@@ -57,6 +57,8 @@ data class Insight(
     val detail: String,
     val exerciseId: String? = null,
     val muscleGroup: MuscleGroup? = null,
+    /** Signed change behind the insight (−0.18 for an 18% regression, +0.13 for progress), when there is one. */
+    val delta: Double? = null,
 )
 
 enum class Trend { UP, DOWN, FLAT }
@@ -125,6 +127,7 @@ class InsightEngine(
             title = exercise.name,
             detail = detail,
             exerciseId = exercise.id,
+            delta = -drop,
         )
     }
 
@@ -197,7 +200,7 @@ class InsightEngine(
             val baselineAvg = baseline.sumOf { it.sets[group] ?: 0.0 } / thresholds.neglectMuscleBaselineWeeks
             if (baselineAvg >= thresholds.neglectMuscleBaselineWeeklySets && recentAvg < thresholds.neglectMuscleMinWeeklySets) {
                 val detail = "${Format.number(recentAvg, 1)} sets/week over the last ${thresholds.neglectMuscleRecentWeeks} weeks, down from ${Format.number(baselineAvg, 1)}/week over the ${thresholds.neglectMuscleBaselineWeeks} weeks before."
-                result.add(Insight(InsightKind.NEGLECT, 60.0 + (baselineAvg - recentAvg), group.displayName, detail, muscleGroup = group))
+                result.add(Insight(InsightKind.NEGLECT, 60.0 + (baselineAvg - recentAvg), group.displayName, detail, muscleGroup = group, delta = if (baselineAvg > 0) -(baselineAvg - recentAvg) / baselineAvg else null))
             }
         }
         return result
@@ -243,7 +246,8 @@ class InsightEngine(
             Trend.UP -> "Training more often"
             Trend.FLAT -> "Steady frequency"
         }
-        return Insight(InsightKind.CONSISTENCY, severity, title, detail)
+        val delta = stats.previousSessionsPerWeek?.takeIf { it > 0 }?.let { (stats.recentSessionsPerWeek - it) / it }
+        return Insight(InsightKind.CONSISTENCY, severity, title, detail, delta = delta)
     }
 
     // ---- Progress ---------------------------------------------------------------------------
@@ -264,6 +268,6 @@ class InsightEngine(
         if (gain < thresholds.progressMinGainFraction) return null
         val detail = "${current.best.describe(exercise.modality, unit)} on ${Dates.contextual(current.date, today)}, " +
             "up ${Format.percent(gain)} on ${previousBest.best.describe(exercise.modality, unit)} from ${Dates.contextual(previousBest.date, today)}."
-        return Insight(InsightKind.PROGRESS, 10.0 + gain * 100, exercise.name, detail, exerciseId = exercise.id)
+        return Insight(InsightKind.PROGRESS, 10.0 + gain * 100, exercise.name, detail, exerciseId = exercise.id, delta = gain)
     }
 }

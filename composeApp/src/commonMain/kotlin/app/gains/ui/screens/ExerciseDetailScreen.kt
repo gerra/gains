@@ -2,6 +2,7 @@ package app.gains.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,9 +11,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,8 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Dates
 import app.gains.analysis.Dates.minusDays
@@ -43,10 +44,15 @@ import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
 import app.gains.ui.charts.LineChart
 import app.gains.ui.charts.LineSeries
+import app.gains.ui.charts.formatAxis
 import app.gains.ui.components.ChipRow
+import app.gains.ui.components.DeltaBadge
+import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
+import app.gains.ui.components.GainsCard
+import app.gains.ui.components.MetricTile
+import app.gains.ui.components.Pill
 import app.gains.ui.components.SectionHeader
-import app.gains.ui.components.StatCard
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -55,7 +61,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -119,53 +124,59 @@ fun ExerciseDetailScreen(exerciseId: String) {
     val exercise = state.exercise
     if (state.loading) return
     if (exercise == null) {
-        EmptyState("Unknown exercise", "This exercise no longer exists. It may have been merged into another one.")
+        EmptyState("Unknown exercise", "This exercise no longer exists. It may have been merged into another one.", emoji = "?")
         return
     }
     val today = Dates.today()
     val unit = state.unit
     val summary = state.summary
+    val palette = GainsColors.palette
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            Text(exercise.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            val subtitle = buildList {
-                add(exercise.modality.name.lowercase().replaceFirstChar { it.uppercase() })
-                if (exercise.isDumbbell) add("weights are per dumbbell")
-                if (exercise.muscleGroups.isNotEmpty()) add(exercise.muscleGroups.joinToString { it.group.displayName })
-            }.joinToString(" · ")
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(exercise.name, style = MaterialTheme.typography.headlineLarge)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Pill(exercise.modality.name.lowercase().replaceFirstChar { it.uppercase() }, palette.cyan)
+                if (exercise.isDumbbell) Pill("Per dumbbell", palette.amber)
+            }
+            if (exercise.muscleGroups.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text(exercise.muscleGroups.joinToString(" · ") { it.group.displayName }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         if (state.allPoints.isEmpty()) {
             item { EmptyState("No sessions", "This exercise has not been trained in any imported session.") }
             return@LazyColumn
         }
         item {
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val allTime = summary?.allTimeBest
-                val current = summary?.currentBest
-                StatCard(
+            Spacer(Modifier.height(16.dp))
+            val allTime = summary?.allTimeBest
+            val current = summary?.currentBest
+            val gap = summary?.gapFraction
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MetricTile(
+                    "Current best",
+                    current?.best?.describe(exercise.modality, unit) ?: "-",
+                    Modifier.weight(1f),
+                    caption = current?.let { Dates.contextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
+                    accent = if (gap != null && gap > 0.05) palette.regression else palette.volt,
+                )
+                MetricTile(
                     "All-time best",
                     allTime?.best?.describe(exercise.modality, unit) ?: "-",
                     Modifier.weight(1f),
                     caption = allTime?.let { Dates.contextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
                 )
-                StatCard(
-                    "Current best",
-                    current?.best?.describe(exercise.modality, unit) ?: "-",
-                    Modifier.weight(1f),
-                    caption = current?.let { Dates.contextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
-                )
             }
-            Spacer(Modifier.height(8.dp))
-            val gap = summary?.gapFraction
-            val gapText = when {
-                gap == null -> "-"
-                gap <= 0.0 -> "At your best"
-                else -> "Down ${Format.percent(gap)} from all-time best"
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                when {
+                    gap == null -> {}
+                    gap <= 0.0 -> Pill("At your best", palette.volt, filled = true)
+                    else -> { DeltaBadge(-gap); Spacer(Modifier.padding(4.dp)); Text("from all-time best", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
             }
-            Text(gapText, style = MaterialTheme.typography.bodyMedium, color = if (gap != null && gap > 0.05) GainsColors.Regression else GainsColors.Progress)
         }
         item {
             SectionHeader("Window")
@@ -183,52 +194,59 @@ fun ExerciseDetailScreen(exerciseId: String) {
         item {
             when (exercise.modality) {
                 Modality.WEIGHTED -> {
-                    SectionHeader("Estimated 1RM (Epley, working sets)")
+                    SectionHeader("Estimated 1RM · Epley, working sets")
                     val pts = state.points.mapNotNull { p -> p.bestE1rm?.let { ChartPoint(p.date.x(), Units.display(it.value, unit)) } }
-                    if (pts.isEmpty()) Text("No weighted working sets in this window.", style = MaterialTheme.typography.bodySmall)
-                    else LineChart(listOf(LineSeries(pts, MaterialTheme.colorScheme.primary, "e1RM")), yLabel = { Format.number(it, 0) })
+                    ChartCard {
+                        if (pts.isEmpty()) Text("No weighted working sets in this window.", style = MaterialTheme.typography.bodySmall)
+                        else LineChart(listOf(LineSeries(pts, palette.volt, "e1RM", fill = true)), yLabel = { formatAxis(it) })
+                    }
                     SectionHeader("Top set weight")
                     val top = state.points.mapNotNull { p -> p.topSetWeightKg?.let { ChartPoint(p.date.x(), Units.display(it, unit)) } }
-                    if (top.isNotEmpty()) LineChart(listOf(LineSeries(top, GainsColors.Consistency, "Top set")), yLabel = { Format.number(it, 0) })
-                    SectionHeader("Volume per session (Σ weight × reps, working sets)")
+                    if (top.isNotEmpty()) ChartCard { LineChart(listOf(LineSeries(top, palette.cyan, "Top set", fill = true, smooth = false)), height = 160.dp, yLabel = { formatAxis(it) }) }
+                    SectionHeader("Volume per session · Σ weight × reps")
                     val vol = state.points.map { ChartPoint(it.date.x(), Units.display(it.totalVolumeKg, unit)) }
-                    LineChart(listOf(LineSeries(vol, GainsColors.Stall, "Total volume", showDots = false)), yMinZero = true, yLabel = { Format.number(it, 0) })
+                    ChartCard { LineChart(listOf(LineSeries(vol, palette.violet, "Total volume", showDots = false, fill = true)), height = 160.dp, yMinZero = true, yLabel = { Format.number(it, 0) }) }
                 }
                 else -> {
                     SectionHeader("Best ${ExerciseAnalysis.metricLabel(exercise.modality)} per session")
                     val pts = state.points.mapNotNull { p -> p.best?.let { ChartPoint(p.date.x(), it.value) } }
-                    if (pts.isNotEmpty()) LineChart(listOf(LineSeries(pts, MaterialTheme.colorScheme.primary, ExerciseAnalysis.metricLabel(exercise.modality))), yMinZero = true)
+                    if (pts.isNotEmpty()) ChartCard { LineChart(listOf(LineSeries(pts, palette.volt, ExerciseAnalysis.metricLabel(exercise.modality), fill = true)), yMinZero = true) }
                 }
             }
         }
         if (exercise.modality == Modality.WEIGHTED) {
             item {
                 SectionHeader("Working-set rule")
-                WorkingSetRuleEditor(state.workingSetRatio, state.hasOverride, onChange = { model.setWorkingSetRatio(it) })
+                GainsCard(Modifier.fillMaxWidth()) {
+                    WorkingSetRuleEditor(state.workingSetRatio, state.hasOverride, onChange = { model.setWorkingSetRatio(it) })
+                }
             }
         }
         item { SectionHeader("Sessions") }
         items(state.points.asReversed()) { p ->
-            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Column(Modifier.padding(12.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(Dates.contextual(p.date, today), fontWeight = FontWeight.Medium)
-                        Text(p.best?.describe(exercise.modality, unit) ?: "-", style = MaterialTheme.typography.bodyMedium)
-                    }
-                    val details = buildList {
-                        if (exercise.modality == Modality.WEIGHTED) {
-                            p.bestE1rm?.let { add("e1RM ${Format.weight(it.value, unit, 1)}") }
-                            p.bestSetVolumeKg?.let { add("best set ${Format.weight(it, unit, 0)}") }
-                            add("volume ${Format.weight(p.totalVolumeKg, unit, 0)}")
-                        }
-                        add("${p.workingSetCount}/${p.setCount} working sets")
-                    }
-                    Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    p.note?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = Dp16.Tight) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(Dates.contextual(p.date, today), style = MaterialTheme.typography.titleSmall)
+                    Text(p.best?.describe(exercise.modality, unit) ?: "-", style = MaterialTheme.typography.titleSmall, color = palette.volt)
                 }
+                val details = buildList {
+                    if (exercise.modality == Modality.WEIGHTED) {
+                        p.bestE1rm?.let { add("e1RM ${Format.weight(it.value, unit, 1)}") }
+                        p.bestSetVolumeKg?.let { add("best set volume ${Format.weight(it, unit, 0)}") }
+                        add("volume ${Format.weight(p.totalVolumeKg, unit, 0)}")
+                    }
+                    add("${p.workingSetCount}/${p.setCount} working sets")
+                }
+                Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                p.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp)) }
             }
         }
     }
+}
+
+@Composable
+fun ChartCard(content: @Composable () -> Unit) {
+    GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) { content() }
 }
 
 private fun metricCaption(p: ExerciseSessionPoint, modality: Modality, unit: WeightUnit): String {
@@ -239,10 +257,11 @@ private fun metricCaption(p: ExerciseSessionPoint, modality: Modality, unit: Wei
 @Composable
 private fun WorkingSetRuleEditor(ratio: Double, hasOverride: Boolean, onChange: (Double?) -> Unit) {
     var value by remember(ratio) { mutableStateOf(ratio.toFloat()) }
+    val palette = GainsColors.palette
     Text(
         "Sets at or above ${Format.percent(value.toDouble())} of the session's top weight count as working sets." +
             if (hasOverride) "" else " (default ${Format.percent(WorkingSets.DEFAULT_RATIO)})",
-        style = MaterialTheme.typography.bodySmall,
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Slider(
         value = value,
@@ -250,6 +269,7 @@ private fun WorkingSetRuleEditor(ratio: Double, hasOverride: Boolean, onChange: 
         onValueChangeFinished = { onChange(((value * 20).toInt() / 20.0)) },
         valueRange = 0.5f..1f,
         steps = 9,
+        colors = SliderDefaults.colors(thumbColor = palette.volt, activeTrackColor = palette.volt, inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest),
     )
     if (hasOverride) TextButton(onClick = { onChange(null) }) { Text("Reset to default") }
 }
