@@ -79,6 +79,8 @@ class ScreenshotTest {
         }.apply { isDaemon = true; start() }
 
         fun settle(millis: Long = 600) = mainClock.advanceTimeBy(millis)
+        /** Section headers are shown in upper case, so text is matched ignoring case. */
+        fun text(value: String) = hasText(value, substring = true, ignoreCase = true)
         fun exists(matcher: SemanticsMatcher) = onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
         /** Polls in real time (the framework's waitUntil measures virtual time and never gives up). */
         fun await(matcher: SemanticsMatcher, timeoutMillis: Long = 30_000): Boolean {
@@ -109,28 +111,28 @@ class ScreenshotTest {
         }
 
         // 1. Welcome / sign-in gate.
-        require(hasText("Continue as guest"))
+        require(text("Continue as guest"))
         settle(1_500)
         shot("01-welcome")
-        onNode(hasText("Continue as guest") and hasClickAction()).performClick()
-        if (!await(hasText("No workouts yet"), 15_000)) {
+        onNode(text("Continue as guest") and hasClickAction()).performClick()
+        if (!await(text("No workouts yet"), 15_000)) {
             println("guest sign-in through the UI did not switch screens; signing in through the repository")
             runBlocking { inject<AccountRepository>().continueAsGuest() }
-            require(hasText("No workouts yet"))
+            require(text("No workouts yet"))
         }
 
         // 2. Import preview: hand the app a file the way the share sheet would.
         IncomingFiles.offer(PickedFile("liftoff-export.csv", csv))
-        val importButton = hasText("Import ", substring = true) and hasClickAction()
-        require(hasText("Summary"), 60_000)
+        val importButton = text("Import ") and hasClickAction()
+        require(text("Summary"), 60_000)
         require(importButton, 60_000)
         settle(800)
         shot("02-import")
         val committedThroughUi = runCatching {
             onNode(hasScrollAction()).performScrollToNode(importButton)
             onNode(importButton).performClick()
-            require(hasText("Imported"), 60_000)
-            onNode(hasText("Done") and hasClickAction()).performClick()
+            require(text("Imported"), 60_000)
+            onNode(text("Done") and hasClickAction()).performClick()
         }.isSuccess
         if (!committedThroughUi) {
             // Fall back to the service so the remaining screens still get their data.
@@ -140,29 +142,29 @@ class ScreenshotTest {
         }
 
         // 3. Home insights.
-        require(hasText("What's moving"), 60_000)
+        require(text("What's moving"), 60_000)
         settle(1_500)
         shot("03-home")
 
         // 4. History.
         tab("History")
-        require(hasText("Last 26 weeks"))
+        require(text("Last 26 weeks"))
         settle(1_500)
         shot("04-history")
 
         // 5. Lifts list and a lift's detail.
         tab("Lifts")
-        require(hasText("Bench Press"))
+        require(text("Bench Press"))
         settle(1_500)
         shot("05-lifts")
-        onAllNodes(hasText("Bench Press")).onFirst().performClick()
-        require(hasText("Estimated 1RM", substring = true))
+        onAllNodes(text("Bench Press")).onFirst().performClick()
+        require(text("Estimated 1RM"))
         settle(1_500)
         shot("06-lift-detail")
 
         // 6. Weekly volume per muscle group.
         tab("Volume")
-        require(hasText("This week", substring = true))
+        require(text("This week"))
         settle(1_500)
         shot("07-volume")
 
@@ -176,24 +178,24 @@ class ScreenshotTest {
             }
         }
         tab("Body")
-        require(hasText("Trend"))
+        require(text("Trend"))
         settle(1_500)
         shot("08-body")
 
         // 8. Settings, then the light theme.
         onNode(hasContentDescription("Settings") and hasClickAction()).performClick()
-        require(hasText("Appearance"))
+        require(text("Appearance"))
         shot("09-settings")
-        onNode(hasText("Light") and hasClickAction()).performClick()
+        onNode(text("Light") and hasClickAction()).performClick()
         settle()
         tab("Home")
-        require(hasText("What's moving"), 60_000)
+        require(text("What's moving"), 60_000)
         settle(1_500)
         shot("10-home-light")
         tab("Lifts")
-        require(hasText("Bench Press"))
-        onAllNodes(hasText("Bench Press")).onFirst().performClick()
-        require(hasText("Estimated 1RM", substring = true))
+        require(text("Bench Press"))
+        onAllNodes(text("Bench Press")).onFirst().performClick()
+        require(text("Estimated 1RM"))
         settle(1_500)
         shot("11-lift-detail-light")
         watchdog.interrupt()
