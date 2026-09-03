@@ -28,6 +28,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -40,7 +44,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -118,6 +124,7 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
                                     onImport = { navigator.push(Screen.Import) },
                                     onLog = { navigator.push(Screen.EditSession(null)) },
                                     onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
+                                    onOpenSession = { navigator.push(Screen.EditSession(it)) },
                                     onOpenVolume = { navigator.switchTab(Tab.VOLUME) },
                                 )
                                 Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
@@ -130,7 +137,7 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
                                 is Screen.EditSession -> SessionEditorScreen(current.sessionId, onDone = { navigator.pop() })
                                 Screen.Settings -> SettingsScreen()
                                 Screen.Import -> ImportScreen(filePicker, onDone = { navigator.pop() })
-                                is Screen.ExerciseDetail -> ExerciseDetailScreen(current.exerciseId)
+                                is Screen.ExerciseDetail -> ExerciseDetailScreen(current.exerciseId, onOpenSession = { navigator.push(Screen.EditSession(it)) })
                             }
                         }
                     }
@@ -154,7 +161,25 @@ private fun TopBar(navigator: Navigator, screen: Screen) {
             GainsWordmark(Modifier.padding(start = 4.dp))
         }
         Spacer(Modifier.weight(1f))
-        if (screen != Screen.Import) IconCircle(Icons.Default.Add, "Import CSV") { navigator.push(Screen.Import) }
+        // "+" offers both ways of getting a session in; hidden on the screens that already are one of them.
+        if (screen != Screen.Import && screen !is Screen.EditSession) {
+            var menuOpen by remember { mutableStateOf(false) }
+            Box {
+                IconCircle(Icons.Default.Add, "Add") { menuOpen = true }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, shape = MaterialTheme.shapes.medium) {
+                    DropdownMenuItem(
+                        text = { Text("Log workout") },
+                        leadingIcon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp)) },
+                        onClick = { menuOpen = false; navigator.push(Screen.EditSession(null)) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Import CSV") },
+                        leadingIcon = { Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp)) },
+                        onClick = { menuOpen = false; navigator.push(Screen.Import) },
+                    )
+                }
+            }
+        }
         Spacer(Modifier.size(8.dp))
         if (screen != Screen.Settings) IconCircle(Icons.Default.Settings, "Settings") { navigator.push(Screen.Settings) }
     }

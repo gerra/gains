@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,6 +61,7 @@ data class HomeState(
     val sessionCount: Int = 0,
     val exerciseCount: Int = 0,
     val lastSession: LocalDate? = null,
+    val lastSessionId: String? = null,
     val thisWeekSessions: Int = 0,
     val streakWeeks: Int = 0,
     val insights: List<Insight> = emptyList(),
@@ -78,6 +82,7 @@ class HomeModel(
                     sessionCount = snapshot.sessions.size,
                     exerciseCount = snapshot.trainedExercises.size,
                     lastSession = snapshot.sessions.maxOfOrNull { it.date },
+                    lastSessionId = snapshot.sessions.maxByOrNull { it.timestamp }?.id,
                     thisWeekSessions = snapshot.sessions.count { it.date >= weekStart },
                     streakWeeks = ConsistencyAnalyzer.currentStreakWeeks(snapshot.sessions, today),
                     insights = InsightEngine(unit = unit).generate(snapshot.sessions, snapshot.exercises, today),
@@ -89,7 +94,7 @@ class HomeModel(
 }
 
 @Composable
-fun HomeScreen(onImport: () -> Unit, onLog: () -> Unit, onOpenExercise: (String) -> Unit, onOpenVolume: () -> Unit) {
+fun HomeScreen(onImport: () -> Unit, onLog: () -> Unit, onOpenExercise: (String) -> Unit, onOpenSession: (String) -> Unit, onOpenVolume: () -> Unit) {
     val model = rememberScreenModel { HomeModel() }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
@@ -112,7 +117,12 @@ fun HomeScreen(onImport: () -> Unit, onLog: () -> Unit, onOpenExercise: (String)
         )
         else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {
-                ScreenTitle("Progress", subtitle = state.lastSession?.let { "Last session ${Dates.contextual(it, Dates.today())}" })
+                ScreenTitle(
+                    "Progress",
+                    subtitle = state.lastSession?.let { "Last session ${Dates.contextual(it, Dates.today())}" },
+                    trailing = { TextButton(onClick = onLog) { Text("+ Log", color = palette.volt) } },
+                    onSubtitleClick = state.lastSessionId?.let { id -> { onOpenSession(id) } },
+                )
                 HeroCard(state)
             }
             item {
@@ -127,12 +137,16 @@ fun HomeScreen(onImport: () -> Unit, onLog: () -> Unit, onOpenExercise: (String)
                 }
             }
             items(state.insights) { insight ->
-                InsightCard(insight, onClick = {
-                    when {
-                        insight.exerciseId != null -> onOpenExercise(insight.exerciseId!!)
-                        insight.muscleGroup != null -> onOpenVolume()
-                    }
-                })
+                InsightCard(
+                    insight,
+                    onClick = {
+                        when {
+                            insight.exerciseId != null -> onOpenExercise(insight.exerciseId!!)
+                            insight.muscleGroup != null -> onOpenVolume()
+                        }
+                    },
+                    onOpenSession = onOpenSession,
+                )
                 Spacer(Modifier.height(10.dp))
             }
         }
@@ -195,9 +209,13 @@ private fun InsightKind.glyph(): String = when (this) {
     InsightKind.PROGRESS -> "↑"
 }
 
+/** Tapping the card opens the exercise (or volume); each session the text mentions gets its own link below it. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun InsightCard(insight: Insight, onClick: () -> Unit) {
+fun InsightCard(insight: Insight, onClick: () -> Unit, onOpenSession: (String) -> Unit = {}) {
     val color = insight.kind.color()
+    val palette = GainsColors.palette
+    val today = Dates.today()
     GainsCard(Modifier.fillMaxWidth(), onClick = onClick) {
         Row(verticalAlignment = Alignment.Top) {
             RoundedIconBox(color) { Text(insight.kind.glyph(), style = MaterialTheme.typography.titleLarge, color = color) }
@@ -212,6 +230,14 @@ fun InsightCard(insight: Insight, onClick: () -> Unit) {
                 Text(insight.title, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(2.dp))
                 Text(insight.detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (insight.sessions.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (ref in insight.sessions.distinctBy { it.id }) {
+                            Pill("Session ${Dates.contextual(ref.date, today)} ›", palette.volt, onClick = { onOpenSession(ref.id) })
+                        }
+                    }
+                }
             }
         }
     }

@@ -71,11 +71,30 @@ enum class Dp16(val dp: androidx.compose.ui.unit.Dp) { None(0.dp), Tight(12.dp),
 
 /** Large screen heading with an optional muted subtitle. */
 @Composable
-fun ScreenTitle(title: String, subtitle: String? = null, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
+fun ScreenTitle(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
+    /** When set, the subtitle becomes a link (drawn in the accent colour with a chevron). */
+    onSubtitleClick: (() -> Unit)? = null,
+) {
+    val palette = GainsColors.palette
     Row(modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.headlineLarge)
-            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (subtitle != null) {
+                if (onSubtitleClick == null) {
+                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text(
+                        "$subtitle ›",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = palette.volt,
+                        modifier = Modifier.clip(CircleShape).clickable(onClick = onSubtitleClick),
+                    )
+                }
+            }
         }
         trailing?.invoke()
     }
@@ -91,11 +110,12 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier, action: (@Composa
 
 /** Small rounded label: kind tags, statuses. */
 @Composable
-fun Pill(text: String, color: Color, modifier: Modifier = Modifier, filled: Boolean = false) {
+fun Pill(text: String, color: Color, modifier: Modifier = Modifier, filled: Boolean = false, onClick: (() -> Unit)? = null) {
     Box(
         modifier
             .clip(CircleShape)
             .background(if (filled) color else color.copy(alpha = 0.16f))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
         Text(text, style = MaterialTheme.typography.labelSmall, color = if (filled) MaterialTheme.colorScheme.onPrimary else color)
@@ -120,8 +140,9 @@ fun MetricTile(
     caption: String? = null,
     accent: Color? = null,
     large: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
-    GainsCard(modifier, contentPadding = Dp16.Tight) {
+    GainsCard(modifier, onClick = onClick, contentPadding = Dp16.Tight) {
         Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(6.dp))
         Text(
