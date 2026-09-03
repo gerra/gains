@@ -180,14 +180,18 @@ class MultiFileImportTest {
     }
 
     @Test
-    fun nearDuplicatesAcrossFilesAreDetected() {
+    fun sameDayAcrossFilesIsKeptOnce() {
         // The same workout logged twice on one day, but the two copies live in different files.
+        // Sessions are keyed by calendar date, so the merger keeps one copy and nothing is flagged.
         val all = rows(Fixtures.DUPLICATES)
         val fileA = Fixtures.HEADER + "\n" + all.filter { "11:37:12" !in it }.joinToString("\n")
         val fileB = Fixtures.HEADER + "\n" + all.filter { "11:37:12" in it }.joinToString("\n")
         val merged = MultiFileMerger.merge(listOf(parser.parse(fileA), parser.parse(fileB)))
+        assertEquals(1, merged.sessionsInSeveralFiles)
+        assertEquals(listOf("2026-05-02", "2026-05-03"), merged.csv.sessions.map { it.id })
+        assertEquals(3, merged.csv.sessions.first().setCount)
         val preview = ImportAnalyzer().analyze(merged.csv, ExistingData())
-        assertEquals(1, preview.duplicates.size)
+        assertEquals(0, preview.duplicates.size)
         assertEquals(2, preview.newCount)
     }
 

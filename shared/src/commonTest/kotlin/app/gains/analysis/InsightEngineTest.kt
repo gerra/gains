@@ -27,7 +27,7 @@ class InsightEngineTest {
         )
         val insights = engine.generate(sessions, TestData.exercises, today)
         val regression = insights.first { it.kind == InsightKind.REGRESSION }
-        assertEquals("Dumbbell Shoulder Press", regression.title)
+        assertEquals("Seated Dumbbell Shoulder Press", regression.title)
         assertEquals("12 kg × 10 now, 14 kg × 12 on 10 Feb — down 18%.", regression.detail)
         assertEquals(TestData.dbPress.id, regression.exerciseId)
         assertTrue(regression === insights.first(), "regression should sort first")
@@ -59,7 +59,7 @@ class InsightEngineTest {
             listOf(weighted(4.0, 15), weighted(4.0, 15, 1))
         }
         val stall = engine.generate(sessions, TestData.exercises, today).first { it.kind == InsightKind.STALL }
-        assertEquals("Lateral Raise", stall.title)
+        assertEquals("Dumbbell Lateral Raise", stall.title)
         assertEquals("4 kg since 1 Jun. 14 sessions, no change in 13 weeks.", stall.detail)
     }
 
@@ -147,7 +147,7 @@ class InsightEngineTest {
         )
         val r = engine.regression(TestData.plank, ExerciseAnalysis.history(sessions, TestData.plank), today)
         assertNotNull(r)
-        assertEquals("1:00 min now, 2:00 min on 5 May — down 50%.", r.detail)
+        assertEquals("1:00 now, 2:00 on 5 May — down 50%.", r.detail)
     }
 
     @Test

@@ -208,8 +208,9 @@ Nothing is written until you confirm the preview. Along the way:
 5. Exercise names are mapped onto the catalogue through aliases. Unknown names become custom
    exercises with guessed muscle groups. You can merge them into a catalogue exercise in
    Settings, which records an alias for future imports.
-6. Near-duplicate sessions (same day, same exercises, same set count) are detected inside the
-   file, across files and against the database, and only one copy is kept.
+6. A session is a calendar day: blocks logged at different times on one day are merged, exact
+   copies are dropped, the same day across several files is kept once, and a stored session
+   that matches on date, exercises and set count is recognised rather than duplicated.
 7. Isometric holds more than five times the usual hold for that exercise are flagged. You decide
    per hold whether to keep or discard them.
 8. Warm-ups are inferred per exercise per session: weighted sets under 85% of the session's top
