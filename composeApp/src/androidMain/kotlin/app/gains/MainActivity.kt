@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import app.gains.platform.CsvFilePicker
@@ -29,7 +30,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         handleIntent(intent)
         setContent {
-            App(filePicker = filePicker)
+            // The system back button / predictive back gesture pops the navigator while it has
+            // somewhere to go; at the root the callback is disabled so the system leaves the app.
+            App(filePicker = filePicker, systemBack = { enabled, onBack -> BackHandler(enabled, onBack) })
         }
     }
 
