@@ -10,6 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,11 +18,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +28,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +41,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.gains.auth.AccountRepository
 import app.gains.auth.AuthConfig
@@ -52,6 +51,7 @@ import app.gains.ui.charts.ChartMath
 import app.gains.ui.components.DeltaBadge
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
+import app.gains.ui.components.GainsLogo
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.inject
@@ -79,54 +79,58 @@ class SignInModel(
     }
 }
 
-/** First-launch gate: an animated hero, a taste of the insights, then the ways in. */
+/**
+ * First-launch gate: the mark, a headline, a taste of the insights, then the ways in.
+ * Everything fits on one screen; on short displays the layout tightens instead of scrolling.
+ * The aurora runs edge to edge under the system bars; only the content respects them.
+ */
 @Composable
 fun SignInScreen() {
     val model = rememberScreenModel { SignInModel() }
-    val palette = GainsColors.palette
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         AuroraBackground(Modifier.fillMaxSize())
+        val compact = maxHeight < 760.dp
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp),
+            Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(24.dp))
-            Text("GAINS", style = MaterialTheme.typography.labelSmall, color = palette.volt)
-            Spacer(Modifier.height(10.dp))
+            GainsLogo(size = if (compact) 52.dp else 64.dp)
+            Spacer(Modifier.height(if (compact) 10.dp else 16.dp))
             Text(
                 "Know what's\nactually moving.",
-                style = MaterialTheme.typography.displayLarge,
+                style = if (compact) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium,
                 textAlign = TextAlign.Center,
-                lineHeight = MaterialTheme.typography.displayLarge.lineHeight,
             )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Log workouts or import from Liftoff, Strong, Hevy or any CSV. Gains shows which lifts climb, stall or slip, with the numbers to prove it.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(if (compact) 12.dp else 18.dp))
+            HeroPreview(chartHeight = if (compact) 52.dp else 68.dp)
+            if (!compact) {
+                Spacer(Modifier.height(12.dp))
+                FeatureRow()
+            }
+            Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(12.dp))
-            Text(
-                "Log your training here or bring history from Liftoff, Strong, Hevy or any CSV. Gains finds the lifts that are climbing, stalling or slipping, with the numbers to prove it.",
-                style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(24.dp))
-            HeroPreview()
-            Spacer(Modifier.height(28.dp))
 
-            ProviderButton("Continue with Google", enabled = model.config.googleEnabled, onClick = { model.signInWithGoogle() })
-            Spacer(Modifier.height(10.dp))
-            ProviderButton("Continue with Apple", enabled = model.config.appleEnabled, onClick = { model.signInWithApple() })
-            if (!model.config.googleEnabled || !model.config.appleEnabled) {
-                Spacer(Modifier.height(10.dp))
-                Pill("Sign-in and cloud sync coming soon", palette.muted)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ProviderButton("Google", enabled = model.config.googleEnabled, Modifier.weight(1f)) { model.signInWithGoogle() }
+                ProviderButton("Apple", enabled = model.config.appleEnabled, Modifier.weight(1f)) { model.signInWithApple() }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(10.dp))
             PrimaryButton("Continue as guest", onClick = { model.continueAsGuest() }, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "As a guest everything stays on this device. Sign in later to back it up and sync.",
-                style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            model.error?.let {
-                Spacer(Modifier.height(8.dp))
-                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(8.dp))
+            val note = if (model.config.googleEnabled && model.config.appleEnabled) {
+                "As a guest everything stays on this device. Sign in later to back it up and sync."
+            } else {
+                "Sign-in and cloud sync are coming soon. As a guest everything stays on this device."
             }
-            Spacer(Modifier.height(16.dp))
+            Text(model.error ?: note, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                color = if (model.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -152,7 +156,7 @@ private fun AuroraBackground(modifier: Modifier = Modifier) {
 
 /** A mock insight card with a live-drawn trend, so the value is visible before any data exists. */
 @Composable
-private fun HeroPreview() {
+private fun HeroPreview(chartHeight: Dp) {
     val palette = GainsColors.palette
     val transition = rememberInfiniteTransition(label = "hero")
     val progress by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Restart), label = "p")
@@ -165,9 +169,9 @@ private fun HeroPreview() {
         Spacer(Modifier.height(8.dp))
         Text("Bench Press", style = MaterialTheme.typography.titleMedium)
         Text("62.5 kg × 8 on 20 Aug, up 6% on 60 kg × 8 from June.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
         val values = listOf(72.0, 74.0, 73.5, 76.0, 76.0, 78.5, 80.0, 79.5, 82.0, 84.0)
-        Canvas(Modifier.fillMaxWidth().height(72.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(chartHeight)) {
             val lo = values.min(); val hi = values.max()
             val pts = values.mapIndexed { i, v ->
                 Offset(i * size.width / (values.size - 1), size.height - ((v - lo) / (hi - lo) * (size.height - 12f)).toFloat() - 6f)
@@ -188,11 +192,13 @@ private fun HeroPreview() {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Pill("Regression", palette.regression)
             Pill("Stall", palette.stall)
-            Pill("Neglect", palette.neglect)
             Pill("Consistency", palette.consistency)
         }
     }
-    Spacer(Modifier.height(14.dp))
+}
+
+@Composable
+private fun FeatureRow() {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Feature("Log", "Sets, reps, holds, cardio", Modifier.weight(1f))
         Feature("Import", "Liftoff · Strong · Hevy · CSV", Modifier.weight(1f))
@@ -212,11 +218,11 @@ private fun Feature(title: String, body: String, modifier: Modifier = Modifier) 
 }
 
 @Composable
-private fun ProviderButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+private fun ProviderButton(provider: String, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.fillMaxWidth().height(52.dp),
+        modifier = modifier.height(50.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -225,6 +231,6 @@ private fun ProviderButton(text: String, enabled: Boolean, onClick: () -> Unit) 
             disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         ),
     ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        Text(provider, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }

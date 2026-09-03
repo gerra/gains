@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gains mark: an ascending trend line with a target dot. Geometry mirrors GainsLogo in Logo.kt and the iOS AppIcon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:startX="0" android:startY="0" android:endX="108" android:endY="108" android:type="linear">
+                <item android:offset="0" android:color="#FF1A2238" />
+                <item android:offset="1" android:color="#FF0B0D12" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M73.80,35.52 m-36,0 a36,36 0 1,0 72,0 a36,36 0 1,0 -72,0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:centerX="73.80" android:centerY="35.52" android:gradientRadius="36" android:type="radial">
+                <item android:offset="0" android:color="#4DC8FF4D" />
+                <item android:offset="1" android:color="#00C8FF4D" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M32.88,77.10 m-40,0 a40,40 0 1,0 80,0 a40,40 0 1,0 -80,0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:centerX="32.88" android:centerY="77.10" android:gradientRadius="40" android:type="radial">
+                <item android:offset="0" android:color="#598B7CFF" />
+                <item android:offset="1" android:color="#008B7CFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M30.24,69.84 C32.44,68.30 39.48,61.48 43.44,60.60 C47.40,59.72 50.48,66.10 54.00,64.56 C57.52,63.02 60.60,55.76 64.56,51.36 C68.52,46.96 75.56,40.36 77.76,38.16 L77.76,81.72 L30.24,81.72 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:startX="0" android:startY="38.16" android:endX="0" android:endY="81.72" android:type="linear">
+                <item android:offset="0" android:color="#73C8FF4D" />
+                <item android:offset="1" android:color="#00C8FF4D" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M30.24,69.84 C32.44,68.30 39.48,61.48 43.44,60.60 C47.40,59.72 50.48,66.10 54.00,64.56 C57.52,63.02 60.60,55.76 64.56,51.36 C68.52,46.96 75.56,40.36 77.76,38.16"
+        android:strokeColor="#C8FF4D"
+        android:strokeWidth="4.95"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path android:pathData="M77.76,38.16 m-6.60,0 a6.60,6.60 0 1,0 13.20,0 a6.60,6.60 0 1,0 -13.20,0" android:fillColor="#40C8FF4D" />
+    <path android:pathData="M77.76,38.16 m-3.63,0 a3.63,3.63 0 1,0 7.26,0 a3.63,3.63 0 1,0 -7.26,0" android:fillColor="#C8FF4D" />
+    <path android:pathData="M77.76,38.16 m-1.65,0 a1.65,1.65 0 1,0 3.30,0 a1.65,1.65 0 1,0 -3.30,0" android:fillColor="#0B0D12" />
+</vector>

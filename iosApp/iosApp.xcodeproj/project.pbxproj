@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1A40B90C7E8844F48DB0A227 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122CB644AC9849C7845AE9A7 /* ContentView.swift */; };
 		F6A5F7933FD0450692911CD3 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC735ADC88494CDFB83E94D6 /* iOSApp.swift */; };
+		7C1E2D3A4B5C6D7E8F9A0B1C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D2F3E4A5B6C7D8E9FA0B1C2 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -17,6 +18,7 @@
 		5EE831CA06674C458816A360 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6A6FFE7D7607407EB9A33E45 /* Gains.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Gains.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC735ADC88494CDFB83E94D6 /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		8D2F3E4A5B6C7D8E9FA0B1C2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -36,6 +38,7 @@
 				CC735ADC88494CDFB83E94D6 /* iOSApp.swift */,
 				122CB644AC9849C7845AE9A7 /* ContentView.swift */,
 				5EE831CA06674C458816A360 /* Info.plist */,
+				8D2F3E4A5B6C7D8E9FA0B1C2 /* Assets.xcassets */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -124,6 +127,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7C1E2D3A4B5C6D7E8F9A0B1C /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

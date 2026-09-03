@@ -8,6 +8,11 @@ import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.PickedFile
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.dsl.module
 import platform.Foundation.NSString
 import platform.Foundation.NSURL
@@ -33,13 +38,22 @@ fun MainViewController(): UIViewController {
     return ComposeUIViewController { App(filePicker = IosFilePicker()) }
 }
 
+/** Reads files on the IO dispatcher so the main thread never blocks on disk or the file provider. */
+private val fileReads = CoroutineScope(Dispatchers.IO)
+
 /** Called from Swift when the app is opened with a CSV (share sheet "Open in Gains", Files, AirDrop). */
-@OptIn(ExperimentalForeignApi::class)
 fun handleIncomingFile(url: NSURL) {
+    fileReads.launch {
+        readCsv(url)?.let { IncomingFiles.offer(it) }
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun readCsv(url: NSURL): PickedFile? {
     val accessing = url.startAccessingSecurityScopedResource()
     try {
-        val text = NSString.stringWithContentsOfURL(url, NSUTF8StringEncoding, null) ?: return
-        IncomingFiles.offer(PickedFile(url.lastPathComponent ?: "export.csv", text))
+        val text = NSString.stringWithContentsOfURL(url, NSUTF8StringEncoding, null) ?: return null
+        return PickedFile(url.lastPathComponent ?: "export.csv", text)
     } finally {
         if (accessing) url.stopAccessingSecurityScopedResource()
     }
@@ -67,15 +81,11 @@ class IosFilePicker : CsvFilePicker {
 
     private class PickerDelegate(private val onResult: (List<PickedFile>) -> Unit) : NSObject(), UIDocumentPickerDelegateProtocol {
         override fun documentPicker(controller: UIDocumentPickerViewController, didPickDocumentsAtURLs: List<*>) {
-            val files = didPickDocumentsAtURLs.mapNotNull { it as? NSURL }.mapNotNull { url ->
-                val accessing = url.startAccessingSecurityScopedResource()
-                try {
-                    NSString.stringWithContentsOfURL(url, NSUTF8StringEncoding, null)?.let { PickedFile(url.lastPathComponent ?: "export.csv", it) }
-                } finally {
-                    if (accessing) url.stopAccessingSecurityScopedResource()
-                }
+            val urls = didPickDocumentsAtURLs.mapNotNull { it as? NSURL }
+            fileReads.launch {
+                val files = urls.mapNotNull(::readCsv)
+                withContext(Dispatchers.Main) { onResult(files) }
             }
-            onResult(files)
         }
 
         override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) = onResult(emptyList())
