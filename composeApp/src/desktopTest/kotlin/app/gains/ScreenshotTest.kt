@@ -64,21 +64,35 @@ class ScreenshotTest {
             }
         }
 
+        // Drive the clock by hand. With autoAdvance the framework waits for the scene to stop
+        // invalidating before every node lookup, which never happens while anything animates.
+        mainClock.autoAdvance = false
+        val watchdog = Thread {
+            try { Thread.sleep(4 * 60_000L) } catch (_: InterruptedException) { return@Thread }
+            println("screenshot test still running after 4 minutes; thread dump follows")
+            for ((thread, stack) in Thread.getAllStackTraces()) {
+                println("--- ${thread.name} (${thread.state})")
+                stack.take(25).forEach { println("    at $it") }
+            }
+        }.apply { isDaemon = true; start() }
+
+        fun settle(millis: Long = 600) = mainClock.advanceTimeBy(millis)
         fun exists(matcher: SemanticsMatcher) = onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
-        fun await(matcher: SemanticsMatcher, timeoutMillis: Long = 30_000) = waitUntil(timeoutMillis = timeoutMillis) { exists(matcher) }
+        fun await(matcher: SemanticsMatcher, timeoutMillis: Long = 30_000) =
+            waitUntil(timeoutMillis = timeoutMillis) { mainClock.advanceTimeByFrame(); exists(matcher) }
         fun shot(name: String) {
-            waitForIdle()
+            settle()
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(outDir, "$name.png"))
             println("screenshot: $name")
         }
         fun tab(label: String) {
             onNode(hasContentDescription(label) and hasClickAction()).performClick()
-            waitForIdle()
+            settle()
         }
 
         // 1. Welcome / sign-in gate.
         await(hasText("Continue as guest"))
-        mainClock.advanceTimeBy(1_500)
+        settle(1_500)
         shot("01-welcome")
         onNode(hasText("Continue as guest") and hasClickAction()).performClick()
         await(hasText("No workouts yet"))
@@ -88,7 +102,7 @@ class ScreenshotTest {
         val importButton = hasText("Import ", substring = true) and hasClickAction()
         await(hasText("Summary"))
         await(importButton, 60_000)
-        mainClock.advanceTimeBy(800)
+        settle(800)
         shot("02-import")
         val committedThroughUi = runCatching {
             onNode(hasScrollAction()).performScrollToNode(importButton)
@@ -105,29 +119,29 @@ class ScreenshotTest {
 
         // 3. Home insights.
         await(hasText("What's moving"), 60_000)
-        mainClock.advanceTimeBy(1_500)
+        settle(1_500)
         shot("03-home")
 
         // 4. History.
         tab("History")
         await(hasText("Last 26 weeks"))
-        mainClock.advanceTimeBy(1_500)
+        settle(1_500)
         shot("04-history")
 
         // 5. Lifts list and a lift's detail.
         tab("Lifts")
         await(hasText("Bench Press"))
-        mainClock.advanceTimeBy(1_500)
+        settle(1_500)
         shot("05-lifts")
         onAllNodes(hasText("Bench Press")).onFirst().performClick()
         await(hasText("Estimated 1RM", substring = true))
-        mainClock.advanceTimeBy(1_500)
+        settle(1_500)
         shot("06-lift-detail")
 
         // 6. Weekly volume per muscle group.
         tab("Volume")
         await(hasText("This week", substring = true))
-        mainClock.advanceTimeBy(1_500)
+        settle(1_500)
         shot("07-volume")
 
         // 7. Bodyweight, with a few months of entries.
@@ -141,7 +155,7 @@ class ScreenshotTest {
         }
         tab("Body")
         await(hasText("Trend"))
-        mainClock.advanceTimeBy(1_500)
+        settle(1_500)
         shot("08-body")
 
         // 8. Settings, then the light theme.
@@ -149,23 +163,25 @@ class ScreenshotTest {
         await(hasText("Appearance"))
         shot("09-settings")
         onNode(hasText("Light") and hasClickAction()).performClick()
-        waitForIdle()
+        settle()
         tab("Home")
         await(hasText("What's moving"), 60_000)
-        mainClock.advanceTimeBy(1_500)
+        settle(1_500)
         shot("10-home-light")
         tab("Lifts")
         await(hasText("Bench Press"))
         onAllNodes(hasText("Bench Press")).onFirst().performClick()
         await(hasText("Estimated 1RM", substring = true))
-        mainClock.advanceTimeBy(1_500)
+        settle(1_500)
         shot("11-lift-detail-light")
+        watchdog.interrupt()
     }
 
     @Test
     fun renderLogo() = runDesktopComposeUiTest(width = 1024, height = 1024) {
         setContent { GainsLogo(size = 1024.dp) }
-        waitForIdle()
+        mainClock.autoAdvance = false
+        mainClock.advanceTimeBy(100)
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(outDir, "logo.png"))
     }
 }

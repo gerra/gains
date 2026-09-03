@@ -84,6 +84,12 @@ kotlin {
 // The screenshot test (composeApp/src/desktopTest) writes into build/screenshots unless
 // `-Pgains.screenshotDir=<dir>` (relative to the repository root) points it elsewhere.
 tasks.withType<Test>().configureEach {
+    timeout.set(java.time.Duration.ofMinutes(12))
+    testLogging {
+        showStandardStreams = true
+        events("passed", "failed", "skipped")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
     systemProperty(
         "gains.screenshotDir",
         project.findProperty("gains.screenshotDir")?.toString()?.let { rootProject.file(it).absolutePath }
