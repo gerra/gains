@@ -1,3 +1,15 @@
-TEAM_ID=
+// Settings shared by every build of the iOS app. The Xcode project reads them through
+// $(NAME) so nothing here has to be edited inside Xcode.
+
+// Apple Developer team that signs the app (Xcode > Settings > Accounts shows it).
+TEAM_ID=V5Y8M5GKZ6
 BUNDLE_ID=app.gains.Gains
 APP_NAME=Gains
+
+// Version shown in TestFlight and the App Store (CFBundleShortVersionString).
+MARKETING_VERSION=1.0
+// Build number (CFBundleVersion). App Store Connect rejects an upload that reuses a build
+// number for the same version, so bump it before every TestFlight upload. The TestFlight
+// workflow overrides it with the GitHub run number; `xcodebuild ... CURRENT_PROJECT_VERSION=42`
+// does the same by hand.
+CURRENT_PROJECT_VERSION=1

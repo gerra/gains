@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Options for `xcodebuild -exportArchive` when producing a TestFlight / App Store build
+	  from the command line (see docs/testflight.md). Xcode's Organizer does not read this
+	  file; it asks the same questions in its dialog.
+	-->
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>teamID</key>
+	<string>V5Y8M5GKZ6</string>
+	<!-- Let Xcode pick the Apple Distribution certificate and App Store profile for the team. -->
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<!-- Ship dSYMs so TestFlight crash reports are symbolicated. -->
+	<key>uploadSymbols</key>
+	<true/>
+	<!-- "export" writes Gains.ipa to disk; "upload" sends it straight to App Store Connect. -->
+	<key>destination</key>
+	<string>export</string>
+</dict>
+</plist>
