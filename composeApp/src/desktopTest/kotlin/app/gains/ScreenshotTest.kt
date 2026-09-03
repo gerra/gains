@@ -10,11 +10,13 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import app.gains.analysis.Dates
 import app.gains.data.BodyweightRepository
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.DesktopDriverFactory
@@ -28,11 +30,8 @@ import app.gains.platform.PickedFile
 import app.gains.ui.components.GainsLogo
 import app.gains.ui.inject
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
-import kotlinx.datetime.todayIn
 import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import java.io.File
@@ -66,7 +65,7 @@ class ScreenshotTest {
         }
 
         fun exists(matcher: SemanticsMatcher) = onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
-        fun await(matcher: SemanticsMatcher, timeoutMillis: Long = 30_000) = waitUntil(timeoutMillis) { exists(matcher) }
+        fun await(matcher: SemanticsMatcher, timeoutMillis: Long = 30_000) = waitUntil(timeoutMillis = timeoutMillis) { exists(matcher) }
         fun shot(name: String) {
             waitForIdle()
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(outDir, "$name.png"))
@@ -133,7 +132,7 @@ class ScreenshotTest {
 
         // 7. Bodyweight, with a few months of entries.
         val bodyweight = inject<BodyweightRepository>()
-        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+        val today = Dates.today()
         runBlocking {
             for (daysAgo in 0 until 90 step 2) {
                 val kg = 82.0 - (90 - daysAgo) * 0.03 + sin(daysAgo / 3.0) * 0.4
