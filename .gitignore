@@ -9,11 +9,10 @@ local.properties
 captures
 .externalNativeBuild
 .cxx
-*.xcodeproj/*
-!*.xcodeproj/project.pbxproj
-!*.xcodeproj/xcshareddata/
-!*.xcodeproj/project.xcworkspace/
-!*.xcworkspace/contents.xcworkspacedata
+# Xcode: keep only the project file and shared schemes; the embedded workspace and user state are generated.
+**/*.xcodeproj/*
+!**/*.xcodeproj/project.pbxproj
+!**/*.xcodeproj/xcshareddata/
 **/xcshareddata/WorkspaceSettings.xcsettings
 /iosApp/Pods
 *.kotlin_module

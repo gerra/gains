@@ -53,6 +53,7 @@ import app.gains.data.ThemeMode
 import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
+import app.gains.ui.components.GainsWordmark
 import app.gains.ui.inject
 import app.gains.ui.nav.Navigator
 import app.gains.ui.nav.Screen
@@ -97,7 +98,7 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
         // Surface sets the content colour for every Text below it and paints the background.
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
             if (accountState === AccountLoading) return@Surface
-            if (accountState == null) { Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) { SignInScreen() }; return@Surface }
+            if (accountState == null) { SignInScreen(); return@Surface }
             Column(Modifier.fillMaxSize().statusBarsPadding()) {
                 TopBar(navigator, screen)
                 Box(Modifier.weight(1f)) {
@@ -150,12 +151,7 @@ private fun TopBar(navigator: Navigator, screen: Screen) {
             IconCircle(Icons.AutoMirrored.Filled.ArrowBack, "Back") { navigator.pop() }
             Spacer(Modifier.size(8.dp))
         } else {
-            Text(
-                "GAINS",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 8.dp),
-            )
+            GainsWordmark(Modifier.padding(start = 4.dp))
         }
         Spacer(Modifier.weight(1f))
         if (screen != Screen.Import) IconCircle(Icons.Default.Add, "Import CSV") { navigator.push(Screen.Import) }

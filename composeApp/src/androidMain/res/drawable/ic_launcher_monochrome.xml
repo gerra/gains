@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon variant: the trend line only, single colour. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M30.24,69.84 C32.44,68.30 39.48,61.48 43.44,60.60 C47.40,59.72 50.48,66.10 54.00,64.56 C57.52,63.02 60.60,55.76 64.56,51.36 C68.52,46.96 75.56,40.36 77.76,38.16"
+        android:strokeColor="#000000"
+        android:strokeWidth="4.95"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path android:pathData="M77.76,38.16 m-3.63,0 a3.63,3.63 0 1,0 7.26,0 a3.63,3.63 0 1,0 -7.26,0" android:fillColor="#000000" />
+</vector>

@@ -13,6 +13,8 @@ struct ComposeView: UIViewControllerRepresentable {
 struct ContentView: View {
     var body: some View {
         ComposeView()
-            .ignoresSafeArea(.keyboard) // Compose handles the keyboard insets itself.
+            // Full-bleed: Compose reads the safe area itself (status bar, home indicator, keyboard),
+            // so SwiftUI must not inset the view or the window background shows through at the edges.
+            .ignoresSafeArea(.all)
     }
 }

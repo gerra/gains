@@ -4,8 +4,11 @@ import app.gains.data.ExerciseRepository
 import app.gains.data.SessionRepository
 import app.gains.domain.Exercise
 import app.gains.domain.Session
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 
 /** Sessions with the warm-up rule applied, plus the exercises they reference. */
 data class TrainingSnapshot(
@@ -30,6 +33,7 @@ data class TrainingSnapshot(
 class TrainingData(
     private val sessions: SessionRepository,
     private val exercises: ExerciseRepository,
+    private val compute: CoroutineDispatcher = Dispatchers.Default,
 ) {
     val snapshot: Flow<TrainingSnapshot> = combine(
         sessions.observeRawSessions(),
@@ -37,5 +41,5 @@ class TrainingData(
         exercises.observeWorkingSetRatios(),
     ) { rawSessions, exerciseList, ratios ->
         TrainingSnapshot(WorkingSets.apply(rawSessions, ratios), exerciseList)
-    }
+    }.flowOn(compute)
 }

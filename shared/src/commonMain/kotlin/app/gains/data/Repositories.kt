@@ -22,10 +22,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+
+/*
+ * Threading: every observe*() flow ends in flowOn(io). SQLDelight's asFlow() registers and
+ * removes query listeners in the collector's context, and the native driver guards its
+ * listener map with the same lock it takes on every write. Collecting from the main thread
+ * would make the UI thread wait on that lock while an IO thread (default QoS) holds it, a
+ * priority inversion Xcode's Thread Performance Checker reports as a hang risk. Keeping
+ * registration, query execution and row mapping on the IO threads avoids it entirely.
+ */
 
 class SessionRepository(
     private val db: GainsDatabase,
@@ -66,7 +76,7 @@ class SessionRepository(
                 },
             )
         }
-    }
+    }.flowOn(io)
 
     suspend fun summaries(): List<StoredSessionSummary> = withContext(io) {
         q.selectSummaries().executeAsList().map {
@@ -151,17 +161,17 @@ class ExerciseRepository(
                 muscleGroups = decodeMuscles(r.muscles),
             )
         }
-    }
+    }.flowOn(io)
 
     /** normalized raw name -> exercise id */
     fun observeAliases(): Flow<Map<String, String>> = q.selectAliases().asFlow().mapToList(io).map { rows ->
         rows.associate { it.raw_name to it.exercise_id }
-    }
+    }.flowOn(io)
 
     /** exercise id -> working-set ratio */
     fun observeWorkingSetRatios(): Flow<Map<String, Double>> = q.selectOverrides().asFlow().mapToList(io).map { rows ->
         rows.mapNotNull { r -> r.working_set_ratio?.let { r.exercise_id to it } }.toMap()
-    }
+    }.flowOn(io)
 
     suspend fun exercises(): List<Exercise> = withContext(io) {
         q.selectExercises().executeAsList().map { r ->
@@ -243,7 +253,7 @@ class BodyweightRepository(
 ) {
     fun observe(): Flow<List<BodyweightEntry>> = db.bodyweightQueries.selectAll().asFlow().mapToList(io).map { rows ->
         rows.map { BodyweightEntry(LocalDate.parse(it.date), it.weight_kg) }
-    }
+    }.flowOn(io)
 
     suspend fun upsert(entry: BodyweightEntry) = withContext(io) {
         db.bodyweightQueries.upsert(entry.date.toString(), entry.weightKg)
@@ -259,20 +269,18 @@ class SettingsRepository(
     private val q get() = db.settingsQueries
 
     fun observeUnit(): Flow<WeightUnit> = q.selectValue(KEY_UNIT).asFlow().map { query ->
-        withContext(io) { query.executeAsOneOrNull()?.let { runCatching { WeightUnit.valueOf(it) }.getOrNull() } ?: WeightUnit.KG }
-    }
+        query.executeAsOneOrNull()?.let { runCatching { WeightUnit.valueOf(it) }.getOrNull() } ?: WeightUnit.KG
+    }.flowOn(io)
 
     suspend fun setUnit(unit: WeightUnit) = withContext(io) { q.upsert(KEY_UNIT, unit.name) }
 
-    fun observe(key: String): Flow<String?> = q.selectValue(key).asFlow().map { query ->
-        withContext(io) { query.executeAsOneOrNull() }
-    }
+    fun observe(key: String): Flow<String?> = q.selectValue(key).asFlow().map { query -> query.executeAsOneOrNull() }.flowOn(io)
 
     suspend fun set(key: String, value: String) = withContext(io) { q.upsert(key, value) }
 
     fun observeThemeMode(): Flow<ThemeMode> = q.selectValue(KEY_THEME).asFlow().map { query ->
-        withContext(io) { query.executeAsOneOrNull()?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK }
-    }
+        query.executeAsOneOrNull()?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK
+    }.flowOn(io)
 
     suspend fun setThemeMode(mode: ThemeMode) = withContext(io) { q.upsert(KEY_THEME, mode.name) }
 
