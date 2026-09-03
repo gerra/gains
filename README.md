@@ -31,7 +31,7 @@
 <p align="center">
   <img src="docs/screenshots/03-home.png" alt="Home: what's moving" width="30%">&nbsp;
   <img src="docs/screenshots/06-lift-detail.png" alt="Lift detail with e1RM chart" width="30%">&nbsp;
-  <img src="docs/screenshots/07-volume.png" alt="Weekly volume per muscle group" width="30%">
+  <img src="docs/screenshots/04-history.png" alt="History with calendar heat-map" width="30%">
 </p>
 
 ---
@@ -102,8 +102,9 @@ device today.
 
 ## Screenshots
 
-All images are rendered from the real app by [a headless UI test](composeApp/src/desktopTest/kotlin/app/gains/ScreenshotTest.kt)
-against the [sample export](samples/liftoff-export.csv), so they stay current.
+Every image is rendered from the real app by [a headless UI test](composeApp/src/desktopTest/kotlin/app/gains/ScreenshotTest.kt)
+that signs in, imports the [sample export](samples/liftoff-export.csv) and walks through each
+tab, so the pictures cannot drift from the code.
 
 <table>
   <tr>
