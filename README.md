@@ -12,6 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/gerra/gains/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/gerra/gains/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/gerra/gains/actions/workflows/testflight.yml"><img alt="TestFlight" src="https://github.com/gerra/gains/actions/workflows/testflight.yml/badge.svg"></a>
   <img alt="Kotlin 2.3" src="https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white">
   <img alt="Compose Multiplatform 1.7" src="https://img.shields.io/badge/Compose_Multiplatform-1.7-4285F4?logo=jetpackcompose&logoColor=white">
   <img alt="Platforms: iOS, Android, Desktop" src="https://img.shields.io/badge/platforms-iOS_%C2%B7_Android_%C2%B7_Desktop-0B0D12">
@@ -22,6 +23,7 @@
   <a href="#features">Features</a> ·
   <a href="#screenshots">Screenshots</a> ·
   <a href="#getting-started">Getting started</a> ·
+  <a href="#testflight">TestFlight</a> ·
   <a href="#importing-your-history">Importing</a> ·
   <a href="#insights">Insights</a> ·
   <a href="#architecture">Architecture</a> ·
@@ -60,6 +62,9 @@ device today.
   - [Desktop](#desktop)
   - [Android](#android)
   - [iOS](#ios)
+- [TestFlight](#testflight)
+  - [Join the beta](#join-the-beta)
+  - [Ship a build](#ship-a-build)
 - [Importing your history](#importing-your-history)
   - [Supported exports](#supported-exports)
   - [What happens to a file](#what-happens-to-a-file)
@@ -173,9 +178,49 @@ the import preview. Several files can be shared at once.
 open iosApp/iosApp.xcodeproj
 ```
 
-Fill in `TEAM_ID` in `iosApp/Configuration/Config.xcconfig`, pick a device or simulator and run.
-The Xcode project wraps the `ComposeApp` framework in SwiftUI and registers the app as a CSV
-handler, so **Open in Gains** appears in the share sheet.
+Pick a device or simulator and run. The signing team, bundle id, version and build number live
+in `iosApp/Configuration/Config.xcconfig`; change `TEAM_ID` there to build under another team.
+The *Compile Kotlin Framework* phase runs Gradle with `-Pgains.android=false`, so a Mac needs a
+JDK but no Android SDK. The Xcode project wraps the `ComposeApp` framework in SwiftUI and
+registers the app as a CSV handler, so **Open in Gains** appears in the share sheet.
+
+To put a build on a phone without a Mac and a cable, see [TestFlight](#testflight).
+
+## TestFlight
+
+Gains reaches iPhones and iPads through [TestFlight](https://developer.apple.com/testflight/).
+Builds are signed by the team in `iosApp/Configuration/Config.xcconfig` and uploaded from Xcode
+or by the [TestFlight workflow](.github/workflows/testflight.yml). The full checklist, the
+one-time App Store Connect setup, the workflow secrets and troubleshooting are in
+[docs/testflight.md](docs/testflight.md).
+
+### Join the beta
+
+1. Install [TestFlight](https://apps.apple.com/app/testflight/id899247664) from the App Store
+   (iOS 16 or later).
+2. Open the invite link on that device: **https://testflight.apple.com/join/XXXXXXXX**
+   <!-- Replace XXXXXXXX with the public link from App Store Connect > TestFlight > the external group. -->
+3. Tap **Accept**, then **Install**. TestFlight offers each new build as an update, and a build
+   expires 90 days after it was uploaded.
+
+The beta is the same local-only app as the source here: nothing leaves the device. Report
+problems with **Send Beta Feedback** in TestFlight (a screenshot from the app opens it) or in
+the [issue tracker](https://github.com/gerra/gains/issues).
+
+### Ship a build
+
+**From Xcode.** Bump `CURRENT_PROJECT_VERSION` in `Config.xcconfig`, choose the
+**Any iOS Device (arm64)** destination, run **Product > Archive**, then in the Organizer press
+**Distribute App > TestFlight & App Store**.
+
+**From GitHub Actions.** Add the six secrets listed in [docs/testflight.md](docs/testflight.md#upload-from-github-actions)
+(distribution certificate, App Store profile, App Store Connect API key), then start the
+**TestFlight** workflow from the Actions tab or push a `v*` tag. The run number becomes the
+build number.
+
+Either way the build shows up under **TestFlight** in App Store Connect after a few minutes of
+processing, ready to be added to a tester group. Export compliance, the privacy manifest and an
+alpha-free app icon are already handled in the project, so an upload needs no extra answers.
 
 ## Importing your history
 
@@ -303,6 +348,10 @@ CI does on runners without an SDK. Everything else is unaffected.
 a GitHub runner and commits the images under `docs/screenshots`. Trigger it from the Actions tab
 after a UI change.
 
+**Releasing.** The [TestFlight workflow](.github/workflows/testflight.yml) archives the iOS app
+on a macOS runner and uploads it to App Store Connect. [docs/testflight.md](docs/testflight.md)
+covers the secrets it needs and the manual route through Xcode.
+
 **Adding a connector.** Declare a `ColumnSpec` and a `match` function in
 [`CsvConnectors.kt`](shared/src/commonMain/kotlin/app/gains/connectors/CsvConnectors.kt), register
 it in `Connectors`, and add a fixture to `ConnectorsTest`.
@@ -320,8 +369,8 @@ case in `InsightEngineTest`.
 
 - The Android source set is written against the standard APIs but is not compiled in CI, which
   runs without an Android SDK. Open the project in Android Studio to build it.
-- The iOS app compiles to Kotlin/Native klibs on any host, but linking and running it needs
-  Xcode on a Mac.
+- The iOS app compiles to Kotlin/Native klibs on any host, but linking, running and archiving
+  it needs Xcode on a Mac (the TestFlight workflow uses a hosted macOS runner for this).
 - Sign-in buttons are placeholders until the sync server exists.
 
 ## Contributing

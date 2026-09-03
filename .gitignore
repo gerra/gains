@@ -17,3 +17,9 @@ captures
 /iosApp/Pods
 *.kotlin_module
 .kotlin
+# Signing material and build output for TestFlight: never commit these.
+*.p8
+*.p12
+*.mobileprovision
+*.xcarchive
+*.ipa
