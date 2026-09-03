@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Shared tests and desktop build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      # No Android SDK on the runner: build the shared module and the desktop target only.
+      - run: ./gradlew :shared:desktopTest :composeApp:desktopTest -Pgains.android=false --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: composeApp/build/screenshots
+          if-no-files-found: ignore

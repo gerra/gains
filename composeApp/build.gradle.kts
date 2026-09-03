@@ -72,7 +72,24 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.swing)
             }
         }
+        val desktopTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(compose.desktop.uiTestJUnit4)
+            }
+        }
     }
+}
+
+// The screenshot test (composeApp/src/desktopTest) writes into build/screenshots unless
+// `-Pgains.screenshotDir=<dir>` (relative to the repository root) points it elsewhere.
+tasks.withType<Test>().configureEach {
+    systemProperty(
+        "gains.screenshotDir",
+        project.findProperty("gains.screenshotDir")?.toString()?.let { rootProject.file(it).absolutePath }
+            ?: layout.buildDirectory.dir("screenshots").get().asFile.absolutePath,
+    )
+    systemProperty("gains.sampleCsv", rootProject.file("samples/liftoff-export.csv").absolutePath)
 }
 
 compose.desktop {

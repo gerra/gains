@@ -1,0 +1,39 @@
+name: Screenshots
+
+# Re-renders the README screenshots by driving the desktop app headlessly
+# (composeApp/src/desktopTest/kotlin/app/gains/ScreenshotTest.kt) and commits
+# the result to the branch the workflow ran on.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/readme-best-practices-0aouzp']
+
+permissions:
+  contents: write
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Render screenshots
+        run: ./gradlew :composeApp:desktopTest --tests 'app.gains.ScreenshotTest' -Pgains.android=false -Pgains.screenshotDir=docs/screenshots --no-daemon
+      - name: Show test report on failure
+        if: failure()
+        run: |
+          for f in composeApp/build/test-results/desktopTest/*.xml; do echo "== $f"; head -c 20000 "$f"; done
+      - name: Commit screenshots
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A docs/screenshots
+          if git diff --cached --quiet; then echo "Screenshots unchanged"; exit 0; fi
+          git commit -m "Regenerate screenshots"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
