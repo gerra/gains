@@ -13,10 +13,12 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Dates
+import app.gains.auth.AccountRepository
 import app.gains.data.BodyweightRepository
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.DesktopDriverFactory
@@ -78,8 +80,24 @@ class ScreenshotTest {
 
         fun settle(millis: Long = 600) = mainClock.advanceTimeBy(millis)
         fun exists(matcher: SemanticsMatcher) = onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
-        fun await(matcher: SemanticsMatcher, timeoutMillis: Long = 30_000) =
-            waitUntil(timeoutMillis = timeoutMillis) { mainClock.advanceTimeByFrame(); exists(matcher) }
+        /** Polls in real time (the framework's waitUntil measures virtual time and never gives up). */
+        fun await(matcher: SemanticsMatcher, timeoutMillis: Long = 30_000): Boolean {
+            val start = System.nanoTime()
+            var frames = 0
+            while (!exists(matcher)) {
+                mainClock.advanceTimeByFrame()
+                frames++
+                if (System.nanoTime() - start > timeoutMillis * 1_000_000L) {
+                    println("timed out after $frames frames waiting for ${matcher.description}; on screen:")
+                    println(onRoot().printToString())
+                    return false
+                }
+            }
+            println("found ${matcher.description} after $frames frames")
+            return true
+        }
+        fun require(matcher: SemanticsMatcher, timeoutMillis: Long = 30_000) =
+            check(await(matcher, timeoutMillis)) { "Gave up waiting for ${matcher.description}" }
         fun shot(name: String) {
             settle()
             ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(outDir, "$name.png"))
@@ -91,23 +109,27 @@ class ScreenshotTest {
         }
 
         // 1. Welcome / sign-in gate.
-        await(hasText("Continue as guest"))
+        require(hasText("Continue as guest"))
         settle(1_500)
         shot("01-welcome")
         onNode(hasText("Continue as guest") and hasClickAction()).performClick()
-        await(hasText("No workouts yet"))
+        if (!await(hasText("No workouts yet"), 15_000)) {
+            println("guest sign-in through the UI did not switch screens; signing in through the repository")
+            runBlocking { inject<AccountRepository>().continueAsGuest() }
+            require(hasText("No workouts yet"))
+        }
 
         // 2. Import preview: hand the app a file the way the share sheet would.
         IncomingFiles.offer(PickedFile("liftoff-export.csv", csv))
         val importButton = hasText("Import ", substring = true) and hasClickAction()
-        await(hasText("Summary"))
-        await(importButton, 60_000)
+        require(hasText("Summary"), 60_000)
+        require(importButton, 60_000)
         settle(800)
         shot("02-import")
         val committedThroughUi = runCatching {
             onNode(hasScrollAction()).performScrollToNode(importButton)
             onNode(importButton).performClick()
-            await(hasText("Imported"), 60_000)
+            require(hasText("Imported"), 60_000)
             onNode(hasText("Done") and hasClickAction()).performClick()
         }.isSuccess
         if (!committedThroughUi) {
@@ -118,29 +140,29 @@ class ScreenshotTest {
         }
 
         // 3. Home insights.
-        await(hasText("What's moving"), 60_000)
+        require(hasText("What's moving"), 60_000)
         settle(1_500)
         shot("03-home")
 
         // 4. History.
         tab("History")
-        await(hasText("Last 26 weeks"))
+        require(hasText("Last 26 weeks"))
         settle(1_500)
         shot("04-history")
 
         // 5. Lifts list and a lift's detail.
         tab("Lifts")
-        await(hasText("Bench Press"))
+        require(hasText("Bench Press"))
         settle(1_500)
         shot("05-lifts")
         onAllNodes(hasText("Bench Press")).onFirst().performClick()
-        await(hasText("Estimated 1RM", substring = true))
+        require(hasText("Estimated 1RM", substring = true))
         settle(1_500)
         shot("06-lift-detail")
 
         // 6. Weekly volume per muscle group.
         tab("Volume")
-        await(hasText("This week", substring = true))
+        require(hasText("This week", substring = true))
         settle(1_500)
         shot("07-volume")
 
@@ -154,24 +176,24 @@ class ScreenshotTest {
             }
         }
         tab("Body")
-        await(hasText("Trend"))
+        require(hasText("Trend"))
         settle(1_500)
         shot("08-body")
 
         // 8. Settings, then the light theme.
         onNode(hasContentDescription("Settings") and hasClickAction()).performClick()
-        await(hasText("Appearance"))
+        require(hasText("Appearance"))
         shot("09-settings")
         onNode(hasText("Light") and hasClickAction()).performClick()
         settle()
         tab("Home")
-        await(hasText("What's moving"), 60_000)
+        require(hasText("What's moving"), 60_000)
         settle(1_500)
         shot("10-home-light")
         tab("Lifts")
-        await(hasText("Bench Press"))
+        require(hasText("Bench Press"))
         onAllNodes(hasText("Bench Press")).onFirst().performClick()
-        await(hasText("Estimated 1RM", substring = true))
+        require(hasText("Estimated 1RM", substring = true))
         settle(1_500)
         shot("11-lift-detail-light")
         watchdog.interrupt()

@@ -85,7 +85,7 @@ kotlin {
 // The screenshot test (composeApp/src/desktopTest) writes into build/screenshots unless
 // `-Pgains.screenshotDir=<dir>` (relative to the repository root) points it elsewhere.
 tasks.withType<Test>().configureEach {
-    timeout.set(Duration.ofMinutes(12))
+    timeout.set(Duration.ofMinutes(10))
     testLogging {
         showStandardStreams = true
         events("passed", "failed", "skipped")
