@@ -248,7 +248,10 @@ Volume credits 1.0 set to primary muscle groups and 0.5 to secondary ones across
 ```mermaid
 flowchart LR
   subgraph Sources
-    L[Liftoff] & S[Strong] & H[Hevy] & C[Any CSV]
+    L[Liftoff]
+    S[Strong]
+    H[Hevy]
+    C[Any CSV]
   end
   subgraph shared["shared (pure Kotlin, unit-tested)"]
     R[Connector registry] --> P[Row-per-set parser]
@@ -259,7 +262,7 @@ flowchart LR
   subgraph composeApp["composeApp (Compose Multiplatform)"]
     UI[Home · History · Lifts<br/>Volume · Body · Settings]
   end
-  Sources --> R
+  L & S & H & C --> R
   E --> UI
   UI -->|log / edit| DB
   UI --- iOS & Android & Desktop

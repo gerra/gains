@@ -5,8 +5,6 @@ name: Screenshots
 # the result to the branch the workflow ran on.
 on:
   workflow_dispatch:
-  push:
-    branches: ['claude/readme-best-practices-0aouzp']
 
 permissions:
   contents: write
