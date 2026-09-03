@@ -5,6 +5,7 @@ import app.gains.auth.AuthConfig
 import app.gains.data.BodyweightRepository
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.ExerciseRepository
+import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
 import app.gains.db.GainsDatabase
@@ -19,6 +20,7 @@ val sharedModule = module {
     single { ExerciseRepository(get()) }
     single { BodyweightRepository(get()) }
     single { SettingsRepository(get()) }
+    single { ProgramRepository(get(), get()) }
     single { TrainingData(get(), get()) }
     single { ImportService(get(), get()) }
     // Replace with real ids when the Google / Apple credentials and the sync server exist.

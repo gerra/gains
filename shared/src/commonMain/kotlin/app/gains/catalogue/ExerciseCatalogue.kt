@@ -1,5 +1,6 @@
 package app.gains.catalogue
 
+import app.gains.domain.Equipment
 import app.gains.domain.Exercise
 import app.gains.domain.Modality
 import app.gains.domain.MuscleContribution
@@ -25,10 +26,13 @@ object ExerciseCatalogue {
             primary: List<MuscleGroup>,
             secondary: List<MuscleGroup> = emptyList(),
             trainingModality: TrainingModality = if (modality == Modality.CARDIO) TrainingModality.CARDIO else TrainingModality.STRENGTH,
+            /** Null = guess from the name and flags (see [guessEquipment]). */
+            equipment: Set<Equipment>? = null,
             vararg alias: String,
         ) {
             val groups = primary.map { MuscleContribution(it, 1.0) } + secondary.map { MuscleContribution(it, 0.5) }
-            exercises.add(Exercise(id, name, name, groups, modality, dumbbell, isBuiltIn = true, trainingModality = trainingModality))
+            val gear = equipment ?: guessEquipment(name, modality, dumbbell)
+            exercises.add(Exercise(id, name, name, groups, modality, dumbbell, isBuiltIn = true, equipment = gear, trainingModality = trainingModality))
             aliases[NameNormalizer.normalize(name)] = id
             alias.forEach { aliases[NameNormalizer.normalize(it)] = id }
         }
@@ -69,6 +73,7 @@ object ExerciseCatalogue {
         ex("seated_cable_row", "Seated Cable Row", primary = listOf(UPPER_BACK), secondary = listOf(LATS, BICEPS), alias = arrayOf("Cable Row", "Seated Row", "Seated Row (Cable)", "Low Row", "Low Cable Row"))
         ex("row_machine", "Row (Machine)", primary = listOf(UPPER_BACK), secondary = listOf(LATS, BICEPS), alias = arrayOf("Machine Row", "Seated Row (Machine)", "Chest Supported Row", "Hammer Strength Row", "Iso-Lateral Row", "High Row"))
         ex("t_bar_row", "T-Bar Row", primary = listOf(UPPER_BACK), secondary = listOf(LATS, BICEPS), alias = arrayOf("T Bar Row", "Landmine Row"))
+        ex("inverted_row", "Inverted Row", modality = Modality.BODYWEIGHT, primary = listOf(UPPER_BACK, LATS), secondary = listOf(BICEPS, REAR_DELTS), alias = arrayOf("Australian Pull Up", "Australian Pull-Up", "Bodyweight Row", "Ring Row", "Inverted Rows", "Body Row"))
         ex("straight_arm_pulldown", "Straight Arm Pulldown", primary = listOf(LATS), alias = arrayOf("Cable Pullover", "Straight-Arm Pulldown", "Rope Pullover"))
         ex("db_pullover", "Dumbbell Pullover", dumbbell = true, primary = listOf(LATS, CHEST), alias = arrayOf("Pullover"))
         ex("shrug", "Dumbbell Shrug", primary = listOf(TRAPS), alias = arrayOf("Barbell Shrug", "Dumbbell Shrug", "Shrugs", "Trap Bar Shrug", "Shrug (Dumbbell)", "Shrug (Barbell)"))
@@ -117,6 +122,9 @@ object ExerciseCatalogue {
         ex("calf_raise", "Standing Calf Raise", primary = listOf(CALVES), alias = arrayOf("Calf Raise", "Calf Raises", "Standing Calf Raise (Machine)", "Calf Raise (Machine)", "Smith Machine Calf Raise", "Dumbbell Calf Raise", "Leg Press Calf Raise", "Calf Press", "Calf Press (Leg Press)", "Calf Raise (Leg Press)", "Single Leg Calf Raise", "Standing Calf Raises"))
         ex("seated_calf_raise", "Seated Calf Raise", primary = listOf(CALVES), alias = arrayOf("Seated Calf Raise (Machine)", "Seated Calf Raises"))
         ex("wall_sit", "Wall Sit", modality = Modality.ISOMETRIC, primary = listOf(QUADS))
+        ex("bodyweight_squat", "Bodyweight Squat", modality = Modality.BODYWEIGHT, primary = listOf(QUADS, GLUTES), secondary = listOf(HAMSTRINGS), alias = arrayOf("Air Squat", "Squat (Bodyweight)", "Bodyweight Squats", "Air Squats"))
+        ex("pistol_squat", "Pistol Squat", modality = Modality.BODYWEIGHT, primary = listOf(QUADS, GLUTES), secondary = listOf(HAMSTRINGS, CORE), alias = arrayOf("Single Leg Squat", "Pistol Squats", "One Legged Squat"))
+        ex("single_leg_rdl", "Single Leg Romanian Deadlift", dumbbell = true, primary = listOf(HAMSTRINGS, GLUTES), secondary = listOf(LOWER_BACK, CORE), alias = arrayOf("Single Leg RDL", "Single-Leg Romanian Deadlift", "One Leg Romanian Deadlift", "Single Leg Deadlift"))
 
         // Core
         ex("plank", "Plank", modality = Modality.ISOMETRIC, primary = listOf(CORE), alias = arrayOf("Front Plank", "Planks", "Forearm Plank", "Weighted Plank"))
@@ -141,6 +149,7 @@ object ExerciseCatalogue {
         ex("high_to_low_cable_fly", "High to Low Cable Fly", primary = listOf(CHEST), secondary = listOf(FRONT_DELTS))
         ex("pike_push_ups", "Pike Push Ups", modality = Modality.BODYWEIGHT, primary = listOf(FRONT_DELTS), secondary = listOf(TRICEPS, CHEST))
         ex("pseudo_planche_push_ups", "Pseudo Planche Push Ups", modality = Modality.BODYWEIGHT, primary = listOf(FRONT_DELTS), secondary = listOf(CHEST, TRICEPS))
+        ex("handstand_hold", "Handstand Hold", modality = Modality.ISOMETRIC, primary = listOf(FRONT_DELTS), secondary = listOf(TRICEPS, CORE), trainingModality = TrainingModality.SKILL, alias = arrayOf("Handstand", "Wall Handstand", "Wall Handstand Hold", "Handstand Practice"))
         ex("face_to_wall_handstand_45", "Face to wall handstand (45)", modality = Modality.ISOMETRIC, primary = listOf(FRONT_DELTS), secondary = listOf(CORE), trainingModality = TrainingModality.SKILL)
         ex("abdominal_set", "Abdominal set", modality = Modality.BODYWEIGHT, primary = listOf(CORE))
         ex("wrist_prep", "Wrist prep", modality = Modality.ISOMETRIC, primary = emptyList(), trainingModality = TrainingModality.WARMUP)
@@ -158,6 +167,23 @@ object ExerciseCatalogue {
         ex("stair_climber", "Stair Climber", modality = Modality.CARDIO, primary = emptyList(), alias = arrayOf("Stairmaster", "StairMaster", "Stair Master", "Stairs", "Stair Stepper"))
         ex("swimming", "Swimming", modality = Modality.CARDIO, primary = emptyList(), alias = arrayOf("Swim"))
         ex("jump_rope", "Jump Rope", modality = Modality.CARDIO, primary = listOf(CALVES), alias = arrayOf("Skipping", "Jump Rope (Cardio)", "Jumping Rope"))
+    }
+
+    /** Equipment inferred from the name for catalogue entries that do not state it. */
+    internal fun guessEquipment(name: String, modality: Modality, dumbbell: Boolean): Set<Equipment> {
+        val n = name.lowercase()
+        return when {
+            modality == Modality.CARDIO -> if (Regex("treadmill|bike|cycling|rowing|elliptical|stair").containsMatchIn(n)) setOf(Equipment.MACHINE) else setOf(Equipment.OTHER)
+            "kettlebell" in n -> setOf(Equipment.KETTLEBELL)
+            dumbbell || "dumbbell" in n -> setOf(Equipment.DUMBBELL)
+            "cable" in n || "pulldown" in n || "pushdown" in n || "face pull" in n || "pallof" in n -> setOf(Equipment.CABLE)
+            "machine" in n || "smith" in n || "leg press" in n || "hack squat" in n || "leg extension" in n || "leg curl" in n ||
+                "hip abduction" in n || "hip adduction" in n || "calf raise" in n || "chest press" in n && "dumbbell" !in n -> setOf(Equipment.MACHINE)
+            "band" in n -> setOf(Equipment.BANDS)
+            modality == Modality.BODYWEIGHT || modality == Modality.ISOMETRIC -> setOf(Equipment.BODYWEIGHT)
+            Regex("barbell|deadlift|squat|bench|row|press|curl|shrug|good morning|skull|hip thrust|upright|extension|wrist").containsMatchIn(n) -> setOf(Equipment.BARBELL)
+            else -> setOf(Equipment.OTHER)
+        }
     }
 
     val builtIn: List<Exercise> = builder.exercises

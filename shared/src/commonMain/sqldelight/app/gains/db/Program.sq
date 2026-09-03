@@ -1,0 +1,67 @@
+CREATE TABLE program (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  -- "BUILD_MUSCLE,GET_STRONGER"
+  goals TEXT NOT NULL DEFAULT '',
+  level TEXT NOT NULL DEFAULT 'BEGINNER',
+  days_per_week INTEGER NOT NULL DEFAULT 3,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE program_day (
+  id TEXT NOT NULL PRIMARY KEY,
+  program_id TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  name TEXT NOT NULL
+);
+
+CREATE INDEX program_day_program ON program_day(program_id);
+
+CREATE TABLE program_slot (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  day_id TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  exercise_id TEXT NOT NULL,
+  sets INTEGER NOT NULL,
+  -- "5", "8-12", "5+"
+  reps TEXT NOT NULL,
+  last_set_amrap INTEGER NOT NULL DEFAULT 0,
+  -- "", "linear:2.5/5", "double:8-12:2.5/5", "ladder:5x3+|6x2+|10x1+:5/10"
+  progression TEXT NOT NULL DEFAULT '',
+  note TEXT
+);
+
+CREATE INDEX program_slot_day ON program_slot(day_id);
+
+selectPrograms:
+SELECT id, name, description, goals, level, days_per_week, created_at FROM program ORDER BY created_at;
+
+selectDays:
+SELECT id, program_id, position, name FROM program_day ORDER BY program_id, position;
+
+selectSlots:
+SELECT id, day_id, position, exercise_id, sets, reps, last_set_amrap, progression, note FROM program_slot ORDER BY day_id, position;
+
+upsertProgram:
+INSERT OR REPLACE INTO program(id, name, description, goals, level, days_per_week, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectProgramCreatedAt:
+SELECT created_at FROM program WHERE id = ?;
+
+insertDay:
+INSERT INTO program_day(id, program_id, position, name) VALUES (?, ?, ?, ?);
+
+insertSlot:
+INSERT INTO program_slot(day_id, position, exercise_id, sets, reps, last_set_amrap, progression, note)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteSlotsForProgram:
+DELETE FROM program_slot WHERE day_id IN (SELECT id FROM program_day WHERE program_id = ?);
+
+deleteDaysForProgram:
+DELETE FROM program_day WHERE program_id = ?;
+
+deleteProgram:
+DELETE FROM program WHERE id = ?;

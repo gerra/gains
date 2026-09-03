@@ -30,6 +30,18 @@ enum class Modality { WEIGHTED, BODYWEIGHT, ISOMETRIC, CARDIO }
 /** Whether an entry contributes lifting volume, independent of how its sets are recorded. */
 enum class TrainingModality { STRENGTH, CARDIO, SKILL, WARMUP }
 
+/** What an exercise is done with. Lets programs and pickers filter by what a gym has. */
+enum class Equipment(val label: String) {
+    BARBELL("Barbell"),
+    DUMBBELL("Dumbbell"),
+    KETTLEBELL("Kettlebell"),
+    CABLE("Cable"),
+    MACHINE("Machine"),
+    BODYWEIGHT("Bodyweight"),
+    BANDS("Bands"),
+    OTHER("Other"),
+}
+
 /** Classification of a single logged set (see parsing rule 6). */
 enum class SetType { WEIGHTED, BODYWEIGHT, ISOMETRIC, CARDIO }
 
@@ -45,6 +57,7 @@ data class Exercise(
     /** Per-dumbbell loads are logged for these; the UI labels weights accordingly. */
     val isDumbbell: Boolean = false,
     val isBuiltIn: Boolean = false,
+    val equipment: Set<Equipment> = emptySet(),
     val trainingModality: TrainingModality = when {
         "prep" in name.lowercase() -> TrainingModality.WARMUP
         modality == Modality.CARDIO -> TrainingModality.CARDIO
@@ -81,6 +94,8 @@ data class Session(
     val durationMinutes: Int? = null,
     val exercises: List<ExerciseEntry>,
     val source: String = IMPORTED,
+    /** Set when the session was started from a program day. */
+    val program: ProgramDayRef? = null,
 ) {
     val isManual: Boolean get() = source == MANUAL
 
