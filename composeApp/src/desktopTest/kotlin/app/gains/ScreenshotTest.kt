@@ -59,6 +59,11 @@ class ScreenshotTest {
         initKoin(module { single<DatabaseDriverFactory> { DesktopDriverFactory(dbFile) } })
         val csv = sampleCsv.readText()
 
+        // Drive the clock by hand from the very first composition. With autoAdvance the framework
+        // cancels infinite animations and waits for the scene to stop invalidating before every node
+        // lookup, which never happens while anything animates.
+        mainClock.autoAdvance = false
+
         // 480×860 dp at 2× density: the same layout as the desktop window, at retina resolution.
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(2f)) {
@@ -66,9 +71,6 @@ class ScreenshotTest {
             }
         }
 
-        // Drive the clock by hand. With autoAdvance the framework waits for the scene to stop
-        // invalidating before every node lookup, which never happens while anything animates.
-        mainClock.autoAdvance = false
         val watchdog = Thread {
             try { Thread.sleep(4 * 60_000L) } catch (_: InterruptedException) { return@Thread }
             println("screenshot test still running after 4 minutes; thread dump follows")
@@ -205,8 +207,8 @@ class ScreenshotTest {
 
     @Test
     fun renderLogo() = runDesktopComposeUiTest(width = 1024, height = 1024) {
-        setContent { GainsLogo(size = 1024.dp) }
         mainClock.autoAdvance = false
+        setContent { GainsLogo(size = 1024.dp) }
         repeat(5) { mainClock.advanceTimeByFrame() }
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(outDir, "logo.png"))
     }
