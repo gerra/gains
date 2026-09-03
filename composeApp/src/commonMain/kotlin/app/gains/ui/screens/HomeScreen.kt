@@ -28,12 +28,20 @@ import androidx.compose.ui.unit.dp
 import app.gains.analysis.ConsistencyAnalyzer
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
+import app.gains.analysis.GoalTuning
 import app.gains.analysis.Insight
 import app.gains.analysis.InsightEngine
 import app.gains.analysis.InsightKind
 import app.gains.analysis.TrainingData
+import app.gains.data.ProgramRepository
+import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
+import app.gains.domain.GoalProfile
+import app.gains.domain.Program
+import app.gains.domain.ProgramDay
+import app.gains.domain.ProgramDayRef
 import app.gains.domain.WeightUnit
+import app.gains.program.Rotation
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.DeltaBadge
 import app.gains.ui.components.Dp16
@@ -43,6 +51,7 @@ import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.RoundedIconBox
 import app.gains.ui.components.ScreenTitle
+import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
@@ -66,17 +75,28 @@ data class HomeState(
     val streakWeeks: Int = 0,
     val insights: List<Insight> = emptyList(),
     val unit: WeightUnit = WeightUnit.KG,
+    val profile: GoalProfile? = null,
+    val activeProgram: Program? = null,
+    val upNext: ProgramDay? = null,
+    /** Sessions of the active program this week. */
+    val programSessionsThisWeek: Int = 0,
 )
 
 class HomeModel(
     trainingData: TrainingData = inject(),
     settings: SettingsRepository = inject(),
+    programs: ProgramRepository = inject(),
+    sessions: SessionRepository = inject(),
 ) : ScreenModel() {
-    val state: StateFlow<HomeState> = combine(trainingData.snapshot, settings.observeUnit()) { snapshot, unit -> snapshot to unit }
-        .mapLatest { (snapshot, unit) ->
+    val state: StateFlow<HomeState> = combine(trainingData.snapshot, settings.observeUnit(), programs.observeState(), sessions.observeProgramLinks()) { snapshot, unit, programState, links ->
+        Inputs(snapshot, unit, programState, links)
+    }
+        .mapLatest { (snapshot, unit, programState, links) ->
             withContext(Dispatchers.Default) {
                 val today = Dates.today()
                 val weekStart = Dates.weekStart(today)
+                val goal = programState.profile?.goal
+                val active = programState.active
                 HomeState(
                     loading = false,
                     sessionCount = snapshot.sessions.size,
@@ -85,16 +105,32 @@ class HomeModel(
                     lastSessionId = snapshot.sessions.maxByOrNull { it.timestamp }?.id,
                     thisWeekSessions = snapshot.sessions.count { it.date >= weekStart },
                     streakWeeks = ConsistencyAnalyzer.currentStreakWeeks(snapshot.sessions, today),
-                    insights = InsightEngine(unit = unit).generate(snapshot.sessions, snapshot.exercises, today),
+                    insights = GoalTuning.rank(InsightEngine(GoalTuning.thresholds(goal), unit).generate(snapshot.sessions, snapshot.exercises, today), goal),
                     unit = unit,
+                    profile = programState.profile,
+                    activeProgram = active,
+                    upNext = active?.let { Rotation.nextDay(it, links) },
+                    programSessionsThisWeek = active?.let { Rotation.completedSince(it, links, weekStart) } ?: 0,
                 )
             }
         }
         .stateIn(scope, SharingStarted.WhileSubscribed(5_000), HomeState())
+
+    private data class Inputs(val snapshot: app.gains.analysis.TrainingSnapshot, val unit: WeightUnit, val programs: app.gains.domain.ProgramState, val links: List<app.gains.domain.ProgramLink>)
 }
 
 @Composable
-fun HomeScreen(onImport: () -> Unit, onLog: () -> Unit, onOpenExercise: (String) -> Unit, onOpenSession: (String) -> Unit, onOpenVolume: () -> Unit) {
+fun HomeScreen(
+    onImport: () -> Unit,
+    onLog: () -> Unit,
+    onOpenExercise: (String) -> Unit,
+    onOpenSession: (String) -> Unit,
+    onOpenVolume: () -> Unit,
+    onOpenOnboarding: () -> Unit = {},
+    onOpenPrograms: () -> Unit = {},
+    onOpenProgram: (String) -> Unit = {},
+    onStartDay: (ProgramDayRef) -> Unit = {},
+) {
     val model = rememberScreenModel { HomeModel() }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
@@ -103,18 +139,24 @@ fun HomeScreen(onImport: () -> Unit, onLog: () -> Unit, onOpenExercise: (String)
         state.loading -> Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             CircularProgressIndicator(color = palette.volt)
         }
-        state.sessionCount == 0 -> EmptyState(
-            title = "No workouts yet",
-            body = "Log your first session, or bring your history in from Liftoff, Strong, Hevy or any workout CSV.",
-            emoji = "↑",
-            action = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    PrimaryButton("Log a workout", onLog)
-                    Spacer(Modifier.height(10.dp))
-                    app.gains.ui.components.SecondaryButton("Import history", onImport)
-                }
-            },
-        )
+        state.sessionCount == 0 -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
+            item {
+                Spacer(Modifier.height(8.dp))
+                ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram, onStartDay)
+                EmptyState(
+                    title = "No workouts yet",
+                    body = "Log your first session, or bring your history in from Liftoff, Strong, Hevy or any workout CSV.",
+                    emoji = "↑",
+                    action = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            PrimaryButton("Log a workout", onLog)
+                            Spacer(Modifier.height(10.dp))
+                            SecondaryButton("Import history", onImport)
+                        }
+                    },
+                )
+            }
+        }
         else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {
                 ScreenTitle(
@@ -123,10 +165,13 @@ fun HomeScreen(onImport: () -> Unit, onLog: () -> Unit, onOpenExercise: (String)
                     trailing = { TextButton(onClick = onLog) { Text("+ Log", color = palette.volt) } },
                     onSubtitleClick = state.lastSessionId?.let { id -> { onOpenSession(id) } },
                 )
+                ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram, onStartDay)
                 HeroCard(state)
             }
             item {
-                SectionHeader("What's moving")
+                SectionHeader("What's moving", action = {
+                    GoalTuning.headline(state.profile?.goal)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                })
                 if (state.insights.isEmpty()) {
                     Text(
                         if (state.sessionCount == 1) "One session imported. Insights need a few weeks of history to compare against."
@@ -148,6 +193,65 @@ fun HomeScreen(onImport: () -> Unit, onLog: () -> Unit, onOpenExercise: (String)
                     onOpenSession = onOpenSession,
                 )
                 Spacer(Modifier.height(10.dp))
+            }
+        }
+    }
+}
+
+/**
+ * The daily entry point above everything else: what to do today. Three states, in order of
+ * how far the user has got: no goal yet, goal but no program, program active with the next day.
+ */
+@Composable
+private fun ProgramCard(
+    state: HomeState,
+    onOpenOnboarding: () -> Unit,
+    onOpenPrograms: () -> Unit,
+    onOpenProgram: (String) -> Unit,
+    onStartDay: (ProgramDayRef) -> Unit,
+) {
+    val palette = GainsColors.palette
+    val program = state.activeProgram
+    val day = state.upNext
+    GainsCard(Modifier.fillMaxWidth().padding(bottom = 12.dp), onClick = when {
+        program != null -> ({ onOpenProgram(program.id) })
+        state.profile != null -> onOpenPrograms
+        else -> onOpenOnboarding
+    }) {
+        when {
+            program != null && day != null -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("UP NEXT · ${program.name.uppercase()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Spacer(Modifier.height(4.dp))
+                        Text(day.name, style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            "${Format.plural(day.slots.size, "exercise")} · ${state.programSessionsThisWeek} of ${program.daysPerWeek} this week",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    PrimaryButton("Start", onClick = { onStartDay(ProgramDayRef(program.id, day.id)) })
+                }
+            }
+            state.profile != null -> {
+                val profile = state.profile
+                Text("PICK A PROGRAM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                Text("${profile.goal.label} · ${profile.experience.label} · ${profile.daysPerWeek} days a week", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                Text("Choose a routine and each day becomes a pre-filled workout with your last weights.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                Row { Pill("Choose a program ›", palette.volt, filled = true, onClick = onOpenPrograms) }
+            }
+            else -> {
+                Text("SET YOUR GOAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                Text("What are you training for?", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                Text("Three quick questions, then a program that fits your week and turns each day into a ready-made workout.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                Row { Pill("Get started ›", palette.volt, filled = true, onClick = onOpenOnboarding) }
             }
         }
     }

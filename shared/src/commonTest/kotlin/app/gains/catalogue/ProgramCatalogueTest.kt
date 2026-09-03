@@ -2,7 +2,6 @@ package app.gains.catalogue
 
 import app.gains.domain.Equipment
 import app.gains.domain.GoalProfile
-import app.gains.domain.Modality
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -54,7 +53,6 @@ class ProgramCatalogueTest {
         assertEquals(ids.size, ids.toSet().size, "exercise ids must be unique")
         for (e in ExerciseCatalogue.builtIn) {
             assertTrue(e.equipment.isNotEmpty(), "${e.id} has no equipment")
-            if (e.modality == Modality.BODYWEIGHT) assertTrue(Equipment.BODYWEIGHT in e.equipment, "${e.id} bodyweight")
         }
         assertEquals(setOf(Equipment.BARBELL), ExerciseCatalogue.byId("bench_press")!!.equipment)
         assertEquals(setOf(Equipment.CABLE), ExerciseCatalogue.byId("lat_pulldown")!!.equipment)

@@ -54,7 +54,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.gains.auth.AccountRepository
 import app.gains.data.ExerciseRepository
+import app.gains.data.ProgramRepository
+import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
+import app.gains.domain.ProgramDayRef
+import app.gains.program.Rotation
+import kotlinx.coroutines.flow.combine
 import app.gains.data.ThemeMode
 import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
@@ -71,6 +76,10 @@ import app.gains.ui.screens.ExerciseDetailScreen
 import app.gains.ui.screens.ExercisesScreen
 import app.gains.ui.screens.HomeScreen
 import app.gains.ui.screens.ImportScreen
+import app.gains.ui.screens.OnboardingScreen
+import app.gains.ui.screens.ProgramDetailScreen
+import app.gains.ui.screens.ProgramEditorScreen
+import app.gains.ui.screens.ProgramsScreen
 import app.gains.ui.screens.SettingsScreen
 import app.gains.ui.screens.SignInScreen
 import app.gains.ui.screens.VolumeScreen
@@ -93,6 +102,16 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
     LaunchedEffect(navigator) { onBackHandler { navigator.pop() } }
 
     val settings = remember { inject<SettingsRepository>() }
+    val programs = remember { inject<ProgramRepository>() }
+    val sessions = remember { inject<SessionRepository>() }
+    // null = not read yet; false = the goal questions have never been answered or skipped.
+    val onboardingDone by programs.observeOnboardingDone().collectAsState(initial = null)
+    // The active program's next day, for the "+" menu.
+    val upNext by remember {
+        combine(programs.observeState(), sessions.observeProgramLinks()) { state, links ->
+            state.active?.let { p -> Rotation.nextDay(p, links)?.let { UpNext(ProgramDayRef(p.id, it.id), it.name) } }
+        }
+    }.collectAsState(initial = null)
     val themeMode by settings.observeThemeMode().collectAsState(ThemeMode.DARK)
     val dark = when (themeMode) {
         ThemeMode.DARK -> true
@@ -105,8 +124,10 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
             if (accountState === AccountLoading) return@Surface
             if (accountState == null) { SignInScreen(); return@Surface }
+            if (onboardingDone == null) return@Surface
+            if (onboardingDone == false) { OnboardingScreen(onDone = {}); return@Surface }
             Column(Modifier.fillMaxSize().statusBarsPadding()) {
-                TopBar(navigator, screen)
+                TopBar(navigator, screen, upNext)
                 Box(Modifier.weight(1f)) {
                     AnimatedContent(
                         targetState = screen,
@@ -126,6 +147,10 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
                                     onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
                                     onOpenSession = { navigator.push(Screen.EditSession(it)) },
                                     onOpenVolume = { navigator.switchTab(Tab.VOLUME) },
+                                    onOpenOnboarding = { navigator.push(Screen.Onboarding) },
+                                    onOpenPrograms = { navigator.push(Screen.Programs) },
+                                    onOpenProgram = { navigator.push(Screen.ProgramDetail(it)) },
+                                    onStartDay = { navigator.push(Screen.EditSession(null, it)) },
                                 )
                                 Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
                                 Screen.Volume -> VolumeScreen()
@@ -134,8 +159,23 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
                                     onOpen = { navigator.push(Screen.EditSession(it)) },
                                     onLog = { navigator.push(Screen.EditSession(null)) },
                                 )
-                                is Screen.EditSession -> SessionEditorScreen(current.sessionId, onDone = { navigator.pop() })
-                                Screen.Settings -> SettingsScreen()
+                                is Screen.EditSession -> SessionEditorScreen(current.sessionId, current.programDay, onDone = { navigator.pop() })
+                                Screen.Settings -> SettingsScreen(
+                                    onOpenPrograms = { navigator.push(Screen.Programs) },
+                                    onOpenOnboarding = { navigator.push(Screen.Onboarding) },
+                                )
+                                Screen.Onboarding -> OnboardingScreen(onDone = { navigator.pop() })
+                                Screen.Programs -> ProgramsScreen(
+                                    onOpen = { navigator.push(Screen.ProgramDetail(it)) },
+                                    onNew = { navigator.push(Screen.ProgramEditor(null)) },
+                                )
+                                is Screen.ProgramDetail -> ProgramDetailScreen(
+                                    current.programId,
+                                    onStartDay = { navigator.push(Screen.EditSession(null, it)) },
+                                    onEdit = { navigator.push(Screen.ProgramEditor(it)) },
+                                    onDeleted = { navigator.pop() },
+                                )
+                                is Screen.ProgramEditor -> ProgramEditorScreen(current.programId, onDone = { navigator.pop() })
                                 Screen.Import -> ImportScreen(filePicker, onDone = { navigator.pop() })
                                 is Screen.ExerciseDetail -> ExerciseDetailScreen(current.exerciseId, onOpenSession = { navigator.push(Screen.EditSession(it)) })
                             }
@@ -148,8 +188,11 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
     }
 }
 
+/** The active program's next day, shown in the "+" menu. */
+private data class UpNext(val ref: ProgramDayRef, val dayName: String)
+
 @Composable
-private fun TopBar(navigator: Navigator, screen: Screen) {
+private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -167,6 +210,13 @@ private fun TopBar(navigator: Navigator, screen: Screen) {
             Box {
                 IconCircle(Icons.Default.Add, "Add") { menuOpen = true }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, shape = MaterialTheme.shapes.medium) {
+                    if (upNext != null) {
+                        DropdownMenuItem(
+                            text = { Text("Start ${upNext.dayName}") },
+                            leadingIcon = { Icon(Icons.Default.Star, null, modifier = Modifier.size(18.dp)) },
+                            onClick = { menuOpen = false; navigator.push(Screen.EditSession(null, upNext.ref)) },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Log workout") },
                         leadingIcon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp)) },
@@ -177,6 +227,13 @@ private fun TopBar(navigator: Navigator, screen: Screen) {
                         leadingIcon = { Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp)) },
                         onClick = { menuOpen = false; navigator.push(Screen.Import) },
                     )
+                    if (screen != Screen.Programs) {
+                        DropdownMenuItem(
+                            text = { Text("Programs") },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, null, modifier = Modifier.size(18.dp)) },
+                            onClick = { menuOpen = false; navigator.push(Screen.Programs) },
+                        )
+                    }
                 }
             }
         }

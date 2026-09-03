@@ -70,9 +70,11 @@ fun ExercisePickerSheet(
     /** Exercises already in the workout: shown but not selectable again. */
     alreadyAdded: Set<String>,
     onAdd: (List<Exercise>) -> Unit,
-    /** Creates a custom exercise and returns it so it can be ticked immediately. */
-    onCreate: (String) -> Exercise,
+    /** Creates a custom exercise and returns it so it can be ticked immediately. Null hides the create row. */
+    onCreate: ((String) -> Exercise)?,
     onDismiss: () -> Unit,
+    /** Single-select: tapping a row adds it straight away. */
+    single: Boolean = false,
 ) {
     val palette = GainsColors.palette
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -94,13 +96,14 @@ fun ExercisePickerSheet(
             .entries.sortedBy { it.key }.map { (letter, list) -> letter to list.sortedBy { it.name.lowercase() } }
     }
     val showRecent = q.isEmpty() && group == null && recent.isNotEmpty()
-    val canCreate = q.isNotEmpty() && catalogue.none { it.name.equals(q, ignoreCase = true) }
+    val canCreate = onCreate != null && q.isNotEmpty() && catalogue.none { it.name.equals(q, ignoreCase = true) }
     val byId = remember(catalogue) { catalogue.associateBy { it.id } }
 
     fun close(then: () -> Unit = {}) {
         scope.launch { sheetState.hide() }.invokeOnCompletion { then(); onDismiss() }
     }
     fun toggle(id: String) {
+        if (single) { byId[id]?.let { e -> close { onAdd(listOf(e)) } }; return }
         selected = if (id in selected) selected - id else selected + id
     }
 
@@ -159,7 +162,7 @@ fun ExercisePickerSheet(
                 if (canCreate) {
                     item(key = "create") {
                         CreateRow(q) {
-                            val created = onCreate(q)
+                            val created = onCreate!!(q)
                             selected = selected + created.id
                             query = ""
                         }

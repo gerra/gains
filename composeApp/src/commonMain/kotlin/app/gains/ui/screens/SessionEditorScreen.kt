@@ -34,17 +34,20 @@ import app.gains.analysis.Format
 import app.gains.analysis.TrainingData
 import app.gains.catalogue.ExerciseCatalogue
 import app.gains.data.ExerciseRepository
+import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
 import app.gains.domain.Exercise
 import app.gains.domain.ExerciseEntry
 import app.gains.domain.Modality
+import app.gains.domain.ProgramDayRef
 import app.gains.domain.Session
 import app.gains.domain.SetEntry
 import app.gains.domain.SetType
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
 import app.gains.importer.ExerciseResolver
+import app.gains.program.DayPlanner
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
@@ -118,14 +121,26 @@ data class EditorState(
     val recent: List<Exercise> = emptyList(),
     val error: String? = null,
     val saved: Boolean = false,
+    /** Set when the workout was started from a program day. */
+    val programDay: ProgramDayRef? = null,
+    val title: String = "Log workout",
+    val programName: String? = null,
+    /** exercise id -> "5 × 3+" */
+    val targets: Map<String, String> = emptyMap(),
+    /** exercise id -> "Last: 60 kg × 5,5,5 → try 62.5 kg" */
+    val hints: Map<String, String> = emptyMap(),
+    /** exercise id -> program note */
+    val notes: Map<String, String> = emptyMap(),
 )
 
 class SessionEditorModel(
     private val sessionId: String?,
+    private val programDay: ProgramDayRef? = null,
     private val sessions: SessionRepository = inject(),
     private val exercises: ExerciseRepository = inject(),
     settings: SettingsRepository = inject(),
     trainingData: TrainingData = inject(),
+    private val programs: ProgramRepository = inject(),
 ) : ScreenModel() {
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state
@@ -136,19 +151,46 @@ class SessionEditorModel(
             val unit = settings.observeUnit().first()
             val existing = sessionId?.let { id -> snapshot.sessions.firstOrNull { it.id == id } }
             val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-            _state.value = if (existing == null) EditorState(
+            val fresh = EditorState(
                 loading = false, isNew = true, date = now.date.toString(),
                 time = "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}",
                 unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
-            ) else EditorState(
-                loading = false, isNew = false, id = existing.id, date = existing.date.toString(),
-                time = "${existing.timestamp.hour.toString().padStart(2, '0')}:${existing.timestamp.minute.toString().padStart(2, '0')}",
-                durationMinutes = existing.durationMinutes?.toString() ?: "",
-                exercises = existing.exercises.mapNotNull { entry ->
-                    snapshot.exercisesById[entry.exerciseId]?.let { ex -> ExerciseDraft(ex, entry.sets.map { SetDraft.from(it, unit) }, entry.note ?: "") }
-                },
-                unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
             )
+            _state.value = when {
+                existing != null -> EditorState(
+                    loading = false, isNew = false, id = existing.id, date = existing.date.toString(),
+                    time = "${existing.timestamp.hour.toString().padStart(2, '0')}:${existing.timestamp.minute.toString().padStart(2, '0')}",
+                    durationMinutes = existing.durationMinutes?.toString() ?: "",
+                    exercises = existing.exercises.mapNotNull { entry ->
+                        snapshot.exercisesById[entry.exerciseId]?.let { ex -> ExerciseDraft(ex, entry.sets.map { SetDraft.from(it, unit) }, entry.note ?: "") }
+                    },
+                    unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
+                    programDay = existing.program, title = "Edit workout",
+                )
+                programDay != null -> {
+                    val program = programs.observePrograms().first().firstOrNull { it.id == programDay.programId }
+                    val day = program?.day(programDay.dayId)
+                    if (program == null || day == null) fresh else {
+                        val plan = DayPlanner.plan(day, snapshot, unit)
+                        fresh.copy(
+                            programDay = programDay, title = day.name, programName = program.name,
+                            exercises = plan.exercises.map { pe ->
+                                ExerciseDraft(pe.exercise, pe.sets.map { ps ->
+                                    SetDraft(
+                                        weight = ps.weightKg?.let { Format.weightValue(it, unit) } ?: "",
+                                        reps = ps.reps?.toString() ?: "",
+                                        seconds = ps.seconds?.toString() ?: "",
+                                    )
+                                })
+                            },
+                            targets = plan.exercises.associate { it.exercise.id to it.targetLabel },
+                            hints = plan.exercises.mapNotNull { pe -> pe.hint?.let { pe.exercise.id to it } }.toMap(),
+                            notes = plan.exercises.mapNotNull { pe -> pe.slot.note?.let { pe.exercise.id to it } }.toMap(),
+                        )
+                    }
+                }
+                else -> fresh
+            }
         }
     }
 
@@ -214,12 +256,22 @@ class SessionEditorModel(
             durationMinutes = s.durationMinutes.toIntOrNull()?.takeIf { it > 0 },
             exercises = entries,
             source = Session.MANUAL,
+            program = s.programDay,
         )
         scope.launch {
-            // Moving an existing session to another time changes its id: drop the old row.
-            if (s.id != null && s.id != session.id) sessions.deleteSession(s.id)
-            sessions.upsert(if (s.id != null && s.id == session.id) session else session.copy(id = timestamp.toString()))
+            // Ids are minute-precision timestamps; two workouts saved in the same minute must not replace each other.
+            val id = s.id ?: uniqueId(timestamp.toString(), sessions.ids())
+            sessions.upsert(session.copy(id = id))
             update { it.copy(saved = true, error = null) }
+        }
+    }
+
+    companion object {
+        fun uniqueId(base: String, taken: Set<String>): String {
+            if (base !in taken) return base
+            var n = 2
+            while ("$base-$n" in taken) n++
+            return "$base-$n"
         }
     }
 
@@ -230,8 +282,8 @@ class SessionEditorModel(
 }
 
 @Composable
-fun SessionEditorScreen(sessionId: String?, onDone: () -> Unit) {
-    val model = rememberScreenModel(sessionId) { SessionEditorModel(sessionId) }
+fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, onDone: () -> Unit) {
+    val model = rememberScreenModel(sessionId, programDay) { SessionEditorModel(sessionId, programDay) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerOpen by remember { mutableStateOf(false) }
@@ -243,7 +295,10 @@ fun SessionEditorScreen(sessionId: String?, onDone: () -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (state.isNew) "Log workout" else "Edit workout", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
+                Column(Modifier.weight(1f)) {
+                    Text(state.title, style = MaterialTheme.typography.headlineLarge)
+                    state.programName?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
                 if (!state.isNew) TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = palette.coral) }
             }
             Spacer(Modifier.height(12.dp))
@@ -258,7 +313,7 @@ fun SessionEditorScreen(sessionId: String?, onDone: () -> Unit) {
             }
         }
         itemsIndexed(state.exercises, key = { _, e -> e.exercise.id }) { exerciseIndex, draft ->
-            ExerciseCard(exerciseIndex, draft, state.unit, model, fieldColors)
+            ExerciseCard(exerciseIndex, draft, state.unit, model, fieldColors, state.targets[draft.exercise.id], state.hints[draft.exercise.id], state.notes[draft.exercise.id])
         }
         item {
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp)) }
@@ -291,7 +346,10 @@ fun SessionEditorScreen(sessionId: String?, onDone: () -> Unit) {
 }
 
 @Composable
-private fun ExerciseCard(exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors) {
+private fun ExerciseCard(
+    exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
+    target: String? = null, hint: String? = null, programNote: String? = null,
+) {
     val palette = GainsColors.palette
     val modality = draft.exercise.modality
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
@@ -299,11 +357,20 @@ private fun ExerciseCard(exerciseIndex: Int, draft: ExerciseDraft, unit: WeightU
             Column(Modifier.weight(1f)) {
                 Text(draft.exercise.name, style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (target != null) Pill(target, palette.volt)
                     Pill(modality.name.lowercase().replaceFirstChar { it.uppercase() }, palette.cyan)
                     if (draft.exercise.isDumbbell) Pill("Per dumbbell", palette.amber)
                 }
             }
             TextButton(onClick = { model.removeExercise(exerciseIndex) }) { Text("Remove", color = palette.coral) }
+        }
+        if (hint != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(hint, style = MaterialTheme.typography.bodySmall, color = palette.volt)
+        }
+        if (programNote != null) {
+            Spacer(Modifier.height(2.dp))
+            Text(programNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
