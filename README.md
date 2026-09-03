@@ -307,9 +307,9 @@ case in `InsightEngineTest`.
 
 ## Roadmap
 
-- [ ] Self-hosted sync server and the Google / Apple sign-in it unlocks
-- [ ] Export back to CSV
-- [ ] More connectors (contributions welcome)
+- [ ] Self-hosted sync server (the token exchange in `AccountRepository` is the open TODO)
+- [ ] Google and Apple sign-in, which the server unlocks
+- [ ] More connectors: a `ColumnSpec` and a `match` function each, contributions welcome
 
 ## Known limitations
 
