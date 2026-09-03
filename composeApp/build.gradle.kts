@@ -1,5 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.time.Duration
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -84,7 +85,7 @@ kotlin {
 // The screenshot test (composeApp/src/desktopTest) writes into build/screenshots unless
 // `-Pgains.screenshotDir=<dir>` (relative to the repository root) points it elsewhere.
 tasks.withType<Test>().configureEach {
-    timeout.set(java.time.Duration.ofMinutes(12))
+    timeout.set(Duration.ofMinutes(12))
     testLogging {
         showStandardStreams = true
         events("passed", "failed", "skipped")
