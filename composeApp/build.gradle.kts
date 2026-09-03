@@ -1,5 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.time.Duration
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -72,7 +73,30 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.swing)
             }
         }
+        val desktopTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(compose.desktop.uiTestJUnit4)
+            }
+        }
     }
+}
+
+// The screenshot test (composeApp/src/desktopTest) writes into build/screenshots unless
+// `-Pgains.screenshotDir=<dir>` (relative to the repository root) points it elsewhere.
+tasks.withType<Test>().configureEach {
+    timeout.set(Duration.ofMinutes(10))
+    testLogging {
+        showStandardStreams = true
+        events("passed", "failed", "skipped")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+    systemProperty(
+        "gains.screenshotDir",
+        project.findProperty("gains.screenshotDir")?.toString()?.let { rootProject.file(it).absolutePath }
+            ?: layout.buildDirectory.dir("screenshots").get().asFile.absolutePath,
+    )
+    systemProperty("gains.sampleCsv", rootProject.file("samples/liftoff-export.csv").absolutePath)
 }
 
 compose.desktop {

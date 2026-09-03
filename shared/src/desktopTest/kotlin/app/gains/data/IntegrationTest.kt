@@ -52,14 +52,14 @@ class IntegrationTest {
 
         val snapshot = TrainingData(sessions, exercises).snapshot.first()
         assertEquals(5, snapshot.sessions.size)
-        val bench = snapshot.sessions.first { it.id == "2026-02-18T20:40:47" }.exercises.first { it.exerciseId == "bench_press" }
+        val bench = snapshot.sessions.first { it.id == "2026-02-18" }.exercises.first { it.exerciseId == "bench_press" }
         assertEquals(listOf(true, true, false), bench.sets.map { it.isWarmup })
         assertEquals(60.0, bench.sets.last().weightKg)
 
         // Working-set override flows through the snapshot.
         exercises.setWorkingSetRatio("bench_press", 0.8)
         val updated = TrainingData(sessions, exercises).snapshot.first()
-        val benchAfter = updated.sessions.first { it.id == "2026-02-18T20:40:47" }.exercises.first { it.exerciseId == "bench_press" }
+        val benchAfter = updated.sessions.first { it.id == "2026-02-18" }.exercises.first { it.exerciseId == "bench_press" }
         assertEquals(listOf(true, false, false), benchAfter.sets.map { it.isWarmup })
 
         // Insights run over the stored data without error.
