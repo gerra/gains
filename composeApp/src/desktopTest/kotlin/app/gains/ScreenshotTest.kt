@@ -78,7 +78,8 @@ class ScreenshotTest {
             }
         }.apply { isDaemon = true; start() }
 
-        fun settle(millis: Long = 600) = mainClock.advanceTimeBy(millis)
+        /** Frames are only delivered when the scene renders, so advance one frame at a time to let animations finish. */
+        fun settle(millis: Long = 600) = repeat((millis / 16).toInt()) { mainClock.advanceTimeByFrame() }
         /** Section headers are shown in upper case, so text is matched ignoring case. */
         fun text(value: String) = hasText(value, substring = true, ignoreCase = true)
         fun exists(matcher: SemanticsMatcher) = onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
@@ -185,6 +186,7 @@ class ScreenshotTest {
         // 8. Settings, then the light theme.
         onNode(hasContentDescription("Settings") and hasClickAction()).performClick()
         require(text("Appearance"))
+        settle(1_000)
         shot("09-settings")
         onNode(text("Light") and hasClickAction()).performClick()
         settle()
@@ -205,7 +207,7 @@ class ScreenshotTest {
     fun renderLogo() = runDesktopComposeUiTest(width = 1024, height = 1024) {
         setContent { GainsLogo(size = 1024.dp) }
         mainClock.autoAdvance = false
-        mainClock.advanceTimeBy(100)
+        repeat(5) { mainClock.advanceTimeByFrame() }
         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(outDir, "logo.png"))
     }
 }
