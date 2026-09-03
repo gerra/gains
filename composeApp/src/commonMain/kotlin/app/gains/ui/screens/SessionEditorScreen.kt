@@ -114,6 +114,8 @@ data class EditorState(
     val exercises: List<ExerciseDraft> = emptyList(),
     val unit: WeightUnit = WeightUnit.KG,
     val catalogue: List<Exercise> = emptyList(),
+    /** Most recently trained first; the picker shows these on top. */
+    val recent: List<Exercise> = emptyList(),
     val error: String? = null,
     val saved: Boolean = false,
 )
@@ -137,7 +139,7 @@ class SessionEditorModel(
             _state.value = if (existing == null) EditorState(
                 loading = false, isNew = true, date = now.date.toString(),
                 time = "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}",
-                unit = unit, catalogue = snapshot.exercises.sortedBy { it.name },
+                unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
             ) else EditorState(
                 loading = false, isNew = false, id = existing.id, date = existing.date.toString(),
                 time = "${existing.timestamp.hour.toString().padStart(2, '0')}:${existing.timestamp.minute.toString().padStart(2, '0')}",
@@ -145,7 +147,7 @@ class SessionEditorModel(
                 exercises = existing.exercises.mapNotNull { entry ->
                     snapshot.exercisesById[entry.exerciseId]?.let { ex -> ExerciseDraft(ex, entry.sets.map { SetDraft.from(it, unit) }, entry.note ?: "") }
                 },
-                unit = unit, catalogue = snapshot.exercises.sortedBy { it.name },
+                unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
             )
         }
     }
@@ -160,13 +162,15 @@ class SessionEditorModel(
         else s.copy(exercises = s.exercises + ExerciseDraft(exercise, listOf(SetDraft())))
     }
 
-    /** A name not in the catalogue becomes a custom exercise with guessed muscles. */
-    fun addExerciseByName(name: String) {
+    fun addExercises(picked: List<Exercise>) = picked.forEach { addExercise(it) }
+
+    /** A name not in the catalogue becomes a custom exercise with guessed muscles; returned so the picker can tick it. */
+    fun createExercise(name: String): Exercise {
         val resolver = ExerciseResolver(_state.value.catalogue, emptyMap())
         val exercise = resolver.resolve(name, emptyList())
         scope.launch { exercises.insertIfMissing(listOf(exercise)) }
         update { it.copy(catalogue = (it.catalogue + exercise).distinctBy { e -> e.id }.sortedBy { e -> e.name }) }
-        addExercise(exercise)
+        return exercise
     }
 
     fun removeExercise(index: Int) = update { it.copy(exercises = it.exercises.filterIndexed { i, _ -> i != index }) }
@@ -266,7 +270,14 @@ fun SessionEditorScreen(sessionId: String?, onDone: () -> Unit) {
         }
     }
 
-    if (pickerOpen) ExercisePicker(state.catalogue, onPick = { model.addExercise(it); pickerOpen = false }, onCreate = { model.addExerciseByName(it); pickerOpen = false }, onDismiss = { pickerOpen = false })
+    if (pickerOpen) ExercisePickerSheet(
+        catalogue = state.catalogue,
+        recent = state.recent,
+        alreadyAdded = state.exercises.map { it.exercise.id }.toSet(),
+        onAdd = model::addExercises,
+        onCreate = model::createExercise,
+        onDismiss = { pickerOpen = false },
+    )
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -340,43 +351,5 @@ private fun NumberField(value: String, onChange: (String) -> Unit, colors: andro
         value, onChange, singleLine = true, modifier = modifier, colors = colors, shape = MaterialTheme.shapes.small,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         textStyle = MaterialTheme.typography.bodyLarge,
-    )
-}
-
-@Composable
-private fun ExercisePicker(catalogue: List<Exercise>, onPick: (Exercise) -> Unit, onCreate: (String) -> Unit, onDismiss: () -> Unit) {
-    var query by remember { mutableStateOf("") }
-    val palette = GainsColors.palette
-    val matches = remember(query, catalogue) {
-        val q = query.trim()
-        if (q.isEmpty()) catalogue.take(40) else catalogue.filter { it.name.contains(q, ignoreCase = true) }.take(40)
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        title = { Text("Add exercise") },
-        text = {
-            Column {
-                OutlinedTextField(query, { query = it }, placeholder = { Text("Search or type a new name") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = palette.volt), shape = MaterialTheme.shapes.medium)
-                Spacer(Modifier.height(8.dp))
-                LazyColumn(Modifier.height(300.dp)) {
-                    itemsIndexed(matches) { _, e ->
-                        TextButton(onClick = { onPick(e) }, modifier = Modifier.fillMaxWidth()) {
-                            Column(Modifier.fillMaxWidth()) {
-                                Text(e.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                                Text(e.muscleGroups.joinToString { it.group.displayName }.ifEmpty { e.modality.name.lowercase() }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                    // Creating a new exercise is offered last, so a partial search never creates one by accident.
-                    if (query.isNotBlank() && matches.none { it.name.equals(query.trim(), ignoreCase = true) }) {
-                        item { TextButton(onClick = { onCreate(query.trim()) }) { Text("Create \"${query.trim()}\" as a new exercise", color = palette.volt) } }
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
     )
 }

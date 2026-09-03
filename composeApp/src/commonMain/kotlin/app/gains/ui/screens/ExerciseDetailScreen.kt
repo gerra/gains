@@ -118,7 +118,7 @@ class ExerciseDetailModel(
 }
 
 @Composable
-fun ExerciseDetailScreen(exerciseId: String) {
+fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) -> Unit = {}) {
     val model = rememberScreenModel(exerciseId) { ExerciseDetailModel(exerciseId) }
     val state by model.state.collectAsState()
     val exercise = state.exercise
@@ -161,12 +161,14 @@ fun ExerciseDetailScreen(exerciseId: String) {
                     Modifier.weight(1f),
                     caption = current?.let { Dates.contextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
                     accent = if (gap != null && gap > 0.05) palette.regression else palette.volt,
+                    onClick = current?.let { p -> { onOpenSession(p.sessionId) } },
                 )
                 MetricTile(
                     "All-time best",
                     allTime?.best?.describe(exercise.modality, unit) ?: "-",
                     Modifier.weight(1f),
                     caption = allTime?.let { Dates.contextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
+                    onClick = allTime?.let { p -> { onOpenSession(p.sessionId) } },
                 )
             }
             Spacer(Modifier.height(10.dp))
@@ -222,9 +224,9 @@ fun ExerciseDetailScreen(exerciseId: String) {
                 }
             }
         }
-        item { SectionHeader("Sessions") }
-        items(state.points.asReversed()) { p ->
-            GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = Dp16.Tight) {
+        item { SectionHeader("Sessions · tap to open") }
+        items(state.points.asReversed(), key = { it.sessionId }) { p ->
+            GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = { onOpenSession(p.sessionId) }, contentPadding = Dp16.Tight) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(Dates.contextual(p.date, today), style = MaterialTheme.typography.titleSmall)
                     Text(p.best?.describe(exercise.modality, unit) ?: "-", style = MaterialTheme.typography.titleSmall, color = palette.volt)

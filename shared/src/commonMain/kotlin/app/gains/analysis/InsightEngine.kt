@@ -59,7 +59,14 @@ data class Insight(
     val muscleGroup: MuscleGroup? = null,
     /** Signed change behind the insight (−0.18 for an 18% regression, +0.13 for progress), when there is one. */
     val delta: Double? = null,
+    /** Sessions the text refers to, in the order they are mentioned, so the UI can link to each. */
+    val sessions: List<SessionRef> = emptyList(),
 )
+
+/** A session an insight points at. */
+data class SessionRef(val id: String, val date: LocalDate)
+
+private fun ExerciseSessionPoint.ref() = SessionRef(sessionId, date)
 
 enum class Trend { UP, DOWN, FLAT }
 
@@ -128,6 +135,7 @@ class InsightEngine(
             detail = detail,
             exerciseId = exercise.id,
             delta = -drop,
+            sessions = listOf(current.ref(), allTime.ref()),
         )
     }
 
@@ -157,6 +165,7 @@ class InsightEngine(
             title = exercise.name,
             detail = detail,
             exerciseId = exercise.id,
+            sessions = listOf(firstAtTop.ref()),
         )
     }
 
@@ -183,6 +192,7 @@ class InsightEngine(
             title = exercise.name,
             detail = detail,
             exerciseId = exercise.id,
+            sessions = listOf(last.ref()),
         )
     }
 
@@ -268,6 +278,6 @@ class InsightEngine(
         if (gain < thresholds.progressMinGainFraction) return null
         val detail = "${current.best.describe(exercise.modality, unit)} on ${Dates.contextual(current.date, today)}, " +
             "up ${Format.percent(gain)} on ${previousBest.best.describe(exercise.modality, unit)} from ${Dates.contextual(previousBest.date, today)}."
-        return Insight(InsightKind.PROGRESS, 10.0 + gain * 100, exercise.name, detail, exerciseId = exercise.id, delta = gain)
+        return Insight(InsightKind.PROGRESS, 10.0 + gain * 100, exercise.name, detail, exerciseId = exercise.id, delta = gain, sessions = listOf(current.ref(), previousBest.ref()))
     }
 }
