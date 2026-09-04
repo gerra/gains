@@ -1,6 +1,8 @@
 package app.gains
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -68,6 +70,7 @@ import app.gains.ui.components.GainsWordmark
 import app.gains.ui.inject
 import app.gains.ui.nav.Navigator
 import app.gains.ui.nav.Screen
+import app.gains.ui.nav.SwipeBack
 import app.gains.ui.nav.Tab
 import app.gains.ui.screens.BodyweightScreen
 import app.gains.ui.screens.HistoryScreen
@@ -86,9 +89,15 @@ import app.gains.ui.screens.VolumeScreen
 import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.GainsTheme
 
-/** Root of the shared UI. [filePicker] is supplied by each platform entry point. */
+/**
+ * Root of the shared UI. [filePicker] is supplied by each platform entry point.
+ *
+ * [systemBack] lets a platform hook its own back affordance (Android's button and predictive back
+ * gesture) into the navigator: it is composed with whether the app can go back and what to do then.
+ * Swiping in from the left edge goes back on every platform without any hook.
+ */
 @Composable
-fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}) {
+fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> }) {
     val navigator = remember { Navigator() }
     val exercises = remember { inject<ExerciseRepository>() }
     LaunchedEffect(Unit) { exercises.seedCatalogue() }
@@ -99,7 +108,7 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
     val accounts = remember { inject<AccountRepository>() }
     // null = still loading the preference; Optional-ish wrapper keeps "no account" distinct from "unknown".
     val accountState by accounts.observeAccount().collectAsState(initial = AccountLoading)
-    LaunchedEffect(navigator) { onBackHandler { navigator.pop() } }
+    systemBack(navigator.canGoBack) { navigator.pop() }
 
     val settings = remember { inject<SettingsRepository>() }
     val programs = remember { inject<ProgramRepository>() }
@@ -128,59 +137,27 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
             if (onboardingDone == false) { OnboardingScreen(onDone = {}); return@Surface }
             Column(Modifier.fillMaxSize().statusBarsPadding()) {
                 TopBar(navigator, screen, upNext)
-                Box(Modifier.weight(1f)) {
+                SwipeBack(
+                    enabled = navigator.canGoBack,
+                    onBack = { navigator.pop(animated = false) },
+                    modifier = Modifier.weight(1f),
+                    previous = { navigator.previous?.let { ScreenContent(it, navigator, filePicker) } },
+                ) {
                     AnimatedContent(
                         targetState = screen,
                         transitionSpec = {
-                            val forward = navigator.stack.size > 1 && targetState !is Screen.Home
-                            val enter = fadeIn(tween(220)) + slideInHorizontally(tween(260)) { if (forward) it / 12 else -it / 12 }
-                            val exit = fadeOut(tween(160)) + slideOutHorizontally(tween(220)) { if (forward) -it / 16 else it / 16 }
-                            enter togetherWith exit
+                            if (navigator.skipTransition) {
+                                // The swipe-back gesture has already slid the old screen away.
+                                EnterTransition.None togetherWith ExitTransition.None
+                            } else {
+                                val forward = navigator.stack.size > 1 && targetState !is Screen.Home
+                                val enter = fadeIn(tween(220)) + slideInHorizontally(tween(260)) { if (forward) it / 12 else -it / 12 }
+                                val exit = fadeOut(tween(160)) + slideOutHorizontally(tween(220)) { if (forward) -it / 16 else it / 16 }
+                                enter togetherWith exit
+                            }
                         },
                         label = "screen",
-                    ) { current ->
-                        Box(Modifier.fillMaxSize()) {
-                            when (current) {
-                                Screen.Home -> HomeScreen(
-                                    onImport = { navigator.push(Screen.Import) },
-                                    onLog = { navigator.push(Screen.EditSession(null)) },
-                                    onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
-                                    onOpenSession = { navigator.push(Screen.EditSession(it)) },
-                                    onOpenVolume = { navigator.switchTab(Tab.VOLUME) },
-                                    onOpenOnboarding = { navigator.push(Screen.Onboarding) },
-                                    onOpenPrograms = { navigator.push(Screen.Programs) },
-                                    onOpenProgram = { navigator.push(Screen.ProgramDetail(it)) },
-                                    onStartDay = { navigator.push(Screen.EditSession(null, it)) },
-                                )
-                                Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
-                                Screen.Volume -> VolumeScreen()
-                                Screen.Body -> BodyweightScreen()
-                                Screen.History -> HistoryScreen(
-                                    onOpen = { navigator.push(Screen.EditSession(it)) },
-                                    onLog = { navigator.push(Screen.EditSession(null)) },
-                                )
-                                is Screen.EditSession -> SessionEditorScreen(current.sessionId, current.programDay, onDone = { navigator.pop() })
-                                Screen.Settings -> SettingsScreen(
-                                    onOpenPrograms = { navigator.push(Screen.Programs) },
-                                    onOpenOnboarding = { navigator.push(Screen.Onboarding) },
-                                )
-                                Screen.Onboarding -> OnboardingScreen(onDone = { navigator.pop() })
-                                Screen.Programs -> ProgramsScreen(
-                                    onOpen = { navigator.push(Screen.ProgramDetail(it)) },
-                                    onNew = { navigator.push(Screen.ProgramEditor(null)) },
-                                )
-                                is Screen.ProgramDetail -> ProgramDetailScreen(
-                                    current.programId,
-                                    onStartDay = { navigator.push(Screen.EditSession(null, it)) },
-                                    onEdit = { navigator.push(Screen.ProgramEditor(it)) },
-                                    onDeleted = { navigator.pop() },
-                                )
-                                is Screen.ProgramEditor -> ProgramEditorScreen(current.programId, onDone = { navigator.pop() })
-                                Screen.Import -> ImportScreen(filePicker, onDone = { navigator.pop() })
-                                is Screen.ExerciseDetail -> ExerciseDetailScreen(current.exerciseId, onOpenSession = { navigator.push(Screen.EditSession(it)) })
-                            }
-                        }
-                    }
+                    ) { current -> ScreenContent(current, navigator, filePicker) }
                 }
                 BottomNav(navigator)
             }
@@ -190,6 +167,55 @@ fun App(filePicker: CsvFilePicker, onBackHandler: ((() -> Boolean)) -> Unit = {}
 
 /** The active program's next day, shown in the "+" menu. */
 private data class UpNext(val ref: ProgramDayRef, val dayName: String)
+
+/**
+ * One screen of the stack. Opaque, so it can slide over the screen beneath it during a swipe back
+ * and so the outgoing screen never shows through the incoming one mid-transition.
+ */
+@Composable
+private fun ScreenContent(screen: Screen, navigator: Navigator, filePicker: CsvFilePicker) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        when (screen) {
+            Screen.Home -> HomeScreen(
+                onImport = { navigator.push(Screen.Import) },
+                onLog = { navigator.push(Screen.EditSession(null)) },
+                onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
+                onOpenSession = { navigator.push(Screen.EditSession(it)) },
+                onOpenVolume = { navigator.switchTab(Tab.VOLUME) },
+                onOpenOnboarding = { navigator.push(Screen.Onboarding) },
+                onOpenPrograms = { navigator.push(Screen.Programs) },
+                onOpenProgram = { navigator.push(Screen.ProgramDetail(it)) },
+                onStartDay = { navigator.push(Screen.EditSession(null, it)) },
+            )
+            Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
+            Screen.Volume -> VolumeScreen()
+            Screen.Body -> BodyweightScreen()
+            Screen.History -> HistoryScreen(
+                onOpen = { navigator.push(Screen.EditSession(it)) },
+                onLog = { navigator.push(Screen.EditSession(null)) },
+            )
+            is Screen.EditSession -> SessionEditorScreen(screen.sessionId, screen.programDay, onDone = { navigator.pop() })
+            Screen.Settings -> SettingsScreen(
+                onOpenPrograms = { navigator.push(Screen.Programs) },
+                onOpenOnboarding = { navigator.push(Screen.Onboarding) },
+            )
+            Screen.Onboarding -> OnboardingScreen(onDone = { navigator.pop() })
+            Screen.Programs -> ProgramsScreen(
+                onOpen = { navigator.push(Screen.ProgramDetail(it)) },
+                onNew = { navigator.push(Screen.ProgramEditor(null)) },
+            )
+            is Screen.ProgramDetail -> ProgramDetailScreen(
+                screen.programId,
+                onStartDay = { navigator.push(Screen.EditSession(null, it)) },
+                onEdit = { navigator.push(Screen.ProgramEditor(it)) },
+                onDeleted = { navigator.pop() },
+            )
+            is Screen.ProgramEditor -> ProgramEditorScreen(screen.programId, onDone = { navigator.pop() })
+            Screen.Import -> ImportScreen(filePicker, onDone = { navigator.pop() })
+            is Screen.ExerciseDetail -> ExerciseDetailScreen(screen.exerciseId, onOpenSession = { navigator.push(Screen.EditSession(it)) })
+        }
+    }
+}
 
 @Composable
 private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {

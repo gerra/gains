@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Shared scheme so `xcodebuild -scheme iosApp` (and the TestFlight workflow) works on a clean checkout. -->
 <Scheme
    LastUpgradeVersion = "1500"
    version = "1.7">
@@ -29,8 +28,6 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
-      <Testables>
-      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
