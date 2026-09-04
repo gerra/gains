@@ -162,7 +162,7 @@ fun ExercisePickerSheet(
                 if (canCreate) {
                     item(key = "create") {
                         CreateRow(q) {
-                            val created = onCreate!!(q)
+                            val created = onCreate(q)
                             selected = selected + created.id
                             query = ""
                         }

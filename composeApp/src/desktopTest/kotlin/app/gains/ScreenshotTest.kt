@@ -224,7 +224,9 @@ class ScreenshotTest {
         require(text("5 × 3+"))
         settle(1_000)
         shot("14-program-day")
-        onNode(text("Cancel") and hasClickAction()).performClick()
+        // The editor's Cancel button sits below the fold of a lazy list; the top-bar Back is always composed.
+        onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        settle()
         tab("Home")
         require(text("Up next"), 60_000)
         settle(1_000)
