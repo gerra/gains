@@ -30,6 +30,18 @@ class NameNormalizerTest {
         val ids = ExerciseCatalogue.builtIn.map { it.id }
         assertEquals(ids.size, ids.toSet().size)
     }
+
+    @Test
+    fun extraExportSpellingsResolveToTheirExercise() {
+        // Declared through Builder.alias(), after the ex() entries.
+        val aliases = ExerciseCatalogue.builtInAliases
+        assertEquals("ab_wheel", aliases[NameNormalizer.normalize("Ab Roller")])
+        assertEquals("back_extension", aliases[NameNormalizer.normalize("Hyperextensions (Back Extensions)")])
+        assertEquals("bench_press", aliases[NameNormalizer.normalize("Bench Press - Powerlifting")])
+        // Every alias points at a catalogue exercise.
+        val ids = ExerciseCatalogue.builtIn.map { it.id }.toSet()
+        assertEquals(emptyList(), aliases.filterValues { it !in ids }.keys.toList())
+    }
 }
 
 class ExerciseCatalogueMappingTest {
