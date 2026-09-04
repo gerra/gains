@@ -81,6 +81,17 @@ device today.
 
 ## Features
 
+- **A goal, then a program.** Three questions after sign-in (build muscle, get stronger, lose
+  fat or general fitness; experience; days a week) rank the built-in programs by fit. Skip them
+  and set the goal later in Settings. The goal also decides which insights lead on Home.
+- **Programs with choosable days.** The r/Fitness Basic Beginner Routine, GZCLP, 5/3/1 for
+  Beginners, Reddit PPL (6-day and 3-day), an Upper/Lower split and the r/bodyweightfitness
+  Recommended Routine ship built in, each as named days of exercises with sets, reps and a
+  progression rule. Days rotate on completion, never by weekday; Home shows the next one and any
+  day can be started with a tap. Duplicate a built-in to edit it, or build your own.
+- **Pre-filled workouts.** Starting a day opens the editor with every set loaded from your last
+  session of that exercise and a hint such as `Last: 60 kg × 5,5,5 → try 62.5 kg` from the
+  program's rule (linear, double progression or the GZCLP stage ladder).
 - **Import from anywhere.** Drop in Liftoff, Strong or Hevy exports, or any CSV with date,
   exercise, weight and reps columns. The format is detected from the header, several files can
   be imported at once, and re-importing an overlapping export never creates duplicates.
@@ -94,9 +105,11 @@ device today.
 - **Log and edit workouts.** Add sessions in the app, edit imported ones (date, duration,
   exercises, sets, notes) and have the edits flow into the same analyses.
 - **Bodyweight tracking** with a 7-day average, and any lift overlaid on the trend.
-- **A catalogue that understands names.** About 100 built-in exercises with muscle
-  contributions and aliases, so `Seated Dumbbell Shoulder Press` and `Seated Shoulder Press`
-  are one lift. Unknown names become custom exercises you can merge later.
+- **A catalogue that understands names.** Nearly 300 built-in exercises with muscle
+  contributions, equipment tags and aliases, so `Seated Dumbbell Shoulder Press` and
+  `Seated Shoulder Press` are one lift. About 180 of them were curated from the public-domain
+  [free-exercise-db](https://github.com/yuhonas/free-exercise-db). Unknown names become custom
+  exercises you can merge later.
 - **Careful with bad data.** Real RFC 4180 parsing, unit conversion and rounding, warm-up
   detection, timer-default holds flagged for review, corrupt durations dropped, empty rows
   listed with a reason.
@@ -304,10 +317,13 @@ flowchart LR
     P --> A[Import analyzer<br/>dedupe · outliers · warm-ups]
     A --> DB[(SQLDelight<br/>SQLite)]
     DB --> E[Insight engine<br/>volume · consistency · e1RM]
+    PC[Program catalogue] --> PR[Programs<br/>rotation · progression]
+    DB --> PR
   end
   subgraph composeApp["composeApp (Compose Multiplatform)"]
-    UI[Home · History · Lifts<br/>Volume · Body · Settings]
+    UI[Onboarding · Home · Programs<br/>History · Lifts · Volume · Body · Settings]
   end
+  PR --> UI
   L & S & H & C --> R
   E --> UI
   UI -->|log / edit| DB
@@ -316,8 +332,8 @@ flowchart LR
 
 | Module | Contents |
 |--------|----------|
-| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise catalogue, import analyzer, SQLDelight persistence, insight engine and analysis code. Pure Kotlin, no UI, 60+ unit tests including an in-memory SQLite integration test and a 10,000-row import timing test. |
-| [`composeApp/`](composeApp) | Compose Multiplatform UI (home insights, history with a workout editor, import preview, lifts, volume, bodyweight, settings), Canvas charts and the Android, iOS and desktop entry points. |
+| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence, insight engine, program rotation and progression logic. Pure Kotlin, no UI, 100+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
+| [`composeApp/`](composeApp) | Compose Multiplatform UI (goal onboarding, home insights with the next program day, programs and a program editor, history with a workout editor, import preview, lifts, volume, bodyweight, settings), Canvas charts and the Android, iOS and desktop entry points. |
 | [`iosApp/`](iosApp) | Xcode project wrapping the `ComposeApp` framework in SwiftUI. |
 | [`samples/`](samples) | A generated eight-month Liftoff export used by the screenshots and handy for trying the app. |
 
@@ -357,7 +373,15 @@ covers the secrets it needs and the manual route through Xcode.
 it in `Connectors`, and add a fixture to `ConnectorsTest`.
 
 **Tuning an insight.** Change the defaults in `InsightThresholds` and adjust the corresponding
-case in `InsightEngineTest`.
+case in `InsightEngineTest`. Per-goal overrides live in `GoalTuning`.
+
+**Adding a built-in program.** Add a `program { day { slot(...) } }` block to
+[`ProgramCatalogue.kt`](shared/src/commonMain/kotlin/app/gains/catalogue/ProgramCatalogue.kt);
+`ProgramCatalogueTest` checks that every slot points at a catalogue exercise. Progression rules
+are `linear`, `double` (reps climb, then weight) or `ladder` (GZCLP-style stages).
+
+**Changing the schema.** Edit the `.sq` file and add a `migrations/N.sqm` with the same DDL;
+`MigrationTest` upgrades a database from the previous version and compares it with a fresh one.
 
 ## Roadmap
 

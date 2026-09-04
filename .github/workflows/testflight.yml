@@ -27,12 +27,17 @@ jobs:
     timeout-minutes: 120
     env:
       BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
-      ARCHIVE_PATH: ${{ runner.temp }}/Gains.xcarchive
-      EXPORT_PATH: ${{ runner.temp }}/export
-      KEYCHAIN_PATH: ${{ runner.temp }}/testflight.keychain-db
-      API_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
     steps:
       - uses: actions/checkout@v4
+      # The runner context is not available in job-level env, so the temp paths are set here.
+      - name: Set paths
+        run: |
+          {
+            echo "ARCHIVE_PATH=$RUNNER_TEMP/Gains.xcarchive"
+            echo "EXPORT_PATH=$RUNNER_TEMP/export"
+            echo "KEYCHAIN_PATH=$RUNNER_TEMP/testflight.keychain-db"
+            echo "API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8"
+          } >> "$GITHUB_ENV"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin

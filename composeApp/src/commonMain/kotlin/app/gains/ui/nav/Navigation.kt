@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import app.gains.domain.ProgramDayRef
 
 sealed interface Screen {
     data object Home : Screen
@@ -13,9 +14,14 @@ sealed interface Screen {
     data object History : Screen
     data object Settings : Screen
     data object Import : Screen
+    data object Onboarding : Screen
+    data object Programs : Screen
+    data class ProgramDetail(val programId: String) : Screen
+    /** null = create a new program. */
+    data class ProgramEditor(val programId: String?) : Screen
     data class ExerciseDetail(val exerciseId: String) : Screen
-    /** null = log a new workout. */
-    data class EditSession(val sessionId: String?) : Screen
+    /** null = log a new workout; [programDay] pre-fills it from a program day. */
+    data class EditSession(val sessionId: String?, val programDay: ProgramDayRef? = null) : Screen
 }
 
 enum class Tab(val label: String, val root: Screen) {

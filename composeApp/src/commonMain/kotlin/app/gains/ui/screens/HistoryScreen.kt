@@ -29,6 +29,7 @@ import app.gains.analysis.InsightEngine
 import app.gains.analysis.TrainingData
 import app.gains.analysis.Trend
 import app.gains.analysis.WeekCount
+import app.gains.data.ProgramRepository
 import app.gains.domain.Exercise
 import app.gains.domain.Session
 import app.gains.ui.ScreenModel
@@ -51,7 +52,7 @@ import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
@@ -64,14 +65,17 @@ data class HistoryState(
     val weeks: List<WeekCount> = emptyList(),
     val stats: ConsistencyStats? = null,
     val streakWeeks: Int = 0,
+    /** program day id -> day name, for the badge on sessions started from a program. */
+    val dayNames: Map<String, String> = emptyMap(),
 )
 
-class HistoryModel(trainingData: TrainingData = inject()) : ScreenModel() {
-    val state: StateFlow<HistoryState> = trainingData.snapshot.map { snapshot ->
+class HistoryModel(trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
+    val state: StateFlow<HistoryState> = combine(trainingData.snapshot, programs.observePrograms()) { snapshot, programList ->
         withContext(Dispatchers.Default) {
             val today = Dates.today()
             HistoryState(
                 loading = false,
+                dayNames = programList.flatMap { p -> p.days.map { it.id to it.name } }.toMap(),
                 sessions = snapshot.sessions.sortedByDescending { it.timestamp },
                 exercisesById = snapshot.exercisesById,
                 perDay = ConsistencyAnalyzer.perDay(snapshot.sessions),
@@ -129,19 +133,23 @@ fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
         }
         item { SectionHeader("Sessions") }
         items(state.sessions, key = { it.id }) { session ->
-            SessionRow(session, state.exercisesById, today, onClick = { onOpen(session.id) })
+            SessionRow(session, state.exercisesById, today, state.dayNames[session.program?.dayId], onClick = { onOpen(session.id) })
         }
     }
 }
 
 @Composable
-private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, today: LocalDate, onClick: () -> Unit) {
+private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, today: LocalDate, dayName: String?, onClick: () -> Unit) {
     val palette = GainsColors.palette
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = onClick, contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(Dates.contextual(session.date, today), style = MaterialTheme.typography.titleMedium)
+                    if (dayName != null) {
+                        Spacer(Modifier.width(8.dp))
+                        Pill(dayName, palette.cyan)
+                    }
                     Spacer(Modifier.width(8.dp))
                     Text(
                         "${session.timestamp.hour.toString().padStart(2, '0')}:${session.timestamp.minute.toString().padStart(2, '0')}" +

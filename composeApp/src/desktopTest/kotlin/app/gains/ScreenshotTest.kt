@@ -22,8 +22,12 @@ import app.gains.auth.AccountRepository
 import app.gains.data.BodyweightRepository
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.DesktopDriverFactory
+import app.gains.data.ProgramRepository
 import app.gains.di.initKoin
 import app.gains.domain.BodyweightEntry
+import app.gains.domain.Experience
+import app.gains.domain.Goal
+import app.gains.domain.GoalProfile
 import app.gains.importer.CsvFile
 import app.gains.importer.ImportService
 import app.gains.platform.CsvFilePicker
@@ -118,9 +122,21 @@ class ScreenshotTest {
         settle(1_500)
         shot("01-welcome")
         onNode(text("Continue as guest") and hasClickAction()).performClick()
-        if (!await(text("No workouts yet"), 15_000)) {
+        if (!await(text("Skip for now"), 15_000)) {
             println("guest sign-in through the UI did not switch screens; signing in through the repository")
             runBlocking { inject<AccountRepository>().continueAsGuest() }
+            require(text("Skip for now"))
+        }
+
+        // 1b. Goal onboarding: answer the first question for the picture, then skip the rest.
+        settle(1_000)
+        onNode(text("Get stronger") and hasClickAction()).performClick()
+        settle()
+        shot("01b-onboarding")
+        onNode(text("Skip for now") and hasClickAction()).performClick()
+        if (!await(text("No workouts yet"), 15_000)) {
+            println("skipping onboarding through the UI did not switch screens; marking it done through the repository")
+            runBlocking { inject<ProgramRepository>().markOnboardingDone() }
             require(text("No workouts yet"))
         }
 
@@ -190,6 +206,33 @@ class ScreenshotTest {
         require(text("Appearance"))
         settle(1_000)
         shot("09-settings")
+
+        // 8b. Programs: set a goal, pick GZCLP, activate it and open its first day pre-filled.
+        val programs = inject<ProgramRepository>()
+        runBlocking { programs.setProfile(GoalProfile(Goal.GET_STRONGER, Experience.BEGINNER, 3)) }
+        onNode(text("Change") and hasClickAction()).performClick()
+        require(text("Built-in"))
+        settle(1_000)
+        shot("12-programs")
+        onNode(hasText("GZCLP") and hasClickAction()).performClick()
+        require(text("Activate") and hasClickAction())
+        onNode(text("Activate") and hasClickAction()).performClick()
+        require(text("Deactivate"))
+        settle(1_000)
+        shot("13-program-detail")
+        onNode(hasText("A1") and hasClickAction()).performClick()
+        require(text("5 × 3+"))
+        settle(1_000)
+        shot("14-program-day")
+        // The editor's Cancel button sits below the fold of a lazy list; the top-bar Back is always composed.
+        onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        settle()
+        tab("Home")
+        require(text("Up next"), 60_000)
+        settle(1_000)
+        shot("15-home-program")
+        onNode(hasContentDescription("Settings") and hasClickAction()).performClick()
+        require(text("Appearance"))
         onNode(text("Light") and hasClickAction()).performClick()
         settle()
         tab("Home")

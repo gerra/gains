@@ -6,7 +6,9 @@ CREATE TABLE exercise (
   is_dumbbell INTEGER NOT NULL DEFAULT 0,
   is_builtin INTEGER NOT NULL DEFAULT 0,
   -- "CHEST:1.0,TRICEPS:0.5"
-  muscles TEXT NOT NULL
+  muscles TEXT NOT NULL,
+  -- "BARBELL,DUMBBELL"
+  equipment TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE exercise_alias (
@@ -20,15 +22,15 @@ CREATE TABLE exercise_override (
 );
 
 upsertExercise:
-INSERT OR REPLACE INTO exercise(id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO exercise(id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles, equipment)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 insertExerciseIfMissing:
-INSERT OR IGNORE INTO exercise(id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT OR IGNORE INTO exercise(id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles, equipment)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 selectExercises:
-SELECT id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles FROM exercise ORDER BY name;
+SELECT id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles, equipment FROM exercise ORDER BY name;
 
 selectAliases:
 SELECT raw_name, exercise_id FROM exercise_alias;

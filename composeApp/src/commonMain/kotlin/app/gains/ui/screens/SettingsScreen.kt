@@ -2,6 +2,8 @@ package app.gains.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,15 +31,21 @@ import app.gains.auth.Account
 import app.gains.auth.AccountRepository
 import app.gains.auth.AuthConfig
 import app.gains.data.ExerciseRepository
+import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
 import app.gains.data.ThemeMode
 import app.gains.domain.Exercise
+import app.gains.domain.Experience
+import app.gains.domain.Goal
+import app.gains.domain.GoalProfile
 import app.gains.domain.WeightUnit
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
+import app.gains.ui.components.KeyValueRow
+import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SecondaryButton
@@ -62,6 +68,8 @@ data class SettingsState(
     val aliases: Map<String, String> = emptyMap(),
     val overrides: Map<String, Double> = emptyMap(),
     val exercisesById: Map<String, Exercise> = emptyMap(),
+    val profile: GoalProfile? = null,
+    val activeProgramName: String? = null,
 )
 
 class SettingsModel(
@@ -70,13 +78,16 @@ class SettingsModel(
     val authConfig: AuthConfig = inject(),
     private val exercises: ExerciseRepository = inject(),
     private val sessions: SessionRepository = inject(),
+    private val programs: ProgramRepository = inject(),
     trainingData: TrainingData = inject(),
 ) : ScreenModel() {
     val state: StateFlow<SettingsState> = combine(
         combine(settings.observeUnit(), settings.observeThemeMode(), accounts.observeAccount()) { u, t, a -> Triple(u, t, a) },
-        trainingData.snapshot, exercises.observeAliases(), exercises.observeWorkingSetRatios(),
-    ) { (unit, theme, account), snapshot, aliases, overrides ->
+        trainingData.snapshot, exercises.observeAliases(), exercises.observeWorkingSetRatios(), programs.observeState(),
+    ) { (unit, theme, account), snapshot, aliases, overrides, programState ->
         SettingsState(
+            profile = programState.profile,
+            activeProgramName = programState.active?.name,
             account = account,
             unit = unit,
             theme = theme,
@@ -95,10 +106,19 @@ class SettingsModel(
     fun removeAlias(raw: String) { scope.launch { exercises.removeAlias(raw) } }
     fun clearOverride(exerciseId: String) { scope.launch { exercises.setWorkingSetRatio(exerciseId, null) } }
     fun deleteAllData() { scope.launch { sessions.deleteAll() } }
+
+    fun setGoal(goal: Goal) = updateProfile { it.copy(goal = goal) }
+    fun setExperience(experience: Experience) = updateProfile { it.copy(experience = experience) }
+    fun setDays(days: Int) = updateProfile { it.copy(daysPerWeek = days) }
+    private fun updateProfile(f: (GoalProfile) -> GoalProfile) {
+        val current = state.value.profile ?: GoalProfile(Goal.GENERAL_FITNESS, Experience.BEGINNER, 3)
+        scope.launch { programs.setProfile(f(current)) }
+    }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}) {
     val model = rememberScreenModel { SettingsModel() }
     val state by model.state.collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }
@@ -128,6 +148,33 @@ fun SettingsScreen() {
                     Spacer(Modifier.height(6.dp))
                     Text("Google and Apple sign-in are not configured yet; the sync server is coming later.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            SectionHeader("Training goal")
+            GainsCard(Modifier.fillMaxWidth()) {
+                val profile = state.profile
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (g in Goal.entries) Pill(g.label, palette.volt, filled = profile?.goal == g, onClick = { model.setGoal(g) })
+                }
+                Spacer(Modifier.height(10.dp))
+                ChipRow(Experience.entries, profile?.experience ?: Experience.BEGINNER, { it.label }, { model.setExperience(it) })
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Days a week", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    ChipRow((GoalProfile.MIN_DAYS..GoalProfile.MAX_DAYS).toList(), profile?.daysPerWeek ?: 3, { it.toString() }, { model.setDays(it) })
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    KeyValueRow("Active program", state.activeProgramName ?: "None", Modifier.weight(1f))
+                    TextButton(onClick = onOpenPrograms) { Text("Change", color = palette.volt) }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onOpenOnboarding) { Text("Redo setup", color = palette.volt) }
+                }
+                Text(
+                    if (profile == null) "No goal set yet. Pick one and the program list sorts by fit; the home screen leads with the signals that matter for it."
+                    else "Programs are sorted by fit for this; the home screen leads with ${profile.goal.label.lowercase()} signals.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             SectionHeader("Appearance")
             GainsCard(Modifier.fillMaxWidth()) {
@@ -210,12 +257,16 @@ private fun MergeRow(custom: Exercise, catalogue: List<Exercise>, onMerge: (Exer
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Column {
-                TextButton(onClick = { open = true }) { Text("Merge into…", color = palette.volt) }
-                DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = MaterialTheme.shapes.medium) {
-                    for (e in catalogue) DropdownMenuItem(text = { Text(e.name) }, onClick = { onMerge(e); open = false })
-                }
-            }
+            TextButton(onClick = { open = true }) { Text("Merge into…", color = palette.volt) }
         }
     }
+    if (open) ExercisePickerSheet(
+        catalogue = catalogue,
+        recent = emptyList(),
+        alreadyAdded = setOf(custom.id),
+        onAdd = { picked -> picked.firstOrNull()?.let(onMerge) },
+        onCreate = null,
+        onDismiss = { open = false },
+        single = true,
+    )
 }

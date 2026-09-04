@@ -11,6 +11,8 @@ import app.gains.domain.ExerciseEntry
 import app.gains.domain.Modality
 import app.gains.domain.MuscleContribution
 import app.gains.domain.MuscleGroup
+import app.gains.domain.ProgramDayRef
+import app.gains.domain.ProgramLink
 import app.gains.domain.Session
 import app.gains.domain.SetEntry
 import app.gains.domain.SetType
@@ -57,6 +59,7 @@ class SessionRepository(
                 timestamp = LocalDateTime.parse(s.timestamp),
                 durationMinutes = s.duration_minutes?.toInt(),
                 source = s.source,
+                program = programRef(s.program_id, s.program_day_id),
                 exercises = (entriesBySession[s.id] ?: emptyList()).sortedBy { it.position }.map { e ->
                     ExerciseEntry(
                         exerciseId = e.exercise_id,
@@ -77,6 +80,13 @@ class SessionRepository(
             )
         }
     }.flowOn(io)
+
+    /** Sessions started from a program day, oldest first. Cheap: no sets are loaded. */
+    fun observeProgramLinks(): Flow<List<ProgramLink>> = q.selectProgramSessions().asFlow().mapToList(io).map { rows ->
+        rows.mapNotNull { r -> programRef(r.program_id, r.program_day_id)?.let { ProgramLink(r.id, LocalDateTime.parse(r.timestamp), it) } }
+    }.flowOn(io)
+
+    suspend fun ids(): Set<String> = withContext(io) { q.selectSessionIds().executeAsList().toSet() }
 
     suspend fun summaries(): List<StoredSessionSummary> = withContext(io) {
         q.selectSummaries().executeAsList().map {
@@ -103,6 +113,8 @@ class SessionRepository(
                     fingerprint = ImportAnalyzer.fingerprint(session),
                     content_hash = ImportAnalyzer.contentHash(session),
                     source = session.source,
+                    program_id = session.program?.programId,
+                    program_day_id = session.program?.dayId,
                 )
                 session.exercises.forEachIndexed { position, entry ->
                     q.insertEntry(session.id, entry.exerciseId, position.toLong(), entry.note)
@@ -141,6 +153,9 @@ class SessionRepository(
             q.deleteAllSessions()
         }
     }
+
+    private fun programRef(programId: String?, dayId: String?): ProgramDayRef? =
+        if (programId.isNullOrBlank() || dayId.isNullOrBlank()) null else ProgramDayRef(programId, dayId)
 }
 
 class ExerciseRepository(
@@ -159,6 +174,7 @@ class ExerciseRepository(
                 isDumbbell = r.is_dumbbell != 0L,
                 isBuiltIn = r.is_builtin != 0L,
                 muscleGroups = decodeMuscles(r.muscles),
+                equipment = ProgramCodec.decodeEquipment(r.equipment),
             )
         }
     }.flowOn(io)
@@ -175,7 +191,7 @@ class ExerciseRepository(
 
     suspend fun exercises(): List<Exercise> = withContext(io) {
         q.selectExercises().executeAsList().map { r ->
-            Exercise(r.id, r.name, r.canonical_name, decodeMuscles(r.muscles), Modality.valueOf(r.modality), r.is_dumbbell != 0L, r.is_builtin != 0L)
+            Exercise(r.id, r.name, r.canonical_name, decodeMuscles(r.muscles), Modality.valueOf(r.modality), r.is_dumbbell != 0L, r.is_builtin != 0L, ProgramCodec.decodeEquipment(r.equipment))
         }
     }
 
@@ -191,7 +207,7 @@ class ExerciseRepository(
     suspend fun seedCatalogue() = withContext(io) {
         db.transaction {
             for (e in ExerciseCatalogue.builtIn) {
-                q.upsertExercise(e.id, e.name, e.canonicalName, e.modality.name, if (e.isDumbbell) 1L else 0L, 1L, encodeMuscles(e.muscleGroups))
+                q.upsertExercise(e.id, e.name, e.canonicalName, e.modality.name, if (e.isDumbbell) 1L else 0L, 1L, encodeMuscles(e.muscleGroups), ProgramCodec.encodeEquipment(e.equipment))
             }
         }
     }
@@ -199,7 +215,7 @@ class ExerciseRepository(
     suspend fun upsertAll(exercises: List<Exercise>) = withContext(io) {
         db.transaction {
             for (e in exercises) {
-                q.upsertExercise(e.id, e.name, e.canonicalName, e.modality.name, if (e.isDumbbell) 1L else 0L, if (e.isBuiltIn) 1L else 0L, encodeMuscles(e.muscleGroups))
+                q.upsertExercise(e.id, e.name, e.canonicalName, e.modality.name, if (e.isDumbbell) 1L else 0L, if (e.isBuiltIn) 1L else 0L, encodeMuscles(e.muscleGroups), ProgramCodec.encodeEquipment(e.equipment))
             }
         }
     }
@@ -207,7 +223,7 @@ class ExerciseRepository(
     suspend fun insertIfMissing(exercises: List<Exercise>) = withContext(io) {
         db.transaction {
             for (e in exercises) {
-                q.insertExerciseIfMissing(e.id, e.name, e.canonicalName, e.modality.name, if (e.isDumbbell) 1L else 0L, if (e.isBuiltIn) 1L else 0L, encodeMuscles(e.muscleGroups))
+                q.insertExerciseIfMissing(e.id, e.name, e.canonicalName, e.modality.name, if (e.isDumbbell) 1L else 0L, if (e.isBuiltIn) 1L else 0L, encodeMuscles(e.muscleGroups), ProgramCodec.encodeEquipment(e.equipment))
             }
         }
     }
