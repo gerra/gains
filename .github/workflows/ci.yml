@@ -18,6 +18,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       # No Android SDK on the runner: build the shared module and the desktop target only.
       - run: ./gradlew :shared:desktopTest :composeApp:desktopTest -Pgains.android=false --no-daemon
+      # The tests run on the JVM, so a JVM-only call in commonMain (putIfAbsent, String.format,
+      # java.*) passes them and only fails once Xcode builds the framework. Compiling the iOS
+      # klibs catches that here; klib cross-compilation is enabled in gradle.properties.
+      - name: Compile the iOS klibs
+        run: ./gradlew :shared:compileKotlinIosArm64 :composeApp:compileKotlinIosArm64 -Pgains.android=false --no-daemon
       - uses: actions/upload-artifact@v4
         if: always()
         with:

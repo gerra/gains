@@ -40,7 +40,7 @@ object ExerciseCatalogue {
         /** Extra export spellings for an exercise declared above. */
         fun alias(id: String, vararg names: String) {
             require(exercises.any { it.id == id }) { "alias for unknown exercise $id" }
-            for (n in names) aliases.putIfAbsent(NameNormalizer.normalize(n), id)
+            for (n in names) aliases.getOrPut(NameNormalizer.normalize(n)) { id }
         }
     }
 
