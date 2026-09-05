@@ -6,8 +6,8 @@
 <p align="center"><strong>Know what's actually moving.</strong></p>
 
 <p align="center">
-  A training log that imports your history from Liftoff, Strong, Hevy or any workout CSV<br>
-  and tells you which lifts are climbing, which have stalled and which are slipping.
+  A training log that imports your history from Liftoff, Strong, Hevy or any workout CSV,<br>
+  syncs both ways with Strava, and tells you which lifts are climbing, which have stalled and which are slipping.
 </p>
 
 <p align="center">
@@ -49,8 +49,9 @@ month. Every statement comes with the numbers and the chart behind it.
 It is a [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html) app with a
 [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/) UI. iOS is the primary
 target; Android and a desktop (JVM) build share the same code. Everything lives in a local
-SQLite database on the device. A self-hosted sync server is planned but nothing leaves your
-device today.
+SQLite database on the device. The only thing that talks to the network is the optional
+[Strava sync](#strava), straight to Strava with your own API credentials; a self-hosted sync
+server is planned.
 
 <details>
 <summary><strong>Table of contents</strong></summary>
@@ -68,6 +69,10 @@ device today.
 - [Importing your history](#importing-your-history)
   - [Supported exports](#supported-exports)
   - [What happens to a file](#what-happens-to-a-file)
+- [Strava](#strava)
+  - [Setting it up](#setting-it-up)
+  - [What syncs](#what-syncs)
+  - [How the sign-in comes back](#how-the-sign-in-comes-back)
 - [Insights](#insights)
 - [Architecture](#architecture)
 - [Development](#development)
@@ -95,6 +100,11 @@ device today.
 - **Import from anywhere.** Drop in Liftoff, Strong or Hevy exports, or any CSV with date,
   exercise, weight and reps columns. The format is detected from the header, several files can
   be imported at once, and re-importing an overlapping export never creates duplicates.
+- **Two-way Strava sync.** Connect your own Strava API application and every run, ride, swim or
+  walk on Strava becomes a cardio session in History with distance and time. Workouts logged or
+  imported here go the other way as Strava activities whose description lists every set. Links
+  between sessions and activities keep both directions idempotent, so nothing is imported or
+  uploaded twice and an uploaded workout never comes back down as a new session.
 - **Honest insights.** Six rules, each a pure function with tunable thresholds, report
   progress, regressions, stalls, neglected lifts, neglected muscle groups and consistency.
   Nothing is reported without the sessions to back it up.
@@ -115,8 +125,9 @@ device today.
   listed with a reason.
 - **Dark and light themes**, a floating pill navigation and animated Canvas charts with no
   charting library.
-- **Local first.** Guest mode keeps everything on the device. Sign-in and sync light up only
-  once a server exists.
+- **Local first.** Guest mode keeps everything on the device. The only network traffic is the
+  Strava sync you set up yourself, straight to Strava with your own API credentials. Sign-in and
+  the sync server light up only once a server exists.
 
 ## Screenshots
 
@@ -216,7 +227,8 @@ one-time App Store Connect setup, the workflow secrets and troubleshooting are i
 3. Tap **Accept**, then **Install**. TestFlight offers each new build as an update, and a build
    expires 90 days after it was uploaded.
 
-The beta is the same local-only app as the source here: nothing leaves the device. Report
+The beta is the same local-first app as the source here: nothing leaves the device unless you
+connect Strava. Report
 problems with **Send Beta Feedback** in TestFlight (a screenshot from the app opens it) or in
 the [issue tracker](https://github.com/gerra/gains/issues).
 
@@ -286,6 +298,70 @@ de-duplicated against itself and the database exactly as a single file would be.
 
 </details>
 
+## Strava
+
+Gains talks to Strava directly with the [Strava API v3](https://developers.strava.com/docs/reference/),
+using an API application you create under your own account. There is no Gains server in between:
+the credentials, the tokens and the links between sessions and activities all live in the local
+database, and the tokens are refreshed by the app when they expire.
+
+### Setting it up
+
+1. Open **https://www.strava.com/settings/api** and create an application. Any name and website
+   will do; set **Authorization Callback Domain** to `localhost`. Strava shows a **Client ID** and
+   a **Client Secret**.
+2. In Gains open **Settings › Strava › Connect**, paste both values and tap **Connect Strava**.
+3. Strava asks you to allow Gains to *view data about your activities* (including private ones)
+   and *upload your activities*. Both are needed for a two-way sync; if you untick one, the
+   screen tells you which direction is off.
+4. The first sync runs on its own after connecting and pulls your whole activity history. Later
+   syncs are started with **Sync now** and only ask Strava for activities from the last sync
+   onwards, with a 30-day margin so activities that reached Strava late are not missed.
+
+A developer can instead bake the credentials into the build by filling in `StravaConfig` in
+[`SharedModule.kt`](shared/src/commonMain/kotlin/app/gains/di/SharedModule.kt); values entered in
+the app always win over those.
+
+### What syncs
+
+| Direction | What | Details |
+|-----------|------|---------|
+| **Strava → Gains** | Runs, rides, swims, walks, hikes, rowing, elliptical, stair stepper, skating, HIIT and every other sport type | One session per activity with one cardio set: moving time and distance, the activity name, elevation gain and average heart rate as the note, elapsed time as the duration. Ride variants (gravel, MTB, e-bike, virtual) become **Cycling**, run variants **Running**, unknown sports a custom cardio exercise named after the sport. |
+| **Strava → Gains, skipped** | `WeightTraining` and `Workout` activities | Gym sessions on Strava carry no sets to analyse, and Gains' own uploads are of this type. The sync report says how many were left out. |
+| **Gains → Strava** | Any session not from Strava: logged, imported from a CSV or started from a program day | A manual **Weight Training** activity named after the program day (or *Workout*) whose description lists every exercise and set, e.g. `Bench Press: 60 kg × 5, 5, 5 · 62.5 kg × 3`. A session that is a single cardio exercise goes up as that sport (Run, Ride, Swim, …) with its distance and time. Missing durations are estimated at three minutes a set. |
+
+Sessions and activities are tied together in the `strava_link` table. A linked activity is never
+imported again and a linked session is never uploaded again, which is what stops an uploaded
+workout from coming back as a duplicate on the next sync. Deleting a downloaded session in Gains
+keeps its link, so it stays deleted; **Delete all imported sessions** in Settings clears the
+links too, so the following sync starts from scratch. Edits to a downloaded session stay in
+Gains; nothing is ever changed or deleted on Strava.
+
+Uploads happen one at a time from the Strava screen (**Upload all**, oldest first, with a
+progress count) or from a workout's editor (**Upload**). Strava allows roughly a hundred uploads
+every fifteen minutes; when the limit is hit the bulk upload stops with a message and the rest
+waits for the next round. Disconnecting revokes Gains' access on Strava and forgets the tokens;
+imported sessions and links are kept.
+
+### How the sign-in comes back
+
+Strava's OAuth flow ends with a redirect to a URL under the callback domain. Each platform supplies
+an `OAuthLauncher` that opens the consent page and gets that URL back into the app through
+`IncomingLinks`:
+
+- **Desktop** starts a one-shot HTTP server on a random `127.0.0.1` port (Strava whitelists
+  loopback hosts), opens the system browser and stops the server after the redirect. If no browser
+  opens, the screen shows the link to copy.
+- **iOS** uses `ASWebAuthenticationSession` with the `gains://localhost/strava` callback; the same
+  scheme is registered in `Info.plist` so a redirect coming from the Strava app arrives too.
+- **Android** opens the browser with `ACTION_VIEW` and receives `gains://localhost/strava` through
+  an intent filter on `MainActivity`; the manifest also declares the `INTERNET` permission.
+
+The exchange itself (code → tokens, refresh, listing, creating) is `StravaApi` over Ktor with the
+platform's engine (CIO, OkHttp, Darwin); `StravaService` owns the state check, token refresh, the
+download and upload passes and the link bookkeeping. Every piece is unit-tested against a
+scripted Strava with Ktor's `MockEngine`.
+
 ## Insights
 
 Insight rules are pure functions in [`InsightEngine.kt`](shared/src/commonMain/kotlin/app/gains/analysis/InsightEngine.kt)
@@ -311,6 +387,7 @@ flowchart LR
     S[Strong]
     H[Hevy]
     C[Any CSV]
+    ST[(Strava API)]
   end
   subgraph shared["shared (pure Kotlin, unit-tested)"]
     R[Connector registry] --> P[Row-per-set parser]
@@ -319,12 +396,14 @@ flowchart LR
     DB --> E[Insight engine<br/>volume · consistency · e1RM]
     PC[Program catalogue] --> PR[Programs<br/>rotation · progression]
     DB --> PR
+    SV[Strava service<br/>OAuth · sync · upload · links] <--> DB
   end
   subgraph composeApp["composeApp (Compose Multiplatform)"]
     UI[Onboarding · Home · Programs<br/>History · Lifts · Volume · Body · Settings]
   end
   PR --> UI
   L & S & H & C --> R
+  ST <-->|Ktor| SV
   E --> UI
   UI -->|log / edit| DB
   UI --- iOS & Android & Desktop
@@ -332,8 +411,8 @@ flowchart LR
 
 | Module | Contents |
 |--------|----------|
-| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence, insight engine, program rotation and progression logic. Pure Kotlin, no UI, 100+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
-| [`composeApp/`](composeApp) | Compose Multiplatform UI (goal onboarding, home insights with the next program day, programs and a program editor, history with a workout editor, import preview, lifts, volume, bodyweight, settings), Canvas charts and the Android, iOS and desktop entry points. |
+| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence, insight engine, program rotation and progression logic, and the Strava client and sync service (Ktor + kotlinx.serialization). Pure Kotlin, no UI, 125+ unit tests including an in-memory SQLite integration test, a schema migration test, a 10,000-row import timing test and a scripted Strava round trip. |
+| [`composeApp/`](composeApp) | Compose Multiplatform UI (goal onboarding, home insights with the next program day, programs and a program editor, history with a workout editor, import preview, Strava, lifts, volume, bodyweight, settings), Canvas charts and the Android, iOS and desktop entry points with their OAuth launchers. |
 | [`iosApp/`](iosApp) | Xcode project wrapping the `ComposeApp` framework in SwiftUI. |
 | [`samples/`](samples) | A generated eight-month Liftoff export used by the screenshots and handy for trying the app. |
 
@@ -385,6 +464,7 @@ are `linear`, `double` (reps climb, then weight) or `ladder` (GZCLP-style stages
 
 ## Roadmap
 
+- [x] Strava: two-way sync of activities and workouts
 - [ ] Self-hosted sync server (the token exchange in `AccountRepository` is the open TODO)
 - [ ] Google and Apple sign-in, which the server unlocks
 - [ ] More connectors: a `ColumnSpec` and a `match` function each, contributions welcome

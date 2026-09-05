@@ -207,6 +207,14 @@ class ScreenshotTest {
         settle(1_000)
         shot("09-settings")
 
+        // 8a. Strava, before any account is connected.
+        onNode(text("Connect") and hasClickAction()).performClick()
+        require(text("Connect Strava"))
+        settle(1_000)
+        shot("16-strava")
+        onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        require(text("Appearance"))
+
         // 8b. Programs: set a goal, pick GZCLP, activate it and open its first day pre-filled.
         val programs = inject<ProgramRepository>()
         runBlocking { programs.setProfile(GoalProfile(Goal.GET_STRONGER, Experience.BEGINNER, 3)) }

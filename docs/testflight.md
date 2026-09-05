@@ -139,8 +139,9 @@ keychain and removed at the end of the run.
   so `xcodebuild -scheme iosApp` works on a clean checkout and on CI.
 - **Team, bundle id, version and build number** come from `Config.xcconfig`; the project
   file only references them.
-- **Export compliance.** `ITSAppUsesNonExemptEncryption` is `false` in `Info.plist`: the app
-  makes no network calls, so every build is available to testers right after processing
+- **Export compliance.** `ITSAppUsesNonExemptEncryption` is `false` in `Info.plist`: the app's
+  only network traffic is HTTPS to Strava through the system's TLS, which is exempt, so every
+  build is available to testers right after processing
   instead of waiting on the *Missing Compliance* prompt.
 - **Privacy manifest** ([`PrivacyInfo.xcprivacy`](../iosApp/iosApp/PrivacyInfo.xcprivacy))
   declares no tracking, no collected data, and the required-reason APIs the Kotlin/Native

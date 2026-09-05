@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.sqldelight)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 val androidEnabled = rootProject.extra["androidEnabled"] as Boolean
@@ -48,23 +49,30 @@ kotlin {
             api(libs.koin.core)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
+            // Strava talks JSON over HTTPS; each platform supplies its Ktor engine below.
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.client.core)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         if (androidEnabled) {
             androidMain.dependencies {
                 implementation(libs.sqldelight.android)
                 implementation(libs.kotlinx.coroutines.android)
+                implementation(libs.ktor.client.okhttp)
             }
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native)
+            implementation(libs.ktor.client.darwin)
         }
         val desktopMain by getting {
             dependencies {
                 implementation(libs.sqldelight.sqlite)
+                implementation(libs.ktor.client.cio)
             }
         }
         val desktopTest by getting {

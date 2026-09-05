@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Strava sync -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".GainsApplication"
         android:allowBackup="true"
@@ -27,6 +30,13 @@
                 <data android:scheme="file" />
                 <data android:mimeType="text/csv" />
                 <data android:mimeType="text/comma-separated-values" />
+            </intent-filter>
+            <!-- Strava OAuth redirect: gains://localhost/strava?code=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="gains" android:host="localhost" />
             </intent-filter>
             <!-- Share sheet, one or several files -->
             <intent-filter>

@@ -1,0 +1,23 @@
+-- A Gains session tied to a Strava activity. DOWNLOAD rows were fetched from Strava,
+-- UPLOAD rows were created on Strava by Gains. Either way the activity is never
+-- imported again, and the session is never uploaded again.
+CREATE TABLE strava_link (
+  session_id TEXT NOT NULL PRIMARY KEY,
+  activity_id INTEGER NOT NULL,
+  direction TEXT NOT NULL,
+  synced_at TEXT NOT NULL
+);
+
+CREATE INDEX strava_link_activity ON strava_link(activity_id);
+
+selectLinks:
+SELECT session_id, activity_id, direction, synced_at FROM strava_link ORDER BY synced_at;
+
+upsertLink:
+INSERT OR REPLACE INTO strava_link(session_id, activity_id, direction, synced_at) VALUES (?, ?, ?, ?);
+
+deleteLink:
+DELETE FROM strava_link WHERE session_id = ?;
+
+deleteAllLinks:
+DELETE FROM strava_link;

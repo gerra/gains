@@ -6,6 +6,8 @@ sqldelight = "2.3.2"
 koin = "4.0.4"
 kotlinx-datetime = "0.8.0"
 kotlinx-coroutines = "1.11.0"
+kotlinx-serialization = "1.11.0"
+ktor = "3.5.2"
 android-activity = "1.10.1"
 android-compileSdk = "35"
 android-minSdk = "26"
@@ -29,6 +31,12 @@ sqldelight-android = { module = "app.cash.sqldelight:android-driver", version.re
 sqldelight-native = { module = "app.cash.sqldelight:native-driver", version.ref = "sqldelight" }
 sqldelight-sqlite = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 android-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "android-activity" }
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
@@ -37,4 +45,5 @@ android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }

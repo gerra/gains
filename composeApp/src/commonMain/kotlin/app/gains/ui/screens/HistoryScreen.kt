@@ -166,7 +166,18 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text(Format.plural(session.setCount, "set"), style = MaterialTheme.typography.titleSmall)
-                Pill(if (session.isManual) "logged" else session.source.replaceFirstChar { it.uppercase() }, if (session.isManual) palette.volt else palette.muted)
+                Pill(
+                    when {
+                        session.isManual -> "logged"
+                        session.isFromStrava -> "Strava"
+                        else -> session.source.replaceFirstChar { it.uppercase() }
+                    },
+                    when {
+                        session.isManual -> palette.volt
+                        session.isFromStrava -> palette.amber
+                        else -> palette.muted
+                    },
+                )
             }
         }
     }
