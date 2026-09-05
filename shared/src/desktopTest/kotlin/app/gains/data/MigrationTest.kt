@@ -88,7 +88,7 @@ class MigrationTest {
         GainsDatabase.Schema.migrate(upgraded, 2, GainsDatabase.Schema.version)
 
         assertEquals(tables(fresh), tables(upgraded))
-        for (table in listOf("session", "exercise", "program", "program_day", "program_slot")) {
+        for (table in listOf("session", "exercise", "program", "program_day", "program_slot", "strava_link")) {
             assertEquals(columns(fresh, table), columns(upgraded, table), "columns of $table")
         }
         // Existing rows survive with the new columns defaulted.
@@ -96,6 +96,8 @@ class MigrationTest {
         val session = db.sessionQueries.selectSessions().executeAsList().single()
         assertEquals(null, session.program_id)
         assertEquals("", db.exerciseQueries.selectExercises().executeAsList().single().equipment)
-        assertTrue(GainsDatabase.Schema.version >= 3)
+        // The Strava table arrived in version 4 and starts empty.
+        assertEquals(0, db.stravaQueries.selectLinks().executeAsList().size)
+        assertTrue(GainsDatabase.Schema.version >= 4)
     }
 }

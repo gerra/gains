@@ -1,0 +1,8 @@
+CREATE TABLE strava_link (
+  session_id TEXT NOT NULL PRIMARY KEY,
+  activity_id INTEGER NOT NULL,
+  direction TEXT NOT NULL,
+  synced_at TEXT NOT NULL
+);
+
+CREATE INDEX strava_link_activity ON strava_link(activity_id);

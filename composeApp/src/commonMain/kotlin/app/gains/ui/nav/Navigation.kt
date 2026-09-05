@@ -16,6 +16,7 @@ sealed interface Screen {
     data object Import : Screen
     data object Onboarding : Screen
     data object Programs : Screen
+    data object Strava : Screen
     data class ProgramDetail(val programId: String) : Screen
     /** null = create a new program. */
     data class ProgramEditor(val programId: String?) : Screen

@@ -106,6 +106,8 @@ compose.desktop {
         project.findProperty("gains.openFile")?.toString()?.split(',')?.filter { it.isNotBlank() }?.let { args += it }
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            // The Strava sign-in receives its OAuth redirect on a loopback HttpServer (jdk.httpserver).
+            modules("jdk.httpserver")
             packageName = "Gains"
             packageVersion = "1.0.0"
         }

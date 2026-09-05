@@ -48,6 +48,9 @@ import app.gains.domain.Units
 import app.gains.domain.WeightUnit
 import app.gains.importer.ExerciseResolver
 import app.gains.program.DayPlanner
+import app.gains.strava.StravaLink
+import app.gains.strava.StravaService
+import app.gains.strava.SyncDirection
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
@@ -131,6 +134,13 @@ data class EditorState(
     val hints: Map<String, String> = emptyMap(),
     /** exercise id -> program note */
     val notes: Map<String, String> = emptyMap(),
+    /** Strava is connected with permission to upload. */
+    val stravaConnected: Boolean = false,
+    /** Set when this session came from or went to Strava. */
+    val stravaLink: StravaLink? = null,
+    val isFromStrava: Boolean = false,
+    val uploading: Boolean = false,
+    val uploadError: String? = null,
 )
 
 class SessionEditorModel(
@@ -141,6 +151,7 @@ class SessionEditorModel(
     settings: SettingsRepository = inject(),
     trainingData: TrainingData = inject(),
     private val programs: ProgramRepository = inject(),
+    private val strava: StravaService = inject(),
 ) : ScreenModel() {
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state
@@ -150,6 +161,8 @@ class SessionEditorModel(
             val snapshot = trainingData.snapshot.first()
             val unit = settings.observeUnit().first()
             val existing = sessionId?.let { id -> snapshot.sessions.firstOrNull { it.id == id } }
+            val stravaConnection = strava.observeConnection().first()
+            val stravaLink = existing?.let { s -> strava.observeLinks().first().firstOrNull { it.sessionId == s.id } }
             val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
             val fresh = EditorState(
                 loading = false, isNew = true, date = now.date.toString(),
@@ -166,6 +179,7 @@ class SessionEditorModel(
                     },
                     unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
                     programDay = existing.program, title = "Edit workout",
+                    stravaConnected = stravaConnection?.canWrite == true, stravaLink = stravaLink, isFromStrava = existing.isFromStrava,
                 )
                 programDay != null -> {
                     val program = programs.observePrograms().first().firstOrNull { it.id == programDay.programId }
@@ -279,6 +293,20 @@ class SessionEditorModel(
         val id = _state.value.id ?: return
         scope.launch { sessions.deleteSession(id); update { it.copy(saved = true) } }
     }
+
+    /** Sends the stored session (not the unsaved edits) to Strava as a manual activity. */
+    fun uploadToStrava() {
+        val id = _state.value.id ?: return
+        scope.launch {
+            update { it.copy(uploading = true, uploadError = null) }
+            try {
+                val link = strava.upload(id)
+                update { it.copy(uploading = false, stravaLink = link) }
+            } catch (e: Exception) {
+                update { it.copy(uploading = false, uploadError = e.message ?: "Upload failed.") }
+            }
+        }
+    }
 }
 
 @Composable
@@ -315,6 +343,9 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, o
         itemsIndexed(state.exercises, key = { _, e -> e.exercise.id }) { exerciseIndex, draft ->
             ExerciseCard(exerciseIndex, draft, state.unit, model, fieldColors, state.targets[draft.exercise.id], state.hints[draft.exercise.id], state.notes[draft.exercise.id])
         }
+        if (!state.isNew && (state.isFromStrava || state.stravaLink != null || state.stravaConnected)) item {
+            StravaRow(state, onUpload = model::uploadToStrava)
+        }
         item {
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp)) }
             Spacer(Modifier.height(12.dp))
@@ -342,6 +373,32 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, o
             confirmButton = { PrimaryButton("Delete", onClick = { model.delete(); confirmDelete = false }) },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/** Where this workout stands with Strava: imported, uploaded, or one tap from being uploaded. */
+@Composable
+private fun StravaRow(state: EditorState, onUpload: () -> Unit) {
+    val palette = GainsColors.palette
+    GainsCard(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 10.dp), contentPadding = Dp16.Tight) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Strava", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    when {
+                        state.isFromStrava -> "Imported from Strava. Edits stay in Gains."
+                        state.stravaLink?.direction == SyncDirection.UPLOAD -> "Uploaded as activity ${state.stravaLink.activityId}."
+                        state.uploading -> "Uploading…"
+                        else -> "Not on Strava yet. Saved sets are uploaded, so save first."
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                state.uploadError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+            }
+            if (!state.isFromStrava && state.stravaLink == null && state.stravaConnected && !state.uploading) {
+                TextButton(onClick = onUpload) { Text("Upload", color = palette.volt) }
+            }
+        }
     }
 }
 

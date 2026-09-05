@@ -6,6 +6,8 @@ import app.gains.data.IosDriverFactory
 import app.gains.di.initKoin
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
+import app.gains.platform.IncomingLinks
+import app.gains.platform.OAuthLauncher
 import app.gains.platform.PickedFile
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +16,9 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.dsl.module
+import platform.AuthenticationServices.ASPresentationAnchor
+import platform.AuthenticationServices.ASWebAuthenticationPresentationContextProvidingProtocol
+import platform.AuthenticationServices.ASWebAuthenticationSession
 import platform.Foundation.NSString
 import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
@@ -22,6 +27,7 @@ import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UIViewController
+import platform.UIKit.UIWindow
 import platform.UniformTypeIdentifiers.UTType
 import platform.UniformTypeIdentifiers.UTTypeCommaSeparatedText
 import platform.UniformTypeIdentifiers.UTTypePlainText
@@ -35,16 +41,72 @@ fun MainViewController(): UIViewController {
         initKoin(module { single<DatabaseDriverFactory> { IosDriverFactory() } })
         koinStarted = true
     }
-    return ComposeUIViewController { App(filePicker = IosFilePicker()) }
+    return ComposeUIViewController { App(filePicker = IosFilePicker(), oauth = IosOAuthLauncher) }
 }
 
 /** Reads files on the IO dispatcher so the main thread never blocks on disk or the file provider. */
 private val fileReads = CoroutineScope(Dispatchers.IO)
 
-/** Called from Swift when the app is opened with a CSV (share sheet "Open in Gains", Files, AirDrop). */
+/**
+ * Called from Swift for every URL the app is opened with: a CSV (share sheet "Open in Gains",
+ * Files, AirDrop) or a `gains://` OAuth callback, which the Strava app sends when it handled the
+ * consent instead of the in-app browser.
+ */
 fun handleIncomingFile(url: NSURL) {
+    if (url.scheme?.lowercase() == OAUTH_SCHEME) {
+        IosOAuthLauncher.cancel()
+        url.absoluteString?.let { IncomingLinks.offer(it) }
+        return
+    }
     fileReads.launch {
         readCsv(url)?.let { IncomingFiles.offer(it) }
+    }
+}
+
+private const val OAUTH_SCHEME = "gains"
+
+/**
+ * iOS OAuth through ASWebAuthenticationSession: the system sheet shows Strava's consent page and
+ * hands the `gains://` callback straight back. The scheme is registered in Info.plist as well, so
+ * a redirect coming from the Strava app arrives through [handleIncomingFile].
+ */
+@OptIn(ExperimentalForeignApi::class)
+object IosOAuthLauncher : OAuthLauncher {
+    private var session: ASWebAuthenticationSession? = null
+    // Keep a strong reference: the session only holds its context provider weakly.
+    private var context: PresentationContext? = null
+
+    override val mobile: Boolean get() = true
+    override fun redirectUri(): String = "$OAUTH_SCHEME://localhost/strava"
+
+    override fun open(url: String) {
+        cancel()
+        val nsUrl = NSURL.URLWithString(url) ?: return
+        val provider = PresentationContext()
+        val s = ASWebAuthenticationSession(uRL = nsUrl, callbackURLScheme = OAUTH_SCHEME) { callback, error ->
+            session = null
+            context = null
+            when {
+                callback != null -> callback.absoluteString?.let { IncomingLinks.offer(it) }
+                error != null -> IncomingLinks.offer("$OAUTH_SCHEME://localhost/strava?error=cancelled")
+            }
+        }
+        s.presentationContextProvider = provider
+        s.prefersEphemeralWebBrowserSession = false
+        context = provider
+        session = s
+        s.start()
+    }
+
+    override fun cancel() {
+        session?.cancel()
+        session = null
+        context = null
+    }
+
+    private class PresentationContext : NSObject(), ASWebAuthenticationPresentationContextProvidingProtocol {
+        override fun presentationAnchorForWebAuthenticationSession(session: ASWebAuthenticationSession): ASPresentationAnchor =
+            UIApplication.sharedApplication.keyWindow ?: UIWindow()
     }
 }
 

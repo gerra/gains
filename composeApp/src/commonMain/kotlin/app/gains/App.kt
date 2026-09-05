@@ -66,6 +66,8 @@ import app.gains.data.ThemeMode
 import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
+import app.gains.platform.IncomingLinks
+import app.gains.platform.OAuthLauncher
 import app.gains.ui.components.GainsWordmark
 import app.gains.ui.inject
 import app.gains.ui.nav.Navigator
@@ -85,19 +87,25 @@ import app.gains.ui.screens.ProgramEditorScreen
 import app.gains.ui.screens.ProgramsScreen
 import app.gains.ui.screens.SettingsScreen
 import app.gains.ui.screens.SignInScreen
+import app.gains.ui.screens.StravaScreen
 import app.gains.ui.screens.VolumeScreen
 import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.GainsTheme
 
 /**
- * Root of the shared UI. [filePicker] is supplied by each platform entry point.
+ * Root of the shared UI. [filePicker] and [oauth] are supplied by each platform entry point; the
+ * latter opens Strava's sign-in and brings its callback back through [IncomingLinks].
  *
  * [systemBack] lets a platform hook its own back affordance (Android's button and predictive back
  * gesture) into the navigator: it is composed with whether the app can go back and what to do then.
  * Swiping in from the left edge goes back on every platform without any hook.
  */
 @Composable
-fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> }) {
+fun App(
+    filePicker: CsvFilePicker,
+    oauth: OAuthLauncher = OAuthLauncher.Unavailable,
+    systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> },
+) {
     val navigator = remember { Navigator() }
     val exercises = remember { inject<ExerciseRepository>() }
     LaunchedEffect(Unit) { exercises.seedCatalogue() }
@@ -105,6 +113,9 @@ fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, on
     // Files shared into the app open the import screen.
     val incoming by IncomingFiles.pending.collectAsState()
     LaunchedEffect(incoming) { if (incoming.isNotEmpty() && navigator.current != Screen.Import) navigator.push(Screen.Import) }
+    // An OAuth callback lands on the Strava screen, which finishes the sign-in.
+    val incomingLink by IncomingLinks.pending.collectAsState()
+    LaunchedEffect(incomingLink) { if (incomingLink != null && navigator.current != Screen.Strava) navigator.push(Screen.Strava) }
     val accounts = remember { inject<AccountRepository>() }
     // null = still loading the preference; Optional-ish wrapper keeps "no account" distinct from "unknown".
     val accountState by accounts.observeAccount().collectAsState(initial = AccountLoading)
@@ -141,7 +152,7 @@ fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, on
                     enabled = navigator.canGoBack,
                     onBack = { navigator.pop(animated = false) },
                     modifier = Modifier.weight(1f),
-                    previous = { navigator.previous?.let { ScreenContent(it, navigator, filePicker) } },
+                    previous = { navigator.previous?.let { ScreenContent(it, navigator, filePicker, oauth) } },
                 ) {
                     AnimatedContent(
                         targetState = screen,
@@ -157,7 +168,7 @@ fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, on
                             }
                         },
                         label = "screen",
-                    ) { current -> ScreenContent(current, navigator, filePicker) }
+                    ) { current -> ScreenContent(current, navigator, filePicker, oauth) }
                 }
                 BottomNav(navigator)
             }
@@ -173,7 +184,7 @@ private data class UpNext(val ref: ProgramDayRef, val dayName: String)
  * and so the outgoing screen never shows through the incoming one mid-transition.
  */
 @Composable
-private fun ScreenContent(screen: Screen, navigator: Navigator, filePicker: CsvFilePicker) {
+private fun ScreenContent(screen: Screen, navigator: Navigator, filePicker: CsvFilePicker, oauth: OAuthLauncher) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (screen) {
             Screen.Home -> HomeScreen(
@@ -198,7 +209,9 @@ private fun ScreenContent(screen: Screen, navigator: Navigator, filePicker: CsvF
             Screen.Settings -> SettingsScreen(
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenOnboarding = { navigator.push(Screen.Onboarding) },
+                onOpenStrava = { navigator.push(Screen.Strava) },
             )
+            Screen.Strava -> StravaScreen(oauth)
             Screen.Onboarding -> OnboardingScreen(onDone = { navigator.pop() })
             Screen.Programs -> ProgramsScreen(
                 onOpen = { navigator.push(Screen.ProgramDetail(it)) },

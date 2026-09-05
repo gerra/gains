@@ -40,6 +40,9 @@ import app.gains.domain.Experience
 import app.gains.domain.Goal
 import app.gains.domain.GoalProfile
 import app.gains.domain.WeightUnit
+import app.gains.strava.StravaConnection
+import app.gains.strava.StravaService
+import app.gains.strava.SyncDirection
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
 import app.gains.ui.components.Dp16
@@ -70,6 +73,9 @@ data class SettingsState(
     val exercisesById: Map<String, Exercise> = emptyMap(),
     val profile: GoalProfile? = null,
     val activeProgramName: String? = null,
+    val strava: StravaConnection? = null,
+    val stravaDownloaded: Int = 0,
+    val stravaUploaded: Int = 0,
 )
 
 class SettingsModel(
@@ -79,13 +85,20 @@ class SettingsModel(
     private val exercises: ExerciseRepository = inject(),
     private val sessions: SessionRepository = inject(),
     private val programs: ProgramRepository = inject(),
+    private val strava: StravaService = inject(),
     trainingData: TrainingData = inject(),
 ) : ScreenModel() {
     val state: StateFlow<SettingsState> = combine(
         combine(settings.observeUnit(), settings.observeThemeMode(), accounts.observeAccount()) { u, t, a -> Triple(u, t, a) },
-        trainingData.snapshot, exercises.observeAliases(), exercises.observeWorkingSetRatios(), programs.observeState(),
-    ) { (unit, theme, account), snapshot, aliases, overrides, programState ->
+        trainingData.snapshot,
+        combine(exercises.observeAliases(), exercises.observeWorkingSetRatios()) { a, o -> a to o },
+        programs.observeState(),
+        combine(strava.observeConnection(), strava.observeLinks()) { c, l -> c to l },
+    ) { (unit, theme, account), snapshot, (aliases, overrides), programState, (stravaConnection, stravaLinks) ->
         SettingsState(
+            strava = stravaConnection,
+            stravaDownloaded = stravaLinks.count { it.direction == SyncDirection.DOWNLOAD },
+            stravaUploaded = stravaLinks.count { it.direction == SyncDirection.UPLOAD },
             profile = programState.profile,
             activeProgramName = programState.active?.name,
             account = account,
@@ -105,7 +118,8 @@ class SettingsModel(
     fun merge(custom: Exercise, into: Exercise) { scope.launch { exercises.merge(custom.id, into.id, custom.name) } }
     fun removeAlias(raw: String) { scope.launch { exercises.removeAlias(raw) } }
     fun clearOverride(exerciseId: String) { scope.launch { exercises.setWorkingSetRatio(exerciseId, null) } }
-    fun deleteAllData() { scope.launch { sessions.deleteAll() } }
+    /** Removes every session and forgets the Strava links, so a later sync can bring the activities back. */
+    fun deleteAllData() { scope.launch { sessions.deleteAll(); strava.forgetLinks() } }
 
     fun setGoal(goal: Goal) = updateProfile { it.copy(goal = goal) }
     fun setExperience(experience: Experience) = updateProfile { it.copy(experience = experience) }
@@ -118,7 +132,7 @@ class SettingsModel(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}) {
+fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}, onOpenStrava: () -> Unit = {}) {
     val model = rememberScreenModel { SettingsModel() }
     val state by model.state.collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }
@@ -147,6 +161,20 @@ fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit
                 if (!model.authConfig.googleEnabled && !model.authConfig.appleEnabled) {
                     Spacer(Modifier.height(6.dp))
                     Text("Google and Apple sign-in are not configured yet; the sync server is coming later.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            SectionHeader("Strava")
+            GainsCard(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(state.strava?.let { "Connected as ${it.athleteName}" } ?: "Not connected", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (state.strava == null) "Pull your runs and rides into History and push workouts up as Strava activities."
+                            else "${state.stravaDownloaded} activities imported · ${state.stravaUploaded} workouts uploaded",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(onClick = onOpenStrava) { Text(if (state.strava == null) "Connect" else "Open", color = palette.volt) }
                 }
             }
             SectionHeader("Training goal")
@@ -237,7 +265,7 @@ fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit
             onDismissRequest = { confirmDelete = false },
             shape = MaterialTheme.shapes.large,
             title = { Text("Delete all sessions?") },
-            text = { Text("Imported workouts will be removed. Bodyweight entries, aliases and overrides are kept. You can re-import the CSV at any time.") },
+            text = { Text("Imported workouts will be removed. Bodyweight entries, aliases and overrides are kept. You can re-import the CSV at any time, and the next Strava sync downloads your activities again.") },
             confirmButton = { PrimaryButton("Delete", onClick = { model.deleteAllData(); confirmDelete = false }) },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         )

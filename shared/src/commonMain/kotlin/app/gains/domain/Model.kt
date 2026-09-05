@@ -98,10 +98,13 @@ data class Session(
     val program: ProgramDayRef? = null,
 ) {
     val isManual: Boolean get() = source == MANUAL
+    /** Fetched from Strava; edits stay local and the session is never uploaded back. */
+    val isFromStrava: Boolean get() = source == STRAVA
 
     companion object {
         const val MANUAL = "manual"
         const val IMPORTED = "import"
+        const val STRAVA = "strava"
     }
 
     val date: LocalDate get() = timestamp.date
