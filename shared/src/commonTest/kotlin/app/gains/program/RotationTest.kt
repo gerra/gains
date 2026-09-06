@@ -56,4 +56,24 @@ class RotationTest {
         assertEquals(null, last["gzclp/a2"])
         assertEquals(2, Rotation.completedSince(gzclp, links, LocalDate(2026, 3, 3)))
     }
+
+    @Test
+    fun cycleStartsAtNextDayAndCoversEveryWeekdaySlot() {
+        // Four days at three a week: four weeks until A1 opens a week again.
+        val weeks = Rotation.cycle(gzclp, listOf(link("gzclp", "gzclp/a1", 1)))
+        assertEquals(4, weeks.size)
+        assertEquals(listOf("B1", "A2", "B2"), weeks[0].map { it.name })
+        assertEquals(listOf("A1", "B1", "A2"), weeks[1].map { it.name })
+        assertEquals(listOf("B2", "A1", "B1"), weeks[2].map { it.name })
+        assertEquals(listOf("A2", "B2", "A1"), weeks[3].map { it.name })
+    }
+
+    @Test
+    fun cycleIsOneWeekWhenDaysMatchTheWeek() {
+        val six = ProgramCatalogue.byId("ppl_6")!!
+        val weeks = Rotation.cycle(six, emptyList())
+        assertEquals(1, weeks.size)
+        assertEquals(six.days.map { it.id }, weeks.single().map { it.id })
+        assertEquals(emptyList(), Rotation.cycle(gzclp.copy(days = emptyList()), emptyList()))
+    }
 }

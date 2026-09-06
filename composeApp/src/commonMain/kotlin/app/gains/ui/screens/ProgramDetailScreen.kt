@@ -2,6 +2,8 @@ package app.gains.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,10 +32,14 @@ import app.gains.analysis.Format
 import app.gains.analysis.TrainingData
 import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
+import app.gains.data.SettingsRepository
 import app.gains.domain.Exercise
 import app.gains.domain.Program
 import app.gains.domain.ProgramDay
 import app.gains.domain.ProgramDayRef
+import app.gains.domain.ProgressionRule
+import app.gains.domain.WeightUnit
+import app.gains.program.Progression
 import app.gains.program.Rotation
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.Dp16
@@ -59,6 +65,9 @@ data class ProgramDetailState(
     val upNextDayId: String? = null,
     val lastByDay: Map<String, LocalDate> = emptyMap(),
     val exercisesById: Map<String, Exercise> = emptyMap(),
+    val unit: WeightUnit = WeightUnit.KG,
+    /** The rotation from the next day up, one list per week; see [Rotation.cycle]. */
+    val cycle: List<List<ProgramDay>> = emptyList(),
     /** Set after the program was deleted or duplicated, so the screen can navigate away. */
     val navigateTo: String? = null,
     val deleted: Boolean = false,
@@ -69,11 +78,12 @@ class ProgramDetailModel(
     private val programs: ProgramRepository = inject(),
     sessions: SessionRepository = inject(),
     trainingData: TrainingData = inject(),
+    settings: SettingsRepository = inject(),
 ) : ScreenModel() {
     private var navigateTo by mutableStateOf<String?>(null)
     private var deleted by mutableStateOf(false)
 
-    val state: StateFlow<ProgramDetailState> = combine(programs.observeState(), sessions.observeProgramLinks(), trainingData.snapshot) { s, links, snapshot ->
+    val state: StateFlow<ProgramDetailState> = combine(programs.observeState(), sessions.observeProgramLinks(), trainingData.snapshot, settings.observeUnit()) { s, links, snapshot, unit ->
         val program = s.programs.firstOrNull { it.id == programId }
         ProgramDetailState(
             loading = false,
@@ -82,6 +92,8 @@ class ProgramDetailModel(
             upNextDayId = program?.let { Rotation.nextDay(it, links)?.id },
             lastByDay = program?.let { Rotation.lastCompletedByDay(it, links) } ?: emptyMap(),
             exercisesById = snapshot.exercisesById,
+            unit = unit,
+            cycle = program?.let { Rotation.cycle(it, links) } ?: emptyList(),
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), ProgramDetailState())
 
@@ -129,6 +141,15 @@ fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) -> Unit, 
                 if (program.isBuiltIn) SecondaryButton("Duplicate to edit", onClick = { model.duplicate(program) }, Modifier.weight(1f))
                 else SecondaryButton("Edit", onClick = { onEdit(program.id) }, Modifier.weight(1f))
             }
+            if (state.cycle.isNotEmpty()) {
+                SectionHeader("Schedule", action = {
+                    Text(
+                        "${Format.plural(state.cycle.size, "week")} · ${program.daysPerWeek} days a week",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                })
+                ScheduleCard(state.cycle, state.upNextDayId)
+            }
             SectionHeader("Days", action = {
                 Text("Tap any day to start it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             })
@@ -137,6 +158,10 @@ fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) -> Unit, 
             DayCard(day, program, upNext = day.id == state.upNextDayId, last = state.lastByDay[day.id], today, state.exercisesById) {
                 onStartDay(ProgramDayRef(program.id, day.id))
             }
+        }
+        item {
+            SectionHeader("How it progresses")
+            ProgressionCard(program, state.exercisesById, state.unit)
         }
         if (!program.isBuiltIn) {
             item {
@@ -181,6 +206,67 @@ private fun DayCard(day: ProgramDay, program: Program, upNext: Boolean, last: Lo
                 Text(Format.plural(day.slots.size, "exercise"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 Text(last?.let { "Last ${Dates.contextual(it, today)}" } ?: "Not done yet", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/**
+ * One full cycle of the rotation, a row per week, so the whole program is visible at once rather
+ * than just the next day. Only the very next session is highlighted: the rest is a projection that
+ * shifts if a different day is started.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ScheduleCard(cycle: List<List<ProgramDay>>, upNextDayId: String?) {
+    val palette = GainsColors.palette
+    GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+        cycle.forEachIndexed { week, days ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Week ${week + 1}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(52.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    days.forEachIndexed { i, day ->
+                        val next = week == 0 && i == 0 && day.id == upNextDayId
+                        Pill(day.name, if (next) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant, filled = next)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Days come in this order as you finish them, whatever the weekday. Start a different day and the rest follow on from it.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** A slot's scheme: the exercises sharing a note and a rule are described once. */
+private data class Scheme(val note: String?, val rule: ProgressionRule)
+
+/** Every distinct scheme in the program, in order of first appearance, with the lifts that use it. */
+@Composable
+private fun ProgressionCard(program: Program, exercisesById: Map<String, Exercise>, unit: WeightUnit) {
+    val schemes = LinkedHashMap<Scheme, MutableList<String>>()
+    for (day in program.days) for (slot in day.slots) {
+        if (slot.note == null && slot.progression == ProgressionRule.None) continue
+        val name = exercisesById[slot.exerciseId]?.name ?: slot.exerciseId
+        val names = schemes.getOrPut(Scheme(slot.note, slot.progression)) { mutableListOf() }
+        if (name !in names) names += name
+    }
+    GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+        if (schemes.isEmpty()) {
+            Text(
+                "No automatic rule. Each day pre-fills the weights and reps from your last session of the exercise.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        schemes.entries.forEachIndexed { i, (scheme, names) ->
+            if (i > 0) Spacer(Modifier.height(12.dp))
+            Text(names.joinToString(", "), style = MaterialTheme.typography.titleSmall)
+            scheme.note?.let { Spacer(Modifier.height(2.dp)); Text(it, style = MaterialTheme.typography.bodySmall) }
+            Progression.describe(scheme.rule, unit)?.let {
+                Spacer(Modifier.height(2.dp))
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

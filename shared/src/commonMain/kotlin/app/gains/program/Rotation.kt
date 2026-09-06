@@ -15,6 +15,23 @@ object Rotation {
         return if (index < 0) program.days.first() else program.days[(index + 1) % program.days.size]
     }
 
+    /**
+     * One full pass through the rotation from the next day, laid out as weeks of [Program.daysPerWeek]
+     * sessions: long enough for the first day to come round to the first slot of a week again. GZCLP's
+     * four days at three a week take four weeks; a 6-day PPL at six a week takes one. Empty for a
+     * program with no days.
+     */
+    fun cycle(program: Program, links: List<ProgramLink>): List<List<ProgramDay>> {
+        val next = nextDay(program, links) ?: return emptyList()
+        val perWeek = program.daysPerWeek.coerceAtLeast(1)
+        val start = program.days.indexOf(next)
+        val sessions = lcm(program.days.size, perWeek)
+        return List(sessions) { program.days[(start + it) % program.days.size] }.chunked(perWeek)
+    }
+
+    private fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
+    private fun lcm(a: Int, b: Int): Int = a / gcd(a, b) * b
+
     /** Most recent completion date per day id. */
     fun lastCompletedByDay(program: Program, links: List<ProgramLink>): Map<String, LocalDate> =
         links.filter { it.ref.programId == program.id }

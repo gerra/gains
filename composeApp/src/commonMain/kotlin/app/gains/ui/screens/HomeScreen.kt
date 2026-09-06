@@ -24,6 +24,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.ConsistencyAnalyzer
 import app.gains.analysis.Dates
@@ -232,6 +237,19 @@ private fun ProgramCard(
                     }
                     Spacer(Modifier.width(12.dp))
                     PrimaryButton("Start", onClick = { onStartDay(ProgramDayRef(program.id, day.id)) })
+                }
+                Spacer(Modifier.height(10.dp))
+                // The whole rotation with today's day picked out, and a visible way into the full program.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val order = buildAnnotatedString {
+                        program.days.forEachIndexed { i, d ->
+                            if (i > 0) append(" · ")
+                            if (d.id == day.id) withStyle(SpanStyle(color = palette.volt, fontWeight = FontWeight.SemiBold)) { append(d.name) } else append(d.name)
+                        }
+                    }
+                    Text(order, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Whole program ›", style = MaterialTheme.typography.labelSmall, color = palette.volt)
                 }
             }
             state.profile != null -> {

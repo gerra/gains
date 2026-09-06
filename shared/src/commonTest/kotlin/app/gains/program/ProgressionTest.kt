@@ -148,4 +148,30 @@ class ProgressionTest {
         assertEquals(45, plank.sets.first().seconds)
         assertNull(plank.sets.first().reps)
     }
+
+    @Test
+    fun describesEveryRuleInTheDisplayUnit() {
+        assertNull(Progression.describe(ProgressionRule.None, kg))
+        assertEquals(
+            "Add 2.5 kg every session you hit every set. Miss the reps and the weight repeats.",
+            Progression.describe(ProgressionRule.Linear(2.5), kg),
+        )
+        assertEquals(
+            "Add 5 lbs every session you hit every set. Miss the reps and the weight repeats.",
+            Progression.describe(ProgressionRule.Linear(2.5), WeightUnit.LBS),
+        )
+        assertEquals(
+            "Reps climb from 15 to 25 at one weight. Once every set reaches 25, add 2.5 kg and drop back to 15.",
+            Progression.describe(ProgressionRule.DoubleProgression(15, 25, 2.5), kg),
+        )
+        assertEquals(
+            "Reps climb from 5 to 8 at one weight. Once every set reaches 8, move on to the harder variation.",
+            Progression.describe(ProgressionRule.DoubleProgression(5, 8, 0.0), kg),
+        )
+        val ladder = ProgressionRule.StageLadder(listOf(SetsReps(5, RepTarget.Amrap(3)), SetsReps(6, RepTarget.Amrap(2)), SetsReps(10, RepTarget.Amrap(1))), 5.0)
+        assertEquals(
+            "Stages: 5×3+ → 6×2+ → 10×1+. Hit the reps: add 5 kg and stay on the stage. Miss: next stage at the same weight. Miss the last stage: drop about 10% and start over at 5×3+.",
+            Progression.describe(ladder, kg),
+        )
+    }
 }

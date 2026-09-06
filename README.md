@@ -87,8 +87,10 @@ device today.
 - **Programs with choosable days.** The r/Fitness Basic Beginner Routine, GZCLP, 5/3/1 for
   Beginners, Reddit PPL (6-day and 3-day), an Upper/Lower split and the r/bodyweightfitness
   Recommended Routine ship built in, each as named days of exercises with sets, reps and a
-  progression rule. Days rotate on completion, never by weekday; Home shows the next one and any
-  day can be started with a tap. Duplicate a built-in to edit it, or build your own.
+  progression rule. Days rotate on completion, never by weekday; Home shows the next one with
+  the rotation order, and the program page lays out a full cycle week by week, every day's
+  exercises and how each lift progresses. Any day can be started with a tap. Duplicate a
+  built-in to edit it, or build your own.
 - **Pre-filled workouts.** Starting a day opens the editor with every set loaded from your last
   session of that exercise and a hint such as `Last: 60 kg × 5,5,5 → try 62.5 kg` from the
   program's rule (linear, double progression or the GZCLP stage ladder).
