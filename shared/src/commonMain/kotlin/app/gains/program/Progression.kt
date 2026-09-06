@@ -97,6 +97,28 @@ object Progression {
         }
     }
 
+    /**
+     * The rule in plain words for the program overview: what happens after a good session, a missed
+     * one, and where the ladder ends. Null for [ProgressionRule.None], which has nothing to say.
+     */
+    fun describe(rule: ProgressionRule, unit: WeightUnit): String? {
+        val step = rule.step(unit)?.takeIf { it > 0.0 }?.let { "${Format.number(it, 2)} ${unit.label}" }
+        return when (rule) {
+            ProgressionRule.None -> null
+            is ProgressionRule.Linear ->
+                "Add $step every session you hit every set. Miss the reps and the weight repeats."
+            is ProgressionRule.DoubleProgression -> {
+                val then = if (step == null) "move on to the harder variation" else "add $step and drop back to ${rule.min}"
+                "Reps climb from ${rule.min} to ${rule.max} at one weight. Once every set reaches ${rule.max}, $then."
+            }
+            is ProgressionRule.StageLadder -> {
+                val stages = rule.stages.joinToString(" → ") { it.label }
+                val first = rule.stages.first().label
+                "Stages: $stages. Hit the reps: add $step and stay on the stage. Miss: next stage at the same weight. Miss the last stage: drop about 10% and start over at $first."
+            }
+        }
+    }
+
     /** The stage whose set count matches; among several, the one whose reps are closest to the first (non-AMRAP) set. */
     internal fun inferStage(stages: List<SetsReps>, setCount: Int, firstSetReps: Int): Int {
         val bySets = stages.indices.filter { stages[it].sets == setCount }
