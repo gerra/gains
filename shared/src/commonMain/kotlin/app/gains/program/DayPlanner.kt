@@ -19,6 +19,12 @@ data class PlannedExercise(
     /** "5 × 3+", or "6 × 2+" once a stage ladder has moved on: always the stage the sets were built for. */
     val targetLabel: String,
     val hint: String?,
+    /**
+     * The weights were borrowed from a session that did not attempt this slot's scheme (a free
+     * workout, or another slot of the program) rather than produced by the progression rule. The
+     * editor offers to clear them, since the lifter may want to start the slot elsewhere.
+     */
+    val seeded: Boolean = false,
 )
 
 data class DayPlan(val day: ProgramDay, val exercises: List<PlannedExercise>)
@@ -35,9 +41,12 @@ object DayPlanner {
     fun plan(program: Program, day: ProgramDay, snapshot: TrainingSnapshot, unit: WeightUnit): DayPlan {
         val planned = day.slots.mapNotNull { slot ->
             val exercise = snapshot.exercisesById[slot.exerciseId] ?: return@mapNotNull null
-            val own = lastEntry(snapshot, slot.exerciseId) { onSameScheme(program, slot, it) }
-            val s = if (own != null) Progression.suggest(slot, exercise, own, unit)
-            else Progression.start(slot, exercise, lastEntry(snapshot, slot.exerciseId), unit)
+            val own = lastSession(snapshot, slot.exerciseId) { onSameScheme(program, slot, it) }
+            val s = if (own != null) Progression.suggest(slot, exercise, own.entry(slot.exerciseId), unit) else {
+                val any = lastSession(snapshot, slot.exerciseId)
+                val source = if (any?.program == null) Progression.Source.FREE_SESSION else Progression.Source.DIFFERENT_SCHEME
+                Progression.start(slot, exercise, any?.entry(slot.exerciseId), unit, source)
+            }
             val isometric = exercise.modality == Modality.ISOMETRIC
             val sets = List(s.sets) {
                 PlannedSet(
@@ -46,17 +55,22 @@ object DayPlanner {
                     seconds = if (isometric) s.reps else null,
                 )
             }
-            PlannedExercise(exercise, slot, sets, s.target.targetLabel(slot.lastSetAmrap), s.hint)
+            PlannedExercise(exercise, slot, sets, s.target.targetLabel(slot.lastSetAmrap), s.hint, seeded = own == null && s.weightKg != null)
         }
         return DayPlan(day, planned)
     }
 
-    /** Most recent entry for the exercise from any session passing [sessionFilter]. */
-    fun lastEntry(snapshot: TrainingSnapshot, exerciseId: String, sessionFilter: (Session) -> Boolean = { true }): ExerciseEntry? =
+    /** Most recent entry for the exercise from any session. */
+    fun lastEntry(snapshot: TrainingSnapshot, exerciseId: String): ExerciseEntry? =
+        lastSession(snapshot, exerciseId)?.entry(exerciseId)
+
+    /** Most recent session containing the exercise that passes [sessionFilter]. */
+    private fun lastSession(snapshot: TrainingSnapshot, exerciseId: String, sessionFilter: (Session) -> Boolean = { true }): Session? =
         snapshot.sessions.asSequence()
             .filter { s -> sessionFilter(s) && s.exercises.any { it.exerciseId == exerciseId } }
             .maxByOrNull { it.timestamp }
-            ?.exercises?.first { it.exerciseId == exerciseId }
+
+    private fun Session.entry(exerciseId: String): ExerciseEntry = exercises.first { it.exerciseId == exerciseId }
 
     /** The session was started from a day of [program] whose slot for the exercise matches [slot]'s scheme. */
     private fun onSameScheme(program: Program, slot: ExerciseSlot, session: Session): Boolean {

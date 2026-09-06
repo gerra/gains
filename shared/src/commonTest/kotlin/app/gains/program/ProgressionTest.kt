@@ -132,7 +132,16 @@ class ProgressionTest {
         assertEquals(3, squat.sets.first().reps)
         assertEquals(80.0, squat.sets.first().weightKg)
         assertEquals("5 × 3+", squat.targetLabel)
-        assertEquals("Last: ${Format.weight(80.0, kg)} × 8,8,8 (different scheme) → start 5×3+ at ${Format.weight(80.0, kg)}", squat.hint)
+        assertEquals("Last: ${Format.weight(80.0, kg)} × 8,8,8 (free session) → start 5×3+ at ${Format.weight(80.0, kg)}", squat.hint)
+        assertTrue(squat.seeded)
+    }
+
+    @Test
+    fun nothingToBorrowIsNotSeeded() {
+        val squat = planSquat()
+        assertNull(squat.sets.first().weightKg)
+        assertNull(squat.hint)
+        assertTrue(!squat.seeded)
     }
 
     @Test
@@ -145,6 +154,17 @@ class ProgressionTest {
         assertEquals(5, squat.sets.size)
         assertEquals(105.0, squat.sets.first().weightKg)
         assertEquals("5 × 3+", squat.targetLabel)
+        assertTrue(!squat.seeded)
+    }
+
+    @Test
+    fun onlyAnotherSlotInHistoryBorrowsItsWeightAsDifferentScheme() {
+        // The first A1 after only an A2 (T2 squat, 3×10): start the ladder at that weight, and say it came from another scheme.
+        val squat = planSquat(squats(LocalDate(2026, 3, 5), 70.0, 10, 10, 10, day = "A2"))
+        assertEquals(70.0, squat.sets.first().weightKg)
+        assertEquals("5 × 3+", squat.targetLabel)
+        assertEquals("Last: ${Format.weight(70.0, kg)} × 10,10,10 (different scheme) → start 5×3+ at ${Format.weight(70.0, kg)}", squat.hint)
+        assertTrue(squat.seeded)
     }
 
     @Test

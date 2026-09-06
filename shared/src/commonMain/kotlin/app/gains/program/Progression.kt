@@ -108,6 +108,14 @@ object Progression {
         }
     }
 
+    /** Where a borrowed starting weight came from, for the hint. */
+    enum class Source(val label: String) {
+        /** A workout logged without a program day. */
+        FREE_SESSION("free session"),
+        /** A session of this program where the exercise sits in a slot with another scheme, e.g. a GZCLP T2 squat before a T1 day. */
+        DIFFERENT_SCHEME("different scheme"),
+    }
+
     /**
      * The first session of a slot: nothing has been logged against this scheme yet, so there is no
      * success or failure for the rule to act on. Prefill the slot exactly as written (a stage ladder
@@ -115,7 +123,7 @@ object Progression {
      * exercise from anywhere (a free session, or another slot of the program), so the lifter has a
      * starting point instead of an empty column. The hint says where that weight came from.
      */
-    fun start(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit): Suggestion {
+    fun start(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit, source: Source = Source.FREE_SESSION): Suggestion {
         val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null, slot.target)
         val sets = last?.workingSets?.ifEmpty { last.sets }.orEmpty()
         if (sets.isEmpty()) return fallback
@@ -124,7 +132,7 @@ object Progression {
         val reps = sets.map { it.reps ?: it.seconds ?: 0 }
         val weight = lastWeight.takeIf { loaded }
         val at = weight?.let { " at ${Format.weight(it, unit)}" } ?: ""
-        val hint = "${lastLabel(loaded, lastWeight, reps, unit)} (different scheme) → start ${slot.target.label}$at"
+        val hint = "${lastLabel(loaded, lastWeight, reps, unit)} (${source.label}) → start ${slot.target.label}$at"
         return Suggestion(weight, slot.sets, slot.reps.prefillReps, hint, slot.target)
     }
 
