@@ -26,7 +26,7 @@ class ProgressionTest {
     @Test
     fun noHistoryPrefillsTargetsOnly() {
         val s = Progression.suggest(ExerciseSlot("bench_press", 3, RepTarget.Amrap(5), progression = ProgressionRule.Linear(2.5)), bench, null, kg)
-        assertEquals(Progression.Suggestion(null, 3, 5, null), s)
+        assertEquals(Progression.Suggestion(null, 3, 5, null, SetsReps(3, RepTarget.Amrap(5))), s)
     }
 
     @Test
@@ -99,7 +99,24 @@ class ProgressionTest {
         assertEquals(60.0, s.weightKg)
         assertEquals(6, s.sets)
         assertEquals(2, s.reps)
+        assertEquals(SetsReps(6, RepTarget.Amrap(2)), s.target)
         assertEquals("Last: ${Format.weight(60.0, kg)} × 3,3,3,2,2 → missed reps: 6×2+ at ${Format.weight(60.0, kg)}", s.hint)
+    }
+
+    @Test
+    fun plannerLabelsTheStageTheSetsWereBuiltFor() {
+        val gzclp = ProgramCatalogue.byId("gzclp")!!
+        val a1 = gzclp.days.first()
+        // Missed the 5×3+ stage last time: today is 6×2+ at the same weight, and the label must say so.
+        val history = listOf(
+            TestData.session(LocalDate(2026, 3, 1), TestData.entry(TestData.squat, *listOf(3, 3, 3, 2, 2).mapIndexed { i, r -> TestData.weighted(80.0, r, i) }.toTypedArray())),
+        )
+        val plan = DayPlanner.plan(a1, TrainingSnapshot(history, TestData.exercises), kg)
+        val squat = plan.exercises.first { it.exercise.id == "squat" }
+        assertEquals(6, squat.sets.size)
+        assertEquals(2, squat.sets.first().reps)
+        assertEquals(80.0, squat.sets.first().weightKg)
+        assertEquals("6 × 2+", squat.targetLabel)
     }
 
     @Test

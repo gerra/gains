@@ -66,6 +66,13 @@ sealed interface RepTarget {
 
 data class SetsReps(val sets: Int, val reps: RepTarget) {
     val label: String get() = "$sets×${reps.label}"
+
+    /** "5 × 3+", "3 × 8-12", "4 × 5, 1 × 5+": the editor's target line. */
+    fun targetLabel(lastSetAmrap: Boolean): String = when {
+        lastSetAmrap && sets > 1 -> "${sets - 1} × ${reps.label}, 1 × ${reps.prefillReps}+"
+        lastSetAmrap -> "1 × ${reps.prefillReps}+"
+        else -> "$sets × ${reps.label}"
+    }
 }
 
 /** How the next session's load is chosen from the last one. Steps are per unit so lbs users get round numbers. */
@@ -105,12 +112,11 @@ data class ExerciseSlot(
     val progression: ProgressionRule = ProgressionRule.None,
     val note: String? = null,
 ) {
+    /** The slot as written: for a stage ladder this is the first stage, not necessarily today's. */
+    val target: SetsReps get() = SetsReps(sets, reps)
+
     /** "5 × 3+", "3 × 8-12", "4 × 5, 1 × 5+". */
-    val targetLabel: String get() = when {
-        lastSetAmrap && sets > 1 -> "${sets - 1} × ${reps.label}, 1 × ${reps.prefillReps}+"
-        lastSetAmrap -> "1 × ${reps.prefillReps}+"
-        else -> "$sets × ${reps.label}"
-    }
+    val targetLabel: String get() = target.targetLabel(lastSetAmrap)
 }
 
 data class ProgramDay(val id: String, val name: String, val slots: List<ExerciseSlot>)

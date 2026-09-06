@@ -14,7 +14,7 @@ data class PlannedExercise(
     val exercise: Exercise,
     val slot: ExerciseSlot,
     val sets: List<PlannedSet>,
-    /** "5 × 3+" */
+    /** "5 × 3+", or "6 × 2+" once a stage ladder has moved on: always the stage the sets were built for. */
     val targetLabel: String,
     val hint: String?,
 )
@@ -36,7 +36,7 @@ object DayPlanner {
                     seconds = if (isometric) s.reps else null,
                 )
             }
-            PlannedExercise(exercise, slot, sets, slot.targetLabel, s.hint)
+            PlannedExercise(exercise, slot, sets, s.target.targetLabel(slot.lastSetAmrap), s.hint)
         }
         return DayPlan(day, planned)
     }

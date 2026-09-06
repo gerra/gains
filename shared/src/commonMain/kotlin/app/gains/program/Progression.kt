@@ -21,10 +21,15 @@ object Progression {
         val reps: Int,
         /** One line for the editor: "Last: 60 kg × 5,5,5 → try 62.5 kg". */
         val hint: String?,
+        /**
+         * What today's sets are measured against. For a stage ladder this is the stage the lifter is
+         * on, which the slot's own sets × reps (the first stage) stops describing after a missed session.
+         */
+        val target: SetsReps,
     )
 
     fun suggest(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit): Suggestion {
-        val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null)
+        val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null, slot.target)
         val sets = last?.workingSets?.ifEmpty { last.sets }.orEmpty()
         if (sets.isEmpty()) return fallback
         val loaded = exercise.modality == Modality.WEIGHTED
@@ -41,17 +46,17 @@ object Progression {
         fun w(kg: Double) = Format.weight(kg, unit)
 
         return when (val rule = slot.progression) {
-            ProgressionRule.None -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, slot.reps.prefillReps, lastLabel)
+            ProgressionRule.None -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, slot.reps.prefillReps, lastLabel, slot.target)
 
             is ProgressionRule.Linear -> {
                 val hit = sets.size >= slot.sets && reps.all { it >= slot.reps.successReps }
                 if (!loaded || lastWeight == null) {
-                    Suggestion(null, slot.sets, slot.reps.prefillReps, lastLabel)
+                    Suggestion(null, slot.sets, slot.reps.prefillReps, lastLabel, slot.target)
                 } else if (hit) {
                     val next = bump(lastWeight, rule)!!
-                    Suggestion(next, slot.sets, slot.reps.prefillReps, "$lastLabel → try ${w(next)}")
+                    Suggestion(next, slot.sets, slot.reps.prefillReps, "$lastLabel → try ${w(next)}", slot.target)
                 } else {
-                    Suggestion(lastWeight, slot.sets, slot.reps.prefillReps, "$lastLabel → repeat ${w(lastWeight)}")
+                    Suggestion(lastWeight, slot.sets, slot.reps.prefillReps, "$lastLabel → repeat ${w(lastWeight)}", slot.target)
                 }
             }
 
@@ -59,15 +64,15 @@ object Progression {
                 val hit = sets.size >= slot.sets && reps.all { it >= rule.max }
                 val moveUp = rule.stepKg <= 0.0
                 when {
-                    hit && moveUp -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, rule.min, "$lastLabel → all sets at ${rule.max}: move to the next progression")
+                    hit && moveUp -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, rule.min, "$lastLabel → all sets at ${rule.max}: move to the next progression", slot.target)
                     hit && loaded && lastWeight != null -> {
                         val next = bump(lastWeight, rule)!!
-                        Suggestion(next, slot.sets, rule.min, "$lastLabel → try ${w(next)} × ${rule.min}")
+                        Suggestion(next, slot.sets, rule.min, "$lastLabel → try ${w(next)} × ${rule.min}", slot.target)
                     }
                     else -> {
                         val target = (reps.minOrNull()!! + 1).coerceIn(rule.min, rule.max)
                         val weightText = if (loaded && lastWeight != null) "${w(lastWeight)} × " else ""
-                        Suggestion(lastWeight.takeIf { loaded }, slot.sets, target, "$lastLabel → $weightText$target")
+                        Suggestion(lastWeight.takeIf { loaded }, slot.sets, target, "$lastLabel → $weightText$target", slot.target)
                     }
                 }
             }
@@ -78,19 +83,19 @@ object Progression {
                 val stage = stages[stageIndex]
                 val success = sets.size >= stage.sets && reps.all { it >= stage.reps.successReps }
                 when {
-                    !loaded || lastWeight == null -> Suggestion(null, stage.sets, stage.reps.prefillReps, lastLabel)
+                    !loaded || lastWeight == null -> Suggestion(null, stage.sets, stage.reps.prefillReps, lastLabel, stage)
                     success -> {
                         val next = bump(lastWeight, rule)!!
-                        Suggestion(next, stage.sets, stage.reps.prefillReps, "$lastLabel → try ${w(next)}, ${stage.label}")
+                        Suggestion(next, stage.sets, stage.reps.prefillReps, "$lastLabel → try ${w(next)}, ${stage.label}", stage)
                     }
                     stageIndex + 1 < stages.size -> {
                         val nextStage = stages[stageIndex + 1]
-                        Suggestion(lastWeight, nextStage.sets, nextStage.reps.prefillReps, "$lastLabel → missed reps: ${nextStage.label} at ${w(lastWeight)}")
+                        Suggestion(lastWeight, nextStage.sets, nextStage.reps.prefillReps, "$lastLabel → missed reps: ${nextStage.label} at ${w(lastWeight)}", nextStage)
                     }
                     else -> {
                         val reset = resetWeight(lastWeight, rule, unit)
                         val first = stages.first()
-                        Suggestion(reset, first.sets, first.reps.prefillReps, "$lastLabel → cycle done: reset to ${w(reset)} and restart ${first.label}")
+                        Suggestion(reset, first.sets, first.reps.prefillReps, "$lastLabel → cycle done: reset to ${w(reset)} and restart ${first.label}", first)
                     }
                 }
             }
