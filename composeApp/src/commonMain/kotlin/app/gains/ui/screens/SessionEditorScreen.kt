@@ -171,7 +171,7 @@ class SessionEditorModel(
                     val program = programs.observePrograms().first().firstOrNull { it.id == programDay.programId }
                     val day = program?.day(programDay.dayId)
                     if (program == null || day == null) fresh else {
-                        val plan = DayPlanner.plan(day, snapshot, unit)
+                        val plan = DayPlanner.plan(program, day, snapshot, unit)
                         fresh.copy(
                             programDay = programDay, title = day.name, programName = program.name,
                             exercises = plan.exercises.map { pe ->

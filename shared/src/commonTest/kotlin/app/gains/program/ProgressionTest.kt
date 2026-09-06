@@ -6,6 +6,7 @@ import app.gains.analysis.TrainingSnapshot
 import app.gains.catalogue.ProgramCatalogue
 import app.gains.domain.ExerciseEntry
 import app.gains.domain.ExerciseSlot
+import app.gains.domain.ProgramDayRef
 import app.gains.domain.ProgressionRule
 import app.gains.domain.RepTarget
 import app.gains.domain.SetEntry
@@ -16,6 +17,7 @@ import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ProgressionTest {
     private val bench = TestData.bench
@@ -103,20 +105,60 @@ class ProgressionTest {
         assertEquals("Last: ${Format.weight(60.0, kg)} × 3,3,3,2,2 → missed reps: 6×2+ at ${Format.weight(60.0, kg)}", s.hint)
     }
 
+    private val gzclp = ProgramCatalogue.byId("gzclp")!!
+    private val a1 = gzclp.days.first { it.name == "A1" }
+    /** A squat session, logged against the GZCLP day named [day] or free when null. */
+    private fun squats(date: LocalDate, weight: Double, vararg reps: Int, day: String? = null) =
+        TestData.session(date, TestData.entry(TestData.squat, *reps.mapIndexed { i, r -> TestData.weighted(weight, r, i) }.toTypedArray()))
+            .copy(program = day?.let { name -> ProgramDayRef(gzclp.id, gzclp.days.first { it.name == name }.id) })
+    private fun planSquat(vararg history: app.gains.domain.Session) =
+        DayPlanner.plan(gzclp, a1, TrainingSnapshot(history.toList(), TestData.exercises), kg).exercises.first { it.exercise.id == "squat" }
+
     @Test
     fun plannerLabelsTheStageTheSetsWereBuiltFor() {
-        val gzclp = ProgramCatalogue.byId("gzclp")!!
-        val a1 = gzclp.days.first()
-        // Missed the 5×3+ stage last time: today is 6×2+ at the same weight, and the label must say so.
-        val history = listOf(
-            TestData.session(LocalDate(2026, 3, 1), TestData.entry(TestData.squat, *listOf(3, 3, 3, 2, 2).mapIndexed { i, r -> TestData.weighted(80.0, r, i) }.toTypedArray())),
-        )
-        val plan = DayPlanner.plan(a1, TrainingSnapshot(history, TestData.exercises), kg)
-        val squat = plan.exercises.first { it.exercise.id == "squat" }
+        // Missed the 5×3+ stage on this day last time: today is 6×2+ at the same weight, and the label must say so.
+        val squat = planSquat(squats(LocalDate(2026, 3, 1), 80.0, 3, 3, 3, 2, 2, day = "A1"))
         assertEquals(6, squat.sets.size)
         assertEquals(2, squat.sets.first().reps)
         assertEquals(80.0, squat.sets.first().weightKg)
         assertEquals("6 × 2+", squat.targetLabel)
+    }
+
+    @Test
+    fun freeSessionsSeedTheWeightButNotTheStage() {
+        // Three sets of eight in a free session is not a failed 5×3+: start the ladder at its first stage.
+        val squat = planSquat(squats(LocalDate(2026, 3, 1), 80.0, 8, 8, 8))
+        assertEquals(5, squat.sets.size)
+        assertEquals(3, squat.sets.first().reps)
+        assertEquals(80.0, squat.sets.first().weightKg)
+        assertEquals("5 × 3+", squat.targetLabel)
+        assertEquals("Last: ${Format.weight(80.0, kg)} × 8,8,8 (different scheme) → start 5×3+ at ${Format.weight(80.0, kg)}", squat.hint)
+    }
+
+    @Test
+    fun anotherSlotOfTheSameProgramDoesNotDriveTheLadder() {
+        // A1 squat 5×3+ at 100, then A2's T2 squat 3×10 at 70. The next A1 continues from the T1 session, not the T2 one.
+        val squat = planSquat(
+            squats(LocalDate(2026, 3, 1), 100.0, 3, 3, 3, 3, 4, day = "A1"),
+            squats(LocalDate(2026, 3, 5), 70.0, 10, 10, 10, day = "A2"),
+        )
+        assertEquals(5, squat.sets.size)
+        assertEquals(105.0, squat.sets.first().weightKg)
+        assertEquals("5 × 3+", squat.targetLabel)
+    }
+
+    @Test
+    fun sameSchemeOnAnotherDayCountsTowardsProgression() {
+        val ppl = ProgramCatalogue.byId("ppl_6")!!
+        val legsA = ppl.days.first { it.name == "Legs A" }
+        val legsB = ppl.days.first { it.name == "Legs B" }
+        assertTrue(legsA.slots.first { it.exerciseId == "squat" }.sameScheme(legsB.slots.first { it.exerciseId == "squat" }))
+        val history = listOf(
+            TestData.session(LocalDate(2026, 3, 1), TestData.entry(TestData.squat, *(0..2).map { TestData.weighted(100.0, 5, it) }.toTypedArray()))
+                .copy(program = ProgramDayRef(ppl.id, legsB.id)),
+        )
+        val squat = DayPlanner.plan(ppl, legsA, TrainingSnapshot(history, TestData.exercises), kg).exercises.first { it.exercise.id == "squat" }
+        assertEquals(102.5, squat.sets.first().weightKg)
     }
 
     @Test
@@ -137,14 +179,12 @@ class ProgressionTest {
 
     @Test
     fun plannerBuildsSetsFromHistoryAndSkipsUnknownExercises() {
-        val gzclp = ProgramCatalogue.byId("gzclp")!!
-        val a1 = gzclp.days.first()
         val history = listOf(
-            TestData.session(LocalDate(2026, 3, 1), TestData.entry(TestData.squat, *(0..4).map { TestData.weighted(80.0, 3, it) }.toTypedArray())),
-            TestData.session(LocalDate(2026, 3, 3), TestData.entry(TestData.squat, *(0..4).map { TestData.weighted(85.0, 3, it) }.toTypedArray())),
+            squats(LocalDate(2026, 3, 1), 80.0, 3, 3, 3, 3, 3, day = "A1"),
+            squats(LocalDate(2026, 3, 3), 85.0, 3, 3, 3, 3, 3, day = "A1"),
         )
         val snapshot = TrainingSnapshot(history, TestData.exercises.filter { it.id != "lat_pulldown" })
-        val plan = DayPlanner.plan(a1, snapshot, kg)
+        val plan = DayPlanner.plan(gzclp, a1, snapshot, kg)
         assertEquals(listOf("squat", "bench_press"), plan.exercises.map { it.exercise.id })
         val squat = plan.exercises.first()
         assertEquals(5, squat.sets.size)
@@ -159,8 +199,9 @@ class ProgressionTest {
 
     @Test
     fun plannerPrefillsSecondsForIsometrics() {
-        val day = ProgramCatalogue.byId("upper_lower_4")!!.days.first { it.name == "Lower A" }
-        val plan = DayPlanner.plan(day, TrainingSnapshot(emptyList(), TestData.exercises), kg)
+        val program = ProgramCatalogue.byId("upper_lower_4")!!
+        val day = program.days.first { it.name == "Lower A" }
+        val plan = DayPlanner.plan(program, day, TrainingSnapshot(emptyList(), TestData.exercises), kg)
         val plank = plan.exercises.first { it.exercise.id == "plank" }
         assertEquals(45, plank.sets.first().seconds)
         assertNull(plank.sets.first().reps)

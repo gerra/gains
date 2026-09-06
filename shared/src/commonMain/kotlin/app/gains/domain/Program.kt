@@ -117,6 +117,15 @@ data class ExerciseSlot(
 
     /** "5 × 3+", "3 × 8-12", "4 × 5, 1 × 5+". */
     val targetLabel: String get() = target.targetLabel(lastSetAmrap)
+
+    /**
+     * True when [other] prescribes the same work for the same exercise, so a session logged against
+     * it counts towards this slot's progression. Notes are ignored. Squats on "Legs A" and "Legs B"
+     * of a PPL match; a GZCLP T1 squat (5×3+) and T2 squat (3×10) do not.
+     */
+    fun sameScheme(other: ExerciseSlot): Boolean =
+        exerciseId == other.exerciseId && sets == other.sets && reps == other.reps &&
+            lastSetAmrap == other.lastSetAmrap && progression == other.progression
 }
 
 data class ProgramDay(val id: String, val name: String, val slots: List<ExerciseSlot>)

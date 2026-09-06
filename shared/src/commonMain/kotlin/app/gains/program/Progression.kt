@@ -28,6 +28,12 @@ object Progression {
         val target: SetsReps,
     )
 
+    /**
+     * What to load today given [last], the most recent entry logged against this same slot (or one
+     * with the [ExerciseSlot.sameScheme]). The rule reads it as a success or a failure of the slot's
+     * prescription, so an entry from a free session or a different scheme must not be passed here:
+     * use [start] for those.
+     */
     fun suggest(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit): Suggestion {
         val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null, slot.target)
         val sets = last?.workingSets?.ifEmpty { last.sets }.orEmpty()
@@ -35,7 +41,7 @@ object Progression {
         val loaded = exercise.modality == Modality.WEIGHTED
         val lastWeight = sets.mapNotNull { it.weightKg }.maxOrNull()
         val reps = sets.map { it.reps ?: it.seconds ?: 0 }
-        val lastLabel = "Last: " + (if (loaded && lastWeight != null) Format.weight(lastWeight, unit) + " × " else "") + reps.joinToString(",")
+        val lastLabel = lastLabel(loaded, lastWeight, reps, unit)
         if (loaded && lastWeight == null) return fallback.copy(hint = lastLabel)
 
         fun bump(weight: Double?, rule: ProgressionRule): Double? {
@@ -101,6 +107,30 @@ object Progression {
             }
         }
     }
+
+    /**
+     * The first session of a slot: nothing has been logged against this scheme yet, so there is no
+     * success or failure for the rule to act on. Prefill the slot exactly as written (a stage ladder
+     * starts on its first stage) and borrow the weight from [last], the most recent entry for the
+     * exercise from anywhere (a free session, or another slot of the program), so the lifter has a
+     * starting point instead of an empty column. The hint says where that weight came from.
+     */
+    fun start(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit): Suggestion {
+        val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null, slot.target)
+        val sets = last?.workingSets?.ifEmpty { last.sets }.orEmpty()
+        if (sets.isEmpty()) return fallback
+        val loaded = exercise.modality == Modality.WEIGHTED
+        val lastWeight = sets.mapNotNull { it.weightKg }.maxOrNull()
+        val reps = sets.map { it.reps ?: it.seconds ?: 0 }
+        val weight = lastWeight.takeIf { loaded }
+        val at = weight?.let { " at ${Format.weight(it, unit)}" } ?: ""
+        val hint = "${lastLabel(loaded, lastWeight, reps, unit)} (different scheme) → start ${slot.target.label}$at"
+        return Suggestion(weight, slot.sets, slot.reps.prefillReps, hint, slot.target)
+    }
+
+    /** "Last: 60 kg × 5,5,5", or "Last: 8,8,8" for unloaded work. */
+    private fun lastLabel(loaded: Boolean, lastWeight: Double?, reps: List<Int>, unit: WeightUnit): String =
+        "Last: " + (if (loaded && lastWeight != null) Format.weight(lastWeight, unit) + " × " else "") + reps.joinToString(",")
 
     /**
      * The rule in plain words for the program overview: what happens after a good session, a missed
