@@ -1,5 +1,6 @@
 package app.gains.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,7 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -107,6 +110,11 @@ data class SetDraft(
 
 data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraft>, val note: String = "")
 
+/** A program day the workout can be tagged with: "GZCLP · A1". */
+data class ProgramDayOption(val ref: ProgramDayRef, val programName: String, val dayName: String) {
+    val label: String get() = "$programName · $dayName"
+}
+
 data class EditorState(
     val loading: Boolean = true,
     val isNew: Boolean = true,
@@ -121,17 +129,25 @@ data class EditorState(
     val recent: List<Exercise> = emptyList(),
     val error: String? = null,
     val saved: Boolean = false,
-    /** Set when the workout was started from a program day. */
+    /**
+     * The program day this workout counts towards. Set when started from a program day, and editable:
+     * a free workout tagged with a day drives that day's progression like one started from it.
+     */
     val programDay: ProgramDayRef? = null,
     val title: String = "Log workout",
-    val programName: String? = null,
+    /** Every day of every program, for the tag picker. */
+    val programDays: List<ProgramDayOption> = emptyList(),
     /** exercise id -> "5 × 3+" */
     val targets: Map<String, String> = emptyMap(),
     /** exercise id -> "Last: 60 kg × 5,5,5 → try 62.5 kg" */
     val hints: Map<String, String> = emptyMap(),
     /** exercise id -> program note */
     val notes: Map<String, String> = emptyMap(),
-)
+    /** Exercises whose weights were borrowed from a session outside this slot's scheme; the card offers to clear them. */
+    val seeded: Set<String> = emptySet(),
+) {
+    val programDayOption: ProgramDayOption? get() = programDay?.let { ref -> programDays.firstOrNull { it.ref == ref } }
+}
 
 class SessionEditorModel(
     private val sessionId: String?,
@@ -150,11 +166,14 @@ class SessionEditorModel(
             val snapshot = trainingData.snapshot.first()
             val unit = settings.observeUnit().first()
             val existing = sessionId?.let { id -> snapshot.sessions.firstOrNull { it.id == id } }
+            val programList = programs.observePrograms().first()
+            val dayOptions = programList.flatMap { p -> p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), p.name, it.name) } }
             val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
             val fresh = EditorState(
                 loading = false, isNew = true, date = now.date.toString(),
                 time = "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}",
                 unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
+                programDays = dayOptions,
             )
             _state.value = when {
                 existing != null -> EditorState(
@@ -165,15 +184,15 @@ class SessionEditorModel(
                         snapshot.exercisesById[entry.exerciseId]?.let { ex -> ExerciseDraft(ex, entry.sets.map { SetDraft.from(it, unit) }, entry.note ?: "") }
                     },
                     unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
-                    programDay = existing.program, title = "Edit workout",
+                    programDay = existing.program, title = "Edit workout", programDays = dayOptions,
                 )
                 programDay != null -> {
-                    val program = programs.observePrograms().first().firstOrNull { it.id == programDay.programId }
+                    val program = programList.firstOrNull { it.id == programDay.programId }
                     val day = program?.day(programDay.dayId)
                     if (program == null || day == null) fresh else {
-                        val plan = DayPlanner.plan(day, snapshot, unit)
+                        val plan = DayPlanner.plan(program, day, snapshot, unit)
                         fresh.copy(
-                            programDay = programDay, title = day.name, programName = program.name,
+                            programDay = programDay, title = day.name,
                             exercises = plan.exercises.map { pe ->
                                 ExerciseDraft(pe.exercise, pe.sets.map { ps ->
                                     SetDraft(
@@ -186,6 +205,7 @@ class SessionEditorModel(
                             targets = plan.exercises.associate { it.exercise.id to it.targetLabel },
                             hints = plan.exercises.mapNotNull { pe -> pe.hint?.let { pe.exercise.id to it } }.toMap(),
                             notes = plan.exercises.mapNotNull { pe -> pe.slot.note?.let { pe.exercise.id to it } }.toMap(),
+                            seeded = plan.exercises.filter { it.seeded }.map { it.exercise.id }.toSet(),
                         )
                     }
                 }
@@ -216,6 +236,17 @@ class SessionEditorModel(
     }
 
     fun removeExercise(index: Int) = update { it.copy(exercises = it.exercises.filterIndexed { i, _ -> i != index }) }
+
+    /** Tag the workout with a program day, or none for a free workout. */
+    fun setProgramDay(ref: ProgramDayRef?) = update { it.copy(programDay = ref) }
+
+    /** Drop the weights borrowed from outside the slot's scheme; sets and reps stay as prescribed. */
+    fun startBlank(index: Int) = update { s ->
+        s.copy(
+            exercises = s.exercises.mapIndexed { i, e -> if (i != index) e else e.copy(sets = e.sets.map { it.copy(weight = "") }) },
+            seeded = s.seeded - s.exercises[index].exercise.id,
+        )
+    }
     fun setNote(index: Int, note: String) = update { it.copy(exercises = it.exercises.mapIndexed { i, e -> if (i == index) e.copy(note = note) else e }) }
 
     fun addSet(index: Int) = update { s ->
@@ -288,6 +319,7 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, o
     val palette = GainsColors.palette
     var pickerOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var dayPickerOpen by remember { mutableStateOf(false) }
     if (state.loading) return
     if (state.saved) { onDone(); return }
     val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = palette.volt, unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant)
@@ -297,7 +329,11 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, o
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(state.title, style = MaterialTheme.typography.headlineLarge)
-                    state.programName?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (state.programDays.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        val tag = state.programDayOption
+                        Pill(tag?.label ?: "Not part of a program", if (tag != null) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant, onClick = { dayPickerOpen = true })
+                    }
                 }
                 if (!state.isNew) TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = palette.coral) }
             }
@@ -313,7 +349,11 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, o
             }
         }
         itemsIndexed(state.exercises, key = { _, e -> e.exercise.id }) { exerciseIndex, draft ->
-            ExerciseCard(exerciseIndex, draft, state.unit, model, fieldColors, state.targets[draft.exercise.id], state.hints[draft.exercise.id], state.notes[draft.exercise.id])
+            ExerciseCard(
+                exerciseIndex, draft, state.unit, model, fieldColors,
+                state.targets[draft.exercise.id], state.hints[draft.exercise.id], state.notes[draft.exercise.id],
+                seeded = draft.exercise.id in state.seeded,
+            )
         }
         item {
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp)) }
@@ -333,6 +373,12 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, o
         onCreate = model::createExercise,
         onDismiss = { pickerOpen = false },
     )
+    if (dayPickerOpen) ProgramDayDialog(
+        options = state.programDays,
+        selected = state.programDay,
+        onSelect = { model.setProgramDay(it); dayPickerOpen = false },
+        onDismiss = { dayPickerOpen = false },
+    )
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -345,10 +391,48 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, o
     }
 }
 
+/**
+ * Which program day the workout counts towards. Tagging a free workout with a day makes it part of
+ * that day's progression; "None" turns a program workout into a free one.
+ */
+@Composable
+private fun ProgramDayDialog(options: List<ProgramDayOption>, selected: ProgramDayRef?, onSelect: (ProgramDayRef?) -> Unit, onDismiss: () -> Unit) {
+    val palette = GainsColors.palette
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.large,
+        title = { Text("Program day") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    "A workout tagged with a day counts towards that day's progression. Leave it untagged for free training.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                DayChoice("None (free workout)", selected == null, palette.volt) { onSelect(null) }
+                for ((programName, days) in options.groupBy { it.programName }) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(programName.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    for (day in days) DayChoice(day.dayName, day.ref == selected, palette.volt) { onSelect(day.ref) }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
+}
+
+@Composable
+private fun DayChoice(label: String, selected: Boolean, accent: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = if (selected) accent else MaterialTheme.colorScheme.onSurface)
+        if (selected) Text("✓", color = accent, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
 @Composable
 private fun ExerciseCard(
     exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
-    target: String? = null, hint: String? = null, programNote: String? = null,
+    target: String? = null, hint: String? = null, programNote: String? = null, seeded: Boolean = false,
 ) {
     val palette = GainsColors.palette
     val modality = draft.exercise.modality
@@ -367,6 +451,13 @@ private fun ExerciseCard(
         if (hint != null) {
             Spacer(Modifier.height(4.dp))
             Text(hint, style = MaterialTheme.typography.bodySmall, color = palette.volt)
+        }
+        if (seeded) {
+            // The weights came from a session that never attempted this scheme: one tap declines them.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Weights borrowed from that session.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { model.startBlank(exerciseIndex) }) { Text("Start blank", color = palette.volt) }
+            }
         }
         if (programNote != null) {
             Spacer(Modifier.height(2.dp))
