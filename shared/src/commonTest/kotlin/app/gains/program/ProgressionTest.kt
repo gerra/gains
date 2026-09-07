@@ -118,22 +118,79 @@ class ProgressionTest {
     fun plannerLabelsTheStageTheSetsWereBuiltFor() {
         // Missed the 5×3+ stage on this day last time: today is 6×2+ at the same weight, and the label must say so.
         val squat = planSquat(squats(LocalDate(2026, 3, 1), 80.0, 3, 3, 3, 2, 2, day = "A1"))
-        assertEquals(6, squat.sets.size)
-        assertEquals(2, squat.sets.first().reps)
-        assertEquals(80.0, squat.sets.first().weightKg)
+        assertEquals(6, squat.workSets.size)
+        assertEquals(2, squat.workSets.first().reps)
+        assertEquals(80.0, squat.workSets.first().weightKg)
         assertEquals("6 × 2+", squat.targetLabel)
     }
 
     @Test
     fun freeSessionsSeedTheWeightButNotTheStage() {
-        // Three sets of eight in a free session is not a failed 5×3+: start the ladder at its first stage.
+        // Three sets of eight in a free session is not a failed 5×3+: start the ladder at its first stage,
+        // at 85% of the Epley estimate (80 × 8 → 101 kg → 86 → 85 on 5 kg plates), not at the copied 80 kg.
         val squat = planSquat(squats(LocalDate(2026, 3, 1), 80.0, 8, 8, 8))
-        assertEquals(5, squat.sets.size)
-        assertEquals(3, squat.sets.first().reps)
-        assertEquals(80.0, squat.sets.first().weightKg)
+        assertEquals(5, squat.workSets.size)
+        assertEquals(3, squat.workSets.first().reps)
+        assertEquals(85.0, squat.workSets.first().weightKg)
         assertEquals("5 × 3+", squat.targetLabel)
-        assertEquals("Last: ${Format.weight(80.0, kg)} × 8,8,8 (free session) → start 5×3+ at ${Format.weight(80.0, kg)}", squat.hint)
+        assertEquals("Last: ${Format.weight(80.0, kg)} × 8,8,8 → est. 1RM ~101 kg → T1 start ${Format.weight(85.0, kg)}", squat.hint)
         assertTrue(squat.seeded)
+        assertEquals(Progression.Source.FREE_SESSION, squat.source)
+        assertEquals(Gzclp.Tier.T1, squat.tier)
+    }
+
+    @Test
+    fun aFailedFreeSessionWeightIsNeverSuggestedAgain() {
+        // Bench 50 × 6, 8, 9 free, then A1's T2 bench (3 × 10): 65% of the 65 kg estimate, and under 50 kg whatever happens.
+        val history = TestData.session(LocalDate(2026, 3, 1), TestData.entry(bench, *listOf(6, 8, 9).mapIndexed { i, r -> TestData.weighted(50.0, r, i) }.toTypedArray()))
+        val plan = DayPlanner.plan(gzclp, a1, TrainingSnapshot(listOf(history), TestData.exercises), kg)
+        val b = plan.exercises.first { it.exercise.id == "bench_press" }
+        assertEquals(40.0, b.workSets.first().weightKg)
+        assertEquals(10, b.workSets.first().reps)
+        assertEquals("Last: ${Format.weight(50.0, kg)} × 6,8,9 → est. 1RM ~65 kg → T2 start ${Format.weight(40.0, kg)}", b.hint)
+        assertTrue(b.workSets.all { it.weightKg!! < 50.0 })
+    }
+
+    @Test
+    fun ownSchemeHistoryBeatsALaterFreeSession() {
+        // A1's T2 bench was 3 × 10 at 40 last week; a heavier free bench session since does not reset the ladder.
+        val own = TestData.session(LocalDate(2026, 3, 1), TestData.entry(bench, *(0..2).map { TestData.weighted(40.0, 10, it) }.toTypedArray()))
+            .copy(program = ProgramDayRef(gzclp.id, a1.id))
+        val free = TestData.session(LocalDate(2026, 3, 4), TestData.entry(bench, TestData.weighted(60.0, 5), TestData.weighted(60.0, 5, 1)))
+        val b = DayPlanner.plan(gzclp, a1, TrainingSnapshot(listOf(own, free), TestData.exercises), kg).exercises.first { it.exercise.id == "bench_press" }
+        assertEquals(42.5, b.workSets.first().weightKg)
+        assertTrue(!b.seeded)
+        assertNull(b.source)
+    }
+
+    @Test
+    fun plannerAddsFlaggedWarmupsBeforeTheWorkSets() {
+        val squat = planSquat(squats(LocalDate(2026, 3, 1), 85.0, 3, 3, 3, 3, 3, day = "A1"))
+        // Hit the reps at 85 → 90 today: bar × 10, then 35, 55, 70 (40/60/80% on 5 kg plates).
+        assertEquals(listOf(20.0 to 10, 35.0 to 5, 55.0 to 3, 70.0 to 2), squat.warmupSets.map { it.weightKg to it.reps })
+        assertTrue(squat.warmupSets.all { it.isWarmup })
+        assertEquals(5, squat.workSets.size)
+        assertTrue(squat.workSets.none { it.isWarmup })
+        assertEquals(90.0, squat.workSets.first().weightKg)
+        // Warm-ups come first, so the editor numbers W1… then 1…5.
+        assertEquals(squat.warmupSets + squat.workSets, squat.sets)
+    }
+
+    @Test
+    fun warmupsHonourTheBarWeightSettingAndCanBeSwitchedOff() {
+        val history = squats(LocalDate(2026, 3, 1), 85.0, 3, 3, 3, 3, 3, day = "A1")
+        val snapshot = TrainingSnapshot(listOf(history), TestData.exercises)
+        val heavyBar = DayPlanner.plan(gzclp, a1, snapshot, kg, PlanOptions(barKg = 25.0)).exercises.first()
+        assertEquals(25.0, heavyBar.warmupSets.first().weightKg)
+        val off = DayPlanner.plan(gzclp, a1, snapshot, kg, PlanOptions(warmups = false)).exercises.first()
+        assertTrue(off.warmupSets.isEmpty())
+        assertEquals(5, off.sets.size)
+    }
+
+    @Test
+    fun noWeightMeansNoWarmups() {
+        val squat = planSquat()
+        assertTrue(squat.warmupSets.isEmpty())
     }
 
     @Test
@@ -151,20 +208,22 @@ class ProgressionTest {
             squats(LocalDate(2026, 3, 1), 100.0, 3, 3, 3, 3, 4, day = "A1"),
             squats(LocalDate(2026, 3, 5), 70.0, 10, 10, 10, day = "A2"),
         )
-        assertEquals(5, squat.sets.size)
-        assertEquals(105.0, squat.sets.first().weightKg)
+        assertEquals(5, squat.workSets.size)
+        assertEquals(105.0, squat.workSets.first().weightKg)
         assertEquals("5 × 3+", squat.targetLabel)
         assertTrue(!squat.seeded)
     }
 
     @Test
     fun onlyAnotherSlotInHistoryBorrowsItsWeightAsDifferentScheme() {
-        // The first A1 after only an A2 (T2 squat, 3×10): start the ladder at that weight, and say it came from another scheme.
+        // The first A1 after only an A2 (T2 squat, 3×10 at 70 → e1RM 93 → T1 79 → 75): the estimate applies, and the plan
+        // records that the weights came from another scheme so the editor can say so.
         val squat = planSquat(squats(LocalDate(2026, 3, 5), 70.0, 10, 10, 10, day = "A2"))
-        assertEquals(70.0, squat.sets.first().weightKg)
+        assertEquals(75.0, squat.workSets.first().weightKg)
         assertEquals("5 × 3+", squat.targetLabel)
-        assertEquals("Last: ${Format.weight(70.0, kg)} × 10,10,10 (different scheme) → start 5×3+ at ${Format.weight(70.0, kg)}", squat.hint)
+        assertEquals("Last: ${Format.weight(70.0, kg)} × 10,10,10 → est. 1RM ~93 kg → T1 start ${Format.weight(75.0, kg)}", squat.hint)
         assertTrue(squat.seeded)
+        assertEquals(Progression.Source.DIFFERENT_SCHEME, squat.source)
     }
 
     @Test
@@ -178,7 +237,7 @@ class ProgressionTest {
                 .copy(program = ProgramDayRef(ppl.id, legsB.id)),
         )
         val squat = DayPlanner.plan(ppl, legsA, TrainingSnapshot(history, TestData.exercises), kg).exercises.first { it.exercise.id == "squat" }
-        assertEquals(102.5, squat.sets.first().weightKg)
+        assertEquals(102.5, squat.workSets.first().weightKg)
     }
 
     @Test
@@ -207,11 +266,12 @@ class ProgressionTest {
         val plan = DayPlanner.plan(gzclp, a1, snapshot, kg)
         assertEquals(listOf("squat", "bench_press"), plan.exercises.map { it.exercise.id })
         val squat = plan.exercises.first()
-        assertEquals(5, squat.sets.size)
-        assertEquals(90.0, squat.sets.first().weightKg)
-        assertEquals(3, squat.sets.first().reps)
+        assertEquals(5, squat.workSets.size)
+        assertEquals(90.0, squat.workSets.first().weightKg)
+        assertEquals(3, squat.workSets.first().reps)
         assertEquals("5 × 3+", squat.targetLabel)
         val benchPlan = plan.exercises[1]
+        assertTrue(benchPlan.warmupSets.isEmpty())
         assertNull(benchPlan.sets.first().weightKg)
         assertEquals(10, benchPlan.sets.first().reps)
         assertNull(benchPlan.hint)

@@ -1,5 +1,6 @@
 package app.gains.importer
 
+import app.gains.analysis.WorkingSets
 import app.gains.connectors.Connectors
 import app.gains.connectors.ImportConnector
 import app.gains.connectors.ImportOptions
@@ -80,7 +81,8 @@ class ImportService(
     suspend fun commit(preview: ImportPreview, confirmedOutlierKeys: Set<String>): ImportResult {
         val toWrite = withContext(Dispatchers.Default) { preview.sessionsToCommit(confirmedOutlierKeys) }
         exercises.insertIfMissing(preview.newExercises)
-        sessions.upsertAll(toWrite)
+        // The preview classified warm-ups by ratio; only explicit flags are stored, the rule re-runs on read.
+        sessions.upsertAll(toWrite.map(WorkingSets::strip))
         return ImportResult(
             sessionsWritten = toWrite.size,
             exercisesCreated = preview.newExercises.size,

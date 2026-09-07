@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,9 @@ import app.gains.domain.Units
 import app.gains.domain.WeightUnit
 import app.gains.importer.ExerciseResolver
 import app.gains.program.DayPlanner
+import app.gains.program.Gzclp
+import app.gains.program.PlanOptions
+import app.gains.program.Progression
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
@@ -67,6 +71,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -81,6 +86,10 @@ data class SetDraft(
     val reps: String = "",
     val seconds: String = "",
     val distanceKm: String = "",
+    /** Planned or ticked as a warm-up: stored with the set, kept out of volume, records and progression. */
+    val isWarmup: Boolean = false,
+    /** Ticked off during the workout. Editor-only: it starts the rest timer and is not stored. */
+    val done: Boolean = false,
 ) {
     fun toSet(order: Int, unit: WeightUnit): SetEntry? {
         val w = weight.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }?.let { Units.roundToQuarter(Units.fromDisplay(it, unit)) }
@@ -95,7 +104,7 @@ data class SetDraft(
             s != null -> SetType.ISOMETRIC
             else -> SetType.WEIGHTED
         }
-        return SetEntry(order, type, w, r, s, d)
+        return SetEntry(order, type, w, r, s, d, isWarmup = isWarmup)
     }
 
     companion object {
@@ -104,11 +113,18 @@ data class SetDraft(
             reps = set.reps?.toString() ?: "",
             seconds = set.seconds?.toString() ?: "",
             distanceKm = set.distanceKm?.let { Format.number(it, 2) } ?: "",
+            isWarmup = set.isWarmup,
         )
     }
 }
 
-data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraft>, val note: String = "")
+data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraft>, val note: String = "") {
+    val warmups: List<SetDraft> get() = sets.filter { it.isWarmup }
+    val workSets: List<SetDraft> get() = sets.filter { !it.isWarmup }
+}
+
+/** A rest countdown started by ticking a set off. One at a time: the next tick replaces it. */
+data class RestTimer(val exerciseId: String, val endsAtMs: Long, val totalSeconds: Int)
 
 /** A program day the workout can be tagged with: "GZCLP · A1". */
 data class ProgramDayOption(val ref: ProgramDayRef, val programName: String, val dayName: String) {
@@ -145,6 +161,13 @@ data class EditorState(
     val notes: Map<String, String> = emptyMap(),
     /** Exercises whose weights were borrowed from a session outside this slot's scheme; the card offers to clear them. */
     val seeded: Set<String> = emptySet(),
+    /** exercise id -> where the borrowed weights came from, for the "estimated from…" line. */
+    val sources: Map<String, Progression.Source> = emptyMap(),
+    /** exercise id -> GZCLP tier of its slot, which sets the rest guidance and the timer length. */
+    val tiers: Map<String, Gzclp.Tier> = emptyMap(),
+    /** Exercises whose warm-up rows are folded away. */
+    val collapsedWarmups: Set<String> = emptySet(),
+    val restTimer: RestTimer? = null,
 ) {
     val programDayOption: ProgramDayOption? get() = programDay?.let { ref -> programDays.firstOrNull { it.ref == ref } }
 }
@@ -165,7 +188,10 @@ class SessionEditorModel(
         scope.launch {
             val snapshot = trainingData.snapshot.first()
             val unit = settings.observeUnit().first()
-            val existing = sessionId?.let { id -> snapshot.sessions.firstOrNull { it.id == id } }
+            val planOptions = PlanOptions(barKg = settings.observeBarWeightKg().first(), warmups = settings.observeAutoWarmups().first())
+            // The raw session carries only the warm-up flags the lifter set; the snapshot adds inferred ones,
+            // which must not be frozen into the row on save.
+            val existing = sessionId?.let { id -> sessions.observeRawSessions().first().firstOrNull { it.id == id } }
             val programList = programs.observePrograms().first()
             val dayOptions = programList.flatMap { p -> p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), p.name, it.name) } }
             val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
@@ -190,7 +216,7 @@ class SessionEditorModel(
                     val program = programList.firstOrNull { it.id == programDay.programId }
                     val day = program?.day(programDay.dayId)
                     if (program == null || day == null) fresh else {
-                        val plan = DayPlanner.plan(program, day, snapshot, unit)
+                        val plan = DayPlanner.plan(program, day, snapshot, unit, planOptions)
                         fresh.copy(
                             programDay = programDay, title = day.name,
                             exercises = plan.exercises.map { pe ->
@@ -199,6 +225,7 @@ class SessionEditorModel(
                                         weight = ps.weightKg?.let { Format.weightValue(it, unit) } ?: "",
                                         reps = ps.reps?.toString() ?: "",
                                         seconds = ps.seconds?.toString() ?: "",
+                                        isWarmup = ps.isWarmup,
                                     )
                                 })
                             },
@@ -206,6 +233,8 @@ class SessionEditorModel(
                             hints = plan.exercises.mapNotNull { pe -> pe.hint?.let { pe.exercise.id to it } }.toMap(),
                             notes = plan.exercises.mapNotNull { pe -> pe.slot.note?.let { pe.exercise.id to it } }.toMap(),
                             seeded = plan.exercises.filter { it.seeded }.map { it.exercise.id }.toSet(),
+                            sources = plan.exercises.mapNotNull { pe -> pe.source?.let { pe.exercise.id to it } }.toMap(),
+                            tiers = plan.exercises.mapNotNull { pe -> pe.tier?.let { pe.exercise.id to it } }.toMap(),
                         )
                     }
                 }
@@ -240,18 +269,50 @@ class SessionEditorModel(
     /** Tag the workout with a program day, or none for a free workout. */
     fun setProgramDay(ref: ProgramDayRef?) = update { it.copy(programDay = ref) }
 
-    /** Drop the weights borrowed from outside the slot's scheme; sets and reps stay as prescribed. */
+    /** Drop the weights borrowed from outside the slot's scheme; sets and reps stay as prescribed. Warm-ups built on those weights go too. */
     fun startBlank(index: Int) = update { s ->
         s.copy(
-            exercises = s.exercises.mapIndexed { i, e -> if (i != index) e else e.copy(sets = e.sets.map { it.copy(weight = "") }) },
+            exercises = s.exercises.mapIndexed { i, e -> if (i != index) e else e.copy(sets = e.workSets.map { it.copy(weight = "") }) },
             seeded = s.seeded - s.exercises[index].exercise.id,
         )
     }
+
+    fun toggleWarmups(index: Int) = update { s ->
+        val id = s.exercises[index].exercise.id
+        s.copy(collapsedWarmups = if (id in s.collapsedWarmups) s.collapsedWarmups - id else s.collapsedWarmups + id)
+    }
+
+    fun removeWarmups(index: Int) = update { s ->
+        s.copy(exercises = s.exercises.mapIndexed { i, e -> if (i != index) e else e.copy(sets = e.workSets) })
+    }
+
+    /**
+     * Tick a set off. Ticking starts the rest timer at the tier's short end (warm-ups get the warm-up
+     * rest, exercises with no tier a default); un-ticking leaves the timer alone.
+     */
+    fun toggleDone(exerciseIndex: Int, setIndex: Int) = update { s ->
+        val exercise = s.exercises[exerciseIndex]
+        val set = exercise.sets[setIndex]
+        val done = !set.done
+        val seconds = when {
+            set.isWarmup -> Gzclp.WARMUP_REST.first
+            else -> s.tiers[exercise.exercise.id]?.restTimerSeconds ?: Gzclp.DEFAULT_REST_SECONDS
+        }
+        s.copy(
+            exercises = s.exercises.mapIndexed { i, e ->
+                if (i != exerciseIndex) e else e.copy(sets = e.sets.mapIndexed { j, d -> if (j == setIndex) d.copy(done = done) else d })
+            },
+            restTimer = if (done) RestTimer(exercise.exercise.id, nowMs() + seconds * 1000L, seconds) else s.restTimer,
+        )
+    }
+
+    fun dismissRest() = update { it.copy(restTimer = null) }
     fun setNote(index: Int, note: String) = update { it.copy(exercises = it.exercises.mapIndexed { i, e -> if (i == index) e.copy(note = note) else e }) }
 
+    /** Adds a work set like the last one (never a copy of a warm-up). */
     fun addSet(index: Int) = update { s ->
         s.copy(exercises = s.exercises.mapIndexed { i, e ->
-            if (i != index) e else e.copy(sets = e.sets + (e.sets.lastOrNull()?.copy() ?: SetDraft()))
+            if (i != index) e else e.copy(sets = e.sets + (e.workSets.lastOrNull()?.copy(done = false) ?: SetDraft()))
         })
     }
 
@@ -298,6 +359,8 @@ class SessionEditorModel(
     }
 
     companion object {
+        fun nowMs(): Long = Clock.System.now().toEpochMilliseconds()
+
         fun uniqueId(base: String, taken: Set<String>): String {
             if (base !in taken) return base
             var n = 2
@@ -353,6 +416,10 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, o
                 exerciseIndex, draft, state.unit, model, fieldColors,
                 state.targets[draft.exercise.id], state.hints[draft.exercise.id], state.notes[draft.exercise.id],
                 seeded = draft.exercise.id in state.seeded,
+                source = state.sources[draft.exercise.id],
+                tier = state.tiers[draft.exercise.id],
+                warmupsCollapsed = draft.exercise.id in state.collapsedWarmups,
+                restTimer = state.restTimer?.takeIf { it.exerciseId == draft.exercise.id },
             )
         }
         item {
@@ -433,9 +500,12 @@ private fun DayChoice(label: String, selected: Boolean, accent: androidx.compose
 private fun ExerciseCard(
     exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
     target: String? = null, hint: String? = null, programNote: String? = null, seeded: Boolean = false,
+    source: Progression.Source? = null, tier: Gzclp.Tier? = null, warmupsCollapsed: Boolean = false, restTimer: RestTimer? = null,
 ) {
     val palette = GainsColors.palette
     val modality = draft.exercise.modality
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val warmups = draft.warmups
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -455,17 +525,30 @@ private fun ExerciseCard(
         if (seeded) {
             // The weights came from a session that never attempted this scheme: one tap declines them.
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Weights borrowed from that session.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    when (source) {
+                        Progression.Source.DIFFERENT_SCHEME -> "Weights estimated from another scheme of this program."
+                        else -> "Weights estimated from your free sessions."
+                    },
+                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = muted,
+                )
                 TextButton(onClick = { model.startBlank(exerciseIndex) }) { Text("Start blank", color = palette.volt) }
             }
         }
         if (programNote != null) {
             Spacer(Modifier.height(2.dp))
-            Text(programNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(programNote, style = MaterialTheme.typography.bodySmall, color = muted)
         }
+        if (tier != null) {
+            Text(
+                "Rest ${tier.restLabel} between sets" + (if (warmups.isNotEmpty()) " · warm-ups ${Gzclp.WARMUP_REST_LABEL}" else "") + ".",
+                style = MaterialTheme.typography.bodySmall, color = muted,
+            )
+        }
+        if (restTimer != null) RestTimerRow(restTimer, onDismiss = model::dismissRest)
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("SET", Modifier.width(28.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("SET", Modifier.width(28.dp), style = MaterialTheme.typography.labelSmall, color = muted)
             when (modality) {
                 Modality.WEIGHTED, Modality.BODYWEIGHT -> { Header(unit.label.uppercase()); Header("REPS") }
                 Modality.ISOMETRIC -> { Header("SECONDS"); Header(unit.label.uppercase()) }
@@ -473,28 +556,67 @@ private fun ExerciseCard(
             }
             Spacer(Modifier.width(44.dp))
         }
+        if (warmups.isNotEmpty()) {
+            // Warm-ups are numbered W1, W2… and drawn muted, so the work sets stay 1–5 and read as the workout.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Pill("Warm-up", muted)
+                Spacer(Modifier.width(8.dp))
+                Text(if (warmupsCollapsed) "${warmups.size} hidden" else "${warmups.size} sets", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted)
+                TextButton(onClick = { model.toggleWarmups(exerciseIndex) }) { Text(if (warmupsCollapsed) "Show" else "Hide", color = muted) }
+                TextButton(onClick = { model.removeWarmups(exerciseIndex) }) { Text("Remove", color = muted) }
+            }
+        }
+        var warmupNumber = 0
+        var workNumber = 0
         for ((setIndex, set) in draft.sets.withIndex()) {
+            val label = if (set.isWarmup) "W${++warmupNumber}" else (++workNumber).toString()
+            if (set.isWarmup && warmupsCollapsed) continue
+            val rowColor = if (set.isWarmup) muted else MaterialTheme.colorScheme.onSurface
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text((setIndex + 1).toString(), Modifier.width(28.dp), style = MaterialTheme.typography.titleSmall)
+                // Tapping the number ticks the set off and starts the rest timer.
+                Text(
+                    if (set.done) "✓" else label,
+                    Modifier.width(28.dp).clickable { model.toggleDone(exerciseIndex, setIndex) },
+                    style = if (set.isWarmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
+                    color = if (set.done) palette.volt else rowColor,
+                )
                 when (modality) {
                     Modality.WEIGHTED, Modality.BODYWEIGHT -> {
-                        NumberField(set.weight, { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) }, fieldColors, Modifier.weight(1f))
-                        NumberField(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, fieldColors, Modifier.weight(1f))
+                        NumberField(set.weight, { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
+                        NumberField(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
                     }
                     Modality.ISOMETRIC -> {
-                        NumberField(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, fieldColors, Modifier.weight(1f))
-                        NumberField(set.weight, { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) }, fieldColors, Modifier.weight(1f))
+                        NumberField(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
+                        NumberField(set.weight, { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
                     }
                     Modality.CARDIO -> {
-                        NumberField(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, fieldColors, Modifier.weight(1f))
-                        NumberField(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, fieldColors, Modifier.weight(1f))
+                        NumberField(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
+                        NumberField(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
                     }
                 }
-                TextButton(onClick = { model.removeSet(exerciseIndex, setIndex) }, modifier = Modifier.width(44.dp)) { Text("×", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                TextButton(onClick = { model.removeSet(exerciseIndex, setIndex) }, modifier = Modifier.width(44.dp)) { Text("×", color = muted) }
             }
         }
         TextButton(onClick = { model.addSet(exerciseIndex) }) { Text("+ Add set", color = palette.volt) }
         OutlinedTextField(draft.note, { model.setNote(exerciseIndex, it) }, placeholder = { Text("Note") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium)
+    }
+}
+
+/** "Rest 2:47" counting down, then "Rest done" until dismissed or the next set is ticked. */
+@Composable
+private fun RestTimerRow(timer: RestTimer, onDismiss: () -> Unit) {
+    val palette = GainsColors.palette
+    var now by remember(timer) { mutableStateOf(SessionEditorModel.nowMs()) }
+    LaunchedEffect(timer) {
+        while (now < timer.endsAtMs) { delay(250); now = SessionEditorModel.nowMs() }
+    }
+    val remaining = ((timer.endsAtMs - now + 999) / 1000).toInt().coerceIn(0, timer.totalSeconds)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            if (remaining > 0) "Rest ${Format.seconds(remaining)}" else "Rest done: next set",
+            Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, color = if (remaining > 0) palette.cyan else palette.volt,
+        )
+        TextButton(onClick = onDismiss) { Text(if (remaining > 0) "Skip" else "OK", color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -504,10 +626,10 @@ private fun androidx.compose.foundation.layout.RowScope.Header(text: String) {
 }
 
 @Composable
-private fun NumberField(value: String, onChange: (String) -> Unit, colors: androidx.compose.material3.TextFieldColors, modifier: Modifier) {
+private fun NumberField(value: String, onChange: (String) -> Unit, colors: androidx.compose.material3.TextFieldColors, modifier: Modifier, muted: Boolean = false) {
     OutlinedTextField(
         value, onChange, singleLine = true, modifier = modifier, colors = colors, shape = MaterialTheme.shapes.small,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        textStyle = MaterialTheme.typography.bodyLarge,
+        textStyle = if (muted) MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant) else MaterialTheme.typography.bodyLarge,
     )
 }

@@ -85,10 +85,12 @@ class MigrationTest {
         for (ddl in v2) upgraded.execute(null, ddl, 0)
         upgraded.execute(null, "INSERT INTO session(id, timestamp, date, fingerprint, content_hash) VALUES ('s1', '2026-01-01T10:00', '2026-01-01', 'f', 'h');", 0)
         upgraded.execute(null, "INSERT INTO exercise(id, name, canonical_name, modality, muscles) VALUES ('bench_press', 'Bench Press', 'Bench Press', 'WEIGHTED', 'CHEST:1.0');", 0)
+        upgraded.execute(null, "INSERT INTO exercise_entry(id, session_id, exercise_id, position) VALUES (1, 's1', 'bench_press', 0);", 0)
+        upgraded.execute(null, "INSERT INTO set_entry(entry_id, set_order, type, weight_kg, reps) VALUES (1, 0, 'WEIGHTED', 60.0, 5);", 0)
         GainsDatabase.Schema.migrate(upgraded, 2, GainsDatabase.Schema.version)
 
         assertEquals(tables(fresh), tables(upgraded))
-        for (table in listOf("session", "exercise", "program", "program_day", "program_slot")) {
+        for (table in listOf("session", "exercise_entry", "set_entry", "exercise", "program", "program_day", "program_slot")) {
             assertEquals(columns(fresh, table), columns(upgraded, table), "columns of $table")
         }
         // Existing rows survive with the new columns defaulted.
@@ -96,6 +98,8 @@ class MigrationTest {
         val session = db.sessionQueries.selectSessions().executeAsList().single()
         assertEquals(null, session.program_id)
         assertEquals("", db.exerciseQueries.selectExercises().executeAsList().single().equipment)
-        assertTrue(GainsDatabase.Schema.version >= 3)
+        // A set logged before warm-up flags existed is a work set.
+        assertEquals(0L, db.sessionQueries.selectSets().executeAsList().single().is_warmup)
+        assertTrue(GainsDatabase.Schema.version >= 4)
     }
 }

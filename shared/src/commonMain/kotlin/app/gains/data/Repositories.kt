@@ -19,6 +19,7 @@ import app.gains.domain.SetType
 import app.gains.domain.WeightUnit
 import app.gains.importer.ImportAnalyzer
 import app.gains.importer.StoredSessionSummary
+import app.gains.program.Gzclp
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -73,6 +74,7 @@ class SessionRepository(
                                 seconds = st.seconds?.toInt(),
                                 distanceKm = st.distance_km,
                                 rpe = st.rpe,
+                                isWarmup = st.is_warmup != 0L,
                             )
                         },
                     )
@@ -129,6 +131,7 @@ class SessionRepository(
                             seconds = set.seconds?.toLong(),
                             distance_km = set.distanceKm,
                             rpe = set.rpe,
+                            is_warmup = if (set.isWarmup) 1L else 0L,
                         )
                     }
                 }
@@ -300,9 +303,25 @@ class SettingsRepository(
 
     suspend fun setThemeMode(mode: ThemeMode) = withContext(io) { q.upsert(KEY_THEME, mode.name) }
 
+    /** The empty bar, for the first warm-up set. Stored in kg like every weight. */
+    fun observeBarWeightKg(): Flow<Double> = q.selectValue(KEY_BAR_WEIGHT).asFlow().map { query ->
+        query.executeAsOneOrNull()?.toDoubleOrNull()?.takeIf { it > 0.0 } ?: Gzclp.DEFAULT_BAR_KG
+    }.flowOn(io)
+
+    suspend fun setBarWeightKg(kg: Double) = withContext(io) { q.upsert(KEY_BAR_WEIGHT, kg.toString()) }
+
+    /** Whether program days pre-fill warm-up sets. On unless switched off. */
+    fun observeAutoWarmups(): Flow<Boolean> = q.selectValue(KEY_AUTO_WARMUPS).asFlow().map { query ->
+        query.executeAsOneOrNull() != "0"
+    }.flowOn(io)
+
+    suspend fun setAutoWarmups(on: Boolean) = withContext(io) { q.upsert(KEY_AUTO_WARMUPS, if (on) "1" else "0") }
+
     companion object {
         const val KEY_UNIT = "weight_unit"
         const val KEY_THEME = "theme_mode"
+        const val KEY_BAR_WEIGHT = "bar_weight_kg"
+        const val KEY_AUTO_WARMUPS = "auto_warmups"
     }
 }
 

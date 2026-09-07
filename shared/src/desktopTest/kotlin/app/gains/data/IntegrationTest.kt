@@ -71,6 +71,40 @@ class IntegrationTest {
     }
 
     @Test
+    fun explicitWarmupsRoundTripAndImportsStoreNone() = runTest {
+        val db = newDb()
+        val sessions = SessionRepository(db, Dispatchers.Unconfined)
+        val exercises = ExerciseRepository(db, Dispatchers.Unconfined)
+        exercises.seedCatalogue()
+
+        // A program day logged from the editor: the bar and 70 kg are flagged warm-ups, 90 × 3 is the work.
+        val ts = kotlinx.datetime.LocalDateTime(2026, 3, 2, 18, 0)
+        val logged = app.gains.domain.Session(
+            id = ts.toString(), timestamp = ts, exercises = listOf(app.gains.domain.ExerciseEntry("squat", listOf(
+                app.gains.domain.SetEntry(0, app.gains.domain.SetType.WEIGHTED, 20.0, 10, isWarmup = true),
+                app.gains.domain.SetEntry(1, app.gains.domain.SetType.WEIGHTED, 70.0, 2, isWarmup = true),
+                app.gains.domain.SetEntry(2, app.gains.domain.SetType.WEIGHTED, 90.0, 3),
+                app.gains.domain.SetEntry(3, app.gains.domain.SetType.WEIGHTED, 90.0, 3),
+            ))), source = app.gains.domain.Session.MANUAL,
+        )
+        sessions.upsert(logged)
+        val raw = sessions.observeRawSessions().first().single().exercises.single()
+        assertEquals(listOf(true, true, false, false), raw.sets.map { it.isWarmup })
+
+        // 70 kg is 78% of 90: at a 50% ratio the rule alone would call it a work set, but the flag is kept.
+        exercises.setWorkingSetRatio("squat", 0.5)
+        val snapshot = TrainingData(sessions, exercises).snapshot.first()
+        assertEquals(listOf(true, true, false, false), snapshot.sessions.single().exercises.single().sets.map { it.isWarmup })
+        assertEquals(2.0, VolumeAnalyzer.currentWeek(snapshot.sessions, snapshot.exercisesById, LocalDate(2026, 3, 2)).sets[MuscleGroup.QUADS])
+
+        // An import's warm-ups were inferred; none are stored, so the ratio keeps deciding for them.
+        val service = ImportService(sessions, exercises)
+        service.commit(service.preview(Fixtures.SAMPLE), emptySet())
+        val imported = sessions.observeRawSessions().first().first { it.id == "2026-02-18" }.exercises.first { it.exerciseId == "bench_press" }
+        assertTrue(imported.sets.none { it.isWarmup })
+    }
+
+    @Test
     fun outlierHistoryMergeAndDeleteAll() = runTest {
         val db = newDb()
         val sessions = SessionRepository(db, Dispatchers.Unconfined)

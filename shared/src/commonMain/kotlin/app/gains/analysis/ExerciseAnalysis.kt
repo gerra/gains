@@ -71,7 +71,8 @@ object ExerciseAnalysis {
         }
 
     fun point(session: Session, entry: ExerciseEntry, modality: Modality): ExerciseSessionPoint {
-        val working = entry.workingSets.ifEmpty { entry.sets }
+        // Warm-ups never count, so an entry of only warm-ups scores nothing rather than its warm-ups.
+        val working = entry.workingSets
         val weighted = working.filter { it.type == SetType.WEIGHTED && it.weightKg != null && it.reps != null }
         val bestE1rm = weighted.map { Performance(Epley.e1rm(it.weightKg!!, it.reps!!), it) }.maxByOrNull { it.value }
         return ExerciseSessionPoint(

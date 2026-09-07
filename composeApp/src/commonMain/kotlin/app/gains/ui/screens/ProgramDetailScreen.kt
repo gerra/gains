@@ -39,6 +39,7 @@ import app.gains.domain.ProgramDay
 import app.gains.domain.ProgramDayRef
 import app.gains.domain.ProgressionRule
 import app.gains.domain.WeightUnit
+import app.gains.program.Gzclp
 import app.gains.program.Progression
 import app.gains.program.Rotation
 import app.gains.ui.ScreenModel
@@ -267,6 +268,9 @@ private fun ProgressionCard(program: Program, exercisesById: Map<String, Exercis
             Progression.describe(scheme.rule, unit)?.let {
                 Spacer(Modifier.height(2.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Gzclp.tierOf(scheme.rule)?.let {
+                Text("Rest ${it.restLabel} between sets.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
