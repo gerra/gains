@@ -39,7 +39,10 @@ import app.gains.domain.Exercise
 import app.gains.domain.Experience
 import app.gains.domain.Goal
 import app.gains.domain.GoalProfile
+import app.gains.domain.Units
 import app.gains.domain.WeightUnit
+import app.gains.analysis.Format
+import app.gains.program.Gzclp
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
 import app.gains.ui.components.Dp16
@@ -70,7 +73,13 @@ data class SettingsState(
     val exercisesById: Map<String, Exercise> = emptyMap(),
     val profile: GoalProfile? = null,
     val activeProgramName: String? = null,
+    /** Program days pre-fill warm-up sets. */
+    val autoWarmups: Boolean = true,
+    val barWeightKg: Double = Gzclp.DEFAULT_BAR_KG,
 )
+
+/** The plain preferences, combined first because combine takes five flows at most. */
+private data class Prefs(val unit: WeightUnit, val theme: ThemeMode, val account: Account?, val autoWarmups: Boolean, val barWeightKg: Double)
 
 class SettingsModel(
     private val settings: SettingsRepository = inject(),
@@ -82,15 +91,17 @@ class SettingsModel(
     trainingData: TrainingData = inject(),
 ) : ScreenModel() {
     val state: StateFlow<SettingsState> = combine(
-        combine(settings.observeUnit(), settings.observeThemeMode(), accounts.observeAccount()) { u, t, a -> Triple(u, t, a) },
+        combine(settings.observeUnit(), settings.observeThemeMode(), accounts.observeAccount(), settings.observeAutoWarmups(), settings.observeBarWeightKg()) { u, t, a, w, b -> Prefs(u, t, a, w, b) },
         trainingData.snapshot, exercises.observeAliases(), exercises.observeWorkingSetRatios(), programs.observeState(),
-    ) { (unit, theme, account), snapshot, aliases, overrides, programState ->
+    ) { prefs, snapshot, aliases, overrides, programState ->
         SettingsState(
             profile = programState.profile,
             activeProgramName = programState.active?.name,
-            account = account,
-            unit = unit,
-            theme = theme,
+            account = prefs.account,
+            unit = prefs.unit,
+            theme = prefs.theme,
+            autoWarmups = prefs.autoWarmups,
+            barWeightKg = prefs.barWeightKg,
             customExercises = snapshot.exercises.filter { !it.isBuiltIn }.sortedBy { it.name },
             catalogue = snapshot.exercises.filter { it.isBuiltIn }.sortedBy { it.name },
             aliases = aliases,
@@ -101,6 +112,8 @@ class SettingsModel(
 
     fun setUnit(unit: WeightUnit) { scope.launch { settings.setUnit(unit) } }
     fun setTheme(mode: ThemeMode) { scope.launch { settings.setThemeMode(mode) } }
+    fun setAutoWarmups(on: Boolean) { scope.launch { settings.setAutoWarmups(on) } }
+    fun setBarWeightKg(kg: Double) { scope.launch { settings.setBarWeightKg(kg) } }
     fun signOut() { scope.launch { accounts.signOut() } }
     fun merge(custom: Exercise, into: Exercise) { scope.launch { exercises.merge(custom.id, into.id, custom.name) } }
     fun removeAlias(raw: String) { scope.launch { exercises.removeAlias(raw) } }
@@ -185,6 +198,26 @@ fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit
                 ChipRow(WeightUnit.entries, state.unit, { it.label }, { model.setUnit(it) })
                 Spacer(Modifier.height(10.dp))
                 Text("Weights are stored in kg (rounded to 0.25 kg) whatever you display. Dumbbell exercises show the per-dumbbell weight.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            SectionHeader("Warm-ups")
+            GainsCard(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Pre-fill warm-up sets", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    ChipRow(listOf(true, false), state.autoWarmups, { if (it) "On" else "Off" }, { model.setAutoWarmups(it) })
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Empty bar", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    val options = if (state.unit == WeightUnit.KG) listOf(10.0, 15.0, 20.0) else listOf(25.0, 35.0, 45.0)
+                    val current = Units.display(state.barWeightKg, state.unit)
+                    val selected = options.minBy { kotlin.math.abs(it - current) }
+                    ChipRow(options, selected, { "${Format.number(it, 0)} ${state.unit.label}" }, { model.setBarWeightKg(Units.roundToQuarter(Units.fromDisplay(it, state.unit))) })
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Program days open T1 lifts with the empty bar, then 40, 60 and 80% of the work weight; T2 lifts get the bar and 60%. Warm-ups are marked as such and never count towards volume, records or progression.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         item {

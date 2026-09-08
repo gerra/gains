@@ -119,26 +119,56 @@ object Progression {
     /**
      * The first session of a slot: nothing has been logged against this scheme yet, so there is no
      * success or failure for the rule to act on. Prefill the slot exactly as written (a stage ladder
-     * starts on its first stage) and borrow the weight from [last], the most recent entry for the
-     * exercise from anywhere (a free session, or another slot of the program), so the lifter has a
-     * starting point instead of an empty column. The hint says where that weight came from.
+     * starts on its first stage) and pick a starting weight from [recent], the most recent entries for
+     * the exercise from anywhere (free sessions, or another slot of the program), newest first.
+     *
+     * For a GZCLP tier the weight is estimated rather than copied: the best set across those entries
+     * gives an Epley 1RM, the tier takes its fraction of that, rounded down to the loadable increment
+     * and never at or above a weight the lifter already failed for the tier's reps (see
+     * [Gzclp.estimate]). 50 kg × 6, 8, 9 becomes "T2 start 40 kg", not "3 × 10 at 50 kg". Slots
+     * with no tier keep the last weight as before. The hint spells out the reasoning.
      */
-    fun start(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit, source: Source = Source.FREE_SESSION): Suggestion {
+    fun start(slot: ExerciseSlot, exercise: Exercise, recent: List<ExerciseEntry>, unit: WeightUnit, source: Source = Source.FREE_SESSION): Suggestion {
         val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null, slot.target)
-        val sets = last?.workingSets?.ifEmpty { last.sets }.orEmpty()
+        val last = recent.firstOrNull() ?: return fallback
+        val sets = last.workingSets.ifEmpty { last.sets }
         if (sets.isEmpty()) return fallback
         val loaded = exercise.modality == Modality.WEIGHTED
+        val bodyweight = exercise.modality == Modality.BODYWEIGHT
         val lastWeight = sets.mapNotNull { it.weightKg }.maxOrNull()
         val reps = sets.map { it.reps ?: it.seconds ?: 0 }
+        val lastLabel = lastLabel(loaded, lastWeight, reps, unit, addedLoad = bodyweight)
+
+        val tier = Gzclp.tierOf(slot)
+        if (tier != null && (loaded || bodyweight)) {
+            val pool = recent.flatMap { it.workingSets.ifEmpty { it.sets } }
+            val estimate = Gzclp.estimate(tier, pool, slot.reps.prefillReps, Gzclp.increment(slot, unit), unit)
+            if (estimate != null) {
+                val plus = if (bodyweight) "+" else ""
+                val startText = estimate.startKg?.let { plus + Format.weight(it, unit) }
+                    ?: if (bodyweight) "with no added load" else "as light as you can load"
+                val cap = estimate.cappedBelowKg?.let { " (kept under $plus${Format.weight(it, unit)})" } ?: ""
+                val hint = "$lastLabel → est. 1RM ~$plus${Format.weight(estimate.e1rmKg, unit, 0)} → ${tier.label} start $startText$cap"
+                return Suggestion(estimate.startKg, slot.sets, slot.reps.prefillReps, hint, slot.target)
+            }
+        }
+
         val weight = lastWeight.takeIf { loaded }
         val at = weight?.let { " at ${Format.weight(it, unit)}" } ?: ""
-        val hint = "${lastLabel(loaded, lastWeight, reps, unit)} (${source.label}) → start ${slot.target.label}$at"
+        val hint = "$lastLabel (${source.label}) → start ${slot.target.label}$at"
         return Suggestion(weight, slot.sets, slot.reps.prefillReps, hint, slot.target)
     }
 
-    /** "Last: 60 kg × 5,5,5", or "Last: 8,8,8" for unloaded work. */
-    private fun lastLabel(loaded: Boolean, lastWeight: Double?, reps: List<Int>, unit: WeightUnit): String =
-        "Last: " + (if (loaded && lastWeight != null) Format.weight(lastWeight, unit) + " × " else "") + reps.joinToString(",")
+    /** "Last: 60 kg × 5,5,5", "Last: +10 kg × 8,8,8" for a bodyweight lift with added load, or "Last: 8,8,8". */
+    private fun lastLabel(loaded: Boolean, lastWeight: Double?, reps: List<Int>, unit: WeightUnit, addedLoad: Boolean = false): String {
+        val weight = when {
+            lastWeight == null -> ""
+            loaded -> Format.weight(lastWeight, unit) + " × "
+            addedLoad && lastWeight > 0.0 -> "+" + Format.weight(lastWeight, unit) + " × "
+            else -> ""
+        }
+        return "Last: $weight" + reps.joinToString(",")
+    }
 
     /**
      * The rule in plain words for the program overview: what happens after a good session, a missed

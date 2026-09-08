@@ -93,7 +93,17 @@ device today.
   built-in to edit it, or build your own.
 - **Pre-filled workouts.** Starting a day opens the editor with every set loaded from your last
   session of that exercise and a hint such as `Last: 60 kg × 5,5,5 → try 62.5 kg` from the
-  program's rule (linear, double progression or the GZCLP stage ladder).
+  program's rule (linear, double progression or the GZCLP stage ladder). The first session of a
+  GZCLP tier is estimated rather than copied: the best recent free-session set gives an Epley
+  1RM, T1 starts at 85% of it, T2 at 65% and T3 at about 52%, rounded down to the plates and
+  never at a weight you already failed for the tier's reps (`Last: 50 kg × 6,8,9 → est. 1RM
+  ~65 kg → T2 start 40 kg`). Once a tier has its own sessions, its ladder takes over.
+- **Warm-ups and rest.** Tiered days pre-fill warm-up sets (T1: empty bar, 40/60/80%; T2: bar
+  and 60%; T3: one light set on cables and machines), labelled `W1, W2…` so the work sets stay
+  1–5. They are stored as warm-ups and never count towards volume, records or progression, can
+  be hidden or removed per exercise, and can be switched off in Settings along with the bar
+  weight. Each tier shows its rest (T1 3–5 min, T2 2–3 min, T3 60–90 s); tapping a set number
+  ticks it off and starts a rest timer.
 - **Import from anywhere.** Drop in Liftoff, Strong or Hevy exports, or any CSV with date,
   exercise, weight and reps columns. The format is detected from the header, several files can
   be imported at once, and re-importing an overlapping export never creates duplicates.
@@ -274,7 +284,9 @@ Nothing is written until you confirm the preview. Along the way:
 7. Isometric holds more than five times the usual hold for that exercise are flagged. You decide
    per hold whether to keep or discard them.
 8. Warm-ups are inferred per exercise per session: weighted sets under 85% of the session's top
-   weight. The percentage can be overridden per lift.
+   weight. The percentage can be overridden per lift. Only warm-ups you marked (or a program day
+   planned) are stored; inferred ones are recomputed on every read, so changing the percentage
+   re-classifies old sessions.
 9. Re-importing an overlapping export is safe: stored sessions are skipped, changed ones are
    replaced, new ones are added.
 
@@ -381,6 +393,11 @@ case in `InsightEngineTest`. Per-goal overrides live in `GoalTuning`.
 [`ProgramCatalogue.kt`](shared/src/commonMain/kotlin/app/gains/catalogue/ProgramCatalogue.kt);
 `ProgramCatalogueTest` checks that every slot points at a catalogue exercise. Progression rules
 are `linear`, `double` (reps climb, then weight) or `ladder` (GZCLP-style stages).
+
+**Tuning GZCLP starts, warm-ups and rest.** Every constant lives in
+[`Gzclp.kt`](shared/src/commonMain/kotlin/app/gains/program/Gzclp.kt): the tier fractions of
+the estimated 1RM, the warm-up steps, the default bar weight and increments, and the rest ranges.
+`GzclpTest` covers the rounding, the "never above a failed weight" rule and warm-up generation.
 
 **Changing the schema.** Edit the `.sq` file and add a `migrations/N.sqm` with the same DDL;
 `MigrationTest` upgrades a database from the previous version and compares it with a fresh one.

@@ -36,6 +36,45 @@ class AnalyzersTest {
     private fun ExerciseSessionPoint.topSetWeetKgOrNull() = topSetWeightKg
 
     @Test
+    fun plannedWarmupsStayOutOfVolumeAndPrsWhateverTheRatio() {
+        // A GZCLP T1 day: bar × 10, 35, 55, 70 flagged as warm-ups, then 5 × 3 at 90. 70 kg is 78% of 90, so at a
+        // 50% working-set ratio the inference alone would count it; the explicit flag must win.
+        val warmups = listOf(20.0 to 10, 35.0 to 5, 55.0 to 3, 70.0 to 2).mapIndexed { i, (w, r) -> weighted(w, r, i, warmup = true) }
+        val work = (0 until 5).map { weighted(90.0, 3, warmups.size + it) }
+        val entry = WorkingSets.apply(entry(TestData.squat, *(warmups + work).toTypedArray()), ratio = 0.5)
+        assertEquals(List(4) { true } + List(5) { false }, entry.sets.map { it.isWarmup })
+
+        val s = session(Dates.weekStart(today), entry)
+        val volume = VolumeAnalyzer.sessionSets(s, TestData.exercises.associateBy { it.id })
+        assertEquals(5.0, volume[MuscleGroup.QUADS])
+        val point = ExerciseAnalysis.history(listOf(s), TestData.squat).single()
+        assertEquals(5, point.workingSetCount)
+        assertEquals(9, point.setCount)
+        assertEquals(90.0, point.topSetWeightKg)
+        assertEquals(Epley.e1rm(90.0, 3), point.bestE1rm!!.value)
+        assertEquals(5 * 90.0 * 3, point.totalVolumeKg)
+        assertEquals(90.0, point.best!!.set.weightKg)
+    }
+
+    @Test
+    fun anEntryOfOnlyWarmupsScoresNothing() {
+        val s = session(LocalDate(2026, 8, 1), entry(TestData.bench, weighted(20.0, 10, 0, warmup = true), weighted(40.0, 5, 1, warmup = true)))
+        val point = ExerciseAnalysis.history(listOf(s), TestData.bench).single()
+        assertNull(point.best)
+        assertEquals(0.0, point.totalVolumeKg)
+        assertEquals(0, point.workingSetCount)
+        assertEquals(emptyMap(), VolumeAnalyzer.sessionSets(s, TestData.exercises.associateBy { it.id }))
+    }
+
+    @Test
+    fun workingSetRuleStillInfersAroundExplicitFlagsAndStripDropsThemAll() {
+        val sets = listOf(weighted(20.0, 10, 0, warmup = true), weighted(40.0, 8, 1), weighted(60.0, 5, 2))
+        assertEquals(listOf(true, true, false), WorkingSets.classify(sets).map { it.isWarmup })
+        val stripped = WorkingSets.strip(session(LocalDate(2026, 8, 1), entry(TestData.bench, *sets.toTypedArray())))
+        assertEquals(listOf(false, false, false), stripped.exercises.single().sets.map { it.isWarmup })
+    }
+
+    @Test
     fun summaryComputesGapToAllTimeBest() {
         val sessions = listOf(
             session(LocalDate(2026, 2, 1), entry(TestData.bench, weighted(70.0, 5))),

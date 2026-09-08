@@ -105,7 +105,10 @@ data class Session(
     }
 
     val date: LocalDate get() = timestamp.date
+    /** Every set, warm-ups included: what the row count in the file was. Dedupe fingerprints use this. */
     val setCount: Int get() = exercises.sumOf { it.sets.size }
+    /** Sets that count: what the history list shows. */
+    val workingSetCount: Int get() = exercises.sumOf { it.workingSets.size }
 }
 
 data class BodyweightEntry(val date: LocalDate, val weightKg: Double)
