@@ -1,7 +1,10 @@
 package app.gains.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,13 +13,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -31,6 +39,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -89,9 +101,15 @@ data class SetDraft(
     val distanceKm: String = "",
     /** Planned or ticked as a warm-up: stored with the set, kept out of volume, records and progression. */
     val isWarmup: Boolean = false,
-    /** Ticked off during the workout. Editor-only: it starts the rest timer and is not stored. */
+    /**
+     * Ticked off during the workout, Liftoff-style: the check on the row toggles it. Ticking starts the
+     * rest timer; saving offers to leave unticked work sets out. Sets loaded from a saved workout start ticked.
+     */
     val done: Boolean = false,
 ) {
+    /** Something was entered, so the set can be ticked off. */
+    val hasValues: Boolean get() = listOf(weight, reps, seconds, distanceKm).any { it.isNotBlank() }
+
     fun toSet(order: Int, unit: WeightUnit): SetEntry? {
         val w = weight.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }?.let { Units.roundToQuarter(Units.fromDisplay(it, unit)) }
         val r = reps.toIntOrNull()?.takeIf { it > 0 }
@@ -115,6 +133,7 @@ data class SetDraft(
             seconds = set.seconds?.toString() ?: "",
             distanceKm = set.distanceKm?.let { Format.number(it, 2) } ?: "",
             isWarmup = set.isWarmup,
+            done = true,
         )
     }
 }
@@ -169,6 +188,8 @@ data class EditorState(
     /** Exercises whose warm-up rows are folded away. */
     val collapsedWarmups: Set<String> = emptySet(),
     val restTimer: RestTimer? = null,
+    /** Set when Save found filled work sets that were never ticked: how many, while the lifter decides. */
+    val untickedOnSave: Int? = null,
 ) {
     val programDayOption: ProgramDayOption? get() = programDay?.let { ref -> programDays.firstOrNull { it.ref == ref } }
 }
@@ -288,12 +309,14 @@ class SessionEditorModel(
     }
 
     /**
-     * Tick a set off. Ticking starts the rest timer at the tier's short end (warm-ups get the warm-up
-     * rest, exercises with no tier a default); un-ticking leaves the timer alone.
+     * Tick a set off, or un-tick it. Ticking starts the rest timer at the tier's short end (warm-ups get
+     * the warm-up rest, exercises with no tier a default); un-ticking leaves the timer alone. An empty
+     * set cannot be ticked: there is nothing to record.
      */
     fun toggleDone(exerciseIndex: Int, setIndex: Int) = update { s ->
         val exercise = s.exercises[exerciseIndex]
         val set = exercise.sets[setIndex]
+        if (!set.done && !set.hasValues) return@update s
         val done = !set.done
         val seconds = when {
             set.isWarmup -> Gzclp.WARMUP_REST.first
@@ -317,9 +340,11 @@ class SessionEditorModel(
         })
     }
 
+    /** Clearing every field of a ticked set un-ticks it: an empty set cannot count as done. */
     fun updateSet(exerciseIndex: Int, setIndex: Int, draft: SetDraft) = update { s ->
+        val next = if (draft.done && !draft.hasValues) draft.copy(done = false) else draft
         s.copy(exercises = s.exercises.mapIndexed { i, e ->
-            if (i != exerciseIndex) e else e.copy(sets = e.sets.mapIndexed { j, d -> if (j == setIndex) draft else d })
+            if (i != exerciseIndex) e else e.copy(sets = e.sets.mapIndexed { j, d -> if (j == setIndex) next else d })
         })
     }
 
@@ -329,18 +354,28 @@ class SessionEditorModel(
         })
     }
 
-    fun save() {
+    /**
+     * Save the workout. When some work sets were ticked off and others with values were not, the
+     * lifter is asked first whether the unticked ones count (see [untickedWorkSets]); a workout where
+     * nothing was ticked saves every set, as a log typed in after the fact would expect.
+     */
+    fun save(includeUnticked: Boolean = false) {
         val s = _state.value
         val date = runCatching { LocalDate.parse(s.date.trim()) }.getOrNull()
         val time = Regex("^(\\d{1,2}):(\\d{2})$").find(s.time.trim())?.let { m ->
             runCatching { LocalTime(m.groupValues[1].toInt(), m.groupValues[2].toInt()) }.getOrNull()
         }
-        if (date == null) { update { it.copy(error = "Enter the date as YYYY-MM-DD.") }; return }
-        if (time == null) { update { it.copy(error = "Enter the time as HH:MM.") }; return }
+        if (date == null) { update { it.copy(error = "Enter the date as YYYY-MM-DD.", untickedOnSave = null) }; return }
+        if (time == null) { update { it.copy(error = "Enter the time as HH:MM.", untickedOnSave = null) }; return }
+        val unticked = untickedWorkSets(s.exercises, s.unit)
+        if (unticked > 0 && !includeUnticked && s.untickedOnSave == null) { update { it.copy(untickedOnSave = unticked) }; return }
         val entries = s.exercises.mapNotNull { draft ->
-            val sets = draft.sets.mapIndexedNotNull { i, d -> d.toSet(i, s.unit) }.mapIndexed { i, set -> set.copy(order = i) }
+            val sets = draft.sets
+                .filter { includeUnticked || unticked == 0 || it.isWarmup || it.done }
+                .mapIndexedNotNull { i, d -> d.toSet(i, s.unit) }.mapIndexed { i, set -> set.copy(order = i) }
             if (sets.isEmpty()) null else ExerciseEntry(draft.exercise.id, sets, draft.note.ifBlank { null })
         }
+        update { it.copy(untickedOnSave = null) }
         if (entries.isEmpty()) { update { it.copy(error = "Add at least one exercise with a set.") }; return }
         val timestamp = LocalDateTime(date, time)
         val session = Session(
@@ -359,8 +394,22 @@ class SessionEditorModel(
         }
     }
 
+    /** Leave the unticked sets in the editor and drop the save prompt. */
+    fun dismissSavePrompt() = update { it.copy(untickedOnSave = null) }
+
     companion object {
         fun nowMs(): Long = Clock.System.now().toEpochMilliseconds()
+
+        /**
+         * Work sets with values that were not ticked off, when at least one work set was. Zero when
+         * nothing was ticked: then ticking was not used and every set counts. Warm-ups never count here;
+         * they are saved as entered either way, since nothing is analysed from them.
+         */
+        fun untickedWorkSets(exercises: List<ExerciseDraft>, unit: WeightUnit): Int {
+            val work = exercises.flatMap { it.workSets }.filter { it.toSet(0, unit) != null }
+            if (work.none { it.done }) return 0
+            return work.count { !it.done }
+        }
 
         fun uniqueId(base: String, taken: Set<String>): String {
             if (base !in taken) return base
@@ -409,7 +458,7 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, o
             }
             SectionHeader("Exercises", action = { TextButton(onClick = { pickerOpen = true }) { Text("+ Add exercise", color = palette.volt) } })
             if (state.exercises.isEmpty()) {
-                Text("Add an exercise to start logging sets. Weights are in ${state.unit.label}; leave weight empty for bodyweight, use seconds for holds and km for cardio.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Add an exercise to start logging sets. Weights are in ${state.unit.label}; leave weight empty for bodyweight, use seconds for holds and km for cardio. Tick a set off when it's done to start the rest timer.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         itemsIndexed(state.exercises, key = { _, e -> e.exercise.id }) { exerciseIndex, draft ->
@@ -457,6 +506,17 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, o
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         )
     }
+    state.untickedOnSave?.let { count ->
+        // Liftoff drops unfinished sets on finish; here the lifter chooses, since a set may have been done and just not ticked.
+        AlertDialog(
+            onDismissRequest = model::dismissSavePrompt,
+            shape = MaterialTheme.shapes.large,
+            title = { Text(if (count == 1) "1 set isn't ticked off" else "$count sets aren't ticked off") },
+            text = { Text("Leave ${if (count == 1) "it" else "them"} out of the workout, or save ${if (count == 1) "it" else "them"} as done too?") },
+            confirmButton = { PrimaryButton("Leave out", onClick = { model.save(includeUnticked = false) }) },
+            dismissButton = { TextButton(onClick = { model.save(includeUnticked = true) }) { Text("Save all", color = palette.volt) } },
+        )
+    }
 }
 
 /**
@@ -490,7 +550,7 @@ private fun ProgramDayDialog(options: List<ProgramDayOption>, selected: ProgramD
 }
 
 @Composable
-private fun DayChoice(label: String, selected: Boolean, accent: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
+private fun DayChoice(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = if (selected) accent else MaterialTheme.colorScheme.onSurface)
         if (selected) Text("✓", color = accent, style = MaterialTheme.typography.bodyLarge)
@@ -555,7 +615,8 @@ private fun ExerciseCard(
                 Modality.ISOMETRIC -> { Header("SECONDS"); Header(unit.label.uppercase()) }
                 Modality.CARDIO -> { Header("KM"); Header("SECONDS") }
             }
-            Spacer(Modifier.width(44.dp))
+            // Room for the check and the remove button on each row.
+            Spacer(Modifier.width(CHECK_SIZE + 8.dp + REMOVE_WIDTH))
         }
         if (warmups.isNotEmpty()) {
             // Warm-ups are numbered W1, W2… and drawn muted, so the work sets stay 1–5 and read as the workout.
@@ -573,11 +634,15 @@ private fun ExerciseCard(
             val label = if (set.isWarmup) "W${++warmupNumber}" else (++workNumber).toString()
             if (set.isWarmup && warmupsCollapsed) continue
             val rowColor = if (set.isWarmup) muted else MaterialTheme.colorScheme.onSurface
-            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Tapping the number ticks the set off and starts the rest timer.
+            // A ticked row is tinted, as in Liftoff, so a glance shows how far the workout has got.
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(MaterialTheme.shapes.small)
+                    .background(if (set.done) palette.volt.copy(alpha = 0.12f) else Color.Transparent)
+                    .padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
-                    if (set.done) "✓" else label,
-                    Modifier.width(28.dp).clickable { model.toggleDone(exerciseIndex, setIndex) },
+                    label, Modifier.width(28.dp).padding(start = 4.dp),
                     style = if (set.isWarmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
                     color = if (set.done) palette.volt else rowColor,
                 )
@@ -596,11 +661,44 @@ private fun ExerciseCard(
                         NumberField(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
                     }
                 }
-                TextButton(onClick = { model.removeSet(exerciseIndex, setIndex) }, modifier = Modifier.width(44.dp)) { Text("×", color = muted) }
+                DoneCheck(
+                    done = set.done, enabled = set.done || set.hasValues, label = "Set $label",
+                    onClick = { model.toggleDone(exerciseIndex, setIndex) },
+                )
+                Box(
+                    Modifier.width(REMOVE_WIDTH).height(CHECK_SIZE).clip(CircleShape).clickable { model.removeSet(exerciseIndex, setIndex) },
+                    contentAlignment = Alignment.Center,
+                ) { Text("×", color = muted, style = MaterialTheme.typography.titleMedium) }
             }
         }
         TextButton(onClick = { model.addSet(exerciseIndex) }) { Text("+ Add set", color = palette.volt) }
         OutlinedTextField(draft.note, { model.setNote(exerciseIndex, it) }, placeholder = { Text("Note") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium)
+    }
+}
+
+private val CHECK_SIZE = 36.dp
+private val REMOVE_WIDTH = 32.dp
+
+/**
+ * The tick at the end of a set row, Liftoff-style: an outlined circle until the set is done, then a
+ * filled one with a check. Tapping toggles it either way; it is dimmed while the row is empty.
+ */
+@Composable
+private fun DoneCheck(done: Boolean, enabled: Boolean, label: String, onClick: () -> Unit) {
+    val palette = GainsColors.palette
+    val outline = MaterialTheme.colorScheme.outline
+    val description = if (done) "$label done" else "$label not done"
+    Box(
+        Modifier
+            .size(CHECK_SIZE)
+            .clip(CircleShape)
+            .background(if (done) palette.volt else Color.Transparent)
+            .border(1.5.dp, if (done) palette.volt else outline.copy(alpha = if (enabled) 1f else 0.35f), CircleShape)
+            .clickable(enabled = enabled, onClick = onClick)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (done) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
     }
 }
 
