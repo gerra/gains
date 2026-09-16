@@ -36,6 +36,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
@@ -53,14 +54,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.gains.analysis.Format
 import app.gains.auth.AccountRepository
 import app.gains.data.ExerciseRepository
+import app.gains.data.LiveSessionRepository
 import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
+import app.gains.domain.LiveSession
 import app.gains.domain.ProgramDayRef
 import app.gains.program.Rotation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import app.gains.data.ThemeMode
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -69,6 +75,7 @@ import app.gains.platform.IncomingFiles
 import app.gains.ui.components.GainsWordmark
 import app.gains.ui.inject
 import app.gains.ui.nav.Navigator
+import app.gains.ui.nowMs
 import app.gains.ui.nav.Screen
 import app.gains.ui.nav.SwipeBack
 import app.gains.ui.nav.Tab
@@ -121,6 +128,9 @@ fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, on
             state.active?.let { p -> Rotation.nextDay(p, links)?.let { UpNext(ProgramDayRef(p.id, it.id), it.name) } }
         }
     }.collectAsState(initial = null)
+    // The workout in progress, if any: shown as a resume bar on every screen but its own.
+    val liveSessions = remember { inject<LiveSessionRepository>() }
+    val live by liveSessions.observe().collectAsState(initial = null)
     val themeMode by settings.observeThemeMode().collectAsState(ThemeMode.DARK)
     val dark = when (themeMode) {
         ThemeMode.DARK -> true
@@ -159,6 +169,11 @@ fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, on
                         label = "screen",
                     ) { current -> ScreenContent(current, navigator, filePicker) }
                 }
+                live?.let { running ->
+                    if (!(screen is Screen.EditSession && screen.live)) {
+                        LiveSessionBar(running, onResume = { navigator.push(Screen.EditSession(null, running.program, live = true)) })
+                    }
+                }
                 BottomNav(navigator)
             }
         }
@@ -185,7 +200,7 @@ private fun ScreenContent(screen: Screen, navigator: Navigator, filePicker: CsvF
                 onOpenOnboarding = { navigator.push(Screen.Onboarding) },
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenProgram = { navigator.push(Screen.ProgramDetail(it)) },
-                onStartDay = { navigator.push(Screen.EditSession(null, it)) },
+                onStartDay = { navigator.push(Screen.EditSession(null, it, live = true)) },
             )
             Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
             Screen.Volume -> VolumeScreen()
@@ -194,7 +209,7 @@ private fun ScreenContent(screen: Screen, navigator: Navigator, filePicker: CsvF
                 onOpen = { navigator.push(Screen.EditSession(it)) },
                 onLog = { navigator.push(Screen.EditSession(null)) },
             )
-            is Screen.EditSession -> SessionEditorScreen(screen.sessionId, screen.programDay, onDone = { navigator.pop() })
+            is Screen.EditSession -> SessionEditorScreen(screen.sessionId, screen.programDay, screen.live, onDone = { navigator.pop() })
             Screen.Settings -> SettingsScreen(
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenOnboarding = { navigator.push(Screen.Onboarding) },
@@ -206,7 +221,7 @@ private fun ScreenContent(screen: Screen, navigator: Navigator, filePicker: CsvF
             )
             is Screen.ProgramDetail -> ProgramDetailScreen(
                 screen.programId,
-                onStartDay = { navigator.push(Screen.EditSession(null, it)) },
+                onStartDay = { navigator.push(Screen.EditSession(null, it, live = true)) },
                 onEdit = { navigator.push(Screen.ProgramEditor(it)) },
                 onDeleted = { navigator.pop() },
             )
@@ -240,11 +255,16 @@ private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
                         DropdownMenuItem(
                             text = { Text("Start ${upNext.dayName}") },
                             leadingIcon = { Icon(Icons.Default.Star, null, modifier = Modifier.size(18.dp)) },
-                            onClick = { menuOpen = false; navigator.push(Screen.EditSession(null, upNext.ref)) },
+                            onClick = { menuOpen = false; navigator.push(Screen.EditSession(null, upNext.ref, live = true)) },
                         )
                     }
                     DropdownMenuItem(
-                        text = { Text("Log workout") },
+                        text = { Text("Start workout") },
+                        leadingIcon = { Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp)) },
+                        onClick = { menuOpen = false; navigator.push(Screen.EditSession(null, live = true)) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Log past workout") },
                         leadingIcon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp)) },
                         onClick = { menuOpen = false; navigator.push(Screen.EditSession(null)) },
                     )
@@ -320,6 +340,38 @@ private fun BottomNav(navigator: Navigator) {
                 }
             }
         }
+    }
+}
+
+/**
+ * The workout in progress, above the tabs: its name, the total time, the rest left, and a tap to get
+ * back to it. Both clocks run against wall time, so the bar is right straight after a relaunch.
+ */
+@Composable
+private fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
+    val palette = GainsColors.palette
+    var now by remember { mutableStateOf(nowMs()) }
+    LaunchedEffect(Unit) { while (true) { delay(1000); now = nowMs() } }
+    val remaining = live.rest?.remainingSeconds(now)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(CircleShape)
+            .background(palette.volt)
+            .clickable(onClick = onResume)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val onAccent = MaterialTheme.colorScheme.onPrimary
+        Text(live.title, style = MaterialTheme.typography.titleSmall, color = onAccent, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(Format.clock(live.elapsedMs(now) / 1000), style = MaterialTheme.typography.titleSmall, color = onAccent)
+        if (remaining != null && remaining > 0) {
+            Spacer(Modifier.size(10.dp))
+            Text("Rest ${Format.clock(remaining.toLong())}", style = MaterialTheme.typography.bodySmall, color = onAccent)
+        }
+        Spacer(Modifier.size(10.dp))
+        Text("Resume ›", style = MaterialTheme.typography.labelSmall, color = onAccent)
     }
 }
 

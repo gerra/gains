@@ -5,6 +5,7 @@ import app.gains.auth.AuthConfig
 import app.gains.data.BodyweightRepository
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.ExerciseRepository
+import app.gains.data.LiveSessionRepository
 import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
@@ -17,6 +18,7 @@ import org.koin.dsl.module
 val sharedModule = module {
     single { GainsDatabase(get<DatabaseDriverFactory>().createDriver()) }
     single { SessionRepository(get()) }
+    single { LiveSessionRepository(get()) }
     single { ExerciseRepository(get()) }
     single { BodyweightRepository(get()) }
     single { SettingsRepository(get()) }

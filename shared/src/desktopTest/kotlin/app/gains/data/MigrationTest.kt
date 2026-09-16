@@ -90,7 +90,7 @@ class MigrationTest {
         GainsDatabase.Schema.migrate(upgraded, 2, GainsDatabase.Schema.version)
 
         assertEquals(tables(fresh), tables(upgraded))
-        for (table in listOf("session", "exercise_entry", "set_entry", "exercise", "program", "program_day", "program_slot")) {
+        for (table in listOf("session", "exercise_entry", "set_entry", "exercise", "program", "program_day", "program_slot", "live_session", "live_exercise", "live_set")) {
             assertEquals(columns(fresh, table), columns(upgraded, table), "columns of $table")
         }
         // Existing rows survive with the new columns defaulted.
@@ -100,6 +100,8 @@ class MigrationTest {
         assertEquals("", db.exerciseQueries.selectExercises().executeAsList().single().equipment)
         // A set logged before warm-up flags existed is a work set.
         assertEquals(0L, db.sessionQueries.selectSets().executeAsList().single().is_warmup)
-        assertTrue(GainsDatabase.Schema.version >= 4)
+        // No workout is in progress on an upgraded install.
+        assertEquals(null, db.liveSessionQueries.selectLiveSession().executeAsOneOrNull())
+        assertTrue(GainsDatabase.Schema.version >= 5)
     }
 }

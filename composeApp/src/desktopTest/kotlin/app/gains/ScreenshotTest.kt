@@ -222,15 +222,31 @@ class ScreenshotTest {
         shot("13-program-detail")
         onNode(hasText("A1") and hasClickAction()).performClick()
         require(text("5 × 3+"))
+        // Starting a day runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
+        require(text("Total"))
+        onAllNodes(hasText("1") and hasClickAction()).onFirst().performClick()
+        require(text("✓"))
         settle(1_000)
         shot("14-program-day")
-        // The editor's Cancel button sits below the fold of a lazy list; the top-bar Back is always composed.
+        // Leaving with Back keeps the workout running; every other screen shows it above the tabs.
         onNode(hasContentDescription("Back") and hasClickAction()).performClick()
         settle()
         tab("Home")
         require(text("Up next"), 60_000)
+        require(text("Resume"))
         settle(1_000)
         shot("15-home-program")
+        // Back into the workout through the bar, then end it: the stored session takes the timed duration.
+        onNode(text("Resume") and hasClickAction()).performClick()
+        require(text("Total"))
+        require(text("✓"))
+        onNode(hasText("End") and hasClickAction()).performClick()
+        require(text("What's moving"), 60_000)
+        settle(1_000)
+        check(!exists(text("Resume"))) { "The resume bar is still showing after the session was ended" }
+        // The ended workout is an ordinary logged session in history, tagged with its day.
+        tab("History")
+        require(text("logged"))
         onNode(hasContentDescription("Settings") and hasClickAction()).performClick()
         require(text("Appearance"))
         onNode(text("Light") and hasClickAction()).performClick()
