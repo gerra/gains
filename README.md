@@ -107,6 +107,13 @@ device today.
   done to tint the row and start the rest timer, tap again to undo. An empty row can't be ticked.
   If you save with some work sets ticked and others left unticked, you're asked whether to leave
   the unticked ones out; a workout where nothing was ticked saves every set as before.
+- **Timed sessions.** Starting a program day (or **Start workout** from the **+** menu) runs the
+  workout against the clock: a bar pinned above the sets shows the total time and the rest left,
+  and ticking a set restarts the countdown. The workout is written to the database as you go, so
+  it survives the app being killed; leave it and a bar above the tabs shows it ticking with a
+  tap to resume. **End session** asks about unticked sets the same way, stores the workout with
+  the timed duration, and past three hours asks whether the timer was left running before it
+  does. **Log past workout** still logs a session by date, time and duration.
 - **Import from anywhere.** Drop in Liftoff, Strong or Hevy exports, or any CSV with date,
   exercise, weight and reps columns. The format is detected from the header, several files can
   be imported at once, and re-importing an overlapping export never creates duplicates.
@@ -349,7 +356,7 @@ flowchart LR
 
 | Module | Contents |
 |--------|----------|
-| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence, insight engine, program rotation and progression logic. Pure Kotlin, no UI, 100+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
+| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence (including the workout in progress), insight engine, program rotation and progression logic. Pure Kotlin, no UI, 100+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
 | [`composeApp/`](composeApp) | Compose Multiplatform UI (goal onboarding, home insights with the next program day, programs and a program editor, history with a workout editor, import preview, lifts, volume, bodyweight, settings), Canvas charts and the Android, iOS and desktop entry points. |
 | [`iosApp/`](iosApp) | Xcode project wrapping the `ComposeApp` framework in SwiftUI. |
 | [`samples/`](samples) | A generated eight-month Liftoff export used by the screenshots and handy for trying the app. |

@@ -2,12 +2,12 @@ package app.gains
 
 import app.gains.domain.Exercise
 import app.gains.domain.Modality
+import app.gains.domain.SetDraft
 import app.gains.domain.SetEntry
 import app.gains.domain.SetType
 import app.gains.domain.WeightUnit
 import app.gains.ui.screens.ExerciseDraft
 import app.gains.ui.screens.SessionEditorModel
-import app.gains.ui.screens.SetDraft
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

@@ -20,8 +20,12 @@ sealed interface Screen {
     /** null = create a new program. */
     data class ProgramEditor(val programId: String?) : Screen
     data class ExerciseDetail(val exerciseId: String) : Screen
-    /** null = log a new workout; [programDay] pre-fills it from a program day. */
-    data class EditSession(val sessionId: String?, val programDay: ProgramDayRef? = null) : Screen
+    /**
+     * null = log a new workout; [programDay] pre-fills it from a program day. [live] starts (or resumes)
+     * a timed workout instead of logging a past one: the clock runs, sets tick off, and it is stored
+     * when the session is ended.
+     */
+    data class EditSession(val sessionId: String?, val programDay: ProgramDayRef? = null, val live: Boolean = false) : Screen
 }
 
 enum class Tab(val label: String, val root: Screen) {

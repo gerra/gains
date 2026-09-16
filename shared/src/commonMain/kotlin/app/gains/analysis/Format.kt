@@ -35,6 +35,27 @@ object Format {
 
     fun seconds(seconds: Int): String = if (seconds >= 60) "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}" else "$seconds s"
 
+    /** A running clock: "0:42", "12:05", "1:02:34". */
+    fun clock(totalSeconds: Long): String {
+        val s = totalSeconds.coerceAtLeast(0)
+        val h = s / 3600
+        val m = (s % 3600) / 60
+        val sec = s % 60
+        return if (h > 0) "$h:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}"
+        else "$m:${sec.toString().padStart(2, '0')}"
+    }
+
+    /** "45 min", "1 h", "3 h 42 min". */
+    fun minutes(minutes: Int): String {
+        val h = minutes / 60
+        val m = minutes % 60
+        return when {
+            h == 0 -> "$m min"
+            m == 0 -> "$h h"
+            else -> "$h h $m min"
+        }
+    }
+
     fun km(km: Double): String = number(km, 2) + " km"
 
     fun plural(count: Int, singular: String, plural: String = singular + "s"): String =

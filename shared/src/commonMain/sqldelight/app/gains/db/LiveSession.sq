@@ -1,0 +1,64 @@
+-- The workout in progress. A single row (id = 1) plus its exercises and sets, written whole on
+-- every change so the session survives the app being killed. Cleared when the session ends.
+CREATE TABLE live_session (
+  id INTEGER NOT NULL PRIMARY KEY,
+  started_at_ms INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  program_id TEXT,
+  program_day_id TEXT,
+  rest_exercise_id TEXT,
+  rest_ends_at_ms INTEGER,
+  rest_total_seconds INTEGER
+);
+
+CREATE TABLE live_exercise (
+  position INTEGER NOT NULL PRIMARY KEY,
+  exercise_id TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  seeded INTEGER NOT NULL DEFAULT 0,
+  warmups_collapsed INTEGER NOT NULL DEFAULT 0
+);
+
+-- Fields are kept as typed (text), since a set mid-entry need not be a valid number yet.
+CREATE TABLE live_set (
+  exercise_position INTEGER NOT NULL,
+  set_order INTEGER NOT NULL,
+  weight TEXT NOT NULL DEFAULT '',
+  reps TEXT NOT NULL DEFAULT '',
+  seconds TEXT NOT NULL DEFAULT '',
+  distance_km TEXT NOT NULL DEFAULT '',
+  is_warmup INTEGER NOT NULL DEFAULT 0,
+  done INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (exercise_position, set_order)
+);
+
+selectLiveSession:
+SELECT started_at_ms, title, program_id, program_day_id, rest_exercise_id, rest_ends_at_ms, rest_total_seconds
+FROM live_session WHERE id = 1;
+
+selectLiveExercises:
+SELECT position, exercise_id, note, seeded, warmups_collapsed FROM live_exercise ORDER BY position;
+
+selectLiveSets:
+SELECT exercise_position, set_order, weight, reps, seconds, distance_km, is_warmup, done
+FROM live_set ORDER BY exercise_position, set_order;
+
+insertLiveSession:
+INSERT OR REPLACE INTO live_session(id, started_at_ms, title, program_id, program_day_id, rest_exercise_id, rest_ends_at_ms, rest_total_seconds)
+VALUES (1, ?, ?, ?, ?, ?, ?, ?);
+
+insertLiveExercise:
+INSERT INTO live_exercise(position, exercise_id, note, seeded, warmups_collapsed) VALUES (?, ?, ?, ?, ?);
+
+insertLiveSet:
+INSERT INTO live_set(exercise_position, set_order, weight, reps, seconds, distance_km, is_warmup, done)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteLiveSession:
+DELETE FROM live_session;
+
+deleteLiveExercises:
+DELETE FROM live_exercise;
+
+deleteLiveSets:
+DELETE FROM live_set;
