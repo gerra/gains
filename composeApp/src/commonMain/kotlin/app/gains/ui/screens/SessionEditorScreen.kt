@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Dates
@@ -580,17 +581,18 @@ private fun ExerciseCard(
                     style = if (set.isWarmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
                     color = if (set.done) palette.volt else rowColor,
                 )
+                // The keyboard's action key moves from the first field to the second, then closes the keyboard.
                 when (modality) {
                     Modality.WEIGHTED, Modality.BODYWEIGHT -> {
-                        NumberField(set.weight, { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
+                        NumberField(set.weight, { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup, imeAction = ImeAction.Next)
                         NumberField(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
                     }
                     Modality.ISOMETRIC -> {
-                        NumberField(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
+                        NumberField(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup, imeAction = ImeAction.Next)
                         NumberField(set.weight, { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
                     }
                     Modality.CARDIO -> {
-                        NumberField(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
+                        NumberField(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup, imeAction = ImeAction.Next)
                         NumberField(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
                     }
                 }
@@ -626,10 +628,13 @@ private fun androidx.compose.foundation.layout.RowScope.Header(text: String) {
 }
 
 @Composable
-private fun NumberField(value: String, onChange: (String) -> Unit, colors: androidx.compose.material3.TextFieldColors, modifier: Modifier, muted: Boolean = false) {
+private fun NumberField(
+    value: String, onChange: (String) -> Unit, colors: androidx.compose.material3.TextFieldColors, modifier: Modifier,
+    muted: Boolean = false, imeAction: ImeAction = ImeAction.Done,
+) {
     OutlinedTextField(
         value, onChange, singleLine = true, modifier = modifier, colors = colors, shape = MaterialTheme.shapes.small,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = imeAction),
         textStyle = if (muted) MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant) else MaterialTheme.typography.bodyLarge,
     )
 }

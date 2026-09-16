@@ -67,6 +67,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.ui.components.GainsWordmark
+import app.gains.ui.components.dismissKeyboardOnTap
 import app.gains.ui.inject
 import app.gains.ui.nav.Navigator
 import app.gains.ui.nav.Screen
@@ -135,7 +136,8 @@ fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, on
             if (accountState == null) { SignInScreen(); return@Surface }
             if (onboardingDone == null) return@Surface
             if (onboardingDone == false) { OnboardingScreen(onDone = {}); return@Surface }
-            Column(Modifier.fillMaxSize().statusBarsPadding()) {
+            // Tapping outside a text field anywhere in the app puts the keyboard away.
+            Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
                 TopBar(navigator, screen, upNext)
                 SwipeBack(
                     enabled = navigator.canGoBack,
