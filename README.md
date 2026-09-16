@@ -102,15 +102,18 @@ device today.
   and 60%; T3: one light set on cables and machines), labelled `W1, W2…` so the work sets stay
   1–5. They are stored as warm-ups and never count towards volume, records or progression, can
   be hidden or removed per exercise, and can be switched off in Settings along with the bar
-  weight. Each tier shows its rest (T1 3–5 min, T2 2–3 min, T3 60–90 s); tapping a set number
-  ticks it off and starts a rest timer.
+  weight. Each tier shows its rest (T1 3–5 min, T2 2–3 min, T3 60–90 s).
+- **Tick sets off as you go.** Every set row ends in a Liftoff-style check: tap it when the set is
+  done to tint the row and start the rest timer, tap again to undo. An empty row can't be ticked.
+  If you save with some work sets ticked and others left unticked, you're asked whether to leave
+  the unticked ones out; a workout where nothing was ticked saves every set as before.
 - **Timed sessions.** Starting a program day (or **Start workout** from the **+** menu) runs the
   workout against the clock: a bar pinned above the sets shows the total time and the rest left,
   and ticking a set restarts the countdown. The workout is written to the database as you go, so
   it survives the app being killed; leave it and a bar above the tabs shows it ticking with a
-  tap to resume. **End session** stores it with the timed duration, and past three hours asks
-  whether the timer was left running before it does. **Log past workout** still logs a session
-  by date, time and duration.
+  tap to resume. **End session** asks about unticked sets the same way, stores the workout with
+  the timed duration, and past three hours asks whether the timer was left running before it
+  does. **Log past workout** still logs a session by date, time and duration.
 - **Import from anywhere.** Drop in Liftoff, Strong or Hevy exports, or any CSV with date,
   exercise, weight and reps columns. The format is detected from the header, several files can
   be imported at once, and re-importing an overlapping export never creates duplicates.

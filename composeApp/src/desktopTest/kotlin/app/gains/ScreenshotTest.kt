@@ -224,8 +224,8 @@ class ScreenshotTest {
         require(text("5 × 3+"))
         // Starting a day runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
         require(text("Total"))
-        onAllNodes(hasText("1") and hasClickAction()).onFirst().performClick()
-        require(text("✓"))
+        onAllNodes(hasContentDescription("Set 1 not done") and hasClickAction()).onFirst().performClick()
+        require(hasContentDescription("Set 1 done"))
         settle(1_000)
         shot("14-program-day")
         // Leaving with Back keeps the workout running; every other screen shows it above the tabs.
@@ -239,8 +239,11 @@ class ScreenshotTest {
         // Back into the workout through the bar, then end it: the stored session takes the timed duration.
         onNode(text("Resume") and hasClickAction()).performClick()
         require(text("Total"))
-        require(text("✓"))
+        require(hasContentDescription("Set 1 done"))
         onNode(hasText("End") and hasClickAction()).performClick()
+        // Only one set was ticked, so ending asks about the rest; keep them all.
+        require(text("aren't ticked off"))
+        onNode(text("Save all") and hasClickAction()).performClick()
         require(text("What's moving"), 60_000)
         settle(1_000)
         check(!exists(text("Resume"))) { "The resume bar is still showing after the session was ended" }

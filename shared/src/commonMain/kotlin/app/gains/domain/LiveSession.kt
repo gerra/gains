@@ -14,9 +14,15 @@ data class SetDraft(
     val distanceKm: String = "",
     /** Planned or ticked as a warm-up: stored with the set, kept out of volume, records and progression. */
     val isWarmup: Boolean = false,
-    /** Ticked off during the workout. Starts the rest timer; not stored with the set. */
+    /**
+     * Ticked off during the workout, Liftoff-style: the check on the row toggles it. Ticking starts the
+     * rest timer; saving offers to leave unticked work sets out. Sets loaded from a saved workout start ticked.
+     */
     val done: Boolean = false,
 ) {
+    /** Something was entered, so the set can be ticked off. */
+    val hasValues: Boolean get() = listOf(weight, reps, seconds, distanceKm).any { it.isNotBlank() }
+
     /** Null when nothing usable was entered. */
     fun toSet(order: Int, unit: WeightUnit): SetEntry? {
         val w = weight.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }?.let { Units.roundToQuarter(Units.fromDisplay(it, unit)) }
@@ -41,6 +47,7 @@ data class SetDraft(
             seconds = set.seconds?.toString() ?: "",
             distanceKm = set.distanceKm?.let { Format.number(it, 2) } ?: "",
             isWarmup = set.isWarmup,
+            done = true,
         )
     }
 }

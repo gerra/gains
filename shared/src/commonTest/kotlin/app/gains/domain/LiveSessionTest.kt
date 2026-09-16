@@ -63,6 +63,10 @@ class LiveSessionTest {
         // A stored set comes back in the display unit, and the round trip keeps the values.
         val lbs = SetDraft.from(SetEntry(0, SetType.WEIGHTED, 60.0, 5), WeightUnit.LBS)
         assertEquals("132.3", lbs.weight)
+        // A set from a saved workout loads ticked; an empty row has nothing to tick.
+        assertTrue(lbs.done)
+        assertTrue(lbs.hasValues)
+        assertFalse(SetDraft().hasValues)
         assertEquals(SetEntry(0, SetType.WEIGHTED, 60.0, 5), lbs.toSet(0, WeightUnit.LBS))
     }
 
