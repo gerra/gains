@@ -131,7 +131,8 @@ class ScreenshotTest {
             val viewport = list.boundsInRoot
             val top = target.positionInRoot.y
             val bottom = top + target.size.height
-            val margin = 48f
+            // Room for a row to appear above the target (ticking a set inserts the rest countdown).
+            val margin = 240f
             val dy = when {
                 bottom > viewport.bottom -> bottom - viewport.bottom + margin
                 top < viewport.top -> top - viewport.top - margin
