@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -111,7 +112,9 @@ class ScreenshotTest {
             check(await(matcher, timeoutMillis)) { "Gave up waiting for ${matcher.description}" }
         fun shot(name: String) {
             settle()
-            ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(outDir, "$name.png"))
+            // A bottom sheet or dialog is a root of its own; the scene is rendered whole and cropped to the first
+            // root's bounds, which are the full window, so onRoot() (exactly one root) is not used here.
+            ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(outDir, "$name.png"))
             println("screenshot: $name")
         }
         fun tab(label: String) {
