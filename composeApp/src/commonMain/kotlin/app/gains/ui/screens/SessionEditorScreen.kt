@@ -3,6 +3,8 @@ package app.gains.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,13 +21,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -43,12 +49,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.gains.analysis.Dates
 import app.gains.analysis.Format
 import app.gains.analysis.TrainingData
 import app.gains.analysis.TrainingSnapshot
@@ -74,12 +85,18 @@ import app.gains.program.Gzclp
 import app.gains.program.PlanOptions
 import app.gains.program.Progression
 import app.gains.ui.ScreenModel
+import app.gains.ui.components.ChooserRow
+import app.gains.ui.components.DatePickerSheet
 import app.gains.ui.components.Dp16
+import app.gains.ui.components.DurationPickerSheet
+import app.gains.ui.components.DurationWheels
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
+import app.gains.ui.components.TimePickerSheet
+import app.gains.ui.components.WeightPickerSheet
 import app.gains.ui.inject
 import app.gains.ui.nowMs
 import app.gains.ui.rememberScreenModel
@@ -111,6 +128,13 @@ import kotlin.time.Instant
 data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraft>, val note: String = "") {
     val warmups: List<SetDraft> get() = sets.filter { it.isWarmup }
     val workSets: List<SetDraft> get() = sets.filter { !it.isWarmup }
+
+    /** "W1, W2…" for the warm-ups and "1, 2…" for the work sets, in row order. */
+    val labels: List<String> get() {
+        var warmup = 0
+        var work = 0
+        return sets.map { if (it.isWarmup) "W${++warmup}" else (++work).toString() }
+    }
 }
 
 /** A program day the workout can be tagged with: "GZCLP · A1". */
@@ -122,9 +146,10 @@ data class EditorState(
     val loading: Boolean = true,
     val isNew: Boolean = true,
     val id: String? = null,
-    val date: String = "",
-    val time: String = "",
-    val durationMinutes: String = "",
+    /** When the workout was, for a logged one; a timed workout takes its clock's start instead. */
+    val date: LocalDate? = null,
+    val time: LocalTime? = null,
+    val durationMinutes: Int? = null,
     val exercises: List<ExerciseDraft> = emptyList(),
     val unit: WeightUnit = WeightUnit.KG,
     val catalogue: List<Exercise> = emptyList(),
@@ -158,8 +183,13 @@ data class EditorState(
     /** Set when Save found filled work sets that were never ticked: how many, while the lifter decides. */
     val untickedOnSave: Int? = null,
     /**
-     * Set while a timed workout is running: when its clock started. The total time counts from it,
-     * it becomes the session's timestamp, and the editor is stored to survive the app being killed.
+     * Opened to run a workout against the clock rather than log a past one. The plan can be looked
+     * over and adjusted first; nothing runs, ticks or is stored until Start is pressed.
+     */
+    val timed: Boolean = false,
+    /**
+     * Set once Start was pressed: when the clock started. The total time counts from it, it becomes
+     * the session's timestamp, and the editor is stored to survive the app being killed.
      */
     val startedAtMs: Long? = null,
     /** A different workout is already in progress; the lifter picks which one to keep. */
@@ -168,7 +198,8 @@ data class EditorState(
     val longSessionMinutes: Int? = null,
 ) {
     val programDayOption: ProgramDayOption? get() = programDay?.let { ref -> programDays.firstOrNull { it.ref == ref } }
-    val isLive: Boolean get() = startedAtMs != null
+    /** The clock is running. */
+    val isRunning: Boolean get() = startedAtMs != null
 
     /** The editor as a workout in progress, or null when there is nothing to keep. */
     fun toLive(): LiveSession? {
@@ -186,7 +217,7 @@ data class EditorState(
 class SessionEditorModel(
     private val sessionId: String?,
     private val programDay: ProgramDayRef? = null,
-    /** Start (or resume) a timed workout rather than log a past one. */
+    /** Open a timed workout, ready to start (or resume the one running), rather than log a past one. */
     private val live: Boolean = false,
     private val sessions: SessionRepository = inject(),
     private val exercises: ExerciseRepository = inject(),
@@ -221,9 +252,9 @@ class SessionEditorModel(
             val stored = if (live && existing == null) liveSessions.load() else null
             _state.value = when {
                 existing != null -> EditorState(
-                    loading = false, isNew = false, id = existing.id, date = existing.date.toString(),
-                    time = "${existing.timestamp.hour.toString().padStart(2, '0')}:${existing.timestamp.minute.toString().padStart(2, '0')}",
-                    durationMinutes = existing.durationMinutes?.toString() ?: "",
+                    loading = false, isNew = false, id = existing.id, date = existing.date,
+                    time = LocalTime(existing.timestamp.hour, existing.timestamp.minute),
+                    durationMinutes = existing.durationMinutes,
                     exercises = existing.exercises.mapNotNull { entry ->
                         snapshot.exercisesById[entry.exerciseId]?.let { ex -> ExerciseDraft(ex, entry.sets.map { SetDraft.from(it, unit) }, entry.note ?: "") }
                     },
@@ -232,10 +263,9 @@ class SessionEditorModel(
                 )
                 // Coming back to the running workout, whether from the resume bar, a relaunch or the same day's Start.
                 stored != null && (programDay == null || stored.program == programDay) -> restored(ctx, stored)
-                // Another day was started while one is running: ask before either is lost.
-                stored != null -> planned(ctx, programDay).copy(conflict = stored)
-                programDay != null -> planned(ctx, programDay).let { if (live) it.copy(startedAtMs = nowMs()) else it }
-                live -> fresh(ctx).copy(title = "Workout", startedAtMs = nowMs())
+                // Any other day opens ready to start; a different workout still running is asked about at Start.
+                programDay != null -> planned(ctx, programDay).copy(timed = live)
+                live -> fresh(ctx).copy(title = "Workout", timed = true)
                 else -> fresh(ctx)
             }
             if (live) persistWhileRunning()
@@ -245,8 +275,7 @@ class SessionEditorModel(
     private fun fresh(ctx: Context): EditorState {
         val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
         return EditorState(
-            loading = false, isNew = true, date = now.date.toString(),
-            time = "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}",
+            loading = false, isNew = true, date = now.date, time = LocalTime(now.hour, now.minute),
             unit = ctx.unit, catalogue = ctx.snapshot.exercises.sortedBy { it.name }, recent = ctx.snapshot.trainedExercises.take(12),
             programDays = ctx.dayOptions,
         )
@@ -285,7 +314,7 @@ class SessionEditorModel(
      * from the day; the sets, ticks, notes and the clock are exactly as they were left.
      */
     private fun restored(ctx: Context, stored: LiveSession): EditorState = planned(ctx, stored.program).copy(
-        programDay = stored.program, title = stored.title, startedAtMs = stored.startedAtMs, restTimer = stored.rest,
+        timed = true, programDay = stored.program, title = stored.title, startedAtMs = stored.startedAtMs, restTimer = stored.rest,
         exercises = stored.exercises.mapNotNull { le -> ctx.snapshot.exercisesById[le.exerciseId]?.let { ExerciseDraft(it, le.sets, le.note) } },
         seeded = stored.exercises.filter { it.seeded }.map { it.exerciseId }.toSet(),
         collapsedWarmups = stored.exercises.filter { it.warmupsCollapsed }.map { it.exerciseId }.toSet(),
@@ -304,9 +333,23 @@ class SessionEditorModel(
     }
 
     private fun update(f: (EditorState) -> EditorState) { _state.value = f(_state.value) }
-    fun setDate(v: String) = update { it.copy(date = v) }
-    fun setTime(v: String) = update { it.copy(time = v) }
-    fun setDuration(v: String) = update { it.copy(durationMinutes = v) }
+    fun setDate(v: LocalDate) = update { it.copy(date = v) }
+    fun setTime(v: LocalTime) = update { it.copy(time = v) }
+    fun setDuration(v: Int?) = update { it.copy(durationMinutes = v?.takeIf { m -> m > 0 }) }
+
+    /**
+     * Starts the clock. A different workout still running is asked about first rather than silently
+     * replaced; the one for this very day would have been resumed when the editor opened.
+     */
+    fun start() {
+        val s = _state.value
+        if (!s.timed || s.isRunning || s.conflict != null) return
+        scope.launch {
+            val running = liveSessions.load()
+            if (running != null) update { it.copy(conflict = running) }
+            else update { it.copy(startedAtMs = nowMs(), error = null) }
+        }
+    }
 
     fun addExercise(exercise: Exercise) = update { s ->
         if (s.exercises.any { it.exercise.id == exercise.id }) s
@@ -349,9 +392,10 @@ class SessionEditorModel(
     /**
      * Tick a set off, or un-tick it. Ticking starts the rest timer at the tier's short end (warm-ups get
      * the warm-up rest, exercises with no tier a default); un-ticking leaves the timer alone. An empty
-     * set cannot be ticked: there is nothing to record.
+     * set cannot be ticked: there is nothing to record. A timed workout ticks only once it has started.
      */
     fun toggleDone(exerciseIndex: Int, setIndex: Int) = update { s ->
+        if (s.timed && !s.isRunning) return@update s
         val exercise = s.exercises[exerciseIndex]
         val set = exercise.sets[setIndex]
         if (!set.done && !set.hasValues) return@update s
@@ -426,13 +470,10 @@ class SessionEditorModel(
      */
     fun save(includeUnticked: Boolean = false) {
         val s = _state.value
-        if (s.isLive) return endSession(includeUnticked)
-        val date = runCatching { LocalDate.parse(s.date.trim()) }.getOrNull()
-        val time = Regex("^(\\d{1,2}):(\\d{2})$").find(s.time.trim())?.let { m ->
-            runCatching { LocalTime(m.groupValues[1].toInt(), m.groupValues[2].toInt()) }.getOrNull()
-        }
-        if (date == null) { update { it.copy(error = "Enter the date as YYYY-MM-DD.", untickedOnSave = null) }; return }
-        if (time == null) { update { it.copy(error = "Enter the time as HH:MM.", untickedOnSave = null) }; return }
+        if (s.timed) return endSession(includeUnticked)
+        // Both are set with the editor and only ever replaced through the choosers.
+        val date = s.date ?: return
+        val time = s.time ?: return
         if (askAboutUnticked(s, includeUnticked)) return
         val entries = entries(s, includeUnticked)
         update { it.copy(untickedOnSave = null) }
@@ -441,7 +482,7 @@ class SessionEditorModel(
         val session = Session(
             id = s.id ?: timestamp.toString(),
             timestamp = timestamp,
-            durationMinutes = s.durationMinutes.toIntOrNull()?.takeIf { it > 0 },
+            durationMinutes = s.durationMinutes?.takeIf { it > 0 },
             exercises = entries,
             source = Session.MANUAL,
             program = s.programDay,
@@ -526,6 +567,9 @@ class SessionEditorModel(
         }
     }
 
+    /** Conflict dialog dismissed: stay on this day, still not started, with the other workout untouched. */
+    fun dismissConflict() = update { it.copy(conflict = null) }
+
     override fun onCleared() {
         // Leaving the screen keeps the workout running; make sure the last change reaches the database.
         val pending = persistJob
@@ -574,14 +618,22 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var dayPickerOpen by remember { mutableStateOf(false) }
+    var datePickerOpen by remember { mutableStateOf(false) }
+    var timePickerOpen by remember { mutableStateOf(false) }
+    var durationPickerOpen by remember { mutableStateOf(false) }
+    /** The set whose weight chooser is open: exercise index to set index. */
+    var weightTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     if (state.loading) return
     if (state.saved) { onDone(); return }
     val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = palette.volt, unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant)
     val startedAt = state.startedAtMs
 
     Column(Modifier.fillMaxSize()) {
-        // The clock stays in view however far the list is scrolled.
-        if (startedAt != null) SessionClock(startedAt, state.restTimer, onSkipRest = model::dismissRest, onEnd = model::endSession)
+        // Pinned above the list however far it is scrolled: Start until the clock runs, then the clock.
+        when {
+            startedAt != null -> SessionClock(startedAt, state.restTimer, onSkipRest = model::dismissRest, onEnd = model::endSession)
+            state.timed -> ReadyCard(state.exercises, onStart = model::start)
+        }
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -596,18 +648,22 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
                     if (!state.isNew) TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = palette.coral) }
                 }
                 Spacer(Modifier.height(12.dp))
-                if (startedAt != null) {
-                    val started = Instant.fromEpochMilliseconds(startedAt).toLocalDateTime(TimeZone.currentSystemDefault())
-                    Text(
-                        "Started ${started.hour.toString().padStart(2, '0')}:${started.minute.toString().padStart(2, '0')}. Tick a set off when it is done to start the rest timer.",
+                when {
+                    startedAt != null -> {
+                        val started = Instant.fromEpochMilliseconds(startedAt).toLocalDateTime(TimeZone.currentSystemDefault())
+                        Text(
+                            "Started ${clock(started.hour, started.minute)}. Tick a set off when it is done to start the rest timer.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    state.timed -> Text(
+                        "Look over the sets and change anything, then press Start. The clock runs from then, and ticking a set off starts the rest timer.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(state.date, model::setDate, label = { Text("Date") }, singleLine = true, modifier = Modifier.weight(1.2f), colors = fieldColors, shape = MaterialTheme.shapes.medium)
-                        OutlinedTextField(state.time, model::setTime, label = { Text("Time") }, singleLine = true, modifier = Modifier.weight(0.8f), colors = fieldColors, shape = MaterialTheme.shapes.medium)
-                        OutlinedTextField(state.durationMinutes, model::setDuration, label = { Text("Min") }, singleLine = true, modifier = Modifier.weight(0.7f), colors = fieldColors, shape = MaterialTheme.shapes.medium, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    }
+                    else -> WhenCard(
+                        state.date, state.time, state.durationMinutes,
+                        onDate = { datePickerOpen = true }, onTime = { timePickerOpen = true }, onDuration = { durationPickerOpen = true },
+                    )
                 }
                 SectionHeader("Exercises", action = { TextButton(onClick = { pickerOpen = true }) { Text("+ Add exercise", color = palette.volt) } })
                 if (state.exercises.isEmpty()) {
@@ -623,16 +679,21 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
                     tier = state.tiers[draft.exercise.id],
                     warmupsCollapsed = draft.exercise.id in state.collapsedWarmups,
                     restTimer = state.restTimer?.takeIf { it.exerciseId == draft.exercise.id },
+                    canTick = !state.timed || state.isRunning,
+                    onPickWeight = { setIndex -> weightTarget = exerciseIndex to setIndex },
                 )
             }
             item {
                 state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp)) }
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (startedAt != null) {
+                when {
+                    startedAt != null -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         SecondaryButton("Discard", { confirmDiscard = true }, Modifier.weight(1f))
                         PrimaryButton("End session", { model.endSession() }, Modifier.weight(1f))
-                    } else {
+                    }
+                    // Not started: Start stays pinned above the list, so nothing is needed down here.
+                    state.timed -> {}
+                    else -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         SecondaryButton("Cancel", onDone, Modifier.weight(1f))
                         PrimaryButton(if (state.isNew) "Save workout" else "Save changes", { model.save() }, Modifier.weight(1f))
                     }
@@ -655,6 +716,19 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
         onSelect = { model.setProgramDay(it); dayPickerOpen = false },
         onDismiss = { dayPickerOpen = false },
     )
+    if (datePickerOpen) state.date?.let { DatePickerSheet(it, onPick = model::setDate, onDismiss = { datePickerOpen = false }) }
+    if (timePickerOpen) state.time?.let { TimePickerSheet(it, onPick = model::setTime, onDismiss = { timePickerOpen = false }) }
+    if (durationPickerOpen) DurationPickerSheet(state.durationMinutes, onPick = model::setDuration, onDismiss = { durationPickerOpen = false })
+    weightTarget?.let { (exerciseIndex, setIndex) ->
+        val draft = state.exercises.getOrNull(exerciseIndex)
+        val set = draft?.sets?.getOrNull(setIndex)
+        if (draft != null && set != null) WeightPickerSheet(
+            value = set.weight, unit = state.unit, title = draft.exercise.name,
+            subtitle = (if (set.isWarmup) "Warm-up " else "Set ") + draft.labels[setIndex].trimStart('W') + if (draft.exercise.isDumbbell) " · per dumbbell" else "",
+            onPick = { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) },
+            onDismiss = { weightTarget = null },
+        )
+    }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -689,7 +763,7 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
     state.conflict?.let { running ->
         val elapsed = LiveSession.durationMinutes(running.elapsedMs(nowMs()))
         AlertDialog(
-            onDismissRequest = model::resumeStored,
+            onDismissRequest = model::dismissConflict,
             shape = MaterialTheme.shapes.large,
             title = { Text("Workout in progress") },
             text = { Text("${running.title} was started ${Format.minutes(elapsed)} ago and has not been ended. Resume it, or discard it and start ${state.title}?") },
@@ -697,17 +771,45 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
             dismissButton = { TextButton(onClick = model::discardStoredAndStart) { Text("Discard and start ${state.title}", color = palette.coral) } },
         )
     }
-    state.longSessionMinutes?.let { timed -> LongSessionDialog(timed, onConfirm = model::confirmEnd, onCancel = model::cancelEnd, fieldColors) }
+    state.longSessionMinutes?.let { timed -> LongSessionDialog(timed, onConfirm = model::confirmEnd, onCancel = model::cancelEnd) }
+}
+
+/** "18:05" */
+private fun clock(hour: Int, minute: Int) = "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
+
+/** "Today", "Yesterday", otherwise "Wed 17 Sep", with the year once it is not this one. */
+private fun dateLabel(date: LocalDate): String {
+    val today = Dates.today()
+    return when (Dates.daysBetween(date, today)) {
+        0 -> "Today"
+        1 -> "Yesterday"
+        else -> "${Dates.dayLabel(date.dayOfWeek)} ${Dates.contextual(date, today)}"
+    }
+}
+
+/**
+ * When a logged workout was and how long it took, as three rows that open a chooser each: a
+ * calendar for the date, wheels for the time and the duration. Nothing is typed.
+ */
+@Composable
+private fun WhenCard(date: LocalDate?, time: LocalTime?, durationMinutes: Int?, onDate: () -> Unit, onTime: () -> Unit, onDuration: () -> Unit) {
+    val hairline = MaterialTheme.colorScheme.outlineVariant
+    GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+        ChooserRow("Date", date?.let(::dateLabel) ?: "", onClick = onDate)
+        HorizontalDivider(color = hairline)
+        ChooserRow("Time", time?.let { clock(it.hour, it.minute) } ?: "", onClick = onTime)
+        HorizontalDivider(color = hairline)
+        ChooserRow("Duration", durationMinutes?.let(Format::minutes) ?: "Not timed", onClick = onDuration, muted = durationMinutes == null)
+    }
 }
 
 /**
  * The timer ran past three hours, which usually means it was left running. The measured time is
- * offered as the duration and can be replaced before the session is stored.
+ * offered as the duration and can be turned to something else before the session is stored.
  */
 @Composable
-private fun LongSessionDialog(timedMinutes: Int, onConfirm: (Int) -> Unit, onCancel: () -> Unit, fieldColors: androidx.compose.material3.TextFieldColors) {
-    var minutes by remember(timedMinutes) { mutableStateOf(timedMinutes.toString()) }
-    val entered = minutes.trim().toIntOrNull()?.takeIf { it > 0 }
+private fun LongSessionDialog(timedMinutes: Int, onConfirm: (Int) -> Unit, onCancel: () -> Unit) {
+    var minutes by remember(timedMinutes) { mutableStateOf(timedMinutes) }
     AlertDialog(
         onDismissRequest = onCancel,
         shape = MaterialTheme.shapes.large,
@@ -716,16 +818,48 @@ private fun LongSessionDialog(timedMinutes: Int, onConfirm: (Int) -> Unit, onCan
             Column {
                 Text("The timer ran for ${Format.minutes(timedMinutes)}. Was that how long you trained? Change the duration below if not.")
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    minutes, { minutes = it }, label = { Text("Duration in minutes") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                    colors = fieldColors, shape = MaterialTheme.shapes.medium, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    supportingText = { Text(if (entered == null) "Enter a number of minutes." else if (entered == timedMinutes) "Kept as timed." else "Stored as ${Format.minutes(entered)}.") },
+                // The dialog's own surface, so the wheel's ends fade into it.
+                DurationWheels(minutes, onChange = { minutes = it }, fadeColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    when {
+                        minutes <= 0 -> "Turn the wheels to the time you trained."
+                        minutes == timedMinutes -> "Kept as timed."
+                        else -> "Stored as ${Format.minutes(minutes)}."
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
-        confirmButton = { PrimaryButton("Save session", onClick = { onConfirm(entered ?: timedMinutes) }, enabled = entered != null) },
+        confirmButton = { PrimaryButton("Save session", onClick = { onConfirm(minutes) }, enabled = minutes > 0) },
         dismissButton = { TextButton(onClick = onCancel) { Text("Back to workout") } },
     )
+}
+
+/**
+ * Pinned above a timed workout that has not started: what is planned, and the one button that
+ * starts the clock. It sits where the clock will, so the card simply changes over on Start.
+ */
+@Composable
+private fun ReadyCard(exercises: List<ExerciseDraft>, onStart: () -> Unit) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val workSets = exercises.sumOf { it.workSets.size }
+    GainsCard(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 8.dp), contentPadding = Dp16.Tight) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("READY", style = MaterialTheme.typography.labelSmall, color = muted)
+                Text(
+                    if (exercises.isEmpty()) "Nothing planned yet" else "${Format.plural(exercises.size, "exercise")} · ${Format.plural(workSets, "set")}",
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+            }
+            Button(
+                onClick = onStart, shape = CircleShape, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
+                modifier = Modifier.semantics { contentDescription = "Start workout" },
+            ) { Text("Start", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+        }
+    }
 }
 
 /**
@@ -802,7 +936,7 @@ private fun ProgramDayDialog(options: List<ProgramDayOption>, selected: ProgramD
 private fun DayChoice(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = if (selected) accent else MaterialTheme.colorScheme.onSurface)
-        if (selected) Text("✓", color = accent, style = MaterialTheme.typography.bodyLarge)
+        if (selected) Icon(Icons.Default.Check, null, tint = accent, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -811,11 +945,15 @@ private fun ExerciseCard(
     exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
     target: String? = null, hint: String? = null, programNote: String? = null, seeded: Boolean = false,
     source: Progression.Source? = null, tier: Gzclp.Tier? = null, warmupsCollapsed: Boolean = false, restTimer: RestTimer? = null,
+    /** False while a timed workout has not started: the checks wait for Start. */
+    canTick: Boolean = true,
+    onPickWeight: (setIndex: Int) -> Unit,
 ) {
     val palette = GainsColors.palette
     val modality = draft.exercise.modality
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val warmups = draft.warmups
+    val labels = draft.labels
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -856,16 +994,16 @@ private fun ExerciseCard(
             )
         }
         if (restTimer != null) RestTimerRow(restTimer, onDismiss = model::dismissRest)
-        Spacer(Modifier.height(6.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("SET", Modifier.width(28.dp), style = MaterialTheme.typography.labelSmall, color = muted)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth().padding(bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
+            Text("SET", Modifier.width(LABEL_WIDTH), style = MaterialTheme.typography.labelSmall, color = muted)
             when (modality) {
                 Modality.WEIGHTED, Modality.BODYWEIGHT -> { Header(unit.label.uppercase()); Header("REPS") }
                 Modality.ISOMETRIC -> { Header("SECONDS"); Header(unit.label.uppercase()) }
                 Modality.CARDIO -> { Header("KM"); Header("SECONDS") }
             }
-            // Room for the check and the remove button on each row.
-            Spacer(Modifier.width(CHECK_SIZE + 8.dp + REMOVE_WIDTH))
+            // Room for the check and the remove control on each row, so the column heads sit over the cells.
+            Spacer(Modifier.width(CHECK_HIT + REMOVE_HIT))
         }
         if (warmups.isNotEmpty()) {
             // Warm-ups are numbered W1, W2… and drawn muted, so the work sets stay 1–5 and read as the workout.
@@ -877,47 +1015,40 @@ private fun ExerciseCard(
                 TextButton(onClick = { model.removeWarmups(exerciseIndex) }) { Text("Remove", color = muted) }
             }
         }
-        var warmupNumber = 0
-        var workNumber = 0
         for ((setIndex, set) in draft.sets.withIndex()) {
-            val label = if (set.isWarmup) "W${++warmupNumber}" else (++workNumber).toString()
+            val label = labels[setIndex]
             if (set.isWarmup && warmupsCollapsed) continue
-            val rowColor = if (set.isWarmup) muted else MaterialTheme.colorScheme.onSurface
-            // A ticked row is tinted, as in Liftoff, so a glance shows how far the workout has got.
-            Row(
-                Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(MaterialTheme.shapes.small)
-                    .background(if (set.done) palette.volt.copy(alpha = 0.12f) else Color.Transparent)
-                    .padding(vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
-            ) {
+            // A ticked row keeps its place in the table: the number and the check turn green and the cells take a tint,
+            // so a glance shows how far the workout has got without the row turning into a card of its own.
+            val done = set.done
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    label, Modifier.width(28.dp).padding(start = 4.dp),
+                    label, Modifier.width(LABEL_WIDTH),
                     style = if (set.isWarmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
-                    color = if (set.done) palette.volt else rowColor,
+                    color = when { done -> palette.volt; set.isWarmup -> muted; else -> MaterialTheme.colorScheme.onSurface },
                 )
                 // The keyboard's action key moves from the first field to the second, then closes the keyboard.
                 when (modality) {
                     Modality.WEIGHTED, Modality.BODYWEIGHT -> {
-                        NumberField(set.weight, { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup, imeAction = ImeAction.Next)
-                        NumberField(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
+                        WeightCell(set.weight, done, set.isWarmup, Modifier.weight(1f), label) { onPickWeight(setIndex) }
+                        SetCell(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, Modifier.weight(1f), done, set.isWarmup, KeyboardType.Number)
                     }
                     Modality.ISOMETRIC -> {
-                        NumberField(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup, imeAction = ImeAction.Next)
-                        NumberField(set.weight, { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
+                        SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), done, set.isWarmup, KeyboardType.Number)
+                        WeightCell(set.weight, done, set.isWarmup, Modifier.weight(1f), label) { onPickWeight(setIndex) }
                     }
                     Modality.CARDIO -> {
-                        NumberField(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup, imeAction = ImeAction.Next)
-                        NumberField(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, fieldColors, Modifier.weight(1f), muted = set.isWarmup)
+                        SetCell(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, Modifier.weight(1f), done, set.isWarmup, KeyboardType.Decimal, ImeAction.Next)
+                        SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), done, set.isWarmup, KeyboardType.Number)
                     }
                 }
-                DoneCheck(
-                    done = set.done, enabled = set.done || set.hasValues, label = "Set $label",
-                    onClick = { model.toggleDone(exerciseIndex, setIndex) },
-                )
-                Box(
-                    Modifier.width(REMOVE_WIDTH).height(CHECK_SIZE).clip(CircleShape).clickable { model.removeSet(exerciseIndex, setIndex) },
-                    contentAlignment = Alignment.Center,
-                ) { Text("×", color = muted, style = MaterialTheme.typography.titleMedium) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    DoneCheck(
+                        done = done, enabled = canTick && (done || set.hasValues), label = "Set $label",
+                        onClick = { model.toggleDone(exerciseIndex, setIndex) },
+                    )
+                    RemoveSetButton(label) { model.removeSet(exerciseIndex, setIndex) }
+                }
             }
         }
         TextButton(onClick = { model.addSet(exerciseIndex) }) { Text("+ Add set", color = palette.volt) }
@@ -925,12 +1056,81 @@ private fun ExerciseCard(
     }
 }
 
-private val CHECK_SIZE = 36.dp
-private val REMOVE_WIDTH = 32.dp
+/* The set table: a 28 dp number column, two equal cells, then a check and a remove control of fixed width. */
+private val LABEL_WIDTH = 28.dp
+private val CELL_GAP = 8.dp
+private val CELL_HEIGHT = 44.dp
+private val CellShape = RoundedCornerShape(12.dp)
+/** Tap targets of the two controls at the end of a row; what is drawn inside is smaller. */
+private val CHECK_HIT = 36.dp
+private val REMOVE_HIT = 32.dp
+private val CHECK_SIZE = 28.dp
+
+/** The fill of a set cell: a quiet container, tinted with the accent once the set is ticked. */
+@Composable
+private fun cellFill(done: Boolean): Color =
+    if (done) GainsColors.palette.volt.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHighest
+
+/**
+ * One typed cell of a set row: reps, seconds or distance. A compact filled box rather than an
+ * outlined text field, so five rows fit a screen and the columns line up with their headings.
+ */
+@Composable
+private fun SetCell(
+    value: String, onChange: (String) -> Unit, modifier: Modifier, done: Boolean, muted: Boolean,
+    keyboardType: KeyboardType, imeAction: ImeAction = ImeAction.Done,
+) {
+    val palette = GainsColors.palette
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val textColor = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+    BasicTextField(
+        value, onChange, modifier = modifier, singleLine = true, interactionSource = interaction,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+        textStyle = MaterialTheme.typography.titleMedium.copy(color = textColor, textAlign = TextAlign.Center),
+        cursorBrush = SolidColor(palette.volt),
+        decorationBox = { inner ->
+            Box(
+                Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(cellFill(done))
+                    .border(1.5.dp, if (focused) palette.volt else Color.Transparent, CellShape)
+                    .padding(horizontal = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                // The dash stands in for an empty cell until the caret takes its place.
+                if (value.isEmpty() && !focused) CellPlaceholder()
+                inner()
+            }
+        },
+    )
+}
+
+/** The weight cell: the same box as a typed cell, but tapping it opens the weight chooser. */
+@Composable
+private fun WeightCell(value: String, done: Boolean, muted: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) {
+    val description = if (value.isEmpty()) "Weight for set $setLabel, none" else "Weight for set $setLabel, $value"
+    Box(
+        modifier.height(CELL_HEIGHT).clip(CellShape).background(cellFill(done)).clickable(onClick = onClick)
+            .semantics { role = Role.Button; contentDescription = description }
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (value.isEmpty()) CellPlaceholder()
+        else Text(
+            value, style = MaterialTheme.typography.titleMedium, maxLines = 1,
+            color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+@Composable
+private fun CellPlaceholder() {
+    Text("–", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+}
 
 /**
  * The tick at the end of a set row, Liftoff-style: an outlined circle until the set is done, then a
- * filled one with a check. Tapping toggles it either way; it is dimmed while the row is empty.
+ * filled one with a check. Tapping toggles it either way; it is dimmed while the row is empty or the
+ * workout has not started.
  */
 @Composable
 private fun DoneCheck(done: Boolean, enabled: Boolean, label: String, onClick: () -> Unit) {
@@ -938,16 +1138,30 @@ private fun DoneCheck(done: Boolean, enabled: Boolean, label: String, onClick: (
     val outline = MaterialTheme.colorScheme.outline
     val description = if (done) "$label done" else "$label not done"
     Box(
-        Modifier
-            .size(CHECK_SIZE)
-            .clip(CircleShape)
-            .background(if (done) palette.volt else Color.Transparent)
-            .border(1.5.dp, if (done) palette.volt else outline.copy(alpha = if (enabled) 1f else 0.35f), CircleShape)
-            .clickable(enabled = enabled, onClick = onClick)
+        Modifier.size(CHECK_HIT, CELL_HEIGHT).clip(CellShape).clickable(enabled = enabled, onClick = onClick)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        if (done) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
+        Box(
+            Modifier.size(CHECK_SIZE).clip(CircleShape)
+                .background(if (done) palette.volt else Color.Transparent)
+                .border(1.5.dp, if (done) palette.volt else outline.copy(alpha = if (enabled) 1f else 0.35f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (done) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+/** A quiet × that removes the row, the same height as the check so the two sit on one line. */
+@Composable
+private fun RemoveSetButton(label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(REMOVE_HIT, CELL_HEIGHT).clip(CellShape).clickable(onClick = onClick)
+            .semantics { contentDescription = "Remove set $label" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
     }
 }
 
@@ -971,17 +1185,5 @@ private fun RestTimerRow(timer: RestTimer, onDismiss: () -> Unit) {
 
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.Header(text: String) {
-    Text(text, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
-
-@Composable
-private fun NumberField(
-    value: String, onChange: (String) -> Unit, colors: androidx.compose.material3.TextFieldColors, modifier: Modifier,
-    muted: Boolean = false, imeAction: ImeAction = ImeAction.Done,
-) {
-    OutlinedTextField(
-        value, onChange, singleLine = true, modifier = modifier, colors = colors, shape = MaterialTheme.shapes.small,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = imeAction),
-        textStyle = if (muted) MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant) else MaterialTheme.typography.bodyLarge,
-    )
+    Text(text, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
 }

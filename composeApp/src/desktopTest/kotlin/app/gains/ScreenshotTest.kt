@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -111,7 +112,9 @@ class ScreenshotTest {
             check(await(matcher, timeoutMillis)) { "Gave up waiting for ${matcher.description}" }
         fun shot(name: String) {
             settle()
-            ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(outDir, "$name.png"))
+            // A bottom sheet or dialog is a root of its own; the scene is rendered whole and cropped to the first
+            // root's bounds, which are the full window, so onRoot() (exactly one root) is not used here.
+            ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(outDir, "$name.png"))
             println("screenshot: $name")
         }
         fun tab(label: String) {
@@ -247,15 +250,31 @@ class ScreenshotTest {
         shot("13-program-detail")
         onNode(hasText("A1") and hasClickAction()).performClick()
         require(text("5 × 3+"))
-        // Starting a day runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
+        // A day opens ready, with the plan to look over; nothing runs until Start is pressed.
+        val startButton = hasContentDescription("Start workout") and hasClickAction()
+        require(startButton)
+        settle(1_000)
+        shot("14-program-day-ready")
+        onNode(startButton).performClick()
+        // Start runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
         require(text("Total"))
         // The clock and day notes push the first work set below the fold, so bring it into view before tapping.
         val firstSet = hasContentDescription("Set 1 not done") and hasClickAction()
         scrollIntoView(firstSet)
         onAllNodes(firstSet).onFirst().performClick()
         require(hasContentDescription("Set 1 done"))
+        // Ticking inserted the rest countdown above the row, so bring the ticked row back into view.
+        scrollIntoView(hasContentDescription("Set 1 done"))
         settle(1_000)
         shot("14-program-day")
+        // The weight of a set is picked on a wheel rather than typed.
+        onAllNodes(hasContentDescription("Weight for set 1,", substring = true) and hasClickAction()).onFirst().performClick()
+        require(text("No weight"))
+        settle(1_000)
+        shot("14b-weight-picker")
+        onNode(hasText("Done") and hasClickAction()).performClick()
+        settle(1_500)
+        require(hasText("End") and hasClickAction())
         // Leaving with Back keeps the workout running; every other screen shows it above the tabs.
         onNode(hasContentDescription("Back") and hasClickAction()).performClick()
         settle()
@@ -264,6 +283,21 @@ class ScreenshotTest {
         require(text("Resume"))
         settle(1_000)
         shot("15-home-program")
+        // 9. Logging a past workout: the date, time and duration are chosen, not typed.
+        onNode(hasContentDescription("Add") and hasClickAction()).performClick()
+        require(text("Log past workout"))
+        onNode(text("Log past workout") and hasClickAction()).performClick()
+        require(text("Not timed"))
+        settle(1_000)
+        shot("16-log-workout")
+        onNode(hasContentDescription("Date:", substring = true) and hasClickAction()).performClick()
+        require(hasText("Done") and hasClickAction())
+        settle(1_000)
+        shot("16b-date-picker")
+        onNode(hasText("Done") and hasClickAction()).performClick()
+        settle(1_500)
+        onNode(hasText("Cancel") and hasClickAction()).performClick()
+        require(text("Up next"), 60_000)
         // Back into the workout through the bar, then end it: the stored session takes the timed duration.
         onNode(text("Resume") and hasClickAction()).performClick()
         require(text("Total"))
