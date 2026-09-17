@@ -3,6 +3,8 @@ package app.gains
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
@@ -116,6 +118,29 @@ class ScreenshotTest {
             onNode(hasContentDescription(label) and hasClickAction()).performClick()
             settle()
         }
+        /**
+         * Scrolls the first node matching [matcher] into its list's viewport. performScrollTo() is no use
+         * here: it repeats the list's scroll action until the node is in view, but a LazyColumn scrolls
+         * with an animation and the clock is manual, so that loop never ends. Scroll once, then run frames.
+         */
+        fun scrollIntoView(matcher: SemanticsMatcher) {
+            val target = onAllNodes(matcher).onFirst().fetchSemanticsNode("Nothing to scroll to: ${matcher.description}")
+            var scrollable: SemanticsNode? = target.parent
+            while (scrollable != null && SemanticsActions.ScrollBy !in scrollable.config) scrollable = scrollable.parent
+            val list = checkNotNull(scrollable) { "${matcher.description} is not inside a scrollable list" }
+            val viewport = list.boundsInRoot
+            val top = target.positionInRoot.y
+            val bottom = top + target.size.height
+            // Room for a row to appear above the target (ticking a set inserts the rest countdown).
+            val margin = 240f
+            val dy = when {
+                bottom > viewport.bottom -> bottom - viewport.bottom + margin
+                top < viewport.top -> top - viewport.top - margin
+                else -> return
+            }
+            runOnUiThread { list.config[SemanticsActions.ScrollBy].action?.invoke(0f, dy) }
+            settle(1_500)
+        }
 
         // 1. Welcome / sign-in gate.
         require(text("Continue as guest"))
@@ -224,7 +249,10 @@ class ScreenshotTest {
         require(text("5 × 3+"))
         // Starting a day runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
         require(text("Total"))
-        onAllNodes(hasContentDescription("Set 1 not done") and hasClickAction()).onFirst().performClick()
+        // The clock and day notes push the first work set below the fold, so bring it into view before tapping.
+        val firstSet = hasContentDescription("Set 1 not done") and hasClickAction()
+        scrollIntoView(firstSet)
+        onAllNodes(firstSet).onFirst().performClick()
         require(hasContentDescription("Set 1 done"))
         settle(1_000)
         shot("14-program-day")
