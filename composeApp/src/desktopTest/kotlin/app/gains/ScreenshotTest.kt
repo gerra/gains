@@ -247,7 +247,13 @@ class ScreenshotTest {
         shot("13-program-detail")
         onNode(hasText("A1") and hasClickAction()).performClick()
         require(text("5 × 3+"))
-        // Starting a day runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
+        // A day opens ready, with the plan to look over; nothing runs until Start is pressed.
+        val startButton = hasContentDescription("Start workout") and hasClickAction()
+        require(startButton)
+        settle(1_000)
+        shot("14-program-day-ready")
+        onNode(startButton).performClick()
+        // Start runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
         require(text("Total"))
         // The clock and day notes push the first work set below the fold, so bring it into view before tapping.
         val firstSet = hasContentDescription("Set 1 not done") and hasClickAction()
