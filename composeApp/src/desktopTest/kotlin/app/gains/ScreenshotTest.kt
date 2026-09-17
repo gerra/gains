@@ -12,6 +12,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
@@ -224,7 +225,8 @@ class ScreenshotTest {
         require(text("5 × 3+"))
         // Starting a day runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
         require(text("Total"))
-        onAllNodes(hasContentDescription("Set 1 not done") and hasClickAction()).onFirst().performClick()
+        // The clock and day notes push the first work set below the fold, so bring it into view before tapping.
+        onAllNodes(hasContentDescription("Set 1 not done") and hasClickAction()).onFirst().performScrollTo().performClick()
         require(hasContentDescription("Set 1 done"))
         settle(1_000)
         shot("14-program-day")
