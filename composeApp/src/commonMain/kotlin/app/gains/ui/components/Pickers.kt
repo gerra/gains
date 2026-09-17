@@ -2,6 +2,21 @@ package app.gains.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
+import app.gains.analysis.Dates
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.isoDayNumber
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -22,14 +37,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,12 +72,8 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.toLocalDateTime
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlin.time.Instant
 
 /*
  * Value choosers in the style of iOS: a spinning wheel for anything numeric (time, duration,
@@ -223,38 +231,83 @@ fun ChooserRow(label: String, value: String, onClick: () -> Unit, modifier: Modi
     }
 }
 
-/** A calendar; the picked day applies straight away. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** A calendar, a month at a time; the picked day applies straight away. */
 @Composable
 fun DatePickerSheet(date: LocalDate, onPick: (LocalDate) -> Unit, onDismiss: () -> Unit) {
+    PickerSheet("Date", onDismiss = onDismiss) { CalendarPicker(date, onPick) }
+}
+
+/**
+ * A month grid, Monday first, with the chosen day filled and today ringed. Material's own
+ * DatePicker is not used: the one in this Compose release still looks for kotlinx.datetime.Instant,
+ * which kotlinx-datetime 0.7 moved to kotlin.time, and crashes the moment it is shown.
+ */
+@Composable
+fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
     val palette = GainsColors.palette
-    val state = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds())
-    LaunchedEffect(state.selectedDateMillis) {
-        // The picker hands back UTC midnight of the chosen day.
-        val millis = state.selectedDateMillis ?: return@LaunchedEffect
-        val picked = Instant.fromEpochMilliseconds(millis).toLocalDateTime(TimeZone.UTC).date
-        if (picked != date) onPick(picked)
-    }
-    PickerSheet("Date", onDismiss = onDismiss) {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            DatePicker(
-                state = state,
-                title = null,
-                headline = null,
-                showModeToggle = false,
-                colors = DatePickerDefaults.colors(
-                    containerColor = Color.Transparent,
-                    selectedDayContainerColor = palette.volt,
-                    selectedDayContentColor = MaterialTheme.colorScheme.onPrimary,
-                    todayContentColor = palette.volt,
-                    todayDateBorderColor = palette.volt,
-                    selectedYearContainerColor = palette.volt,
-                    selectedYearContentColor = MaterialTheme.colorScheme.onPrimary,
-                    currentYearContentColor = palette.volt,
-                ),
-            )
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val today = Dates.today()
+    var month by remember(selected.year, selected.month) { mutableStateOf(LocalDate(selected.year, selected.month, 1)) }
+    val daysInMonth = month.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).day
+    // Blank cells before the 1st, so every column is one weekday.
+    val leading = month.dayOfWeek.isoDayNumber - 1
+    Column(modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("${Dates.monthName(month)} ${month.year}", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous month") { month = month.minus(1, DateTimeUnit.MONTH) }
+            Spacer(Modifier.width(6.dp))
+            MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next month") { month = month.plus(1, DateTimeUnit.MONTH) }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth()) {
+            for (day in DayOfWeek.entries) {
+                Text(Dates.dayLabel(day).take(2), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted, textAlign = TextAlign.Center)
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        val rows = (leading + daysInMonth + 6) / 7
+        for (row in 0 until rows) {
+            Row(Modifier.fillMaxWidth()) {
+                for (column in 0 until 7) {
+                    val dayNumber = row * 7 + column - leading + 1
+                    Box(Modifier.weight(1f).height(44.dp), contentAlignment = Alignment.Center) {
+                        if (dayNumber in 1..daysInMonth) {
+                            val day = LocalDate(month.year, month.month, dayNumber)
+                            val isSelected = day == selected
+                            val isToday = day == today
+                            val description = "${Dates.dayLabel(day.dayOfWeek)} ${Dates.shortWithYear(day)}" + if (isSelected) ", chosen" else ""
+                            Box(
+                                Modifier.size(38.dp).clip(CircleShape)
+                                    .background(if (isSelected) palette.volt else Color.Transparent)
+                                    .border(1.5.dp, if (isToday && !isSelected) palette.volt else Color.Transparent, CircleShape)
+                                    .clickable { onPick(day) }
+                                    .semantics { contentDescription = description },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    dayNumber.toString(),
+                                    style = if (isSelected || isToday) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+                                    color = when {
+                                        isSelected -> MaterialTheme.colorScheme.onPrimary
+                                        isToday -> palette.volt
+                                        else -> MaterialTheme.colorScheme.onSurface
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun MonthArrow(icon: ImageVector, description: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, description, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp)) }
 }
 
 private val HourLabels = List(24) { it.toString().padStart(2, '0') }
