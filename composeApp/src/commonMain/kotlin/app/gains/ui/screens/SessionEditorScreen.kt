@@ -58,9 +58,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
+import app.gains.analysis.PreviousSets
 import app.gains.analysis.TrainingData
 import app.gains.analysis.TrainingSnapshot
 import app.gains.data.ExerciseRepository
@@ -135,6 +137,19 @@ data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraft>, val n
         var work = 0
         return sets.map { if (it.isWarmup) "W${++warmup}" else (++work).toString() }
     }
+
+    /**
+     * What each row was last time, in row order: the same-numbered warm-up or work set of [previous]
+     * as "60×5", or null where last time had no such set. All null without a previous session.
+     */
+    fun previousLabels(previous: ExerciseEntry?, unit: WeightUnit): List<String?> {
+        var warmup = 0
+        var work = 0
+        return sets.map { set ->
+            val ordinal = if (set.isWarmup) ++warmup else ++work
+            PreviousSets.matching(previous, set.isWarmup, ordinal)?.let { PreviousSets.label(it, exercise.modality, unit) }
+        }
+    }
 }
 
 /** A program day the workout can be tagged with: "GZCLP · A1". */
@@ -169,6 +184,8 @@ data class EditorState(
     val targets: Map<String, String> = emptyMap(),
     /** exercise id -> "Last: 60 kg × 5,5,5 → try 62.5 kg" */
     val hints: Map<String, String> = emptyMap(),
+    /** exercise id -> the exercise's most recent session before this one, for the PREV column of its set table. */
+    val previous: Map<String, ExerciseEntry> = emptyMap(),
     /** exercise id -> program note */
     val notes: Map<String, String> = emptyMap(),
     /** Exercises whose weights were borrowed from a session outside this slot's scheme; the card offers to clear them. */
@@ -230,7 +247,15 @@ class SessionEditorModel(
     val state: StateFlow<EditorState> = _state
 
     /** What the planner and the restore need, kept for a resume after the conflict dialog. */
-    private class Context(val snapshot: TrainingSnapshot, val unit: WeightUnit, val planOptions: PlanOptions, val programs: List<Program>, val dayOptions: List<ProgramDayOption>)
+    private class Context(
+        val snapshot: TrainingSnapshot, val unit: WeightUnit, val planOptions: PlanOptions, val programs: List<Program>, val dayOptions: List<ProgramDayOption>,
+        /** The workout being edited, when it is a logged one: its own sets are not "previous", nor are any logged after it. */
+        val editing: Session? = null,
+    ) {
+        /** The exercise's last session before this workout, for the PREV column; null when it has never been trained. */
+        fun previousFor(exerciseId: String): ExerciseEntry? =
+            PreviousSets.lastEntry(snapshot, exerciseId, before = editing?.timestamp, excludeSessionId = editing?.id)
+    }
     private var context: Context? = null
     private var persistJob: Job? = null
     /** Set once the workout was stored or discarded, so nothing writes it back afterwards. */
@@ -247,7 +272,7 @@ class SessionEditorModel(
             // which must not be frozen into the row on save.
             val existing = sessionId?.let { id -> sessions.observeRawSessions().first().firstOrNull { it.id == id } }
             val programList = programs.observePrograms().first()
-            val ctx = Context(snapshot, unit, planOptions, programList, programList.flatMap { p -> p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), p.name, it.name) } })
+            val ctx = Context(snapshot, unit, planOptions, programList, programList.flatMap { p -> p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), p.name, it.name) } }, editing = existing)
             context = ctx
             val stored = if (live && existing == null) liveSessions.load() else null
             _state.value = when {
@@ -267,7 +292,7 @@ class SessionEditorModel(
                 programDay != null -> planned(ctx, programDay).copy(timed = live)
                 live -> fresh(ctx).copy(title = "Workout", timed = true)
                 else -> fresh(ctx)
-            }
+            }.withPrevious(ctx)
             if (live) persistWhileRunning()
         }
     }
@@ -332,6 +357,10 @@ class SessionEditorModel(
         }
     }
 
+    /** The PREV column's data for every exercise in the editor. */
+    private fun EditorState.withPrevious(ctx: Context): EditorState =
+        copy(previous = exercises.mapNotNull { e -> ctx.previousFor(e.exercise.id)?.let { e.exercise.id to it } }.toMap())
+
     private fun update(f: (EditorState) -> EditorState) { _state.value = f(_state.value) }
     fun setDate(v: LocalDate) = update { it.copy(date = v) }
     fun setTime(v: LocalTime) = update { it.copy(time = v) }
@@ -353,7 +382,13 @@ class SessionEditorModel(
 
     fun addExercise(exercise: Exercise) = update { s ->
         if (s.exercises.any { it.exercise.id == exercise.id }) s
-        else s.copy(exercises = s.exercises + ExerciseDraft(exercise, listOf(SetDraft())))
+        else {
+            val previous = context?.previousFor(exercise.id)
+            s.copy(
+                exercises = s.exercises + ExerciseDraft(exercise, listOf(SetDraft())),
+                previous = if (previous != null) s.previous + (exercise.id to previous) else s.previous,
+            )
+        }
     }
 
     fun addExercises(picked: List<Exercise>) = picked.forEach { addExercise(it) }
@@ -678,6 +713,7 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
                     source = state.sources[draft.exercise.id],
                     tier = state.tiers[draft.exercise.id],
                     warmupsCollapsed = draft.exercise.id in state.collapsedWarmups,
+                    previous = state.previous[draft.exercise.id],
                     canTick = !state.timed || state.isRunning,
                     onPickWeight = { setIndex -> weightTarget = exerciseIndex to setIndex },
                 )
@@ -944,6 +980,8 @@ private fun ExerciseCard(
     exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
     target: String? = null, hint: String? = null, programNote: String? = null, seeded: Boolean = false,
     source: Progression.Source? = null, tier: Gzclp.Tier? = null, warmupsCollapsed: Boolean = false,
+    /** The exercise's last session, whose sets fill the PREV column row by row. */
+    previous: ExerciseEntry? = null,
     /** False while a timed workout has not started: the checks wait for Start. */
     canTick: Boolean = true,
     onPickWeight: (setIndex: Int) -> Unit,
@@ -953,6 +991,7 @@ private fun ExerciseCard(
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val warmups = draft.warmups
     val labels = draft.labels
+    val previousLabels = draft.previousLabels(previous, unit)
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -995,6 +1034,7 @@ private fun ExerciseCard(
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth().padding(bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
             Text("SET", Modifier.width(LABEL_WIDTH), style = MaterialTheme.typography.labelSmall, color = muted)
+            Header("PREV", Modifier.width(PREVIOUS_WIDTH))
             when (modality) {
                 Modality.WEIGHTED, Modality.BODYWEIGHT -> { Header(unit.label.uppercase()); Header("REPS") }
                 Modality.ISOMETRIC -> { Header("SECONDS"); Header(unit.label.uppercase()) }
@@ -1025,6 +1065,7 @@ private fun ExerciseCard(
                     style = if (set.isWarmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
                     color = when { done -> palette.volt; set.isWarmup -> muted; else -> MaterialTheme.colorScheme.onSurface },
                 )
+                PreviousCell(previousLabels[setIndex], label)
                 // The keyboard's action key moves from the first field to the second, then closes the keyboard.
                 when (modality) {
                     Modality.WEIGHTED, Modality.BODYWEIGHT -> {
@@ -1054,8 +1095,9 @@ private fun ExerciseCard(
     }
 }
 
-/* The set table: a 28 dp number column, two equal cells, then a check and a remove control of fixed width. */
+/* The set table: a 28 dp number column, a 56 dp "last time" column, two equal cells, then a check and a remove control of fixed width. */
 private val LABEL_WIDTH = 28.dp
+private val PREVIOUS_WIDTH = 56.dp
 private val CELL_GAP = 8.dp
 private val CELL_HEIGHT = 44.dp
 private val CellShape = RoundedCornerShape(12.dp)
@@ -1091,7 +1133,7 @@ private fun SetCell(
             Box(
                 Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(cellFill(done))
                     .border(1.5.dp, if (focused) palette.volt else Color.Transparent, CellShape)
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 // The dash stands in for an empty cell until the caret takes its place.
@@ -1109,13 +1151,32 @@ private fun WeightCell(value: String, done: Boolean, muted: Boolean, modifier: M
     Box(
         modifier.height(CELL_HEIGHT).clip(CellShape).background(cellFill(done)).clickable(onClick = onClick)
             .semantics { role = Role.Button; contentDescription = description }
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (value.isEmpty()) CellPlaceholder()
         else Text(
             value, style = MaterialTheme.typography.titleMedium, maxLines = 1,
             color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/**
+ * What the same set was last session, read-only and muted so the typed cells stay the focus:
+ * "60×5", or the dash when last time had no such set or the exercise is new.
+ */
+@Composable
+private fun PreviousCell(label: String?, setLabel: String) {
+    val description = if (label == null) "Previous set $setLabel, none" else "Previous set $setLabel, $label"
+    Box(
+        Modifier.width(PREVIOUS_WIDTH).height(CELL_HEIGHT).semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (label == null) CellPlaceholder()
+        else Text(
+            label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
     }
 }
@@ -1164,6 +1225,6 @@ private fun RemoveSetButton(label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.Header(text: String) {
-    Text(text, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+private fun androidx.compose.foundation.layout.RowScope.Header(text: String, modifier: Modifier = Modifier.weight(1f)) {
+    Text(text, modifier, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
 }

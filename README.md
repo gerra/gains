@@ -98,6 +98,8 @@ device today.
   1RM, T1 starts at 85% of it, T2 at 65% and T3 at about 52%, rounded down to the plates and
   never at a weight you already failed for the tier's reps (`Last: 50 kg × 6,8,9 → est. 1RM
   ~65 kg → T2 start 40 kg`). Once a tier has its own sessions, its ladder takes over.
+  Whatever the workout, every set row carries a `PREV` column with the same-numbered set of the
+  exercise's last session (`60×5`), so each set can be judged against last time while it is typed.
 - **Warm-ups and rest.** Tiered days pre-fill warm-up sets (T1: empty bar, 40/60/80%; T2: bar
   and 60%; T3: one light set on cables and machines), labelled `W1, W2…` so the work sets stay
   1–5. They are stored as warm-ups and never count towards volume, records or progression, can
