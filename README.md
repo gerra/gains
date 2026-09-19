@@ -110,8 +110,8 @@ device today.
   If you save with some work sets ticked and others left unticked, you're asked whether to leave
   the unticked ones out; a workout where nothing was ticked saves every set as before.
 - **Timed sessions.** Opening a program day (or **Start workout** from the **+** menu) shows the
-  plan ready to go; nothing runs until you press **Start**. From then the workout is against the
-  clock: a bar pinned above the sets shows the total time and the rest left, and ticking a set
+  plan ready to go, every set shown disabled; nothing runs and nothing can be changed until you
+  press **Start**. From then the workout is against the clock: a bar pinned above the sets shows the total time and the rest left, and ticking a set
   restarts the countdown. The workout is written to the database as you go, so it survives the
   app being killed; leave it and a bar above the tabs shows it ticking with a tap to resume.
   **End session** asks about unticked sets the same way, stores the workout with the timed
