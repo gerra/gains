@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,6 +21,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -43,6 +48,7 @@ import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.MetricTile
+import app.gains.ui.components.PickerSheet
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.ScreenTitle
@@ -83,6 +89,8 @@ data class HistoryState(
     val years: List<YearGroup> = emptyList(),
     val exercisesById: Map<String, Exercise> = emptyMap(),
     val perDay: Map<LocalDate, Int> = emptyMap(),
+    /** Every day's sessions, newest first, for opening a day from the calendar. */
+    val sessionsByDay: Map<LocalDate, List<Session>> = emptyMap(),
     val weeks: List<WeekCount> = emptyList(),
     val stats: ConsistencyStats? = null,
     val streakWeeks: Int = 0,
@@ -102,6 +110,7 @@ class HistoryModel(trainingData: TrainingData = inject(), programs: ProgramRepos
                 years = groupByYearAndMonth(sessions),
                 exercisesById = snapshot.exercisesById,
                 perDay = ConsistencyAnalyzer.perDay(snapshot.sessions),
+                sessionsByDay = sessions.groupBy { it.date },
                 weeks = ConsistencyAnalyzer.sessionsPerWeek(snapshot.sessions, today),
                 stats = InsightEngine().consistencyStats(snapshot.sessions, today),
                 streakWeeks = ConsistencyAnalyzer.currentStreakWeeks(snapshot.sessions, today),
@@ -110,7 +119,10 @@ class HistoryModel(trainingData: TrainingData = inject(), programs: ProgramRepos
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), HistoryState())
 }
 
-/** Every session, newest first, with the consistency picture on top. Tap to edit, plus to log. */
+/**
+ * Every session, newest first, with the consistency picture on top. Tap a session, or its day on
+ * the calendar, to edit it; plus to log.
+ */
 @Composable
 fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
     val model = rememberScreenModel { HistoryModel() }
@@ -118,6 +130,8 @@ fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
     if (state.loading) return
     val today = Dates.today()
     val palette = GainsColors.palette
+    // A calendar day with more than one session: which of them to open is asked in a sheet.
+    var pickedDay by remember { mutableStateOf<LocalDate?>(null) }
     if (state.sessions.isEmpty()) {
         EmptyState("No sessions yet", "Log a workout here or import your history. Your calendar and sessions-per-week trend will build up as you go.", emoji = "▦", action = { PrimaryButton("Log a workout", onLog) })
         return
@@ -141,8 +155,19 @@ fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
             }
         }
         item {
-            SectionHeader("Last 26 weeks")
-            GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) { CalendarHeatmap(state.perDay, today, weeks = 26) }
+            SectionHeader("Last 26 weeks") {
+                Text("Tap a day to open it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+                CalendarHeatmap(state.perDay, today, weeks = 26, onDayClick = { day ->
+                    val onDay = state.sessionsByDay[day].orEmpty()
+                    when (onDay.size) {
+                        0 -> {}
+                        1 -> onOpen(onDay.single().id)
+                        else -> { pickedDay = day }
+                    }
+                })
+            }
         }
         if (state.weeks.size >= 2) {
             item {
@@ -161,6 +186,33 @@ fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
                 items(month.sessions, key = { it.id }, contentType = { "session" }) { session ->
                     SessionRow(session, state.exercisesById, today, state.dayNames[session.program?.dayId], onClick = { onOpen(session.id) })
                 }
+            }
+        }
+    }
+    pickedDay?.let { day ->
+        DaySessionsSheet(
+            day, state.sessionsByDay[day].orEmpty(), state.exercisesById, state.dayNames, today,
+            onOpen = { pickedDay = null; onOpen(it) },
+            onDismiss = { pickedDay = null },
+        )
+    }
+}
+
+/** The sessions of one calendar day, newest first, each a tap away from its editor. */
+@Composable
+private fun DaySessionsSheet(
+    day: LocalDate,
+    sessions: List<Session>,
+    exercisesById: Map<String, Exercise>,
+    dayNames: Map<String, String>,
+    today: LocalDate,
+    onOpen: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    PickerSheet("${Dates.dayLabel(day.dayOfWeek)} ${Dates.contextual(day, today)}", subtitle = Format.plural(sessions.size, "session"), onDismiss = onDismiss) {
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+            for (session in sessions) {
+                SessionRow(session, exercisesById, today, dayNames[session.program?.dayId], onClick = { onOpen(session.id) })
             }
         }
     }
