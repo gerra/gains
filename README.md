@@ -114,6 +114,9 @@ device today.
   app being killed; leave it and a bar above the tabs shows it ticking with a tap to resume.
   **End session** asks about unticked sets the same way, stores the workout with the timed
   duration, and past three hours asks whether the timer was left running before it does.
+  While it runs, the workout is a tap away from anywhere: an ongoing notification in the tray
+  on Android, with the clock counting up and the rest counting down, one in Notification Centre
+  on iOS, and a tray icon on the desktop. Each is cleared when the session is ended or discarded.
   **Log past workout** still logs a session by date, time and duration.
 - **Nothing to type but reps.** Weights are picked on a wheel (whole units and quarters, with
   plate-jump buttons for the usual step between sets), the date on a calendar, the time and the
