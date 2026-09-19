@@ -25,6 +25,7 @@ import app.gains.platform.LiveSessionNotice
 import app.gains.platform.LiveSessionNotifier
 import app.gains.platform.PickedFile
 import app.gains.platform.ResumeRequests
+import app.gains.platform.SkipRestRequests
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.dsl.module
@@ -52,9 +53,13 @@ fun main(args: Array<String>) {
                 }
                 Tray(
                     icon = VoltDot,
-                    tooltip = "${notice.title} in progress",
+                    tooltip = if (notice.restEndsAtMs != null) "${notice.title} in progress, resting" else "${notice.title} in progress",
                     onAction = resume,
-                    menu = { Item("Resume ${notice.title}", onClick = resume) },
+                    menu = {
+                        Item("Resume ${notice.title}", onClick = resume)
+                        // Only while a rest counts down: the notice is re-sent without it once it is over.
+                        if (notice.restEndsAtMs != null) Item("Skip rest", onClick = { SkipRestRequests.request() })
+                    },
                 )
             }
         }

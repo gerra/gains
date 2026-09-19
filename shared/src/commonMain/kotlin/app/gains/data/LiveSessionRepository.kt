@@ -102,6 +102,9 @@ class LiveSessionRepository(
         }
     }
 
+    /** Drops the rest countdown from the stored workout, leaving everything else as it is. No-op without one. */
+    suspend fun clearRest() = withContext(io) { q.clearRest() }
+
     suspend fun clear() = withContext(io) {
         db.transaction {
             q.deleteLiveSets()

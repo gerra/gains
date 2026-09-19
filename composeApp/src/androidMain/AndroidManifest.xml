@@ -41,5 +41,9 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <!-- "Skip rest" on the workout notification; see SkipRestReceiver. -->
+        <receiver
+            android:name=".SkipRestReceiver"
+            android:exported="false" />
     </application>
 </manifest>

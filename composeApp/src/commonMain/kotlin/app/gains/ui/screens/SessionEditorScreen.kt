@@ -413,6 +413,18 @@ class SessionEditorModel(
     }
 
     fun dismissRest() = update { it.copy(restTimer = null) }
+
+    /**
+     * "Skip rest" from the platform's notice. True when the workout runs in this editor, which then
+     * drops the rest (and writes it out with the next persist); false when the running workout is
+     * not this editor's, so the caller has to change it in the database instead.
+     */
+    fun skipRest(): Boolean {
+        val s = _state.value
+        if (!live || finished || !s.isRunning || s.conflict != null) return false
+        dismissRest()
+        return true
+    }
     fun setNote(index: Int, note: String) = update { it.copy(exercises = it.exercises.mapIndexed { i, e -> if (i == index) e.copy(note = note) else e }) }
 
     /** Adds a work set like the last one (never a copy of a warm-up). */

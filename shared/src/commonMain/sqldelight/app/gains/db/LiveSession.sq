@@ -54,6 +54,9 @@ insertLiveSet:
 INSERT INTO live_set(exercise_position, set_order, weight, reps, seconds, distance_km, is_warmup, done)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
+clearRest:
+UPDATE live_session SET rest_exercise_id = NULL, rest_ends_at_ms = NULL, rest_total_seconds = NULL WHERE id = 1;
+
 deleteLiveSession:
 DELETE FROM live_session;
 
