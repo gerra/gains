@@ -25,6 +25,7 @@
   <a href="#getting-started">Getting started</a> ·
   <a href="#testflight">TestFlight</a> ·
   <a href="#importing-your-history">Importing</a> ·
+  <a href="#apple-health">Apple Health</a> ·
   <a href="#insights">Insights</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#contributing">Contributing</a>
@@ -68,6 +69,7 @@ device today.
 - [Importing your history](#importing-your-history)
   - [Supported exports](#supported-exports)
   - [What happens to a file](#what-happens-to-a-file)
+- [Apple Health](#apple-health)
 - [Insights](#insights)
 - [Architecture](#architecture)
 - [Development](#development)
@@ -132,6 +134,10 @@ device today.
 - **Log and edit workouts.** Add sessions in the app, edit imported ones (date, duration,
   exercises, sets, notes) and have the edits flow into the same analyses.
 - **Bodyweight tracking** with a 7-day average, and any lift overlaid on the trend.
+- **Apple Health.** On iPhone, connect once in Settings and every workout you end or log lands in
+  Health as strength training, so it shows in the Fitness app; weigh-ins from a scale or the Health
+  app appear on the Body tab, and weights you log go to Health. Manual entries always win over
+  synced ones. See [Apple Health](#apple-health).
 - **A catalogue that understands names.** Nearly 300 built-in exercises with muscle
   contributions, equipment tags and aliases, so `Seated Dumbbell Shoulder Press` and
   `Seated Shoulder Press` are one lift. About 180 of them were curated from the public-domain
@@ -221,8 +227,10 @@ open iosApp/iosApp.xcodeproj
 Pick a device or simulator and run. The signing team, bundle id, version and build number live
 in `iosApp/Configuration/Config.xcconfig`; change `TEAM_ID` there to build under another team.
 The *Compile Kotlin Framework* phase runs Gradle with `-Pgains.android=false`, so a Mac needs a
-JDK but no Android SDK. The Xcode project wraps the `ComposeApp` framework in SwiftUI and
-registers the app as a CSV handler, so **Open in Gains** appears in the share sheet.
+JDK but no Android SDK. The Xcode project wraps the `ComposeApp` framework in SwiftUI,
+registers the app as a CSV handler, so **Open in Gains** appears in the share sheet, and carries the
+HealthKit entitlement for [Apple Health](#apple-health), which automatic signing adds to the App ID
+on the first device build.
 
 To put a build on a phone without a Mac and a cable, see [TestFlight](#testflight).
 
@@ -315,6 +323,35 @@ de-duplicated against itself and the database exactly as a single file would be.
 
 </details>
 
+## Apple Health
+
+On iPhone (and iPads with the Health app), **Settings > Apple Health > Connect** shows the system
+permission sheet once and then keeps the two in step:
+
+| Direction | What | When |
+|-----------|------|------|
+| Gains → Health | A *Traditional Strength Training* workout with the session's start time and duration, tagged with the session id. | When a timed session is ended or a workout with a duration is logged. Editing replaces the record, deleting removes it. Imported history is never sent: the app it came from may have recorded it already. |
+| Gains → Health | A body mass sample. | When a weight is entered on the Body tab. Editing a day replaces Gains' own sample for it; other apps' samples are left alone. |
+| Health → Gains | The latest body mass sample of each day, from any app or scale. | On launch and each time the Body tab opens (the last 30 days before the previous sync onwards, since scale apps hand weigh-ins over late), or everything on **Sync now**. |
+
+The rules, all in [`HealthSync.kt`](shared/src/commonMain/kotlin/app/gains/health/HealthSync.kt)
+and unit-tested against a fake store:
+
+- A day you logged yourself is never changed by a sync. A day that came from Health is marked
+  **Health** on the Body tab, follows its sample when that changes, and disappears when the sample
+  is deleted in the Health app. Weights Gains wrote are never read back in.
+- No calories are written. Without a watch there is no honest number for a lifting session, and
+  the Fitness app fills it in from a watch on its own.
+- Each direction has its own switch, and **Disconnect** stops both. What was written stays in
+  Health; permissions are managed under **Health > Sharing > Apps > Gains**. iOS reports only
+  whether writing is allowed, so Settings warns when workouts are refused but cannot tell whether
+  reading is.
+
+`HealthStore` is the small interface the sync talks to; [`IosHealthStore.kt`](shared/src/iosMain/kotlin/app/gains/health/IosHealthStore.kt)
+implements it over HealthKit and every other platform binds a no-op, which hides the feature.
+The Xcode project carries the HealthKit entitlement, capability and usage strings; a manually made
+App Store profile has to include the capability (see [docs/testflight.md](docs/testflight.md)).
+
 ## Insights
 
 Insight rules are pure functions in [`InsightEngine.kt`](shared/src/commonMain/kotlin/app/gains/analysis/InsightEngine.kt)
@@ -361,13 +398,13 @@ flowchart LR
 
 | Module | Contents |
 |--------|----------|
-| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence (including the workout in progress), insight engine, program rotation and progression logic. Pure Kotlin, no UI, 100+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
+| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence (including the workout in progress), insight engine, program rotation and progression logic, and the health-store sync with its HealthKit implementation in the iOS source set. Pure Kotlin in `commonMain`, no UI, 100+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
 | [`composeApp/`](composeApp) | Compose Multiplatform UI (goal onboarding, home insights with the next program day, programs and a program editor, history with a workout editor, import preview, lifts, volume, bodyweight, settings), Canvas charts and the Android, iOS and desktop entry points. |
 | [`iosApp/`](iosApp) | Xcode project wrapping the `ComposeApp` framework in SwiftUI. |
 | [`samples/`](samples) | A generated eight-month Liftoff export used by the screenshots and handy for trying the app. |
 
 Dependencies are wired with [Koin](https://insert-koin.io/); each platform supplies a
-`DatabaseDriverFactory` and everything else comes from `SharedModule`. Screens use a small
+`DatabaseDriverFactory` (iOS also a `HealthStore`) and everything else comes from `SharedModule`. Screens use a small
 `ScreenModel` state holder over Kotlin Flows.
 
 ### Accounts and sync
@@ -417,6 +454,10 @@ the estimated 1RM, the warm-up steps, the default bar weight and increments, and
 **Changing the schema.** Edit the `.sq` file and add a `migrations/N.sqm` with the same DDL;
 `MigrationTest` upgrades a database from the previous version and compares it with a fresh one.
 
+**Changing the Health sync.** The rules live in `HealthSync` and `HealthSyncTest` drives them with a
+fake `HealthStore`; `IosHealthStore` only translates calls to HealthKit. The CI job compiles the
+iOS klibs, so a wrong HealthKit name fails there rather than in Xcode.
+
 ## Roadmap
 
 - [ ] Self-hosted sync server (the token exchange in `AccountRepository` is the open TODO)
@@ -430,6 +471,8 @@ the estimated 1RM, the warm-up steps, the default bar weight and increments, and
 - The iOS app compiles to Kotlin/Native klibs on any host, but linking, running and archiving
   it needs Xcode on a Mac (the TestFlight workflow uses a hosted macOS runner for this).
 - Sign-in buttons are placeholders until the sync server exists.
+- Apple Health is iOS only, and weights are read when the app launches or the Body tab opens, not
+  in the background. Android's Health Connect could sit behind the same `HealthStore` interface.
 
 ## Contributing
 

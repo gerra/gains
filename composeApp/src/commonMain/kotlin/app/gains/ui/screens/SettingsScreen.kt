@@ -41,7 +41,10 @@ import app.gains.domain.Goal
 import app.gains.domain.GoalProfile
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
+import app.gains.analysis.Dates
 import app.gains.analysis.Format
+import app.gains.health.HealthPermission
+import app.gains.health.HealthSync
 import app.gains.program.Gzclp
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
@@ -56,11 +59,16 @@ import app.gains.ui.components.SectionHeader
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 data class SettingsState(
     val account: Account? = null,
@@ -76,10 +84,22 @@ data class SettingsState(
     /** Program days pre-fill warm-up sets. */
     val autoWarmups: Boolean = true,
     val barWeightKg: Double = Gzclp.DEFAULT_BAR_KG,
+    /** Apple Health, on devices that have it; the section is hidden elsewhere. */
+    val healthAvailable: Boolean = false,
+    val health: HealthSync.Prefs = HealthSync.Prefs(),
+    /** Health refuses to let Gains save workouts: the one permission iOS reports, switched off in the Health app. */
+    val healthWorkoutsBlocked: Boolean = false,
+    /** A connect or a sync started from this screen is still running. */
+    val healthBusy: Boolean = false,
+    /** What the last action on this screen found: "3 entries updated". */
+    val healthMessage: String? = null,
 )
 
 /** The plain preferences, combined first because combine takes five flows at most. */
 private data class Prefs(val unit: WeightUnit, val theme: ThemeMode, val account: Account?, val autoWarmups: Boolean, val barWeightKg: Double)
+
+/** What this screen knows about Health beyond the stored switches. */
+private data class HealthStatus(val blocked: Boolean = false, val busy: Boolean = false, val message: String? = null)
 
 class SettingsModel(
     private val settings: SettingsRepository = inject(),
@@ -89,7 +109,10 @@ class SettingsModel(
     private val sessions: SessionRepository = inject(),
     private val programs: ProgramRepository = inject(),
     trainingData: TrainingData = inject(),
+    private val health: HealthSync = inject(),
 ) : ScreenModel() {
+    private val healthStatus = MutableStateFlow(HealthStatus())
+
     val state: StateFlow<SettingsState> = combine(
         combine(settings.observeUnit(), settings.observeThemeMode(), accounts.observeAccount(), settings.observeAutoWarmups(), settings.observeBarWeightKg()) { u, t, a, w, b -> Prefs(u, t, a, w, b) },
         trainingData.snapshot, exercises.observeAliases(), exercises.observeWorkingSetRatios(), programs.observeState(),
@@ -108,7 +131,37 @@ class SettingsModel(
             overrides = overrides,
             exercisesById = snapshot.exercisesById,
         )
-    }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), SettingsState())
+    }.combine(health.observePrefs()) { s, prefs -> s.copy(healthAvailable = health.isAvailable, health = prefs) }
+        .combine(healthStatus) { s, status -> s.copy(healthWorkoutsBlocked = status.blocked, healthBusy = status.busy, healthMessage = status.message) }
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), SettingsState())
+
+    init {
+        if (health.isAvailable) scope.launch { refreshHealthPermission() }
+    }
+
+    private suspend fun refreshHealthPermission() {
+        val blocked = health.workoutPermission() == HealthPermission.DENIED
+        healthStatus.update { it.copy(blocked = blocked) }
+    }
+
+    /** Runs [work] with the busy flag up and shows what it reports afterwards. */
+    private fun healthAction(work: suspend () -> String?) {
+        scope.launch {
+            healthStatus.update { it.copy(busy = true, message = null) }
+            val message = runCatching { work() }.getOrElse { "Health did not answer. Try again." }
+            refreshHealthPermission()
+            healthStatus.update { it.copy(busy = false, message = message) }
+        }
+    }
+
+    fun connectHealth() = healthAction { if (health.connect()) null else "Health could not be opened on this device." }
+    fun disconnectHealth() { scope.launch { health.disconnect(); healthStatus.update { it.copy(message = null) } } }
+    fun setHealthWorkouts(on: Boolean) { scope.launch { health.setWorkouts(on) } }
+    fun setHealthBodyweight(on: Boolean) = healthAction { health.setBodyweight(on); null }
+    fun syncHealthNow() = healthAction {
+        val changed = health.syncWeights(full = true)
+        if (changed == 0) "Up to date" else "${Format.plural(changed, "entry", "entries")} updated"
+    }
 
     fun setUnit(unit: WeightUnit) { scope.launch { settings.setUnit(unit) } }
     fun setTheme(mode: ThemeMode) { scope.launch { settings.setThemeMode(mode) } }
@@ -161,6 +214,10 @@ fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit
                     Spacer(Modifier.height(6.dp))
                     Text("Google and Apple sign-in are not configured yet; the sync server is coming later.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            if (state.healthAvailable) {
+                SectionHeader("Apple Health")
+                AppleHealthCard(state, model)
             }
             SectionHeader("Training goal")
             GainsCard(Modifier.fillMaxWidth()) {
@@ -274,6 +331,66 @@ fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit
             confirmButton = { PrimaryButton("Delete", onClick = { model.deleteAllData(); confirmDelete = false }) },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/**
+ * Apple Health, in two states. Before connecting: what it does and one button; the system permission
+ * sheet follows. After: a switch per direction, when the weights were last read, a sync button and
+ * a way out. Nothing here says whether reading was allowed, because iOS does not tell apps; the one
+ * thing it does report, writing workouts being refused, gets a line pointing at the Health app.
+ */
+@Composable
+private fun AppleHealthCard(state: SettingsState, model: SettingsModel) {
+    val palette = GainsColors.palette
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val prefs = state.health
+    GainsCard(Modifier.fillMaxWidth()) {
+        if (!prefs.connected) {
+            Text(
+                "Workouts you finish here show up in the Fitness app. Weigh-ins from a scale or the Health app show up on the Body tab, and weights you log here go to Health. Nothing else is read or written.",
+                style = MaterialTheme.typography.bodySmall, color = muted,
+            )
+            Spacer(Modifier.height(12.dp))
+            PrimaryButton(if (state.healthBusy) "Connecting…" else "Connect Apple Health", onClick = model::connectHealth, enabled = !state.healthBusy)
+            state.healthMessage?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, style = MaterialTheme.typography.bodySmall, color = palette.amber)
+            }
+            return@GainsCard
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Save workouts", style = MaterialTheme.typography.bodyMedium, color = muted, modifier = Modifier.weight(1f))
+            ChipRow(listOf(true, false), prefs.workouts, { if (it) "On" else "Off" }, { model.setHealthWorkouts(it) })
+        }
+        if (prefs.workouts && state.healthWorkoutsBlocked) {
+            Spacer(Modifier.height(4.dp))
+            Text("Health is not letting Gains save workouts. Allow it under Health › Sharing › Apps › Gains.", style = MaterialTheme.typography.bodySmall, color = palette.amber)
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Sync bodyweight", style = MaterialTheme.typography.bodyMedium, color = muted, modifier = Modifier.weight(1f))
+            ChipRow(listOf(true, false), prefs.bodyweight, { if (it) "On" else "Off" }, { model.setHealthBodyweight(it) })
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            KeyValueRow("Last synced", prefs.lastSync?.let { Dates.ago(it, now) } ?: "Never", Modifier.weight(1f))
+            TextButton(onClick = model::syncHealthNow, enabled = prefs.bodyweight && !state.healthBusy) {
+                Text(if (state.healthBusy) "Syncing…" else "Sync now", color = if (prefs.bodyweight) palette.volt else muted)
+            }
+        }
+        state.healthMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = palette.volt) }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Workouts are saved as strength training with their start time and duration when you end or log them; imported history is not sent. " +
+                "Weights from other apps fill in the days you have not logged yourself and follow Health from then on; the Body tab checks for new ones each time it opens. " +
+                "If nothing shows up, check Health › Sharing › Apps › Gains.",
+            style = MaterialTheme.typography.bodySmall, color = muted,
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = model::disconnectHealth) { Text("Disconnect", color = palette.coral) }
+        }
     }
 }
 

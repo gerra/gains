@@ -1,6 +1,7 @@
 package app.gains.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +44,7 @@ import app.gains.domain.Exercise
 import app.gains.domain.Modality
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
+import app.gains.health.HealthSync
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
@@ -51,6 +54,7 @@ import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.MetricTile
+import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SecondaryButton
@@ -76,16 +80,21 @@ data class BodyweightState(
     val overlayExercise: Exercise? = null,
     /** e1RM per session for the overlay exercise, in kg. */
     val overlayPoints: List<Pair<LocalDate, Double>> = emptyList(),
+    /** This device has Apple Health, so the empty tab can point at it. */
+    val healthAvailable: Boolean = false,
+    /** Weights are being read from Apple Health. */
+    val healthConnected: Boolean = false,
 )
 
 class BodyweightModel(
     private val repo: BodyweightRepository = inject(),
     trainingData: TrainingData = inject(),
     settings: SettingsRepository = inject(),
+    private val health: HealthSync = inject(),
 ) : ScreenModel() {
     private val overlay = MutableStateFlow<String?>(null)
 
-    val state: StateFlow<BodyweightState> = combine(repo.observe(), trainingData.snapshot, settings.observeUnit(), overlay) { entries, snapshot, unit, overlayId ->
+    val state: StateFlow<BodyweightState> = combine(repo.observe(), trainingData.snapshot, settings.observeUnit(), overlay, health.observePrefs()) { entries, snapshot, unit, overlayId, healthPrefs ->
         withContext(Dispatchers.Default) {
             val weighted = snapshot.trainedExercises.filter { it.modality == Modality.WEIGHTED }
             val exercise = weighted.firstOrNull { it.id == overlayId }
@@ -98,20 +107,30 @@ class BodyweightModel(
                 overlayPoints = exercise?.let { ex ->
                     ExerciseAnalysis.history(snapshot.sessions, ex).mapNotNull { p -> p.bestE1rm?.let { p.date to it.value } }
                 } ?: emptyList(),
+                healthAvailable = health.isAvailable,
+                healthConnected = healthPrefs.syncsBodyweight,
             )
         }
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), BodyweightState())
 
     fun setOverlay(exerciseId: String?) { overlay.value = exerciseId }
 
-    fun add(date: LocalDate, weightKg: Double) { scope.launch { repo.upsert(BodyweightEntry(date, weightKg)) } }
-    fun delete(date: LocalDate) { scope.launch { repo.delete(date) } }
+    fun add(date: LocalDate, weightKg: Double) {
+        val entry = BodyweightEntry(date, weightKg)
+        scope.launch { repo.upsert(entry); health.weightSaved(entry) }
+    }
+
+    fun delete(date: LocalDate) { scope.launch { repo.delete(date); health.weightDeleted(date) } }
+
+    /** Weigh-ins that reached Apple Health since the tab was last open. */
+    fun syncHealth() = health.syncLater()
 }
 
 @Composable
-fun BodyweightScreen() {
+fun BodyweightScreen(onOpenSettings: () -> Unit = {}) {
     val model = rememberScreenModel { BodyweightModel() }
     val state by model.state.collectAsState()
+    LaunchedEffect(Unit) { model.syncHealth() }
     if (state.loading) return
     val today = Dates.today()
     val unit = state.unit
@@ -120,7 +139,7 @@ fun BodyweightScreen() {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle("Bodyweight", subtitle = "Daily entries with a 7-day average", trailing = {
+            ScreenTitle("Bodyweight", subtitle = if (state.healthConnected) "Daily entries and Apple Health, with a 7-day average" else "Daily entries with a 7-day average", trailing = {
                 TextButton(onClick = { showEntry = !showEntry }) { Text(if (showEntry) "Hide" else "+ Add", color = palette.volt) }
             })
             if (showEntry) GainsCard(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
@@ -128,7 +147,20 @@ fun BodyweightScreen() {
             }
         }
         if (state.points.isEmpty()) {
-            item { EmptyState("No bodyweight entries", "Log your weight here. A 7-day average smooths the daily noise, and you can overlay it on a lift's strength trend.", emoji = "♡") }
+            item {
+                EmptyState(
+                    "No bodyweight entries",
+                    when {
+                        state.healthConnected -> "Log your weight here, or step on a scale that writes to Apple Health and it appears on its own. A 7-day average smooths the daily noise, and you can overlay it on a lift's strength trend."
+                        else -> "Log your weight here. A 7-day average smooths the daily noise, and you can overlay it on a lift's strength trend."
+                    },
+                    emoji = "♡",
+                    // A scale that writes to Health does the logging: worth a button here, once.
+                    action = if (state.healthAvailable && !state.healthConnected) {
+                        { SecondaryButton("Connect Apple Health", onClick = onOpenSettings) }
+                    } else null,
+                )
+            }
             return@LazyColumn
         }
         item {
@@ -165,7 +197,9 @@ fun BodyweightScreen() {
                     Text(Dates.contextual(p.date, today), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     Text(Format.weight(p.weightKg, unit, 1), style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.width(8.dp))
-                    TextButton(onClick = { model.delete(p.date) }) { Text("Delete", color = palette.coral) }
+                    // An entry from Health follows Health: remove it there and the next sync takes it away here.
+                    if (p.fromHealth) Box(Modifier.height(40.dp).padding(start = 8.dp), contentAlignment = Alignment.Center) { Pill("Health", palette.cyan) }
+                    else TextButton(onClick = { model.delete(p.date) }) { Text("Delete", color = palette.coral) }
                 }
             }
         }

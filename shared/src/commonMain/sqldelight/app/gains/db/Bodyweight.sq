@@ -1,13 +1,14 @@
 CREATE TABLE bodyweight (
   date TEXT NOT NULL PRIMARY KEY,
-  weight_kg REAL NOT NULL
+  weight_kg REAL NOT NULL,
+  source TEXT NOT NULL DEFAULT 'manual'
 );
 
 selectAll:
-SELECT date, weight_kg FROM bodyweight ORDER BY date;
+SELECT date, weight_kg, source FROM bodyweight ORDER BY date;
 
 upsert:
-INSERT OR REPLACE INTO bodyweight(date, weight_kg) VALUES (?, ?);
+INSERT OR REPLACE INTO bodyweight(date, weight_kg, source) VALUES (?, ?, ?);
 
 delete:
 DELETE FROM bodyweight WHERE date = ?;

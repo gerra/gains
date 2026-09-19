@@ -69,6 +69,11 @@
 	<true/>
 	<key>UIFileSharingEnabled</key>
 	<true/>
+	<!-- Apple Health. Both strings are shown on the permission sheet; iOS refuses the request without them. -->
+	<key>NSHealthShareUsageDescription</key>
+	<string>Gains reads your weight from Health, so weigh-ins from a scale or the Health app show up on the Body tab.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Gains saves the workouts you finish and the weights you log to Health, so they show up in the Fitness app and in other apps.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 </dict>

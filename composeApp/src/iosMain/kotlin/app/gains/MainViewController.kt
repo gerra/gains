@@ -4,6 +4,8 @@ import androidx.compose.ui.window.ComposeUIViewController
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.IosDriverFactory
 import app.gains.di.initKoin
+import app.gains.health.HealthStore
+import app.gains.health.IosHealthStore
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.PickedFile
@@ -32,7 +34,11 @@ private var koinStarted = false
 /** Entry point used by the SwiftUI wrapper in iosApp. */
 fun MainViewController(): UIViewController {
     if (!koinStarted) {
-        initKoin(module { single<DatabaseDriverFactory> { IosDriverFactory() } })
+        initKoin(module {
+            single<DatabaseDriverFactory> { IosDriverFactory() }
+            // Apple Health: replaces the shared module's "no health store" binding.
+            single<HealthStore> { IosHealthStore() }
+        })
         koinStarted = true
     }
     return ComposeUIViewController { App(filePicker = IosFilePicker()) }

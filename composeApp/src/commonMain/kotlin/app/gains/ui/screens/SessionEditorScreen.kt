@@ -79,6 +79,7 @@ import app.gains.domain.RestTimer
 import app.gains.domain.Session
 import app.gains.domain.SetDraft
 import app.gains.domain.WeightUnit
+import app.gains.health.HealthSync
 import app.gains.importer.ExerciseResolver
 import app.gains.program.DayPlanner
 import app.gains.program.Gzclp
@@ -196,6 +197,11 @@ data class EditorState(
     val conflict: LiveSession? = null,
     /** The timer ran past three hours: the minutes it measured, awaiting confirmation before the session is stored. */
     val longSessionMinutes: Int? = null,
+    /**
+     * The stored workout was logged in the app rather than imported. Only those are mirrored to Apple
+     * Health on save: an import may already be there from the app it came from.
+     */
+    val wasManual: Boolean = true,
 ) {
     val programDayOption: ProgramDayOption? get() = programDay?.let { ref -> programDays.firstOrNull { it.ref == ref } }
     /** The clock is running. */
@@ -225,6 +231,7 @@ class SessionEditorModel(
     settings: SettingsRepository = inject(),
     trainingData: TrainingData = inject(),
     private val programs: ProgramRepository = inject(),
+    private val health: HealthSync = inject(),
 ) : ScreenModel() {
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state
@@ -260,6 +267,7 @@ class SessionEditorModel(
                     },
                     unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
                     programDay = existing.program, title = "Edit workout", programDays = ctx.dayOptions,
+                    wasManual = existing.isManual,
                 )
                 // Coming back to the running workout, whether from the resume bar, a relaunch or the same day's Start.
                 stored != null && (programDay == null || stored.program == programDay) -> restored(ctx, stored)
@@ -490,7 +498,9 @@ class SessionEditorModel(
         scope.launch {
             // Ids are minute-precision timestamps; two workouts saved in the same minute must not replace each other.
             val id = s.id ?: uniqueId(timestamp.toString(), sessions.ids())
-            sessions.upsert(session.copy(id = id))
+            val stored = session.copy(id = id)
+            sessions.upsert(stored)
+            if (s.isNew || s.wasManual) health.workoutSaved(stored)
             update { it.copy(saved = true, error = null) }
         }
     }
@@ -533,8 +543,10 @@ class SessionEditorModel(
             withContext(NonCancellable) {
                 persistJob?.cancelAndJoin()
                 val id = uniqueId(timestamp.toString(), sessions.ids())
-                sessions.upsert(Session(id, timestamp, minutes, entries, Session.MANUAL, s.programDay))
+                val stored = Session(id, timestamp, minutes, entries, Session.MANUAL, s.programDay)
+                sessions.upsert(stored)
                 liveSessions.clear()
+                health.workoutSaved(stored)
             }
             update { it.copy(saved = true, error = null) }
         }
@@ -605,7 +617,11 @@ class SessionEditorModel(
 
     fun delete() {
         val id = _state.value.id ?: return
-        scope.launch { sessions.deleteSession(id); update { it.copy(saved = true) } }
+        scope.launch {
+            sessions.deleteSession(id)
+            health.workoutDeleted(id)
+            update { it.copy(saved = true) }
+        }
     }
 }
 

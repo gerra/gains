@@ -3,11 +3,13 @@ package app.gains.analysis
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 
@@ -45,6 +47,18 @@ object Dates {
     /** "12 Feb" when in the current year, otherwise "12 Feb 2025". */
     fun contextual(date: LocalDate, today: LocalDate): String =
         if (date.year == today.year) short(date) else shortWithYear(date)
+
+    /** How long ago [then] was, for a "last synced" line: "just now", "5 min ago", "3 h ago", "yesterday", then the date. */
+    fun ago(then: LocalDateTime, now: LocalDateTime): String {
+        val minutes = (now.toInstant(TimeZone.UTC) - then.toInstant(TimeZone.UTC)).inWholeMinutes
+        return when {
+            minutes < 1 -> "just now"
+            minutes < 60 -> "$minutes min ago"
+            then.date == now.date -> "${minutes / 60} h ago"
+            daysBetween(then.date, now.date) == 1 -> "yesterday"
+            else -> contextual(then.date, now.date)
+        }
+    }
 
     fun dayLabel(day: DayOfWeek): String = day.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
 }

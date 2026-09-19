@@ -4,7 +4,9 @@ import app.gains.analysis.Dates.minusDays
 import app.gains.domain.BodyweightEntry
 import kotlinx.datetime.LocalDate
 
-data class BodyweightPoint(val date: LocalDate, val weightKg: Double, val rollingAverageKg: Double)
+data class BodyweightPoint(val date: LocalDate, val weightKg: Double, val rollingAverageKg: Double, val source: String = BodyweightEntry.MANUAL) {
+    val fromHealth: Boolean get() = source == BodyweightEntry.HEALTH
+}
 
 object BodyweightAnalyzer {
     /** Each entry with the mean of all entries in the trailing [days]-day window (inclusive). */
@@ -13,7 +15,7 @@ object BodyweightAnalyzer {
         return sorted.map { entry ->
             val from = entry.date.minusDays(days - 1)
             val window = sorted.filter { it.date >= from && it.date <= entry.date }
-            BodyweightPoint(entry.date, entry.weightKg, window.sumOf { it.weightKg } / window.size)
+            BodyweightPoint(entry.date, entry.weightKg, window.sumOf { it.weightKg } / window.size, entry.source)
         }
     }
 }

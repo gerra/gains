@@ -10,11 +10,16 @@ import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
 import app.gains.db.GainsDatabase
+import app.gains.health.HealthStore
+import app.gains.health.HealthSync
 import app.gains.importer.ImportService
 import app.gains.analysis.TrainingData
 import org.koin.dsl.module
 
-/** Shared dependencies. Platforms must additionally provide a [DatabaseDriverFactory]. */
+/**
+ * Shared dependencies. Platforms must additionally provide a [DatabaseDriverFactory], and may bind
+ * a [HealthStore] of their own (iOS binds Apple Health); without one the feature is hidden.
+ */
 val sharedModule = module {
     single { GainsDatabase(get<DatabaseDriverFactory>().createDriver()) }
     single { SessionRepository(get()) }
@@ -25,6 +30,8 @@ val sharedModule = module {
     single { ProgramRepository(get(), get()) }
     single { TrainingData(get(), get()) }
     single { ImportService(get(), get()) }
+    single<HealthStore> { HealthStore.None }
+    single { HealthSync(get(), get(), get()) }
     // Replace with real ids when the Google / Apple credentials and the sync server exist.
     single { AuthConfig() }
     single { AccountRepository(get(), get()) }

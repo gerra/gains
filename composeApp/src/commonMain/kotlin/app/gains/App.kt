@@ -65,6 +65,7 @@ import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
 import app.gains.domain.LiveSession
 import app.gains.domain.ProgramDayRef
+import app.gains.health.HealthSync
 import app.gains.program.Rotation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -109,6 +110,9 @@ fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, on
     val navigator = remember { Navigator() }
     val exercises = remember { inject<ExerciseRepository>() }
     LaunchedEffect(Unit) { exercises.seedCatalogue() }
+    // Weigh-ins that reached Apple Health since the last launch. A no-op where there is no Health or it is not connected.
+    val health = remember { inject<HealthSync>() }
+    LaunchedEffect(Unit) { health.syncLater() }
 
     // Files shared into the app open the import screen.
     val incoming by IncomingFiles.pending.collectAsState()
@@ -206,7 +210,7 @@ private fun ScreenContent(screen: Screen, navigator: Navigator, filePicker: CsvF
             )
             Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
             Screen.Volume -> VolumeScreen()
-            Screen.Body -> BodyweightScreen()
+            Screen.Body -> BodyweightScreen(onOpenSettings = { navigator.push(Screen.Settings) })
             Screen.History -> HistoryScreen(
                 onOpen = { navigator.push(Screen.EditSession(it)) },
                 onLog = { navigator.push(Screen.EditSession(null)) },

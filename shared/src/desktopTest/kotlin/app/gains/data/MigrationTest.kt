@@ -87,10 +87,11 @@ class MigrationTest {
         upgraded.execute(null, "INSERT INTO exercise(id, name, canonical_name, modality, muscles) VALUES ('bench_press', 'Bench Press', 'Bench Press', 'WEIGHTED', 'CHEST:1.0');", 0)
         upgraded.execute(null, "INSERT INTO exercise_entry(id, session_id, exercise_id, position) VALUES (1, 's1', 'bench_press', 0);", 0)
         upgraded.execute(null, "INSERT INTO set_entry(entry_id, set_order, type, weight_kg, reps) VALUES (1, 0, 'WEIGHTED', 60.0, 5);", 0)
+        upgraded.execute(null, "INSERT INTO bodyweight(date, weight_kg) VALUES ('2026-01-01', 80.5);", 0)
         GainsDatabase.Schema.migrate(upgraded, 2, GainsDatabase.Schema.version)
 
         assertEquals(tables(fresh), tables(upgraded))
-        for (table in listOf("session", "exercise_entry", "set_entry", "exercise", "program", "program_day", "program_slot", "live_session", "live_exercise", "live_set")) {
+        for (table in listOf("session", "exercise_entry", "set_entry", "exercise", "program", "program_day", "program_slot", "live_session", "live_exercise", "live_set", "bodyweight")) {
             assertEquals(columns(fresh, table), columns(upgraded, table), "columns of $table")
         }
         // Existing rows survive with the new columns defaulted.
@@ -102,6 +103,8 @@ class MigrationTest {
         assertEquals(0L, db.sessionQueries.selectSets().executeAsList().single().is_warmup)
         // No workout is in progress on an upgraded install.
         assertEquals(null, db.liveSessionQueries.selectLiveSession().executeAsOneOrNull())
-        assertTrue(GainsDatabase.Schema.version >= 5)
+        // A weight logged before Health sync existed was typed in by the lifter.
+        assertEquals("manual", db.bodyweightQueries.selectAll().executeAsList().single().source)
+        assertTrue(GainsDatabase.Schema.version >= 6)
     }
 }

@@ -270,15 +270,31 @@ class BodyweightRepository(
     private val db: GainsDatabase,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    fun observe(): Flow<List<BodyweightEntry>> = db.bodyweightQueries.selectAll().asFlow().mapToList(io).map { rows ->
-        rows.map { BodyweightEntry(LocalDate.parse(it.date), it.weight_kg) }
+    private val q get() = db.bodyweightQueries
+
+    fun observe(): Flow<List<BodyweightEntry>> = q.selectAll().asFlow().mapToList(io).map { rows ->
+        rows.map { BodyweightEntry(LocalDate.parse(it.date), it.weight_kg, it.source) }
     }.flowOn(io)
 
-    suspend fun upsert(entry: BodyweightEntry) = withContext(io) {
-        db.bodyweightQueries.upsert(entry.date.toString(), entry.weightKg)
+    suspend fun entries(): List<BodyweightEntry> = withContext(io) {
+        q.selectAll().executeAsList().map { BodyweightEntry(LocalDate.parse(it.date), it.weight_kg, it.source) }
     }
 
-    suspend fun delete(date: LocalDate) = withContext(io) { db.bodyweightQueries.delete(date.toString()) }
+    suspend fun upsert(entry: BodyweightEntry) = withContext(io) {
+        q.upsert(entry.date.toString(), entry.weightKg, entry.source)
+    }
+
+    suspend fun upsertAll(entries: List<BodyweightEntry>) = withContext(io) {
+        if (entries.isEmpty()) return@withContext
+        db.transaction { for (e in entries) q.upsert(e.date.toString(), e.weightKg, e.source) }
+    }
+
+    suspend fun delete(date: LocalDate) = withContext(io) { q.delete(date.toString()) }
+
+    suspend fun deleteAll(dates: List<LocalDate>) = withContext(io) {
+        if (dates.isEmpty()) return@withContext
+        db.transaction { for (d in dates) q.delete(d.toString()) }
+    }
 }
 
 class SettingsRepository(

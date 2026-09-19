@@ -111,7 +111,15 @@ data class Session(
     val workingSetCount: Int get() = exercises.sumOf { it.workingSets.size }
 }
 
-data class BodyweightEntry(val date: LocalDate, val weightKg: Double)
+/** One day's weight. [source] says who logged it: the lifter, or the health store (Apple Health) the app syncs with. */
+data class BodyweightEntry(val date: LocalDate, val weightKg: Double, val source: String = MANUAL) {
+    val fromHealth: Boolean get() = source == HEALTH
+
+    companion object {
+        const val MANUAL = "manual"
+        const val HEALTH = "health"
+    }
+}
 
 enum class WeightUnit(val label: String) { KG("kg"), LBS("lbs") }
 

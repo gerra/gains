@@ -21,9 +21,10 @@ How a commit becomes a build that testers can install. The short version lives i
    team appears. Then under **Manage Certificates** add an **Apple Distribution** certificate if
    the team does not have one yet.
 3. **Register the app identifier.** Building to a physical device once with automatic signing
-   registers `app.gains.Gains` for the team. Otherwise add it by hand at
+   registers `app.gains.Gains` for the team with the **HealthKit** capability the app's
+   entitlements ask for. Otherwise add it by hand at
    [developer.apple.com > Identifiers](https://developer.apple.com/account/resources/identifiers/list)
-   with no extra capabilities.
+   and tick **HealthKit** under Capabilities; no other capability is needed.
 4. **Create the App Store Connect record.** [App Store Connect > Apps](https://appstoreconnect.apple.com/apps)
    > **+** > **New App**: platform iOS, name *Gains*, primary language, bundle id
    `app.gains.Gains`, any SKU (for example `gains-ios`). Nothing else has to be filled in for
@@ -111,7 +112,7 @@ Add these six secrets under **Settings > Secrets and variables > Actions**:
 |--------|------------|---------------|
 | `IOS_DISTRIBUTION_CERT_P12_BASE64` | The Apple Distribution certificate with its private key | Keychain Access > My Certificates > right-click *Apple Distribution: …* > **Export** as `.p12` with a password. Then `base64 -i cert.p12 \| pbcopy`. |
 | `IOS_DISTRIBUTION_CERT_PASSWORD` | The password chosen during that export | |
-| `IOS_APP_STORE_PROFILE_BASE64` | An **App Store Connect** distribution provisioning profile for `app.gains.Gains` | [developer.apple.com > Profiles](https://developer.apple.com/account/resources/profiles/list) > **+** > *App Store Connect* > pick the app id and the distribution certificate > name it (e.g. *Gains App Store*) > download. Then `base64 -i Gains_App_Store.mobileprovision \| pbcopy`. |
+| `IOS_APP_STORE_PROFILE_BASE64` | An **App Store Connect** distribution provisioning profile for `app.gains.Gains` | [developer.apple.com > Profiles](https://developer.apple.com/account/resources/profiles/list) > **+** > *App Store Connect* > pick the app id and the distribution certificate > name it (e.g. *Gains App Store*) > download. Then `base64 -i Gains_App_Store.mobileprovision \| pbcopy`. The app id must have **HealthKit** enabled before the profile is made; a profile created earlier has to be regenerated. |
 | `APP_STORE_CONNECT_API_KEY_ID` | Key ID of an App Store Connect API key | [App Store Connect > Users and Access > Integrations > App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api) > **Team Keys** > **+**. Role **App Manager** (or **Developer**). |
 | `APP_STORE_CONNECT_API_ISSUER_ID` | The Issuer ID shown at the top of that page | |
 | `APP_STORE_CONNECT_API_KEY_P8_BASE64` | The `.p8` private key of that API key | Download it right after creating the key; Apple offers it only once. Then `base64 -i AuthKey_XXXXXXXXXX.p8 \| pbcopy`. |
@@ -145,6 +146,11 @@ keychain and removed at the end of the run.
 - **Privacy manifest** ([`PrivacyInfo.xcprivacy`](../iosApp/iosApp/PrivacyInfo.xcprivacy))
   declares no tracking, no collected data, and the required-reason APIs the Kotlin/Native
   runtime, Skiko and SQLite reach from C, which keeps uploads free of ITMS-91053 warnings.
+  Health data never leaves the device, so it is not "collected" in the manifest's sense.
+- **HealthKit** ([`iosApp.entitlements`](../iosApp/iosApp/iosApp.entitlements) and the two
+  `NSHealth…UsageDescription` strings in `Info.plist`). Apple asks HealthKit apps for a privacy
+  policy URL on the App Store Connect record before review, and the Beta App Review of the first
+  external build checks that the permission sheet's wording matches what the app does.
 - **App icon** without an alpha channel. App Store Connect rejects a 1024×1024 icon that has
   one (ITMS-90717), so keep `AppIcon.png` an opaque RGB PNG when replacing it.
 - **Kotlin framework without the Android SDK.** The Xcode build phase runs Gradle with
@@ -164,4 +170,6 @@ keychain and removed at the end of the run.
 | *Compile Kotlin Framework* fails with `java: command not found` | Xcode's script phase does not see the shell's `PATH`. Install a JDK 17+ that registers with `/usr/libexec/java_home`, or symlink it into `/Library/Java/JavaVirtualMachines`. |
 | Workflow fails at *Install signing certificate* | The `.p12` password does not match, or the secret was pasted with line breaks. Re-export the certificate and copy the base64 output in one go. |
 | Workflow archives fine but the export fails with a profile error | The profile in `IOS_APP_STORE_PROFILE_BASE64` was made for another certificate or app id, or has expired. Create a fresh App Store Connect profile that includes the same distribution certificate. |
+| *Provisioning profile "…" doesn't support the HealthKit capability* or *doesn't include the com.apple.developer.healthkit entitlement* | The app id was registered without HealthKit, or the profile predates it. Enable HealthKit on the app id, regenerate the profile and update `IOS_APP_STORE_PROFILE_BASE64`. In Xcode with automatic signing, the same message means Xcode is not signed in to the team. |
+| The app crashes on **Connect Apple Health** | One of the `NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription` strings fell out of `Info.plist`; iOS aborts a HealthKit request without them. |
 | The upload succeeds but the build never appears | Processing can take up to an hour. If App Store Connect emails about a problem instead, the message names the ITMS code above. |
