@@ -217,6 +217,8 @@ data class EditorState(
     val programDayOption: ProgramDayOption? get() = programDay?.let { ref -> programDays.firstOrNull { it.ref == ref } }
     /** The clock is running. */
     val isRunning: Boolean get() = startedAtMs != null
+    /** Whether the plan can be changed: always for a logged workout, and once started for a timed one. */
+    val editable: Boolean get() = !timed || isRunning
 
     /** The editor as a workout in progress, or null when there is nothing to keep. */
     fun toLive(): LiveSession? {
@@ -362,6 +364,12 @@ class SessionEditorModel(
         copy(previous = exercises.mapNotNull { e -> ctx.previousFor(e.exercise.id)?.let { e.exercise.id to it } }.toMap())
 
     private fun update(f: (EditorState) -> EditorState) { _state.value = f(_state.value) }
+
+    /**
+     * An edit of the plan: exercises, sets, values, ticks and notes. A timed workout is read-only
+     * until Start, so the plan can be looked over but not changed; the screen shows it all disabled.
+     */
+    private fun edit(f: (EditorState) -> EditorState) = update { s -> if (s.editable) f(s) else s }
     fun setDate(v: LocalDate) = update { it.copy(date = v) }
     fun setTime(v: LocalTime) = update { it.copy(time = v) }
     fun setDuration(v: Int?) = update { it.copy(durationMinutes = v?.takeIf { m -> m > 0 }) }
@@ -380,7 +388,7 @@ class SessionEditorModel(
         }
     }
 
-    fun addExercise(exercise: Exercise) = update { s ->
+    fun addExercise(exercise: Exercise) = edit { s ->
         if (s.exercises.any { it.exercise.id == exercise.id }) s
         else {
             val previous = context?.previousFor(exercise.id)
@@ -402,13 +410,13 @@ class SessionEditorModel(
         return exercise
     }
 
-    fun removeExercise(index: Int) = update { it.copy(exercises = it.exercises.filterIndexed { i, _ -> i != index }) }
+    fun removeExercise(index: Int) = edit { it.copy(exercises = it.exercises.filterIndexed { i, _ -> i != index }) }
 
     /** Tag the workout with a program day, or none for a free workout. */
     fun setProgramDay(ref: ProgramDayRef?) = update { it.copy(programDay = ref) }
 
     /** Drop the weights borrowed from outside the slot's scheme; sets and reps stay as prescribed. Warm-ups built on those weights go too. */
-    fun startBlank(index: Int) = update { s ->
+    fun startBlank(index: Int) = edit { s ->
         s.copy(
             exercises = s.exercises.mapIndexed { i, e -> if (i != index) e else e.copy(sets = e.workSets.map { it.copy(weight = "") }) },
             seeded = s.seeded - s.exercises[index].exercise.id,
@@ -420,7 +428,7 @@ class SessionEditorModel(
         s.copy(collapsedWarmups = if (id in s.collapsedWarmups) s.collapsedWarmups - id else s.collapsedWarmups + id)
     }
 
-    fun removeWarmups(index: Int) = update { s ->
+    fun removeWarmups(index: Int) = edit { s ->
         s.copy(exercises = s.exercises.mapIndexed { i, e -> if (i != index) e else e.copy(sets = e.workSets) })
     }
 
@@ -429,11 +437,10 @@ class SessionEditorModel(
      * the warm-up rest, exercises with no tier a default); un-ticking leaves the timer alone. An empty
      * set cannot be ticked: there is nothing to record. A timed workout ticks only once it has started.
      */
-    fun toggleDone(exerciseIndex: Int, setIndex: Int) = update { s ->
-        if (s.timed && !s.isRunning) return@update s
+    fun toggleDone(exerciseIndex: Int, setIndex: Int) = edit { s ->
         val exercise = s.exercises[exerciseIndex]
         val set = exercise.sets[setIndex]
-        if (!set.done && !set.hasValues) return@update s
+        if (!set.done && !set.hasValues) return@edit s
         val done = !set.done
         val seconds = when {
             set.isWarmup -> Gzclp.WARMUP_REST.first
@@ -460,24 +467,24 @@ class SessionEditorModel(
         dismissRest()
         return true
     }
-    fun setNote(index: Int, note: String) = update { it.copy(exercises = it.exercises.mapIndexed { i, e -> if (i == index) e.copy(note = note) else e }) }
+    fun setNote(index: Int, note: String) = edit { it.copy(exercises = it.exercises.mapIndexed { i, e -> if (i == index) e.copy(note = note) else e }) }
 
     /** Adds a work set like the last one (never a copy of a warm-up). */
-    fun addSet(index: Int) = update { s ->
+    fun addSet(index: Int) = edit { s ->
         s.copy(exercises = s.exercises.mapIndexed { i, e ->
             if (i != index) e else e.copy(sets = e.sets + (e.workSets.lastOrNull()?.copy(done = false) ?: SetDraft()))
         })
     }
 
     /** Clearing every field of a ticked set un-ticks it: an empty set cannot count as done. */
-    fun updateSet(exerciseIndex: Int, setIndex: Int, draft: SetDraft) = update { s ->
+    fun updateSet(exerciseIndex: Int, setIndex: Int, draft: SetDraft) = edit { s ->
         val next = if (draft.done && !draft.hasValues) draft.copy(done = false) else draft
         s.copy(exercises = s.exercises.mapIndexed { i, e ->
             if (i != exerciseIndex) e else e.copy(sets = e.sets.mapIndexed { j, d -> if (j == setIndex) next else d })
         })
     }
 
-    fun removeSet(exerciseIndex: Int, setIndex: Int) = update { s ->
+    fun removeSet(exerciseIndex: Int, setIndex: Int) = edit { s ->
         s.copy(exercises = s.exercises.mapIndexed { i, e ->
             if (i != exerciseIndex) e else e.copy(sets = e.sets.filterIndexed { j, _ -> j != setIndex })
         })
@@ -704,7 +711,7 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
                         )
                     }
                     state.timed -> Text(
-                        "Look over the sets and change anything, then press Start. The clock runs from then, and ticking a set off starts the rest timer.",
+                        "Look over the plan, then press Start. The clock runs from then, the sets open up to change and tick off, and ticking a set off starts the rest timer.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     else -> WhenCard(
@@ -712,7 +719,9 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
                         onDate = { datePickerOpen = true }, onTime = { timePickerOpen = true }, onDuration = { durationPickerOpen = true },
                     )
                 }
-                SectionHeader("Exercises", action = { TextButton(onClick = { pickerOpen = true }) { Text("+ Add exercise", color = palette.volt) } })
+                SectionHeader("Exercises", action = {
+                    TextButton(onClick = { pickerOpen = true }, enabled = state.editable) { Text("+ Add exercise", color = if (state.editable) palette.volt else disabledColor()) }
+                })
                 if (state.exercises.isEmpty()) {
                     Text("Add an exercise to start logging sets. Weights are in ${state.unit.label}; leave weight empty for bodyweight, use seconds for holds and km for cardio. Tick a set off when it's done to start the rest timer.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -726,7 +735,7 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
                     tier = state.tiers[draft.exercise.id],
                     warmupsCollapsed = draft.exercise.id in state.collapsedWarmups,
                     previous = state.previous[draft.exercise.id],
-                    canTick = !state.timed || state.isRunning,
+                    editable = state.editable,
                     onPickWeight = { setIndex -> weightTarget = exerciseIndex to setIndex },
                 )
             }
@@ -994,8 +1003,8 @@ private fun ExerciseCard(
     source: Progression.Source? = null, tier: Gzclp.Tier? = null, warmupsCollapsed: Boolean = false,
     /** The exercise's last session, whose sets fill the PREV column row by row. */
     previous: ExerciseEntry? = null,
-    /** False while a timed workout has not started: the checks wait for Start. */
-    canTick: Boolean = true,
+    /** False while a timed workout has not started: every control of the plan waits for Start, shown disabled. */
+    editable: Boolean = true,
     onPickWeight: (setIndex: Int) -> Unit,
 ) {
     val palette = GainsColors.palette
@@ -1014,7 +1023,7 @@ private fun ExerciseCard(
                     if (draft.exercise.isDumbbell) Pill("Per dumbbell", palette.amber)
                 }
             }
-            TextButton(onClick = { model.removeExercise(exerciseIndex) }) { Text("Remove", color = palette.coral) }
+            TextButton(onClick = { model.removeExercise(exerciseIndex) }, enabled = editable) { Text("Remove", color = if (editable) palette.coral else disabledColor()) }
         }
         if (hint != null) {
             Spacer(Modifier.height(4.dp))
@@ -1030,7 +1039,7 @@ private fun ExerciseCard(
                     },
                     Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = muted,
                 )
-                TextButton(onClick = { model.startBlank(exerciseIndex) }) { Text("Start blank", color = palette.volt) }
+                TextButton(onClick = { model.startBlank(exerciseIndex) }, enabled = editable) { Text("Start blank", color = if (editable) palette.volt else disabledColor()) }
             }
         }
         if (programNote != null) {
@@ -1062,7 +1071,7 @@ private fun ExerciseCard(
                 Spacer(Modifier.width(8.dp))
                 Text(if (warmupsCollapsed) "${warmups.size} hidden" else "${warmups.size} sets", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted)
                 TextButton(onClick = { model.toggleWarmups(exerciseIndex) }) { Text(if (warmupsCollapsed) "Show" else "Hide", color = muted) }
-                TextButton(onClick = { model.removeWarmups(exerciseIndex) }) { Text("Remove", color = muted) }
+                TextButton(onClick = { model.removeWarmups(exerciseIndex) }, enabled = editable) { Text("Remove", color = if (editable) muted else disabledColor()) }
             }
         }
         for ((setIndex, set) in draft.sets.withIndex()) {
@@ -1081,29 +1090,32 @@ private fun ExerciseCard(
                 // The keyboard's action key moves from the first field to the second, then closes the keyboard.
                 when (modality) {
                     Modality.WEIGHTED, Modality.BODYWEIGHT -> {
-                        WeightCell(set.weight, done, set.isWarmup, Modifier.weight(1f), label) { onPickWeight(setIndex) }
-                        SetCell(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, Modifier.weight(1f), done, set.isWarmup, KeyboardType.Number)
+                        WeightCell(set.weight, done, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
+                        SetCell(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, Modifier.weight(1f), done, set.isWarmup, editable, KeyboardType.Number)
                     }
                     Modality.ISOMETRIC -> {
-                        SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), done, set.isWarmup, KeyboardType.Number)
-                        WeightCell(set.weight, done, set.isWarmup, Modifier.weight(1f), label) { onPickWeight(setIndex) }
+                        SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), done, set.isWarmup, editable, KeyboardType.Number)
+                        WeightCell(set.weight, done, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
                     }
                     Modality.CARDIO -> {
-                        SetCell(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, Modifier.weight(1f), done, set.isWarmup, KeyboardType.Decimal, ImeAction.Next)
-                        SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), done, set.isWarmup, KeyboardType.Number)
+                        SetCell(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, Modifier.weight(1f), done, set.isWarmup, editable, KeyboardType.Decimal, ImeAction.Next)
+                        SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), done, set.isWarmup, editable, KeyboardType.Number)
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     DoneCheck(
-                        done = done, enabled = canTick && (done || set.hasValues), label = "Set $label",
+                        done = done, enabled = editable && (done || set.hasValues), label = "Set $label",
                         onClick = { model.toggleDone(exerciseIndex, setIndex) },
                     )
-                    RemoveSetButton(label) { model.removeSet(exerciseIndex, setIndex) }
+                    RemoveSetButton(label, editable) { model.removeSet(exerciseIndex, setIndex) }
                 }
             }
         }
-        TextButton(onClick = { model.addSet(exerciseIndex) }) { Text("+ Add set", color = palette.volt) }
-        OutlinedTextField(draft.note, { model.setNote(exerciseIndex, it) }, placeholder = { Text("Note") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium)
+        TextButton(onClick = { model.addSet(exerciseIndex) }, enabled = editable) { Text("+ Add set", color = if (editable) palette.volt else disabledColor()) }
+        OutlinedTextField(
+            draft.note, { model.setNote(exerciseIndex, it) }, placeholder = { Text("Note") }, singleLine = true, enabled = editable,
+            modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium,
+        )
     }
 }
 
@@ -1118,59 +1130,72 @@ private val CHECK_HIT = 36.dp
 private val REMOVE_HIT = 32.dp
 private val CHECK_SIZE = 28.dp
 
-/** The fill of a set cell: a quiet container, tinted with the accent once the set is ticked. */
+/** How far a control fades while the plan waits for Start: Material's disabled content alpha. */
+private const val DISABLED_ALPHA = 0.38f
+
+/** The colour of a disabled control's label or icon, in place of its accent. */
 @Composable
-private fun cellFill(done: Boolean): Color =
-    if (done) GainsColors.palette.volt.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHighest
+private fun disabledColor(): Color = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
+
+/** The fill of a set cell: a quiet container, tinted with the accent once the set is ticked, and faded while disabled. */
+@Composable
+private fun cellFill(done: Boolean, enabled: Boolean = true): Color {
+    val fill = if (done) GainsColors.palette.volt.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHighest
+    return if (enabled) fill else fill.copy(alpha = fill.alpha * DISABLED_ALPHA)
+}
+
+/** The text colour of a set cell: muted for a warm-up, and faded while disabled. */
+@Composable
+private fun cellText(muted: Boolean, enabled: Boolean): Color {
+    val color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+    return if (enabled) color else color.copy(alpha = DISABLED_ALPHA)
+}
 
 /**
  * One typed cell of a set row: reps, seconds or distance. A compact filled box rather than an
  * outlined text field, so five rows fit a screen and the columns line up with their headings.
+ * Disabled, it shows its value faded and takes no focus.
  */
 @Composable
 private fun SetCell(
-    value: String, onChange: (String) -> Unit, modifier: Modifier, done: Boolean, muted: Boolean,
+    value: String, onChange: (String) -> Unit, modifier: Modifier, done: Boolean, muted: Boolean, enabled: Boolean,
     keyboardType: KeyboardType, imeAction: ImeAction = ImeAction.Done,
 ) {
     val palette = GainsColors.palette
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val textColor = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
     BasicTextField(
-        value, onChange, modifier = modifier, singleLine = true, interactionSource = interaction,
+        value, onChange, modifier = modifier, enabled = enabled, singleLine = true, interactionSource = interaction,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
-        textStyle = MaterialTheme.typography.titleMedium.copy(color = textColor, textAlign = TextAlign.Center),
+        textStyle = MaterialTheme.typography.titleMedium.copy(color = cellText(muted, enabled), textAlign = TextAlign.Center),
         cursorBrush = SolidColor(palette.volt),
         decorationBox = { inner ->
             Box(
-                Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(cellFill(done))
+                Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(cellFill(done, enabled))
                     .border(1.5.dp, if (focused) palette.volt else Color.Transparent, CellShape)
                     .padding(horizontal = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 // The dash stands in for an empty cell until the caret takes its place.
-                if (value.isEmpty() && !focused) CellPlaceholder()
+                if (value.isEmpty() && !focused) CellPlaceholder(enabled)
                 inner()
             }
         },
     )
 }
 
-/** The weight cell: the same box as a typed cell, but tapping it opens the weight chooser. */
+/** The weight cell: the same box as a typed cell, but tapping it opens the weight chooser. Disabled, it is faded and inert. */
 @Composable
-private fun WeightCell(value: String, done: Boolean, muted: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) {
+private fun WeightCell(value: String, done: Boolean, muted: Boolean, enabled: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) {
     val description = if (value.isEmpty()) "Weight for set $setLabel, none" else "Weight for set $setLabel, $value"
     Box(
-        modifier.height(CELL_HEIGHT).clip(CellShape).background(cellFill(done)).clickable(onClick = onClick)
+        modifier.height(CELL_HEIGHT).clip(CellShape).background(cellFill(done, enabled)).clickable(enabled = enabled, onClick = onClick)
             .semantics { role = Role.Button; contentDescription = description }
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
-        if (value.isEmpty()) CellPlaceholder()
-        else Text(
-            value, style = MaterialTheme.typography.titleMedium, maxLines = 1,
-            color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-        )
+        if (value.isEmpty()) CellPlaceholder(enabled)
+        else Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1, color = cellText(muted, enabled))
     }
 }
 
@@ -1194,8 +1219,8 @@ private fun PreviousCell(label: String?, setLabel: String) {
 }
 
 @Composable
-private fun CellPlaceholder() {
-    Text("–", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+private fun CellPlaceholder(enabled: Boolean = true) {
+    Text("–", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.5f else 0.5f * DISABLED_ALPHA))
 }
 
 /**
@@ -1216,7 +1241,7 @@ private fun DoneCheck(done: Boolean, enabled: Boolean, label: String, onClick: (
         Box(
             Modifier.size(CHECK_SIZE).clip(CircleShape)
                 .background(if (done) palette.volt else Color.Transparent)
-                .border(1.5.dp, if (done) palette.volt else outline.copy(alpha = if (enabled) 1f else 0.35f), CircleShape),
+                .border(1.5.dp, if (done) palette.volt else outline.copy(alpha = if (enabled) 1f else DISABLED_ALPHA), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (done) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
@@ -1224,15 +1249,15 @@ private fun DoneCheck(done: Boolean, enabled: Boolean, label: String, onClick: (
     }
 }
 
-/** A quiet × that removes the row, the same height as the check so the two sit on one line. */
+/** A quiet × that removes the row, the same height as the check so the two sit on one line; faded and inert while disabled. */
 @Composable
-private fun RemoveSetButton(label: String, onClick: () -> Unit) {
+private fun RemoveSetButton(label: String, enabled: Boolean, onClick: () -> Unit) {
     Box(
-        Modifier.size(REMOVE_HIT, CELL_HEIGHT).clip(CellShape).clickable(onClick = onClick)
+        Modifier.size(REMOVE_HIT, CELL_HEIGHT).clip(CellShape).clickable(enabled = enabled, onClick = onClick)
             .semantics { contentDescription = "Remove set $label" },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+        Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.7f else DISABLED_ALPHA), modifier = Modifier.size(16.dp))
     }
 }
 
