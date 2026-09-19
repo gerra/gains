@@ -368,7 +368,9 @@ flowchart LR
 
 Dependencies are wired with [Koin](https://insert-koin.io/); each platform supplies a
 `DatabaseDriverFactory` and everything else comes from `SharedModule`. Screens use a small
-`ScreenModel` state holder over Kotlin Flows.
+`ScreenModel` state holder over Kotlin Flows; it belongs to the screen's back-stack entry, so a
+screen covered by another one (settings, a lift's detail) comes back as it was left rather than
+reloading.
 
 ### Accounts and sync
 
