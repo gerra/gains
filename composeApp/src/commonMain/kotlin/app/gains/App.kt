@@ -72,11 +72,18 @@ import app.gains.domain.LiveSession
 import app.gains.domain.ProgramDayRef
 import app.gains.program.Rotation
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import app.gains.data.ThemeMode
 import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
+import app.gains.platform.LiveSessionNotice
+import app.gains.platform.LiveSessionNotifier
+import app.gains.platform.ResumeRequests
 import app.gains.ui.components.GainsWordmark
 import app.gains.ui.components.dismissKeyboardOnTap
 import app.gains.ui.inject
@@ -110,9 +117,16 @@ import app.gains.ui.theme.GainsTheme
  * [systemBack] lets a platform hook its own back affordance (Android's button and predictive back
  * gesture) into the navigator: it is composed with whether the app can go back and what to do then.
  * Swiping in from the left edge goes back on every platform without any hook.
+ *
+ * [notifier] is told about the workout in progress, so the platform can keep a way back to it in
+ * its tray while the lifter is elsewhere; a tap there comes back through [ResumeRequests].
  */
 @Composable
-fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> }) {
+fun App(
+    filePicker: CsvFilePicker,
+    systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> },
+    notifier: LiveSessionNotifier = LiveSessionNotifier.None,
+) {
     // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
     // while the entry lives, so a screen comes back as it was left once the one covering it is popped.
     val stateHolder = rememberSaveableStateHolder()
@@ -142,6 +156,32 @@ fun App(filePicker: CsvFilePicker, systemBack: @Composable (enabled: Boolean, on
     // The workout in progress, if any: shown as a resume bar on every screen but its own.
     val liveSessions = remember { inject<LiveSessionRepository>() }
     val live by liveSessions.observe().collectAsState(initial = null)
+    // Keep the platform's tray in step with it. Only what the notice shows is watched, so typing a
+    // weight does not re-post it, and a rest countdown is re-posted without one once it is over.
+    LaunchedEffect(Unit) {
+        liveSessions.observe()
+            .map { it?.let { s -> LiveSessionNotice(s.title, s.startedAtMs, s.rest?.endsAtMs) } }
+            .distinctUntilChanged()
+            .collectLatest { notice ->
+                val restEnds = notice?.restEndsAtMs
+                if (restEnds != null && restEnds > nowMs()) {
+                    notifier.update(notice)
+                    delay(restEnds - nowMs())
+                }
+                notifier.update(notice?.copy(restEndsAtMs = null))
+            }
+    }
+    // A tap on that notice: open the running workout once the database has said there is one.
+    val resumeRequest by ResumeRequests.pending.collectAsState()
+    LaunchedEffect(resumeRequest) {
+        if (resumeRequest == 0) return@LaunchedEffect
+        val running = liveSessions.observe().first()
+        ResumeRequests.consume()
+        val current = navigator.current
+        if (running != null && !(current is Screen.EditSession && current.live)) {
+            navigator.push(Screen.EditSession(null, running.program, live = true))
+        }
+    }
     val themeMode by settings.observeThemeMode().collectAsState(ThemeMode.DARK)
     val dark = when (themeMode) {
         ThemeMode.DARK -> true

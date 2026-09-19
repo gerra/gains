@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,10 +57,30 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Month
+
+/** One calendar month of sessions, newest first. */
+data class MonthGroup(val year: Int, val month: Month, val sessions: List<Session>)
+
+/** One calendar year of sessions, split into months, newest first. */
+data class YearGroup(val year: Int, val months: List<MonthGroup>) {
+    val sessionCount: Int get() = months.sumOf { it.sessions.size }
+}
+
+/** Groups [sessions] (newest first) by year and month, preserving their order inside each month. */
+fun groupByYearAndMonth(sessions: List<Session>): List<YearGroup> =
+    sessions.groupBy { it.date.year }.entries.sortedByDescending { it.key }.map { (year, inYear) ->
+        YearGroup(
+            year,
+            inYear.groupBy { it.date.month }.entries.sortedByDescending { it.key }.map { (month, inMonth) -> MonthGroup(year, month, inMonth) },
+        )
+    }
 
 data class HistoryState(
     val loading: Boolean = true,
     val sessions: List<Session> = emptyList(),
+    /** [sessions] grouped by year, then month, newest first. */
+    val years: List<YearGroup> = emptyList(),
     val exercisesById: Map<String, Exercise> = emptyMap(),
     val perDay: Map<LocalDate, Int> = emptyMap(),
     val weeks: List<WeekCount> = emptyList(),
@@ -73,10 +94,12 @@ class HistoryModel(trainingData: TrainingData = inject(), programs: ProgramRepos
     val state: StateFlow<HistoryState> = combine(trainingData.snapshot, programs.observePrograms()) { snapshot, programList ->
         withContext(Dispatchers.Default) {
             val today = Dates.today()
+            val sessions = snapshot.sessions.sortedByDescending { it.timestamp }
             HistoryState(
                 loading = false,
                 dayNames = programList.flatMap { p -> p.days.map { it.id to it.name } }.toMap(),
-                sessions = snapshot.sessions.sortedByDescending { it.timestamp },
+                sessions = sessions,
+                years = groupByYearAndMonth(sessions),
                 exercisesById = snapshot.exercisesById,
                 perDay = ConsistencyAnalyzer.perDay(snapshot.sessions),
                 weeks = ConsistencyAnalyzer.sessionsPerWeek(snapshot.sessions, today),
@@ -131,10 +154,37 @@ fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
                 }
             }
         }
-        item { SectionHeader("Sessions") }
-        items(state.sessions, key = { it.id }) { session ->
-            SessionRow(session, state.exercisesById, today, state.dayNames[session.program?.dayId], onClick = { onOpen(session.id) })
+        for (year in state.years) {
+            item(key = "year-${year.year}", contentType = "year") { YearDivider(year) }
+            for (month in year.months) {
+                item(key = "month-${year.year}-${month.month.ordinal}", contentType = "month") { MonthHeader(month) }
+                items(month.sessions, key = { it.id }, contentType = { "session" }) { session ->
+                    SessionRow(session, state.exercisesById, today, state.dayNames[session.program?.dayId], onClick = { onOpen(session.id) })
+                }
+            }
         }
+    }
+}
+
+/** Full-width rule with the year in the middle and that year's session count beneath it. */
+@Composable
+private fun YearDivider(year: YearGroup) {
+    val hairline = MaterialTheme.colorScheme.outlineVariant
+    Row(Modifier.fillMaxWidth().padding(top = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+        HorizontalDivider(Modifier.weight(1f), color = hairline)
+        Column(Modifier.padding(horizontal = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(year.year.toString(), style = MaterialTheme.typography.titleLarge)
+            Text(Format.plural(year.sessionCount, "session"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        HorizontalDivider(Modifier.weight(1f), color = hairline)
+    }
+}
+
+/** "SEPTEMBER" on the left, "8 sessions" on the right. */
+@Composable
+private fun MonthHeader(month: MonthGroup) {
+    SectionHeader(Dates.monthName(month.sessions.first().date)) {
+        Text(Format.plural(month.sessions.size, "session"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

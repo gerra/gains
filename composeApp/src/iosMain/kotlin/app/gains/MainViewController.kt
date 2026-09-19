@@ -35,8 +35,14 @@ fun MainViewController(): UIViewController {
         initKoin(module { single<DatabaseDriverFactory> { IosDriverFactory() } })
         koinStarted = true
     }
-    return ComposeUIViewController { App(filePicker = IosFilePicker()) }
+    return ComposeUIViewController { App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier) }
 }
+
+/**
+ * Called from the Swift app delegate as the app finishes launching, so a tap on the workout
+ * notification that cold starts the app reaches [IosLiveSessionNotifier] and opens the workout.
+ */
+fun prepareLiveSessionNotices() = IosLiveSessionNotifier.install()
 
 /** Reads files on the IO dispatcher so the main thread never blocks on disk or the file provider. */
 private val fileReads = CoroutineScope(Dispatchers.IO)

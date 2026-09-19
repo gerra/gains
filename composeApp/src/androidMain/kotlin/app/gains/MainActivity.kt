@@ -1,5 +1,6 @@
 package app.gains
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -11,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.PickedFile
+import app.gains.platform.ResumeRequests
 
 class MainActivity : ComponentActivity() {
     private var pendingPick: ((List<PickedFile>) -> Unit)? = null
@@ -26,13 +28,23 @@ class MainActivity : ComponentActivity() {
         openDocuments.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream", "*/*"))
     }
 
+    // The workout in progress lives in the tray while the lifter is elsewhere; see AndroidLiveSessionNotifier.
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        notifier.onPermissionResult(granted)
+    }
+    private val notifier = AndroidLiveSessionNotifier(this) { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handleIntent(intent)
+        handleIntent(intent, launched = savedInstanceState == null)
         setContent {
             // The system back button / predictive back gesture pops the navigator while it has
             // somewhere to go; at the root the callback is disabled so the system leaves the app.
-            App(filePicker = filePicker, systemBack = { enabled, onBack -> BackHandler(enabled, onBack) })
+            App(
+                filePicker = filePicker,
+                systemBack = { enabled, onBack -> BackHandler(enabled, onBack) },
+                notifier = notifier,
+            )
         }
     }
 
@@ -41,9 +53,17 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
-    /** ACTION_VIEW / ACTION_SEND / ACTION_SEND_MULTIPLE from a file manager or the share sheet. */
+    /**
+     * ACTION_VIEW / ACTION_SEND / ACTION_SEND_MULTIPLE from a file manager or the share sheet, or a
+     * tap on the workout notification. [launched] is false when the activity is being recreated
+     * (a rotation) with an intent it already acted on, which must not open the workout again.
+     */
     @Suppress("DEPRECATION")
-    private fun handleIntent(intent: Intent?) {
+    private fun handleIntent(intent: Intent?, launched: Boolean = true) {
+        if (intent?.action == ACTION_RESUME_SESSION) {
+            if (launched) ResumeRequests.request()
+            return
+        }
         val uris: List<Uri> = when (intent?.action) {
             Intent.ACTION_VIEW -> listOfNotNull(intent.data)
             Intent.ACTION_SEND -> listOfNotNull(intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri)
@@ -60,4 +80,9 @@ class MainActivity : ComponentActivity() {
         val content = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return null
         PickedFile(name, content)
     }.getOrNull()
+
+    companion object {
+        /** The workout notification's tap: bring the running workout back up. */
+        const val ACTION_RESUME_SESSION = "app.gains.action.RESUME_SESSION"
+    }
 }

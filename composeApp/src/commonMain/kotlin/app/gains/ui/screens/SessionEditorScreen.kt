@@ -678,7 +678,6 @@ fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, l
                     source = state.sources[draft.exercise.id],
                     tier = state.tiers[draft.exercise.id],
                     warmupsCollapsed = draft.exercise.id in state.collapsedWarmups,
-                    restTimer = state.restTimer?.takeIf { it.exerciseId == draft.exercise.id },
                     canTick = !state.timed || state.isRunning,
                     onPickWeight = { setIndex -> weightTarget = exerciseIndex to setIndex },
                 )
@@ -944,7 +943,7 @@ private fun DayChoice(label: String, selected: Boolean, accent: Color, onClick: 
 private fun ExerciseCard(
     exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
     target: String? = null, hint: String? = null, programNote: String? = null, seeded: Boolean = false,
-    source: Progression.Source? = null, tier: Gzclp.Tier? = null, warmupsCollapsed: Boolean = false, restTimer: RestTimer? = null,
+    source: Progression.Source? = null, tier: Gzclp.Tier? = null, warmupsCollapsed: Boolean = false,
     /** False while a timed workout has not started: the checks wait for Start. */
     canTick: Boolean = true,
     onPickWeight: (setIndex: Int) -> Unit,
@@ -993,7 +992,6 @@ private fun ExerciseCard(
                 style = MaterialTheme.typography.bodySmall, color = muted,
             )
         }
-        if (restTimer != null) RestTimerRow(restTimer, onDismiss = model::dismissRest)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth().padding(bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
             Text("SET", Modifier.width(LABEL_WIDTH), style = MaterialTheme.typography.labelSmall, color = muted)
@@ -1162,24 +1160,6 @@ private fun RemoveSetButton(label: String, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
-    }
-}
-
-/** "Rest 2:47" counting down, then "Rest done" until dismissed or the next set is ticked. */
-@Composable
-private fun RestTimerRow(timer: RestTimer, onDismiss: () -> Unit) {
-    val palette = GainsColors.palette
-    var now by remember(timer) { mutableStateOf(nowMs()) }
-    LaunchedEffect(timer) {
-        while (now < timer.endsAtMs) { delay(250); now = nowMs() }
-    }
-    val remaining = timer.remainingSeconds(now)
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            if (remaining > 0) "Rest ${Format.seconds(remaining)}" else "Rest done: next set",
-            Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, color = if (remaining > 0) palette.cyan else palette.volt,
-        )
-        TextButton(onClick = onDismiss) { Text(if (remaining > 0) "Skip" else "OK", color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
