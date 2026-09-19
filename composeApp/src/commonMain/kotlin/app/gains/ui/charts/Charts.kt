@@ -4,7 +4,12 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -15,7 +20,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +44,8 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -45,7 +55,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gains.analysis.Dates
+import app.gains.analysis.Format
 import app.gains.ui.theme.GainsColors
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -322,47 +334,84 @@ fun StackedBarChart(
     }
 }
 
+/**
+ * One column per week and one row per weekday, Monday at the top, the newest week on the right.
+ * Days with sessions are filled, today is ringed, and with [onDayClick] every day that has a
+ * session is a button. Cells never shrink below [minCell]: when [weeks] do not fit at that size
+ * the grid scrolls sideways and starts at today, so the recent weeks are the ones in view.
+ */
 @Composable
 fun CalendarHeatmap(
     counts: Map<LocalDate, Int>,
     today: LocalDate,
     weeks: Int,
     modifier: Modifier = Modifier,
+    minCell: Dp = 30.dp,
+    onDayClick: ((LocalDate) -> Unit)? = null,
 ) {
-    val measurer = rememberTextMeasurer()
     val palette = GainsColors.palette
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val style = TextStyle(fontSize = 10.sp, color = labelColor)
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val empty = MaterialTheme.colorScheme.surfaceContainerHighest
     val filled = palette.volt
     val end = Dates.weekStart(today)
     val start = Dates.run { end.minusDays((weeks - 1) * 7) }
-    Canvas(modifier.fillMaxWidth().height(126.dp)) {
-        val leftPad = 30.dp.toPx()
-        val topPad = 16.dp.toPx()
-        val cell = minOf((size.width - leftPad) / weeks, (size.height - topPad) / 7)
-        val gap = cell * 0.22f
-        val r = CornerRadius(cell * 0.25f, cell * 0.25f)
-        listOf(0 to "Mon", 2 to "Wed", 4 to "Fri", 6 to "Sun").forEach { (row, name) ->
-            axisLabel(measurer, name, 0f, topPad + row * cell + cell / 2 - 6.sp.toPx(), style)
-        }
-        var lastMonth = -1
-        for (w in 0 until weeks) {
-            val weekStart = Dates.run { start.plusDays(w * 7) }
-            if (weekStart.month.ordinal != lastMonth) {
-                lastMonth = weekStart.month.ordinal
-                if (w == 0 || weekStart.day <= 7) axisLabel(measurer, Dates.monthShort(weekStart), leftPad + w * cell, 0f, style)
-            }
-            for (d in 0 until 7) {
-                val date = Dates.run { weekStart.plusDays(d) }
-                if (date > today) continue
-                val n = counts[date] ?: 0
-                val color = when {
-                    n == 0 -> empty
-                    n >= 2 -> filled
-                    else -> filled.copy(alpha = 0.72f)
+    val leftPad = 34.dp
+    val topPad = 18.dp
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val cell = maxOf(minCell, (maxWidth - leftPad) / weeks)
+        val gap = cell * 0.2f
+        val shape = RoundedCornerShape(cell * 0.25f)
+        Row(Modifier.fillMaxWidth()) {
+            // Weekday labels stay put while the weeks scroll under them.
+            Column(Modifier.width(leftPad).padding(top = topPad)) {
+                for (row in 0 until 7) {
+                    Box(Modifier.height(cell), contentAlignment = Alignment.CenterStart) {
+                        if (row % 2 == 0) Text(Dates.dayLabel(DayOfWeek.entries[row]), style = labelStyle, maxLines = 1)
+                    }
                 }
-                drawRoundRect(color, topLeft = Offset(leftPad + w * cell + gap / 2, topPad + d * cell + gap / 2), size = Size(cell - gap, cell - gap), cornerRadius = r)
+            }
+            // Reversed so that position zero is the right-hand end: the grid opens on the newest week.
+            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState(), reverseScrolling = true)) {
+                var lastMonth = -1
+                for (w in 0 until weeks) {
+                    val weekStart = Dates.run { start.plusDays(w * 7) }
+                    var labelled = false
+                    if (weekStart.month.ordinal != lastMonth) {
+                        lastMonth = weekStart.month.ordinal
+                        labelled = w == 0 || weekStart.day <= 7
+                    }
+                    Column(Modifier.width(cell)) {
+                        Box(Modifier.height(topPad).wrapContentWidth(Alignment.Start, unbounded = true)) {
+                            if (labelled) Text(Dates.monthShort(weekStart), style = labelStyle, maxLines = 1, softWrap = false)
+                        }
+                        for (d in 0 until 7) {
+                            val date = Dates.run { weekStart.plusDays(d) }
+                            if (date > today) {
+                                Spacer(Modifier.size(cell))
+                                continue
+                            }
+                            val n = counts[date] ?: 0
+                            val description = "${Dates.dayLabel(date.dayOfWeek)} ${Dates.shortWithYear(date)}, " +
+                                if (n == 0) "no sessions" else Format.plural(n, "session")
+                            Box(
+                                Modifier.size(cell)
+                                    .clip(shape)
+                                    .then(if (onDayClick != null && n > 0) Modifier.clickable { onDayClick(date) } else Modifier)
+                                    .semantics { contentDescription = description }
+                                    .padding(gap / 2)
+                                    .clip(shape)
+                                    .background(
+                                        when {
+                                            n == 0 -> empty
+                                            n >= 2 -> filled
+                                            else -> filled.copy(alpha = 0.72f)
+                                        },
+                                    )
+                                    .then(if (date == today && n == 0) Modifier.border(1.5.dp, filled, shape) else Modifier),
+                            )
+                        }
+                    }
+                }
             }
         }
     }
