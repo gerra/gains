@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -44,11 +45,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.SaveableStateHolder
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +87,8 @@ import app.gains.platform.ResumeRequests
 import app.gains.ui.components.GainsWordmark
 import app.gains.ui.components.dismissKeyboardOnTap
 import app.gains.ui.inject
+import app.gains.ui.nav.LocalNavEntry
+import app.gains.ui.nav.NavEntry
 import app.gains.ui.nav.Navigator
 import app.gains.ui.nowMs
 import app.gains.ui.nav.Screen
@@ -120,7 +127,10 @@ fun App(
     systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> },
     notifier: LiveSessionNotifier = LiveSessionNotifier.None,
 ) {
-    val navigator = remember { Navigator() }
+    // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
+    // while the entry lives, so a screen comes back as it was left once the one covering it is popped.
+    val stateHolder = rememberSaveableStateHolder()
+    val navigator = remember { Navigator(onReleased = { stateHolder.removeState(it.id) }) }
     val exercises = remember { inject<ExerciseRepository>() }
     LaunchedEffect(Unit) { exercises.seedCatalogue() }
 
@@ -189,27 +199,27 @@ fun App(
             // Tapping outside a text field anywhere in the app puts the keyboard away.
             Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
                 TopBar(navigator, screen, upNext)
+                val transition = updateTransition(navigator.currentEntry, label = "screen")
                 SwipeBack(
-                    enabled = navigator.canGoBack,
+                    // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
+                    enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
                     onBack = { navigator.pop(animated = false) },
                     modifier = Modifier.weight(1f),
-                    previous = { navigator.previous?.let { ScreenContent(it, navigator, filePicker) } },
+                    previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, stateHolder) } },
                 ) {
-                    AnimatedContent(
-                        targetState = screen,
+                    transition.AnimatedContent(
                         transitionSpec = {
                             if (navigator.skipTransition) {
                                 // The swipe-back gesture has already slid the old screen away.
                                 EnterTransition.None togetherWith ExitTransition.None
                             } else {
-                                val forward = navigator.stack.size > 1 && targetState !is Screen.Home
+                                val forward = navigator.stack.size > 1 && targetState.screen !is Screen.Home
                                 val enter = fadeIn(tween(220)) + slideInHorizontally(tween(260)) { if (forward) it / 12 else -it / 12 }
                                 val exit = fadeOut(tween(160)) + slideOutHorizontally(tween(220)) { if (forward) -it / 16 else it / 16 }
                                 enter togetherWith exit
                             }
                         },
-                        label = "screen",
-                    ) { current -> ScreenContent(current, navigator, filePicker) }
+                    ) { entry -> ScreenContent(entry, navigator, filePicker, stateHolder) }
                 }
                 live?.let { running ->
                     if (!(screen is Screen.EditSession && screen.live)) {
@@ -227,10 +237,24 @@ private data class UpNext(val ref: ProgramDayRef, val dayName: String)
 
 /**
  * One screen of the stack. Opaque, so it can slide over the screen beneath it during a swipe back
- * and so the outgoing screen never shows through the incoming one mid-transition.
+ * and so the outgoing screen never shows through the incoming one mid-transition. Its models and
+ * saved UI state belong to [entry], not to this composition, so they outlive the screen being covered.
  */
 @Composable
-private fun ScreenContent(screen: Screen, navigator: Navigator, filePicker: CsvFilePicker) {
+private fun ScreenContent(entry: NavEntry, navigator: Navigator, filePicker: CsvFilePicker, stateHolder: SaveableStateHolder) {
+    DisposableEffect(entry) {
+        entry.attach()
+        onDispose { entry.detach() }
+    }
+    CompositionLocalProvider(LocalNavEntry provides entry) {
+        stateHolder.SaveableStateProvider(entry.id) {
+            ScreenBody(entry.screen, navigator, filePicker)
+        }
+    }
+}
+
+@Composable
+private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFilePicker) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (screen) {
             Screen.Home -> HomeScreen(
