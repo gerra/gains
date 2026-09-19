@@ -67,6 +67,19 @@ class LiveSessionRepositoryTest {
     }
 
     @Test
+    fun clearRestDropsOnlyTheCountdown() = runTest {
+        val repo = newRepo()
+        repo.save(live)
+        repo.clearRest()
+        assertEquals(live.copy(rest = null), repo.load())
+        assertEquals(live.copy(rest = null), repo.observe().first())
+        // Nothing to drop: neither an error nor a workout conjured up.
+        repo.clear()
+        repo.clearRest()
+        assertNull(repo.load())
+    }
+
+    @Test
     fun clearRemovesIt() = runTest {
         val repo = newRepo()
         repo.save(live)

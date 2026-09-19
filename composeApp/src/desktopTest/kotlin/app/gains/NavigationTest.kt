@@ -43,6 +43,16 @@ class NavigationTest {
     }
 
     @Test
+    fun peekFindsAModelWithoutMakingOne() {
+        val navigator = Navigator()
+        val home = navigator.currentEntry
+        assertEquals(null, home.peek(Model::class))
+        val model = home.model()
+        assertSame(model, home.peek(Model::class))
+        assertEquals(null, home.peek(Other::class))
+    }
+
+    @Test
     fun poppedScreenIsReleasedOnceItIsOffTheScreenToo() {
         val released = mutableListOf<NavEntry>()
         val navigator = Navigator(onReleased = { released += it })

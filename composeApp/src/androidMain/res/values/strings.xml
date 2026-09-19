@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Gains</string>
+    <!-- The workout notification: labels on its two clocks and its action while a rest counts down. -->
+    <string name="notification_total">Total</string>
+    <string name="notification_rest">Rest</string>
+    <string name="notification_skip_rest">Skip rest</string>
 </resources>

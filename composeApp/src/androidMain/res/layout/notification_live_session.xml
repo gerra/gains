@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The workout notification's content, in place of the template's title and text lines: the
+     workout's name, then the total time counting up and, while a rest runs, its countdown beside
+     it. Both clocks are Chronometers, so the system keeps them ticking while the app is asleep or
+     killed. Inflated under DecoratedCustomViewStyle, which keeps the system's header and actions
+     around it and adjusts the text colours to the notification's light or dark background. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/workout_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:singleLine="true"
+        android:textAppearance="@android:style/TextAppearance.Material.Notification.Title" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/notification_total"
+            android:textAppearance="@android:style/TextAppearance.Material.Notification" />
+
+        <Chronometer
+            android:id="@+id/total_clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textAppearance="@android:style/TextAppearance.Material.Notification"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:id="@+id/rest_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/notification_rest"
+                android:textAppearance="@android:style/TextAppearance.Material.Notification" />
+
+            <Chronometer
+                android:id="@+id/rest_clock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:textAppearance="@android:style/TextAppearance.Material.Notification"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

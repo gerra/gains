@@ -62,6 +62,12 @@ class NavEntry internal constructor(val screen: Screen, val id: Int, private val
         return factory().also { models[type] = Held(keys, it) }
     }
 
+    /** The model of class [type] this entry already holds, or null while its screen has not made one. */
+    fun <T : ScreenModel> peek(type: KClass<T>): T? {
+        @Suppress("UNCHECKED_CAST")
+        return models[type]?.model as T?
+    }
+
     /** The screen is being drawn; it may be, more than once at a time, during a swipe back or a transition. */
     internal fun attach() { hosts++ }
 

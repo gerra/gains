@@ -84,6 +84,7 @@ import app.gains.platform.IncomingFiles
 import app.gains.platform.LiveSessionNotice
 import app.gains.platform.LiveSessionNotifier
 import app.gains.platform.ResumeRequests
+import app.gains.platform.SkipRestRequests
 import app.gains.ui.components.GainsWordmark
 import app.gains.ui.components.dismissKeyboardOnTap
 import app.gains.ui.inject
@@ -96,6 +97,7 @@ import app.gains.ui.nav.SwipeBack
 import app.gains.ui.nav.Tab
 import app.gains.ui.screens.BodyweightScreen
 import app.gains.ui.screens.HistoryScreen
+import app.gains.ui.screens.SessionEditorModel
 import app.gains.ui.screens.SessionEditorScreen
 import app.gains.ui.screens.ExerciseDetailScreen
 import app.gains.ui.screens.ExercisesScreen
@@ -181,6 +183,16 @@ fun App(
         if (running != null && !(current is Screen.EditSession && current.live)) {
             navigator.push(Screen.EditSession(null, running.program, live = true))
         }
+    }
+    // "Skip rest" on that notice: the editor running the workout drops it when there is one (its next
+    // persist reaches the database and, through it, the notice); otherwise the database is changed directly.
+    val skipRequest by SkipRestRequests.pending.collectAsState()
+    LaunchedEffect(skipRequest) {
+        if (skipRequest == 0) return@LaunchedEffect
+        SkipRestRequests.consume()
+        // Any editor may be open (a past workout's, say); only the one running the workout takes it.
+        val editors = navigator.stack.mapNotNull { it.peek(SessionEditorModel::class) }
+        if (editors.none { it.skipRest() }) liveSessions.clearRest()
     }
     val themeMode by settings.observeThemeMode().collectAsState(ThemeMode.DARK)
     val dark = when (themeMode) {
