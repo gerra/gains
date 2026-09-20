@@ -144,6 +144,25 @@ class ScreenshotTest {
             runOnUiThread { list.config[SemanticsActions.ScrollBy].action?.invoke(0f, dy) }
             settle(1_500)
         }
+        /**
+         * Pages the list containing [inList] down half a viewport at a time until a node matches [target].
+         * A LazyColumn only composes the rows in view, so a row below the fold cannot be found, let
+         * alone scrolled to with [scrollIntoView]; the list is paged until the row appears. Half a
+         * viewport per step so that no row can pass through the viewport between two looks.
+         */
+        fun scrollUntil(inList: SemanticsMatcher, target: SemanticsMatcher, pages: Int = 12) {
+            val inside = onAllNodes(inList).onFirst().fetchSemanticsNode("Nothing to page from: ${inList.description}")
+            var scrollable: SemanticsNode? = inside
+            while (scrollable != null && SemanticsActions.ScrollBy !in scrollable.config) scrollable = scrollable.parent
+            val list = checkNotNull(scrollable) { "${inList.description} is not inside a scrollable list" }
+            val page = list.size.height / 2f
+            repeat(pages) {
+                if (exists(target)) return
+                runOnUiThread { list.config[SemanticsActions.ScrollBy].action?.invoke(0f, page) }
+                settle(1_500)
+            }
+            check(exists(target)) { "Paged $pages half-screens without finding ${target.description}" }
+        }
 
         // 1. Welcome / sign-in gate.
         require(text("Continue as guest"))
@@ -309,9 +328,11 @@ class ScreenshotTest {
         require(text("What's moving"), 60_000)
         settle(1_000)
         check(!exists(text("Resume"))) { "The resume bar is still showing after the session was ended" }
-        // The ended workout is an ordinary logged session in history, tagged with its day.
+        // The ended workout is an ordinary logged session in history, tagged with its day. The session
+        // rows sit below the calendar and the weekly chart, past the end of the list's first viewport.
         tab("History")
-        require(text("logged"))
+        require(text("Last 26 weeks"))
+        scrollUntil(text("Last 26 weeks"), text("logged"))
         onNode(hasContentDescription("Settings") and hasClickAction()).performClick()
         require(text("Appearance"))
         onNode(text("Light") and hasClickAction()).performClick()
