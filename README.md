@@ -133,8 +133,8 @@ device today.
 - **Per-lift analysis.** Estimated 1RM (Epley) over working sets, top set weight, volume per
   session and best set per session, over 3-month, 6-month, 1-year or all-time windows.
 - **Weekly volume by muscle group.** Working sets per week with primary and secondary credit,
-  flagged as maintenance under 8 sets and likely junk volume over 22. This week's sets are also
-  shaded onto a body, front and back; tap a muscle to see its numbers and filter the list to it.
+  flagged as maintenance under 8 sets and likely junk volume over 22. The sets are also shaded
+  onto a body, front and back; tap a muscle to see its numbers and filter the list to it.
 - **Log and edit workouts.** Add sessions in the app, edit imported ones (date, duration,
   exercises, sets, notes) and have the edits flow into the same analyses.
 - **Bodyweight tracking** with a 7-day average, and any lift overlaid on the trend.
@@ -337,10 +337,11 @@ with their thresholds gathered in `InsightThresholds`. The defaults:
 
 Volume credits 1.0 set to primary muscle groups and 0.5 to secondary ones across 17 groups.
 
-The Volume tab draws this week's sets on a body, front and back
+The Volume tab draws working sets on a body, front and back
 ([`BodyMap.kt`](composeApp/src/commonMain/kotlin/app/gains/ui/charts/BodyMap.kt)): each muscle is
-shaded from the resting body colour at zero sets to the full accent at 22, and tapping one shows its
-numbers and narrows the list below to it. The drawing is a set of SVG paths rendered on a Compose
+shaded from the resting body colour at zero sets to the full accent at 22, for this week, last week
+or the average over the trend window (the most recent one with any sets is shown first), and tapping
+a muscle shows its numbers and narrows the list below to it. The drawing is a set of SVG paths rendered on a Compose
 `Canvas`, so it needs no platform code and taps are hit-tested against the paths themselves. The
 drawing is coarser than the 17 groups in a few places: its one deltoid per view stands for front
 and side delts on the front, rear and side delts on the back; abs and obliques together are core;

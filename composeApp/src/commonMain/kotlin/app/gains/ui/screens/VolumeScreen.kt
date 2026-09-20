@@ -100,6 +100,13 @@ fun VolumeStatus.color(): Color {
     }
 }
 
+/** Which sets the body map shades. */
+enum class BodyMapWindow(val label: String, val suffix: String) {
+    THIS_WEEK("This week", "this week"),
+    LAST_WEEK("Last week", "last week"),
+    AVERAGE("Avg", "a week on average"),
+}
+
 /** The wording of a status pill in the volume list. */
 fun VolumeStatus.label(): String = when (this) {
     VolumeStatus.NONE -> "none"
@@ -123,7 +130,19 @@ fun VolumeScreen() {
     val lastFull = state.weeks.dropLast(1).lastOrNull()
     // Muscle groups picked on the body map; the map outlines them and the list below shows only those.
     var selected by remember { mutableStateOf<Set<MuscleGroup>>(emptySet()) }
-    val currentSets = current?.sets ?: emptyMap()
+    val fullWeeks = state.weeks.dropLast(1)
+    val windowSets: Map<BodyMapWindow, Map<MuscleGroup, Double>> = remember(state) {
+        mapOf(
+            BodyMapWindow.THIS_WEEK to (current?.sets ?: emptyMap()),
+            BodyMapWindow.LAST_WEEK to (lastFull?.sets ?: emptyMap()),
+            BodyMapWindow.AVERAGE to if (fullWeeks.isEmpty()) emptyMap()
+            else MuscleGroup.entries.associateWith { g -> fullWeeks.sumOf { it.sets[g] ?: 0.0 } / fullWeeks.size }.filterValues { it > 0 },
+        )
+    }
+    // Until the user picks a window, show the most recent one that has anything to shade.
+    var pickedWindow by remember { mutableStateOf<BodyMapWindow?>(null) }
+    val window = pickedWindow ?: BodyMapWindow.entries.firstOrNull { windowSets.getValue(it).values.any { v -> v > 0 } } ?: BodyMapWindow.THIS_WEEK
+    val shownSets = windowSets.getValue(window)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
             ScreenTitle("Volume", subtitle = "Working sets per muscle group, per week")
@@ -136,11 +155,11 @@ fun VolumeScreen() {
         item {
             SectionHeader(
                 "On the body",
-                action = if (selected.isEmpty()) null else { { Pill("Show all", palette.muted, onClick = { selected = emptySet() }) } },
+                action = { ChipRow(BodyMapWindow.entries, window, { if (it == BodyMapWindow.AVERAGE) "${state.span}w avg" else it.label }, { pickedWindow = it }) },
             )
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 BodyMap(
-                    currentSets,
+                    shownSets,
                     Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     selected = selected,
                     onRegionTap = { region ->
@@ -151,20 +170,23 @@ fun VolumeScreen() {
                 BodyMapLegend()
                 for (g in MuscleGroup.entries) {
                     if (g !in selected) continue
-                    val sets = currentSets[g] ?: 0.0
+                    val sets = shownSets[g] ?: 0.0
                     val status = VolumeAnalyzer.status(sets)
                     Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Dot(g.color())
                         Spacer(Modifier.width(10.dp))
                         Text(g.displayName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                        Text("${Format.number(sets, 1)} sets this week", style = MaterialTheme.typography.bodyMedium)
+                        Text("${Format.number(sets, 1)} sets ${window.suffix}", style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.width(10.dp))
                         Pill(status.label(), status.color())
                     }
                 }
+                if (selected.isNotEmpty()) {
+                    Pill("Show all", palette.muted, Modifier.padding(top = 10.dp).align(Alignment.End), onClick = { selected = emptySet() })
+                }
             }
             Text(
-                if (selected.isEmpty()) "This week's sets, front and back. Tap a muscle to see its numbers and filter the list."
+                if (selected.isEmpty()) "Working sets ${window.suffix}, front and back. Tap a muscle to see its numbers and filter the list."
                 else "Tap the muscle again, or Show all, to see every group.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
             )

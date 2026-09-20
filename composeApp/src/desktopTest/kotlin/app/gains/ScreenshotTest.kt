@@ -223,12 +223,12 @@ class ScreenshotTest {
         val mapScale = map.fetchSemanticsNode().size.width / BodyMapModel.TOTAL_WIDTH
         map.performTouchInput { click(Offset(310f * mapScale, 375f * mapScale)) }
         require(text("Show all"))
-        require(text("sets this week"))
+        require(text("Chest"))
         settle(1_500)
         shot("07b-volume-muscle")
         onNode(text("Show all") and hasClickAction()).performClick()
         settle()
-        check(!exists(text("sets this week"))) { "Show all did not clear the muscle-map selection" }
+        check(!exists(text("Show all"))) { "Show all did not clear the muscle-map selection" }
 
         // 7. Bodyweight, with a few months of entries.
         val bodyweight = inject<BodyweightRepository>()
