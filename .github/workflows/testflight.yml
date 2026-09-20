@@ -13,7 +13,22 @@ on:
         required: false
         type: string
   push:
+    branches: [main]
     tags: ["v*"]
+    # A change that cannot alter the app is not worth a macOS runner: docs, workflows
+    # other than this one, and files only the Android and desktop builds read.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "samples/**"
+      - ".github/**"
+      - "!.github/workflows/testflight.yml"
+      - "composeApp/src/androidMain/**"
+      - "composeApp/src/desktopMain/**"
+      - "shared/src/androidMain/**"
+      - "shared/src/desktopMain/**"
+      - "**/src/commonTest/**"
+      - "**/src/desktopTest/**"
 
 # Never upload two builds at once: App Store Connect rejects a repeated build number.
 concurrency:

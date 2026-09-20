@@ -264,9 +264,9 @@ the [issue tracker](https://github.com/gerra/gains/issues).
 **Distribute App > TestFlight & App Store**.
 
 **From GitHub Actions.** Add the six secrets listed in [docs/testflight.md](docs/testflight.md#upload-from-github-actions)
-(distribution certificate, App Store profile, App Store Connect API key), then start the
-**TestFlight** workflow from the Actions tab or push a `v*` tag. The run number becomes the
-build number.
+(distribution certificate, App Store profile, App Store Connect API key). Every push to
+`main` that touches the app then uploads a build; a `v*` tag or **Run workflow** in the
+Actions tab does the same by hand. The run number becomes the build number.
 
 **From Xcode Cloud.** No Mac and no secrets: Apple's CI signs and uploads the build itself.
 Connect the app once in App Store Connect and point the workflow's Archive action at
