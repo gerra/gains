@@ -23,7 +23,12 @@ concurrency:
 jobs:
   upload:
     name: Archive and upload
-    runs-on: macos-15
+    # App Store Connect only accepts apps built with the current major iOS SDK (iOS 26 from
+    # Xcode 26 since spring 2026) and rejects the upload otherwise ("SDK version issue").
+    # The macOS 15 image still defaults to Xcode 16, so use the image whose default Xcode
+    # is current. If Apple moves the bar again, bump this and the images list at
+    # https://github.com/actions/runner-images shows which Xcode each image ships.
+    runs-on: macos-26
     timeout-minutes: 120
     env:
       BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
