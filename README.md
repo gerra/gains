@@ -268,6 +268,11 @@ the [issue tracker](https://github.com/gerra/gains/issues).
 **TestFlight** workflow from the Actions tab or push a `v*` tag. The run number becomes the
 build number.
 
+**From Xcode Cloud.** No Mac and no secrets: Apple's CI signs and uploads the build itself.
+Connect the app once in App Store Connect and point the workflow's Archive action at
+TestFlight; [`ci_scripts/ci_post_clone.sh`](iosApp/ci_scripts/ci_post_clone.sh) installs the
+JDK the Kotlin build needs and keeps the Gradle and Kotlin/Native caches between builds. Details in [docs/testflight.md](docs/testflight.md#upload-from-xcode-cloud).
+
 Either way the build shows up under **TestFlight** in App Store Connect after a few minutes of
 processing, ready to be added to a tester group. Export compliance, the privacy manifest and an
 alpha-free app icon are already handled in the project, so an upload needs no extra answers.

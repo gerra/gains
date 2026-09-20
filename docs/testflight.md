@@ -8,6 +8,7 @@ How a commit becomes a build that testers can install. The short version lives i
 - [Upload from Xcode](#upload-from-xcode)
 - [Upload from the command line](#upload-from-the-command-line)
 - [Upload from GitHub Actions](#upload-from-github-actions)
+- [Upload from Xcode Cloud](#upload-from-xcode-cloud)
 - [Adding testers](#adding-testers)
 - [What the repository already takes care of](#what-the-repository-already-takes-care-of)
 - [Troubleshooting](#troubleshooting)
@@ -120,6 +121,66 @@ The certificate and profile expire after a year; renew them and update the two s
 the workflow starts failing at the archive step. Everything is installed into a throwaway
 keychain and removed at the end of the run.
 
+Creating the certificate, profile and API key is the only part that touches a Mac (Keychain
+Access exports the `.p12`). After that, every upload runs on GitHub's macOS runners; commit,
+push a tag or press *Run workflow* from any machine.
+
+**Caching.** The first run downloads the Gradle distribution, all dependencies and the
+Kotlin/Native toolchain and takes 30 to 40 minutes. The workflow keeps the Gradle home
+(`gradle/actions/setup-gradle` with `cache-read-only: false`, because tag and manual runs are
+not on the default branch where the action writes by default) and `~/.konan`
+(`actions/cache`, keyed on `gradle/libs.versions.toml`). With both warm and Gradle's build
+cache from `gradle.properties`, a later run recompiles only the changed Kotlin. A Kotlin
+upgrade in the version catalog fetches a fresh toolchain once. GitHub evicts caches that go
+unused for a week and keeps at most 10 GB per repository, so a run after a long pause starts
+cold again.
+
+## Upload from Xcode Cloud
+
+[Xcode Cloud](https://developer.apple.com/xcode-cloud/) is Apple's hosted CI. It clones the
+repository onto an Apple-run Mac, archives the app, signs it with certificates Apple manages
+itself and hands the build to TestFlight. Nothing has to be exported from a Mac and no
+repository secrets are needed, so it is the simplest way to ship without a Mac.
+
+Everything the build machine lacks is set up by
+[`iosApp/ci_scripts/ci_post_clone.sh`](../iosApp/ci_scripts/ci_post_clone.sh), which Xcode
+Cloud runs automatically because it sits in a `ci_scripts` folder next to the `.xcodeproj`:
+
+- **A JDK.** The *Compile Kotlin Framework* phase runs Gradle, and Xcode Cloud machines ship
+  without Java. The script installs OpenJDK 17 with Homebrew and registers it with
+  `/usr/libexec/java_home`, which is how Gradle finds it.
+- **A cache between builds.** Xcode Cloud keeps the derived data folder from one build to the
+  next unless the workflow's *Clean* option is on. The script stores the JDK, the Gradle home
+  (`~/.gradle`: wrapper, dependencies, build cache) and the Kotlin/Native toolchain
+  (`~/.konan`) in there and symlinks them into place. The first build fills the cache and takes
+  20 to 40 minutes; later builds skip the downloads and reuse Gradle's build cache, so only
+  the changed Kotlin recompiles. The *Post-Clone* step log prints what the cache holds, and
+  ticking *Clean* once in the workflow settings resets it.
+
+One-time setup, from Xcode on any Mac or from the web:
+
+1. **Connect the app.** Xcode: **Product > Xcode Cloud > Create Workflow**, or App Store
+   Connect > *Gains* > **Xcode Cloud** > **Get Started**. Grant Xcode Cloud access to the
+   `gerra/gains` GitHub repository when asked.
+2. **Edit the default workflow** (App Store Connect > *Gains* > Xcode Cloud > **Manage
+   Workflows**, or the Cloud tab of Xcode's Report navigator):
+   - **Environment**: latest Xcode and macOS. Leave *Clean* off so the cache survives.
+   - **Start Conditions**: *Branch Changes* on `main`, or *Tag Changes* for `v*` to mirror the
+     GitHub workflow. Drop *Pull Request Changes* unless every PR should produce a build.
+   - **Actions**: one **Archive** action, platform iOS, scheme `iosApp`, deployment preparation
+     **TestFlight (Internal Testing Only)** or **TestFlight and App Store**.
+   - **Post-Actions**: **TestFlight Internal Testing** with the internal group, so every green
+     build reaches testers without a click. External groups can be added the same way once
+     the first build has passed Beta App Review.
+3. **Start a build** from the workflow page or by pushing to the branch. Results appear in
+   App Store Connect and in Xcode under the Cloud tab; a failed build shows the log of the
+   step that broke, which for this project is almost always the Gradle phase.
+
+Xcode Cloud sets the build number itself (an increasing counter per workflow), so
+`CURRENT_PROJECT_VERSION` in `Config.xcconfig` is ignored there. If builds also come from
+Xcode by hand or from the GitHub workflow, keep the other build numbers above the Xcode Cloud
+counter, or let one of the three be the only uploader.
+
 ## Adding testers
 
 - **Internal testing.** App Store Connect > TestFlight > **Internal Testing** > **+**. Members of
@@ -161,6 +222,9 @@ keychain and removed at the end of the run.
 | *Missing Compliance* on the build in App Store Connect | `ITSAppUsesNonExemptEncryption` fell out of `Info.plist`. Put it back; the answer for this app is *No*. |
 | ITMS-90717 *Invalid App Store Icon* | The icon PNG gained an alpha channel. Re-export it as opaque RGB. |
 | ITMS-91053 *Missing API declaration* email | A new dependency uses a required-reason API. Add the category and reason to `PrivacyInfo.xcprivacy`. |
+| Xcode Cloud build fails in *Compile Kotlin Framework* with `Unable to locate a Java Runtime` | `ci_scripts/ci_post_clone.sh` did not run or Homebrew failed. Check the *Post-Clone* step log in the build; the script must stay executable (`chmod +x`) and next to `iosApp.xcodeproj`. |
+| Every Xcode Cloud build is slow and the *Post-Clone* log says the cache is empty | *Clean* is on in the workflow's Environment settings, or the cache was evicted. Turn *Clean* off; the next build refills it. |
+| Xcode Cloud Gradle phase fails with a corrupt-cache or lock error | Tick *Clean* in the workflow, run once, then untick it. |
 | *Compile Kotlin Framework* fails with `java: command not found` | Xcode's script phase does not see the shell's `PATH`. Install a JDK 17+ that registers with `/usr/libexec/java_home`, or symlink it into `/Library/Java/JavaVirtualMachines`. |
 | Workflow fails at *Install signing certificate* | The `.p12` password does not match, or the secret was pasted with line breaks. Re-export the certificate and copy the base64 output in one go. |
 | Workflow archives fine but the export fails with a profile error | The profile in `IOS_APP_STORE_PROFILE_BASE64` was made for another certificate or app id, or has expired. Create a fresh App Store Connect profile that includes the same distribution certificate. |

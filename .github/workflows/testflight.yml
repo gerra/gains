@@ -42,7 +42,22 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      # Gradle home (wrapper, dependencies and the build cache from gradle.properties).
+      # Tag and manual runs are not on the default branch, where this action would only read
+      # the cache and never write it, and the CI workflow writes from a Linux runner whose
+      # cache a macOS runner cannot use. Write it here so the next upload starts warm.
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      # The Kotlin/Native compiler, LLVM and Apple sysroots that Gradle downloads into
+      # ~/.konan on the first iOS build (over a gigabyte). Keyed on the version catalog, so a
+      # Kotlin upgrade fetches a fresh toolchain and everything else reuses the old one.
+      - name: Cache the Kotlin/Native toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
 
       - name: Check secrets
         env:
