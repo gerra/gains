@@ -103,8 +103,12 @@ command uploads in step 2 instead, which is what the workflow does.
 
 The [TestFlight workflow](../.github/workflows/testflight.yml) runs on a macOS runner, signs
 with material stored as repository secrets, and uploads with an App Store Connect API key.
-Start it from **Actions > TestFlight > Run workflow** (optionally with a build number) or push
-a tag such as `v1.0.0`. The workflow run number becomes the build number.
+It runs on every push to `main` that touches the app (docs, samples and the Android- and
+desktop-only sources are ignored), on any tag such as `v1.0.0`, and by hand from
+**Actions > TestFlight > Run workflow** (optionally with a build number). The workflow run
+number becomes the build number, so nothing in `Config.xcconfig` has to change. Uploads are
+serialized by a concurrency group, so merging two pull requests back to back queues the second
+build instead of colliding.
 
 Add these six secrets under **Settings > Secrets and variables > Actions**:
 
