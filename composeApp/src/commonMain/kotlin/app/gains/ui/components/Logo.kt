@@ -40,7 +40,7 @@ private val LogoBars = listOf(0.22f to 0.78f, 0.40f to 0.70f, 0.58f to 0.74f, 0.
 
 /** The Gains mark: a dark rounded tile with an ascending trend line that ends in a target dot. */
 @Composable
-fun GainsLogo(modifier: Modifier = Modifier, size: Dp = 56.dp, cornerFraction: Float = 0.24f) {
+internal fun GainsLogo(modifier: Modifier = Modifier, size: Dp = 56.dp, cornerFraction: Float = 0.24f) {
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
         val tile = Path().apply { addRoundRect(RoundRect(0f, 0f, s, s, CornerRadius(s * cornerFraction))) }
@@ -77,7 +77,7 @@ fun GainsLogo(modifier: Modifier = Modifier, size: Dp = 56.dp, cornerFraction: F
 
 /** Mark plus wordmark, for headers. */
 @Composable
-fun GainsWordmark(modifier: Modifier = Modifier, markSize: Dp = 26.dp) {
+internal fun GainsWordmark(modifier: Modifier = Modifier, markSize: Dp = 26.dp) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         GainsLogo(size = markSize, cornerFraction = 0.28f)
         Spacer(Modifier.width(8.dp))

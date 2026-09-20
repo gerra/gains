@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
  * Dark-first palette in the style of current training apps: deep charcoal surfaces,
  * one electric accent, and a small set of semantic colours for insight kinds.
  */
-data class GainsPalette(
+internal data class GainsPalette(
     val volt: Color,
     val violet: Color,
     val coral: Color,
@@ -86,7 +86,7 @@ private val LightPalette = GainsPalette(
     isDark = false,
 )
 
-val LocalGainsPalette = staticCompositionLocalOf { DarkPalette }
+internal val LocalGainsPalette = staticCompositionLocalOf { DarkPalette }
 
 private val DarkScheme = darkColorScheme(
     primary = DarkPalette.volt,
@@ -158,7 +158,7 @@ private val GainsShapes = Shapes(
 )
 
 @Composable
-fun GainsTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+internal fun GainsTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val palette = if (darkTheme) DarkPalette else LightPalette
     CompositionLocalProvider(LocalGainsPalette provides palette) {
         MaterialTheme(
@@ -170,6 +170,6 @@ fun GainsTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable 
     }
 }
 
-object GainsColors {
+internal object GainsColors {
     val palette: GainsPalette @Composable get() = LocalGainsPalette.current
 }

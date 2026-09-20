@@ -9,7 +9,7 @@ import app.gains.domain.ProgramDayRef
 import app.gains.ui.ScreenModel
 import kotlin.reflect.KClass
 
-sealed interface Screen {
+internal sealed interface Screen {
     data object Home : Screen
     data object Exercises : Screen
     data object Volume : Screen
@@ -31,7 +31,7 @@ sealed interface Screen {
     data class EditSession(val sessionId: String?, val programDay: ProgramDayRef? = null, val live: Boolean = false) : Screen
 }
 
-enum class Tab(val label: String, val root: Screen) {
+internal enum class Tab(val label: String, val root: Screen) {
     HOME("Home", Screen.Home),
     HISTORY("History", Screen.History),
     EXERCISES("Lifts", Screen.Exercises),
@@ -46,7 +46,7 @@ enum class Tab(val label: String, val root: Screen) {
  * underneath it during a swipe back, therefore keeps everything it had and comes back without
  * reloading. The state goes when the entry has both left the stack and left the screen.
  */
-class NavEntry internal constructor(val screen: Screen, val id: Int, private val onReleased: (NavEntry) -> Unit) {
+internal class NavEntry internal constructor(val screen: Screen, val id: Int, private val onReleased: (NavEntry) -> Unit) {
     private class Held(val keys: List<Any?>, val model: ScreenModel)
 
     private val models = mutableMapOf<KClass<*>, Held>()
@@ -91,13 +91,13 @@ class NavEntry internal constructor(val screen: Screen, val id: Int, private val
 }
 
 /** The back-stack entry whose screen is being composed, or null outside the navigator (sign-in, onboarding at launch). */
-val LocalNavEntry = staticCompositionLocalOf<NavEntry?> { null }
+internal val LocalNavEntry = staticCompositionLocalOf<NavEntry?> { null }
 
 /**
  * The back stack. [onReleased] is told when an entry is gone for good, so that whatever else was
  * kept under its id can be dropped.
  */
-class Navigator(private val onReleased: (NavEntry) -> Unit = {}) {
+internal class Navigator(private val onReleased: (NavEntry) -> Unit = {}) {
     private var nextId = 0
     private fun entry(screen: Screen) = NavEntry(screen, nextId++, onReleased)
 

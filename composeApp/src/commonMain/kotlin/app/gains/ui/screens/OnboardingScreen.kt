@@ -48,7 +48,7 @@ import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class OnboardingModel(private val programs: ProgramRepository = inject()) : ScreenModel() {
+internal class OnboardingModel(private val programs: ProgramRepository = inject()) : ScreenModel() {
     var step by mutableStateOf(0)
         private set
     var goal by mutableStateOf<Goal?>(null)
@@ -97,7 +97,7 @@ class OnboardingModel(private val programs: ProgramRepository = inject()) : Scre
  * week. Every step can be skipped; the answers can be changed later in Settings.
  */
 @Composable
-fun OnboardingScreen(onDone: () -> Unit) {
+internal fun OnboardingScreen(onDone: () -> Unit) {
     val model = rememberScreenModel { OnboardingModel() }
     val palette = GainsColors.palette
     if (model.done) { onDone(); return }
@@ -206,7 +206,7 @@ private fun OptionCard(title: String, blurb: String, selected: Boolean, onClick:
 
 /** "3d/wk · Beginner · Get stronger" as pills. */
 @Composable
-fun ProgramTags(program: Program, active: Boolean = false) {
+internal fun ProgramTags(program: Program, active: Boolean = false) {
     val palette = GainsColors.palette
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (active) Pill("Active", palette.volt, filled = true)

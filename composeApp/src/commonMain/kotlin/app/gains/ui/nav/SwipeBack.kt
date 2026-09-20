@@ -58,7 +58,7 @@ private val EdgeShadow = 24.dp
  * revealed screen without its own transition; the gesture has already animated it.
  */
 @Composable
-fun SwipeBack(
+internal fun SwipeBack(
     enabled: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,

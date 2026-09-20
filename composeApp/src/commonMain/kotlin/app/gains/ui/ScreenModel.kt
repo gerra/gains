@@ -11,7 +11,7 @@ import kotlinx.coroutines.cancel
 import org.koin.mp.KoinPlatform
 
 /** Lightweight state holder: survives recompositions, cancelled when its screen is gone. */
-abstract class ScreenModel {
+internal abstract class ScreenModel {
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     open fun onCleared() = scope.cancel()
 }
@@ -26,7 +26,7 @@ abstract class ScreenModel {
  * at launch) it lives as long as the composable. One model per class per screen.
  */
 @Composable
-inline fun <reified T : ScreenModel> rememberScreenModel(vararg keys: Any?, noinline factory: () -> T): T {
+internal inline fun <reified T : ScreenModel> rememberScreenModel(vararg keys: Any?, noinline factory: () -> T): T {
     val entry = LocalNavEntry.current
     if (entry != null) return remember(entry, *keys) { entry.model(T::class, keys.toList(), factory) }
     val model = remember(*keys) { factory() }
@@ -34,4 +34,4 @@ inline fun <reified T : ScreenModel> rememberScreenModel(vararg keys: Any?, noin
     return model
 }
 
-inline fun <reified T : Any> inject(): T = KoinPlatform.getKoin().get(T::class)
+internal inline fun <reified T : Any> inject(): T = KoinPlatform.getKoin().get(T::class)

@@ -59,7 +59,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
-data class ProgramDetailState(
+internal data class ProgramDetailState(
     val loading: Boolean = true,
     val program: Program? = null,
     val isActive: Boolean = false,
@@ -74,7 +74,7 @@ data class ProgramDetailState(
     val deleted: Boolean = false,
 )
 
-class ProgramDetailModel(
+internal class ProgramDetailModel(
     private val programId: String,
     private val programs: ProgramRepository = inject(),
     sessions: SessionRepository = inject(),
@@ -117,7 +117,7 @@ class ProgramDetailModel(
 }
 
 @Composable
-fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) -> Unit, onEdit: (String) -> Unit, onDeleted: () -> Unit) {
+internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) -> Unit, onEdit: (String) -> Unit, onDeleted: () -> Unit) {
     val model = rememberScreenModel(programId) { ProgramDetailModel(programId) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette

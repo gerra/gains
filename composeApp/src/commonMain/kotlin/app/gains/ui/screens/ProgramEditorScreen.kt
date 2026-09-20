@@ -59,7 +59,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** The progression choices a user can set on a slot. Ladders from duplicated built-ins are kept as-is. */
-enum class ProgressionChoice(val label: String) {
+internal enum class ProgressionChoice(val label: String) {
     NONE("None"),
     SMALL("+2.5 kg"),
     BIG("+5 kg"),
@@ -75,7 +75,7 @@ enum class ProgressionChoice(val label: String) {
     }
 }
 
-data class SlotDraft(
+internal data class SlotDraft(
     val exercise: Exercise,
     val sets: String = "3",
     val reps: String = "8-12",
@@ -107,9 +107,9 @@ data class SlotDraft(
     }
 }
 
-data class DayDraft(val id: String, val name: String, val slots: List<SlotDraft>)
+internal data class DayDraft(val id: String, val name: String, val slots: List<SlotDraft>)
 
-data class ProgramEditorState(
+internal data class ProgramEditorState(
     val loading: Boolean = true,
     val id: String? = null,
     val name: String = "",
@@ -122,7 +122,7 @@ data class ProgramEditorState(
     val saved: Boolean = false,
 )
 
-class ProgramEditorModel(
+internal class ProgramEditorModel(
     private val programId: String?,
     private val programs: ProgramRepository = inject(),
     private val exercises: ExerciseRepository = inject(),
@@ -208,7 +208,7 @@ class ProgramEditorModel(
 }
 
 @Composable
-fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
+internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
     val model = rememberScreenModel(programId) { ProgramEditorModel(programId) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette

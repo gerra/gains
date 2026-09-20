@@ -61,7 +61,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
-class SignInModel(
+internal class SignInModel(
     private val accounts: AccountRepository = inject(),
     val config: AuthConfig = inject(),
 ) : ScreenModel() {
@@ -85,7 +85,7 @@ class SignInModel(
  * The aurora runs edge to edge under the system bars; only the content respects them.
  */
 @Composable
-fun SignInScreen() {
+internal fun SignInScreen() {
     val model = rememberScreenModel { SignInModel() }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         AuroraBackground(Modifier.fillMaxSize())

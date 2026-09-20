@@ -34,6 +34,10 @@ kotlin {
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
+        // Only the three Swift entry points in iosMain (MainViewController, prepareLiveSessionNotices,
+        // handleIncomingFile) are public; everything else in this module is `internal` so the
+        // Objective-C header stays small and does not pull in Compose or shared types, whose nested
+        // classes otherwise show up in Xcode as "imported declaration could not be mapped" warnings.
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true

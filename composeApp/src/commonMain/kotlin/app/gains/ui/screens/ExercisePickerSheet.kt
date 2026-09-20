@@ -64,7 +64,7 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExercisePickerSheet(
+internal fun ExercisePickerSheet(
     catalogue: List<Exercise>,
     recent: List<Exercise>,
     /** Exercises already in the workout: shown but not selectable again. */

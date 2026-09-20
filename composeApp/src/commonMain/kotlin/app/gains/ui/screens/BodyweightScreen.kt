@@ -68,7 +68,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 
-data class BodyweightState(
+internal data class BodyweightState(
     val loading: Boolean = true,
     val unit: WeightUnit = WeightUnit.KG,
     val points: List<BodyweightPoint> = emptyList(),
@@ -78,7 +78,7 @@ data class BodyweightState(
     val overlayPoints: List<Pair<LocalDate, Double>> = emptyList(),
 )
 
-class BodyweightModel(
+internal class BodyweightModel(
     private val repo: BodyweightRepository = inject(),
     trainingData: TrainingData = inject(),
     settings: SettingsRepository = inject(),
@@ -109,7 +109,7 @@ class BodyweightModel(
 }
 
 @Composable
-fun BodyweightScreen() {
+internal fun BodyweightScreen() {
     val model = rememberScreenModel { BodyweightModel() }
     val state by model.state.collectAsState()
     if (state.loading) return

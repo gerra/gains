@@ -59,7 +59,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 
-data class VolumeState(
+internal data class VolumeState(
     val loading: Boolean = true,
     val hasData: Boolean = false,
     val weeks: List<WeekVolume> = emptyList(),
@@ -67,7 +67,7 @@ data class VolumeState(
     val span: Int = 12,
 )
 
-class VolumeModel(trainingData: TrainingData = inject()) : ScreenModel() {
+internal class VolumeModel(trainingData: TrainingData = inject()) : ScreenModel() {
     private val span = MutableStateFlow(12)
     val state: StateFlow<VolumeState> = combine(trainingData.snapshot, span) { snapshot, span ->
         withContext(Dispatchers.Default) {
@@ -87,10 +87,10 @@ class VolumeModel(trainingData: TrainingData = inject()) : ScreenModel() {
 }
 
 @Composable
-fun MuscleGroup.color(): Color = GainsColors.palette.series[ordinal % GainsColors.palette.series.size]
+internal fun MuscleGroup.color(): Color = GainsColors.palette.series[ordinal % GainsColors.palette.series.size]
 
 @Composable
-fun VolumeStatus.color(): Color {
+internal fun VolumeStatus.color(): Color {
     val p = GainsColors.palette
     return when (this) {
         VolumeStatus.LOW -> p.amber
@@ -101,14 +101,14 @@ fun VolumeStatus.color(): Color {
 }
 
 /** Which sets the body map shades. */
-enum class BodyMapWindow(val label: String, val suffix: String) {
+internal enum class BodyMapWindow(val label: String, val suffix: String) {
     THIS_WEEK("This week", "this week"),
     LAST_WEEK("Last week", "last week"),
     AVERAGE("Avg", "a week on average"),
 }
 
 /** The wording of a status pill in the volume list. */
-fun VolumeStatus.label(): String = when (this) {
+internal fun VolumeStatus.label(): String = when (this) {
     VolumeStatus.NONE -> "none"
     VolumeStatus.LOW -> "under ${VolumeAnalyzer.MAINTENANCE_SETS.toInt()}"
     VolumeStatus.OK -> "on target"
@@ -116,7 +116,7 @@ fun VolumeStatus.label(): String = when (this) {
 }
 
 @Composable
-fun VolumeScreen() {
+internal fun VolumeScreen() {
     val model = rememberScreenModel { VolumeModel() }
     val state by model.state.collectAsState()
     if (state.loading) return

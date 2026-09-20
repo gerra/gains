@@ -66,7 +66,7 @@ private fun readCsv(url: NSURL): PickedFile? {
 }
 
 @OptIn(ExperimentalForeignApi::class)
-class IosFilePicker : CsvFilePicker {
+internal class IosFilePicker : CsvFilePicker {
     // Keep a strong reference: UIKit only holds the delegate weakly.
     private var delegate: PickerDelegate? = null
 

@@ -42,7 +42,7 @@ import app.gains.ui.theme.GainsColors
 
 /** Rounded, softly graded surface used for every card in the app. Press feedback is a gentle scale. */
 @Composable
-fun GainsCard(
+internal fun GainsCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     brush: Brush? = null,
@@ -67,11 +67,11 @@ fun GainsCard(
     )
 }
 
-enum class Dp16(val dp: androidx.compose.ui.unit.Dp) { None(0.dp), Tight(12.dp), Normal(18.dp), Loose(22.dp) }
+internal enum class Dp16(val dp: androidx.compose.ui.unit.Dp) { None(0.dp), Tight(12.dp), Normal(18.dp), Loose(22.dp) }
 
 /** Large screen heading with an optional muted subtitle. */
 @Composable
-fun ScreenTitle(
+internal fun ScreenTitle(
     title: String,
     subtitle: String? = null,
     modifier: Modifier = Modifier,
@@ -101,7 +101,7 @@ fun ScreenTitle(
 }
 
 @Composable
-fun SectionHeader(text: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+internal fun SectionHeader(text: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
     Row(modifier.fillMaxWidth().padding(top = 20.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
         action?.invoke()
@@ -110,7 +110,7 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier, action: (@Composa
 
 /** Small rounded label: kind tags, statuses. */
 @Composable
-fun Pill(text: String, color: Color, modifier: Modifier = Modifier, filled: Boolean = false, onClick: (() -> Unit)? = null) {
+internal fun Pill(text: String, color: Color, modifier: Modifier = Modifier, filled: Boolean = false, onClick: (() -> Unit)? = null) {
     Box(
         modifier
             .clip(CircleShape)
@@ -124,7 +124,7 @@ fun Pill(text: String, color: Color, modifier: Modifier = Modifier, filled: Bool
 
 /** "+13%" / "−18%" style badge. */
 @Composable
-fun DeltaBadge(delta: Double, modifier: Modifier = Modifier) {
+internal fun DeltaBadge(delta: Double, modifier: Modifier = Modifier) {
     val palette = GainsColors.palette
     val positive = delta >= 0
     val text = (if (positive) "+" else "−") + app.gains.analysis.Format.percent(kotlin.math.abs(delta))
@@ -133,7 +133,7 @@ fun DeltaBadge(delta: Double, modifier: Modifier = Modifier) {
 
 /** Big-number tile. */
 @Composable
-fun MetricTile(
+internal fun MetricTile(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
@@ -161,7 +161,7 @@ fun MetricTile(
 
 /** Segmented pill selector. */
 @Composable
-fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit, modifier: Modifier = Modifier) {
+internal fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier
             .clip(CircleShape)
@@ -189,7 +189,7 @@ fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, onSelect: (
 }
 
 @Composable
-fun KeyValueRow(key: String, value: String, modifier: Modifier = Modifier, valueColor: Color? = null) {
+internal fun KeyValueRow(key: String, value: String, modifier: Modifier = Modifier, valueColor: Color? = null) {
     Row(modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(key, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(16.dp))
@@ -198,7 +198,7 @@ fun KeyValueRow(key: String, value: String, modifier: Modifier = Modifier, value
 }
 
 @Composable
-fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, emoji: String = "✦", action: (@Composable () -> Unit)? = null) {
+internal fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, emoji: String = "✦", action: (@Composable () -> Unit)? = null) {
     val palette = GainsColors.palette
     Column(
         modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 48.dp),
@@ -220,7 +220,7 @@ fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, emoji
 }
 
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+internal fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     Button(
         onClick = onClick,
         modifier = modifier.height(52.dp),
@@ -231,7 +231,7 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
 }
 
 @Composable
-fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Button(
         onClick = onClick,
         modifier = modifier.height(52.dp),
@@ -242,7 +242,7 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
 
 /** Thin horizontal meter used in the volume table. */
 @Composable
-fun Meter(fraction: Float, color: Color, modifier: Modifier = Modifier, marker: Float? = null) {
+internal fun Meter(fraction: Float, color: Color, modifier: Modifier = Modifier, marker: Float? = null) {
     val animated by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(600), label = "meter")
     Box(modifier.height(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
         Box(Modifier.fillMaxWidth(animated).height(6.dp).clip(CircleShape).background(color))
@@ -256,12 +256,12 @@ fun Meter(fraction: Float, color: Color, modifier: Modifier = Modifier, marker: 
 
 /** Small colour dot. */
 @Composable
-fun Dot(color: Color, size: androidx.compose.ui.unit.Dp = 10.dp, modifier: Modifier = Modifier) {
+internal fun Dot(color: Color, size: androidx.compose.ui.unit.Dp = 10.dp, modifier: Modifier = Modifier) {
     Box(modifier.size(size).clip(CircleShape).background(color))
 }
 
 @Composable
-fun RoundedIconBox(color: Color, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+internal fun RoundedIconBox(color: Color, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Box(
         modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = 0.16f)),
         contentAlignment = Alignment.Center,

@@ -53,7 +53,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-sealed interface ImportState {
+internal sealed interface ImportState {
     data object Idle : ImportState
     data class Parsing(val fileCount: Int) : ImportState
     data class Preview(val preview: ImportPreview, val confirmedOutliers: Set<String>, val unit: WeightUnit) : ImportState
@@ -62,7 +62,7 @@ sealed interface ImportState {
     data class Error(val message: String) : ImportState
 }
 
-class ImportModel(private val importService: ImportService = inject()) : ScreenModel() {
+internal class ImportModel(private val importService: ImportService = inject()) : ScreenModel() {
     private val _state = MutableStateFlow<ImportState>(ImportState.Idle)
     val state: StateFlow<ImportState> = _state
     private var lastFiles: List<PickedFile> = emptyList()
@@ -117,7 +117,7 @@ class ImportModel(private val importService: ImportService = inject()) : ScreenM
 }
 
 @Composable
-fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
+internal fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
     val model = rememberScreenModel { ImportModel() }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
