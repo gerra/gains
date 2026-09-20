@@ -28,9 +28,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -219,6 +226,37 @@ internal data class EditorState(
     val isRunning: Boolean get() = startedAtMs != null
     /** Whether the plan can be changed: always for a logged workout, and once started for a timed one. */
     val editable: Boolean get() = !timed || isRunning
+
+    /**
+     * The exercise at [index] swapped for [exercise], with its sets, ticks and note kept: the same
+     * work under another name. What described the slot stays with it (target, program note, tier,
+     * folded warm-ups, a running rest); what described the old exercise's history goes (the hint,
+     * the borrowed-weights offer) and the PREV column takes [previous], the new exercise's last
+     * session. Unchanged when [exercise] is already in the workout or [index] is out of range.
+     */
+    fun replacing(index: Int, exercise: Exercise, previous: ExerciseEntry?): EditorState {
+        val old = exercises.getOrNull(index) ?: return this
+        val from = old.exercise.id
+        val to = exercise.id
+        if (from == to || exercises.any { it.exercise.id == to }) return this
+        fun <V> Map<String, V>.rekeyed(): Map<String, V> = this[from]?.let { (this - from) + (to to it) } ?: this
+        return copy(
+            exercises = exercises.mapIndexed { i, e -> if (i == index) e.copy(exercise = exercise) else e },
+            targets = targets.rekeyed(), notes = notes.rekeyed(), tiers = tiers.rekeyed(),
+            hints = hints - from,
+            seeded = seeded - from, sources = sources - from,
+            collapsedWarmups = if (from in collapsedWarmups) collapsedWarmups - from + to else collapsedWarmups,
+            previous = if (previous != null) (this.previous - from) + (to to previous) else this.previous - from,
+            restTimer = restTimer?.let { if (it.exerciseId == from) it.copy(exerciseId = to) else it },
+        )
+    }
+
+    /** The exercise at [index] moved [delta] places (−1 up, +1 down); unchanged when that leaves the list. */
+    fun moved(index: Int, delta: Int): EditorState {
+        val target = index + delta
+        if (index !in exercises.indices || target !in exercises.indices) return this
+        return copy(exercises = exercises.toMutableList().apply { add(target, removeAt(index)) })
+    }
 
     /** The editor as a workout in progress, or null when there is nothing to keep. */
     fun toLive(): LiveSession? {
@@ -411,6 +449,12 @@ internal class SessionEditorModel(
     }
 
     fun removeExercise(index: Int) = edit { it.copy(exercises = it.exercises.filterIndexed { i, _ -> i != index }) }
+
+    /** Swap the exercise of a card for another, keeping its sets, ticks and note (see [EditorState.replacing]). */
+    fun replaceExercise(index: Int, exercise: Exercise) = edit { it.replacing(index, exercise, context?.previousFor(exercise.id)) }
+
+    /** Move a card up (−1) or down (+1) the workout. */
+    fun moveExercise(index: Int, delta: Int) = edit { it.moved(index, delta) }
 
     /** Tag the workout with a program day, or none for a free workout. */
     fun setProgramDay(ref: ProgramDayRef?) = update { it.copy(programDay = ref) }
@@ -669,6 +713,8 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerOpen by remember { mutableStateOf(false) }
+    /** The exercise whose "Change exercise" picker is open: its index in the workout. */
+    var replaceTarget by remember { mutableStateOf<Int?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var dayPickerOpen by remember { mutableStateOf(false) }
@@ -736,7 +782,11 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
                     warmupsCollapsed = draft.exercise.id in state.collapsedWarmups,
                     previous = state.previous[draft.exercise.id],
                     editable = state.editable,
+                    count = state.exercises.size,
                     onPickWeight = { setIndex -> weightTarget = exerciseIndex to setIndex },
+                    onChangeExercise = { replaceTarget = exerciseIndex },
+                    // A moved card slides to its new place rather than jumping, so the eye can follow it.
+                    modifier = Modifier.animateItem(),
                 )
             }
             item {
@@ -766,6 +816,21 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
         onCreate = model::createExercise,
         onDismiss = { pickerOpen = false },
     )
+    replaceTarget?.let { index ->
+        // The same picker, single-select: the tapped exercise takes the card over and its sets stay as typed.
+        val current = state.exercises.getOrNull(index)
+        if (current == null) replaceTarget = null
+        else ExercisePickerSheet(
+            catalogue = state.catalogue,
+            recent = state.recent,
+            alreadyAdded = state.exercises.map { it.exercise.id }.toSet(),
+            onAdd = { picked -> picked.firstOrNull()?.let { model.replaceExercise(index, it) } },
+            onCreate = model::createExercise,
+            onDismiss = { replaceTarget = null },
+            single = true,
+            title = "Replace ${current.exercise.name}",
+        )
+    }
     if (dayPickerOpen) ProgramDayDialog(
         options = state.programDays,
         selected = state.programDay,
@@ -1005,7 +1070,11 @@ private fun ExerciseCard(
     previous: ExerciseEntry? = null,
     /** False while a timed workout has not started: every control of the plan waits for Start, shown disabled. */
     editable: Boolean = true,
+    /** How many exercises the workout has, so the menu knows whether the card can move up or down. */
+    count: Int = exerciseIndex + 1,
     onPickWeight: (setIndex: Int) -> Unit,
+    onChangeExercise: () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     val palette = GainsColors.palette
     val modality = draft.exercise.modality
@@ -1013,7 +1082,7 @@ private fun ExerciseCard(
     val warmups = draft.warmups
     val labels = draft.labels
     val previousLabels = draft.previousLabels(previous, unit)
-    GainsCard(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
+    GainsCard(modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(draft.exercise.name, style = MaterialTheme.typography.titleMedium)
@@ -1023,7 +1092,14 @@ private fun ExerciseCard(
                     if (draft.exercise.isDumbbell) Pill("Per dumbbell", palette.amber)
                 }
             }
-            TextButton(onClick = { model.removeExercise(exerciseIndex) }, enabled = editable) { Text("Remove", color = if (editable) palette.coral else disabledColor()) }
+            ExerciseMenu(
+                name = draft.exercise.name, enabled = editable,
+                canMoveUp = exerciseIndex > 0, canMoveDown = exerciseIndex < count - 1,
+                onChange = onChangeExercise,
+                onMoveUp = { model.moveExercise(exerciseIndex, -1) },
+                onMoveDown = { model.moveExercise(exerciseIndex, 1) },
+                onRemove = { model.removeExercise(exerciseIndex) },
+            )
         }
         if (hint != null) {
             Spacer(Modifier.height(4.dp))
@@ -1116,6 +1192,50 @@ private fun ExerciseCard(
             draft.note, { model.setNote(exerciseIndex, it) }, placeholder = { Text("Note") }, singleLine = true, enabled = editable,
             modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium,
         )
+    }
+}
+
+/**
+ * The ⋯ at the top right of an exercise card, Hevy-style: everything that changes the card rather than
+ * a set. "Change exercise" swaps the lift and keeps every set typed so far, the arrows move the card
+ * through the workout, and Remove drops it. Inert while the plan waits for Start.
+ */
+@Composable
+private fun ExerciseMenu(
+    name: String, enabled: Boolean, canMoveUp: Boolean, canMoveDown: Boolean,
+    onChange: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit,
+) {
+    val palette = GainsColors.palette
+    var open by remember { mutableStateOf(false) }
+    val tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else disabledColor()
+    Box {
+        Box(
+            Modifier.size(CHECK_HIT, CELL_HEIGHT).clip(CellShape).clickable(enabled = enabled) { open = true }
+                .semantics { role = Role.Button; contentDescription = "Options for $name" },
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Default.MoreVert, null, tint = tint, modifier = Modifier.size(20.dp)) }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = MaterialTheme.shapes.medium) {
+            DropdownMenuItem(
+                text = { Text("Change exercise") },
+                leadingIcon = { Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp)) },
+                onClick = { open = false; onChange() },
+            )
+            DropdownMenuItem(
+                text = { Text("Move up") }, enabled = canMoveUp,
+                leadingIcon = { Icon(Icons.Default.KeyboardArrowUp, null, modifier = Modifier.size(18.dp)) },
+                onClick = { open = false; onMoveUp() },
+            )
+            DropdownMenuItem(
+                text = { Text("Move down") }, enabled = canMoveDown,
+                leadingIcon = { Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(18.dp)) },
+                onClick = { open = false; onMoveDown() },
+            )
+            DropdownMenuItem(
+                text = { Text("Remove", color = palette.coral) },
+                leadingIcon = { Icon(Icons.Default.Delete, null, tint = palette.coral, modifier = Modifier.size(18.dp)) },
+                onClick = { open = false; onRemove() },
+            )
+        }
     }
 }
 
