@@ -137,7 +137,8 @@ device today.
 - **Per-lift analysis.** Estimated 1RM (Epley) over working sets, top set weight, volume per
   session and best set per session, over 3-month, 6-month, 1-year or all-time windows.
 - **Weekly volume by muscle group.** Working sets per week with primary and secondary credit,
-  flagged as maintenance under 8 sets and likely junk volume over 22.
+  flagged as maintenance under 8 sets and likely junk volume over 22. The sets are also shaded
+  onto a body, front and back; tap a muscle to see its numbers and filter the list to it.
 - **Log and edit workouts.** Add sessions in the app, edit imported ones (date, duration,
   exercises, sets, notes) and have the edits flow into the same analyses.
 - **Bodyweight tracking** with a 7-day average, and any lift overlaid on the trend.
@@ -170,14 +171,14 @@ tab, so the pictures cannot drift from the code.
   <tr>
     <td align="center"><img src="docs/screenshots/05-lifts.png" alt="Lifts" width="230"><br><sub>Lifts with sparklines</sub></td>
     <td align="center"><img src="docs/screenshots/06-lift-detail.png" alt="Lift detail" width="230"><br><sub>Lift detail</sub></td>
-    <td align="center"><img src="docs/screenshots/07-volume.png" alt="Volume" width="230"><br><sub>Weekly volume</sub></td>
-    <td align="center"><img src="docs/screenshots/08-body.png" alt="Bodyweight" width="230"><br><sub>Bodyweight</sub></td>
+    <td align="center"><img src="docs/screenshots/07-volume.png" alt="Volume" width="230"><br><sub>Weekly volume on the body</sub></td>
+    <td align="center"><img src="docs/screenshots/07b-volume-muscle.png" alt="Volume with a muscle selected" width="230"><br><sub>Tap a muscle to filter</sub></td>
   </tr>
   <tr>
+    <td align="center"><img src="docs/screenshots/08-body.png" alt="Bodyweight" width="230"><br><sub>Bodyweight</sub></td>
     <td align="center"><img src="docs/screenshots/09-settings.png" alt="Settings" width="230"><br><sub>Settings</sub></td>
     <td align="center"><img src="docs/screenshots/10-home-light.png" alt="Home, light theme" width="230"><br><sub>Light theme</sub></td>
     <td align="center"><img src="docs/screenshots/11-lift-detail-light.png" alt="Lift detail, light theme" width="230"><br><sub>Lift detail, light</sub></td>
-    <td></td>
   </tr>
 </table>
 
@@ -340,6 +341,16 @@ with their thresholds gathered in `InsightThresholds`. The defaults:
 
 Volume credits 1.0 set to primary muscle groups and 0.5 to secondary ones across 17 groups.
 
+The Volume tab draws working sets on a body, front and back
+([`BodyMap.kt`](composeApp/src/commonMain/kotlin/app/gains/ui/charts/BodyMap.kt)): each muscle is
+shaded from the resting body colour at zero sets to the full accent at 22, for this week, last week
+or the average over the trend window (the most recent one with any sets is shown first), and tapping
+a muscle shows its numbers and narrows the list below to it. The drawing is a set of SVG paths rendered on a Compose
+`Canvas`, so it needs no platform code and taps are hit-tested against the paths themselves. The
+drawing is coarser than the 17 groups in a few places: its one deltoid per view stands for front
+and side delts on the front, rear and side delts on the back; abs and obliques together are core;
+adductors and tibialis are drawn but not tracked.
+
 ## Architecture
 
 ```mermaid
@@ -454,6 +465,8 @@ opening a PR.
 - [SQLDelight](https://sqldelight.github.io/sqldelight/) for typed SQLite
 - [Koin](https://insert-koin.io/) for dependency injection
 - [kotlinx-datetime](https://github.com/Kotlin/kotlinx-datetime) for dates without tears
+- [react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter) (MIT,
+  © 2022 ELABBASSI Hicham) for the body drawing behind the muscle map, ported to Compose path data
 - The README layout borrows from the projects collected in [awesome-readme](https://github.com/matiassingers/awesome-readme)
 
 ## License

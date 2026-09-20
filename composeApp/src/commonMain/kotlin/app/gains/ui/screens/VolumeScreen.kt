@@ -17,6 +17,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +33,8 @@ import app.gains.analysis.VolumeStatus
 import app.gains.analysis.WeekVolume
 import app.gains.domain.MuscleGroup
 import app.gains.ui.ScreenModel
+import app.gains.ui.charts.BodyMap
+import app.gains.ui.charts.BodyMapLegend
 import app.gains.ui.charts.Legend
 import app.gains.ui.charts.StackedBar
 import app.gains.ui.charts.StackedBarChart
@@ -95,6 +100,21 @@ fun VolumeStatus.color(): Color {
     }
 }
 
+/** Which sets the body map shades. */
+enum class BodyMapWindow(val label: String, val suffix: String) {
+    THIS_WEEK("This week", "this week"),
+    LAST_WEEK("Last week", "last week"),
+    AVERAGE("Avg", "a week on average"),
+}
+
+/** The wording of a status pill in the volume list. */
+fun VolumeStatus.label(): String = when (this) {
+    VolumeStatus.NONE -> "none"
+    VolumeStatus.LOW -> "under ${VolumeAnalyzer.MAINTENANCE_SETS.toInt()}"
+    VolumeStatus.OK -> "on target"
+    VolumeStatus.HIGH -> "over ${VolumeAnalyzer.JUNK_SETS.toInt()}"
+}
+
 @Composable
 fun VolumeScreen() {
     val model = rememberScreenModel { VolumeModel() }
@@ -108,6 +128,21 @@ fun VolumeScreen() {
     val groupsUsed = MuscleGroup.entries.filter { g -> state.weeks.any { (it.sets[g] ?: 0.0) > 0 } }
     val current = state.currentWeek
     val lastFull = state.weeks.dropLast(1).lastOrNull()
+    // Muscle groups picked on the body map; the map outlines them and the list below shows only those.
+    var selected by remember { mutableStateOf<Set<MuscleGroup>>(emptySet()) }
+    val fullWeeks = state.weeks.dropLast(1)
+    val windowSets: Map<BodyMapWindow, Map<MuscleGroup, Double>> = remember(state) {
+        mapOf(
+            BodyMapWindow.THIS_WEEK to (current?.sets ?: emptyMap()),
+            BodyMapWindow.LAST_WEEK to (lastFull?.sets ?: emptyMap()),
+            BodyMapWindow.AVERAGE to if (fullWeeks.isEmpty()) emptyMap()
+            else MuscleGroup.entries.associateWith { g -> fullWeeks.sumOf { it.sets[g] ?: 0.0 } / fullWeeks.size }.filterValues { it > 0 },
+        )
+    }
+    // Until the user picks a window, show the most recent one that has anything to shade.
+    var pickedWindow by remember { mutableStateOf<BodyMapWindow?>(null) }
+    val window = pickedWindow ?: BodyMapWindow.entries.firstOrNull { windowSets.getValue(it).values.any { v -> v > 0 } } ?: BodyMapWindow.THIS_WEEK
+    val shownSets = windowSets.getValue(window)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
             ScreenTitle("Volume", subtitle = "Working sets per muscle group, per week")
@@ -116,6 +151,45 @@ fun VolumeScreen() {
                 MetricTile("Last week", Format.number(lastFull?.total ?: 0.0, 0), Modifier.weight(1f), caption = lastFull?.let { "w/c ${Dates.short(it.weekStart)}" })
                 MetricTile("Avg", Format.number(state.weeks.dropLast(1).map { it.total }.average().takeIf { !it.isNaN() } ?: 0.0, 0), Modifier.weight(1f), caption = "${state.span}-week")
             }
+        }
+        item {
+            SectionHeader(
+                "On the body",
+                action = { ChipRow(BodyMapWindow.entries, window, { if (it == BodyMapWindow.AVERAGE) "${state.span}w avg" else it.label }, { pickedWindow = it }) },
+            )
+            GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+                BodyMap(
+                    shownSets,
+                    Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    selected = selected,
+                    onRegionTap = { region ->
+                        val groups = region.groups.toSet()
+                        selected = if (selected == groups) emptySet() else groups
+                    },
+                )
+                BodyMapLegend()
+                for (g in MuscleGroup.entries) {
+                    if (g !in selected) continue
+                    val sets = shownSets[g] ?: 0.0
+                    val status = VolumeAnalyzer.status(sets)
+                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Dot(g.color())
+                        Spacer(Modifier.width(10.dp))
+                        Text(g.displayName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                        Text("${Format.number(sets, 1)} sets ${window.suffix}", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.width(10.dp))
+                        Pill(status.label(), status.color())
+                    }
+                }
+                if (selected.isNotEmpty()) {
+                    Pill("Show all", palette.muted, Modifier.padding(top = 10.dp).align(Alignment.End), onClick = { selected = emptySet() })
+                }
+            }
+            Text(
+                if (selected.isEmpty()) "Working sets ${window.suffix}, front and back. Tap a muscle to see its numbers and filter the list."
+                else "Tap the muscle again, or Show all, to see every group.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
+            )
         }
         item {
             SectionHeader("Trend", action = { ChipRow(listOf(8, 12, 26, 52), state.span, { "${it}w" }, { model.setSpan(it) }) })
@@ -135,7 +209,7 @@ fun VolumeScreen() {
             SectionHeader("This week" + (current?.let { " · from ${Dates.short(it.weekStart)}" } ?: ""))
         }
         if (current != null) {
-            items(MuscleGroup.entries.sortedByDescending { current.sets[it] ?: 0.0 }) { g ->
+            items(MuscleGroup.entries.filter { selected.isEmpty() || it in selected }.sortedByDescending { current.sets[it] ?: 0.0 }) { g ->
                 val sets = current.sets[g] ?: 0.0
                 val status = VolumeAnalyzer.status(sets)
                 GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
@@ -145,15 +219,7 @@ fun VolumeScreen() {
                         Text(g.displayName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                         Text(Format.number(sets, 1), style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.width(10.dp))
-                        Pill(
-                            when (status) {
-                                VolumeStatus.NONE -> "none"
-                                VolumeStatus.LOW -> "under ${VolumeAnalyzer.MAINTENANCE_SETS.toInt()}"
-                                VolumeStatus.OK -> "on target"
-                                VolumeStatus.HIGH -> "over ${VolumeAnalyzer.JUNK_SETS.toInt()}"
-                            },
-                            status.color(),
-                        )
+                        Pill(status.label(), status.color())
                     }
                     Spacer(Modifier.height(8.dp))
                     Meter((sets / VolumeAnalyzer.JUNK_SETS).toFloat(), status.color(), Modifier.fillMaxWidth(), marker = (VolumeAnalyzer.MAINTENANCE_SETS / VolumeAnalyzer.JUNK_SETS).toFloat())
