@@ -65,9 +65,9 @@ import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
 
-data class ChartPoint(val x: Double, val y: Double)
+internal data class ChartPoint(val x: Double, val y: Double)
 
-data class LineSeries(
+internal data class LineSeries(
     val points: List<ChartPoint>,
     val color: Color,
     val label: String,
@@ -81,13 +81,13 @@ data class LineSeries(
     val smooth: Boolean = true,
 )
 
-data class StackedBar(val label: String, val segments: List<Pair<Color, Double>>) {
+internal data class StackedBar(val label: String, val segments: List<Pair<Color, Double>>) {
     val total: Double get() = segments.sumOf { it.second }
 }
 
-data class ReferenceLine(val y: Double, val color: Color, val label: String)
+internal data class ReferenceLine(val y: Double, val color: Color, val label: String)
 
-object ChartMath {
+internal object ChartMath {
     /** "Nice" axis ticks covering [min, max]. */
     fun ticks(min: Double, max: Double, count: Int = 4): List<Double> {
         if (max <= min) return listOf(min)
@@ -158,7 +158,7 @@ private fun rememberDrawProgress(key: Any?): Float {
 }
 
 @Composable
-fun LineChart(
+internal fun LineChart(
     series: List<LineSeries>,
     modifier: Modifier = Modifier,
     height: Dp = 200.dp,
@@ -268,7 +268,7 @@ fun LineChart(
 }
 
 @Composable
-fun StackedBarChart(
+internal fun StackedBarChart(
     bars: List<StackedBar>,
     modifier: Modifier = Modifier,
     height: Dp = 220.dp,
@@ -341,7 +341,7 @@ fun StackedBarChart(
  * the grid scrolls sideways and starts at today, so the recent weeks are the ones in view.
  */
 @Composable
-fun CalendarHeatmap(
+internal fun CalendarHeatmap(
     counts: Map<LocalDate, Int>,
     today: LocalDate,
     weeks: Int,
@@ -419,7 +419,7 @@ fun CalendarHeatmap(
 
 /** Tiny inline trend line for list rows. */
 @Composable
-fun Sparkline(values: List<Double>, color: Color, modifier: Modifier = Modifier) {
+internal fun Sparkline(values: List<Double>, color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier.width(64.dp).height(24.dp)) {
         if (values.size < 2) return@Canvas
         val lo = values.min(); val hi = values.max()
@@ -437,7 +437,7 @@ fun Sparkline(values: List<Double>, color: Color, modifier: Modifier = Modifier)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun Legend(items: List<Pair<String, Color>>, modifier: Modifier = Modifier) {
+internal fun Legend(items: List<Pair<String, Color>>, modifier: Modifier = Modifier) {
     FlowRow(modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for ((label, color) in items) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -449,7 +449,7 @@ fun Legend(items: List<Pair<String, Color>>, modifier: Modifier = Modifier) {
     }
 }
 
-fun formatAxis(value: Double): String {
+internal fun formatAxis(value: Double): String {
     val v = if (abs(value) < 1e-9) 0.0 else value
     return if (v == floor(v)) v.toLong().toString() else {
         val r = (v * 10).toLong() / 10.0

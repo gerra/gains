@@ -62,7 +62,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class SettingsState(
+internal data class SettingsState(
     val account: Account? = null,
     val unit: WeightUnit = WeightUnit.KG,
     val theme: ThemeMode = ThemeMode.DARK,
@@ -81,7 +81,7 @@ data class SettingsState(
 /** The plain preferences, combined first because combine takes five flows at most. */
 private data class Prefs(val unit: WeightUnit, val theme: ThemeMode, val account: Account?, val autoWarmups: Boolean, val barWeightKg: Double)
 
-class SettingsModel(
+internal class SettingsModel(
     private val settings: SettingsRepository = inject(),
     private val accounts: AccountRepository = inject(),
     val authConfig: AuthConfig = inject(),
@@ -131,7 +131,7 @@ class SettingsModel(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}) {
+internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}) {
     val model = rememberScreenModel { SettingsModel() }
     val state by model.state.collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }

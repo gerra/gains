@@ -40,14 +40,14 @@ import app.gains.domain.MuscleGroup
 import app.gains.ui.theme.GainsColors
 
 /** The two figures of the muscle map. */
-enum class BodySide { FRONT, BACK }
+internal enum class BodySide { FRONT, BACK }
 
 /**
  * A tappable area of the muscle map. The drawing is coarser than [MuscleGroup], so one region can stand
  * for several groups (the deltoid on the front view is both front and side delts), and body parts that
  * are not trained (head, hands) have no groups and are drawn in the resting colour.
  */
-class BodyRegion internal constructor(
+internal class BodyRegion internal constructor(
     val side: BodySide,
     /** Region name as in the upstream drawing, e.g. `upper-back`. */
     val slug: String,
@@ -68,7 +68,7 @@ class BodyRegion internal constructor(
 }
 
 /** The regions of the muscle map and the mapping from the drawing's region names to [MuscleGroup]s. */
-object BodyMapModel {
+internal object BodyMapModel {
     /** Figure units between the front and the back figure when both are drawn side by side. */
     const val FIGURE_GAP = 40f
     const val TOTAL_WIDTH = BodyMapPaths.WIDTH * 2 + FIGURE_GAP
@@ -128,7 +128,7 @@ object BodyMapModel {
  * status colours of the volume list are deliberately not used here, they carry meaning of their own.
  */
 @Composable
-fun BodyMap(
+internal fun BodyMap(
     sets: Map<MuscleGroup, Double>,
     modifier: Modifier = Modifier,
     maxSets: Double = VolumeAnalyzer.JUNK_SETS,
@@ -196,11 +196,11 @@ fun BodyMap(
 
 /** Colour of untrained body on the current theme: a step away from the card so the figure has a silhouette. */
 @Composable
-fun bodyRestingColor(): Color = if (GainsColors.palette.isDark) Color(0xFF2B3140) else Color(0xFFDDE2EA)
+internal fun bodyRestingColor(): Color = if (GainsColors.palette.isDark) Color(0xFF2B3140) else Color(0xFFDDE2EA)
 
 /** The scale of a [BodyMap]: resting colour to full accent over 0..[maxSets] working sets. */
 @Composable
-fun BodyMapLegend(maxSets: Double = VolumeAnalyzer.JUNK_SETS, modifier: Modifier = Modifier) {
+internal fun BodyMapLegend(maxSets: Double = VolumeAnalyzer.JUNK_SETS, modifier: Modifier = Modifier) {
     val resting = bodyRestingColor()
     val accent = GainsColors.palette.volt
     Row(modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

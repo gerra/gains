@@ -39,7 +39,7 @@ import platform.darwin.NSObject
  * The centre's delegate has to be in place before the app finishes launching for a tap that cold
  * starts the app to reach it, so the SwiftUI app delegate calls [install] first thing.
  */
-object IosLiveSessionNotifier : LiveSessionNotifier {
+internal object IosLiveSessionNotifier : LiveSessionNotifier {
     private const val RUNNING = "live_session"
     private const val REST_OVER = "live_session_rest_over"
     private val center get() = UNUserNotificationCenter.currentNotificationCenter()

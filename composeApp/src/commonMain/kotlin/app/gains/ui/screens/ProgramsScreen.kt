@@ -37,7 +37,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-data class ProgramsState(
+internal data class ProgramsState(
     val loading: Boolean = true,
     val profile: GoalProfile? = null,
     val activeId: String? = null,
@@ -46,7 +46,7 @@ data class ProgramsState(
     val builtIn: List<Program> = emptyList(),
 )
 
-class ProgramsModel(programs: ProgramRepository = inject()) : ScreenModel() {
+internal class ProgramsModel(programs: ProgramRepository = inject()) : ScreenModel() {
     val state: StateFlow<ProgramsState> = programs.observeState().map { s ->
         val builtIn = s.programs.filter { it.isBuiltIn }
         ProgramsState(
@@ -60,7 +60,7 @@ class ProgramsModel(programs: ProgramRepository = inject()) : ScreenModel() {
 }
 
 @Composable
-fun ProgramsScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
+internal fun ProgramsScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
     val model = rememberScreenModel { ProgramsModel() }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette

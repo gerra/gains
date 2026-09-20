@@ -17,7 +17,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
  * consumes never reach this modifier, so tapping from one field into another still just moves focus.
  */
 @Composable
-fun Modifier.dismissKeyboardOnTap(): Modifier {
+internal fun Modifier.dismissKeyboardOnTap(): Modifier {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     return pointerInput(Unit) {

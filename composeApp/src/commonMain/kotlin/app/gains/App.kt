@@ -124,7 +124,7 @@ import app.gains.ui.theme.GainsTheme
  * its tray while the lifter is elsewhere; a tap there comes back through [ResumeRequests].
  */
 @Composable
-fun App(
+internal fun App(
     filePicker: CsvFilePicker,
     systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> },
     notifier: LiveSessionNotifier = LiveSessionNotifier.None,

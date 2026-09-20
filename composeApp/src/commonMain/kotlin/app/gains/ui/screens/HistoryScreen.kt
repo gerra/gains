@@ -66,15 +66,15 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 
 /** One calendar month of sessions, newest first. */
-data class MonthGroup(val year: Int, val month: Month, val sessions: List<Session>)
+internal data class MonthGroup(val year: Int, val month: Month, val sessions: List<Session>)
 
 /** One calendar year of sessions, split into months, newest first. */
-data class YearGroup(val year: Int, val months: List<MonthGroup>) {
+internal data class YearGroup(val year: Int, val months: List<MonthGroup>) {
     val sessionCount: Int get() = months.sumOf { it.sessions.size }
 }
 
 /** Groups [sessions] (newest first) by year and month, preserving their order inside each month. */
-fun groupByYearAndMonth(sessions: List<Session>): List<YearGroup> =
+internal fun groupByYearAndMonth(sessions: List<Session>): List<YearGroup> =
     sessions.groupBy { it.date.year }.entries.sortedByDescending { it.key }.map { (year, inYear) ->
         YearGroup(
             year,
@@ -82,7 +82,7 @@ fun groupByYearAndMonth(sessions: List<Session>): List<YearGroup> =
         )
     }
 
-data class HistoryState(
+internal data class HistoryState(
     val loading: Boolean = true,
     val sessions: List<Session> = emptyList(),
     /** [sessions] grouped by year, then month, newest first. */
@@ -98,7 +98,7 @@ data class HistoryState(
     val dayNames: Map<String, String> = emptyMap(),
 )
 
-class HistoryModel(trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
+internal class HistoryModel(trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
     val state: StateFlow<HistoryState> = combine(trainingData.snapshot, programs.observePrograms()) { snapshot, programList ->
         withContext(Dispatchers.Default) {
             val today = Dates.today()
@@ -124,7 +124,7 @@ class HistoryModel(trainingData: TrainingData = inject(), programs: ProgramRepos
  * the calendar, to edit it; plus to log.
  */
 @Composable
-fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
+internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
     val model = rememberScreenModel { HistoryModel() }
     val state by model.state.collectAsState()
     if (state.loading) return

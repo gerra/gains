@@ -52,7 +52,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 
-data class ExerciseRow(
+internal data class ExerciseRow(
     val exercise: Exercise,
     val sessions: Int,
     val lastTrained: LocalDate,
@@ -63,9 +63,9 @@ data class ExerciseRow(
     val trendDelta: Double?,
 )
 
-data class ExercisesState(val loading: Boolean = true, val rows: List<ExerciseRow> = emptyList())
+internal data class ExercisesState(val loading: Boolean = true, val rows: List<ExerciseRow> = emptyList())
 
-class ExercisesModel(trainingData: TrainingData = inject(), settings: SettingsRepository = inject()) : ScreenModel() {
+internal class ExercisesModel(trainingData: TrainingData = inject(), settings: SettingsRepository = inject()) : ScreenModel() {
     val state: StateFlow<ExercisesState> = combine(trainingData.snapshot, settings.observeUnit()) { s, u -> s to u }
         .mapLatest { (snapshot, unit) ->
             withContext(Dispatchers.Default) {
@@ -89,7 +89,7 @@ class ExercisesModel(trainingData: TrainingData = inject(), settings: SettingsRe
 }
 
 @Composable
-fun ExercisesScreen(onOpen: (String) -> Unit) {
+internal fun ExercisesScreen(onOpen: (String) -> Unit) {
     val model = rememberScreenModel { ExercisesModel() }
     val state by model.state.collectAsState()
     var query by remember { mutableStateOf("") }

@@ -65,9 +65,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class Window(val label: String, val days: Int?) { M3("3M", 90), M6("6M", 180), Y1("1Y", 365), ALL("All", null) }
+internal enum class Window(val label: String, val days: Int?) { M3("3M", 90), M6("6M", 180), Y1("1Y", 365), ALL("All", null) }
 
-data class ExerciseDetailState(
+internal data class ExerciseDetailState(
     val loading: Boolean = true,
     val exercise: Exercise? = null,
     val unit: WeightUnit = WeightUnit.KG,
@@ -80,7 +80,7 @@ data class ExerciseDetailState(
     val hasOverride: Boolean = false,
 )
 
-class ExerciseDetailModel(
+internal class ExerciseDetailModel(
     private val exerciseId: String,
     trainingData: TrainingData = inject(),
     private val exercises: ExerciseRepository = inject(),
@@ -118,7 +118,7 @@ class ExerciseDetailModel(
 }
 
 @Composable
-fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) -> Unit = {}) {
+internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) -> Unit = {}) {
     val model = rememberScreenModel(exerciseId) { ExerciseDetailModel(exerciseId) }
     val state by model.state.collectAsState()
     val exercise = state.exercise
@@ -247,7 +247,7 @@ fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) -> Unit = {
 }
 
 @Composable
-fun ChartCard(content: @Composable () -> Unit) {
+internal fun ChartCard(content: @Composable () -> Unit) {
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) { content() }
 }
 

@@ -92,7 +92,7 @@ private val WheelBandShape = RoundedCornerShape(10.dp)
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun WheelPicker(
+internal fun WheelPicker(
     items: List<String>,
     selected: Int,
     onSelect: (Int) -> Unit,
@@ -172,7 +172,7 @@ fun WheelPicker(
 
 /** The highlighted middle row of a wheel, one row tall. Drawn once across a row of wheels that share a value. */
 @Composable
-fun WheelBand(modifier: Modifier = Modifier) {
+internal fun WheelBand(modifier: Modifier = Modifier) {
     Box(modifier.height(WheelRowHeight).clip(WheelBandShape).background(MaterialTheme.colorScheme.surfaceContainerHighest))
 }
 
@@ -182,7 +182,7 @@ fun WheelBand(modifier: Modifier = Modifier) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PickerSheet(
+internal fun PickerSheet(
     title: String,
     onDismiss: () -> Unit,
     subtitle: String? = null,
@@ -218,7 +218,7 @@ fun PickerSheet(
 
 /** Label on the left, the current value and a chevron on the right; tapping opens the chooser. */
 @Composable
-fun ChooserRow(label: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier, muted: Boolean = false) {
+internal fun ChooserRow(label: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier, muted: Boolean = false) {
     Row(
         modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClick = onClick).padding(vertical = 11.dp, horizontal = 4.dp)
             .semantics { contentDescription = "$label: $value" },
@@ -233,7 +233,7 @@ fun ChooserRow(label: String, value: String, onClick: () -> Unit, modifier: Modi
 
 /** A calendar, a month at a time; the picked day applies straight away. */
 @Composable
-fun DatePickerSheet(date: LocalDate, onPick: (LocalDate) -> Unit, onDismiss: () -> Unit) {
+internal fun DatePickerSheet(date: LocalDate, onPick: (LocalDate) -> Unit, onDismiss: () -> Unit) {
     PickerSheet("Date", onDismiss = onDismiss) { CalendarPicker(date, onPick) }
 }
 
@@ -243,7 +243,7 @@ fun DatePickerSheet(date: LocalDate, onPick: (LocalDate) -> Unit, onDismiss: () 
  * which kotlinx-datetime 0.7 moved to kotlin.time, and crashes the moment it is shown.
  */
 @Composable
-fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
+internal fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
     val palette = GainsColors.palette
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val today = Dates.today()
@@ -315,7 +315,7 @@ private val MinuteLabels = List(60) { it.toString().padStart(2, '0') }
 
 /** Hours and minutes on two wheels, 24-hour. */
 @Composable
-fun TimePickerSheet(time: LocalTime, onPick: (LocalTime) -> Unit, onDismiss: () -> Unit) {
+internal fun TimePickerSheet(time: LocalTime, onPick: (LocalTime) -> Unit, onDismiss: () -> Unit) {
     PickerSheet("Time", onDismiss = onDismiss) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             WheelBand(Modifier.width(200.dp))
@@ -336,7 +336,7 @@ private val DurationMinuteLabels = List(60) { it.toString() }
  * sheet or a dialog. [fadeColor] is the surface it sits on.
  */
 @Composable
-fun DurationWheels(minutes: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier, fadeColor: Color = MaterialTheme.colorScheme.surfaceContainer) {
+internal fun DurationWheels(minutes: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier, fadeColor: Color = MaterialTheme.colorScheme.surfaceContainer) {
     val total = minutes.coerceIn(0, 24 * 60 - 1)
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -352,7 +352,7 @@ fun DurationWheels(minutes: Int, onChange: (Int) -> Unit, modifier: Modifier = M
 
 /** How long a workout took; zero means it was not timed and is stored as no duration. */
 @Composable
-fun DurationPickerSheet(minutes: Int?, onPick: (Int?) -> Unit, onDismiss: () -> Unit) {
+internal fun DurationPickerSheet(minutes: Int?, onPick: (Int?) -> Unit, onDismiss: () -> Unit) {
     PickerSheet("Duration", onDismiss = onDismiss, subtitle = "Leave at zero if you didn't time it.") {
         DurationWheels(minutes ?: 0, onChange = { onPick(it.takeIf { m -> m > 0 }) })
     }
@@ -362,7 +362,7 @@ fun DurationPickerSheet(minutes: Int?, onPick: (Int?) -> Unit, onDismiss: () -> 
  * A weight as the wheels hold it: whole units and quarters, which is the app's stored precision.
  * Parsed from whatever the row held, and turned back into the row's text.
  */
-data class WheelWeight(val whole: Int, val quarters: Int) {
+internal data class WheelWeight(val whole: Int, val quarters: Int) {
     val value: Double get() = whole + quarters / 4.0
 
     /** The set row's text: "62.5", "60"; empty when zero, which the row reads as no added weight. */
@@ -393,7 +393,7 @@ private val QuarterLabels = listOf(".00", ".25", ".50", ".75")
  * for the usual step between sets. [value] is the row's text and [onPick] receives the new text.
  */
 @Composable
-fun WeightPickerSheet(value: String, unit: WeightUnit, title: String, subtitle: String?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun WeightPickerSheet(value: String, unit: WeightUnit, title: String, subtitle: String?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
     val palette = GainsColors.palette
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val weight = WheelWeight.parse(value)

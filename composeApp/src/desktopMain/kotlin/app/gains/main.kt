@@ -75,7 +75,7 @@ fun main(args: Array<String>) {
 }
 
 /** The tray reads the notice as state, so [main] can put an icon up and take it down with it. */
-class DesktopLiveSessionNotifier : LiveSessionNotifier {
+internal class DesktopLiveSessionNotifier : LiveSessionNotifier {
     private val _notice = MutableStateFlow<LiveSessionNotice?>(null)
     val notice: StateFlow<LiveSessionNotice?> = _notice
     override fun update(notice: LiveSessionNotice?) { _notice.value = notice }
@@ -89,7 +89,7 @@ private object VoltDot : Painter() {
     }
 }
 
-class DesktopFilePicker : CsvFilePicker {
+internal class DesktopFilePicker : CsvFilePicker {
     override fun pick(onResult: (List<PickedFile>) -> Unit) {
         val dialog = FileDialog(null as Frame?, "Choose Liftoff CSV exports", FileDialog.LOAD)
         dialog.setFilenameFilter { _, name -> name.endsWith(".csv", ignoreCase = true) }

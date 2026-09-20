@@ -127,7 +127,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraft>, val note: String = "") {
+internal data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraft>, val note: String = "") {
     val warmups: List<SetDraft> get() = sets.filter { it.isWarmup }
     val workSets: List<SetDraft> get() = sets.filter { !it.isWarmup }
 
@@ -153,11 +153,11 @@ data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraft>, val n
 }
 
 /** A program day the workout can be tagged with: "GZCLP · A1". */
-data class ProgramDayOption(val ref: ProgramDayRef, val programName: String, val dayName: String) {
+internal data class ProgramDayOption(val ref: ProgramDayRef, val programName: String, val dayName: String) {
     val label: String get() = "$programName · $dayName"
 }
 
-data class EditorState(
+internal data class EditorState(
     val loading: Boolean = true,
     val isNew: Boolean = true,
     val id: String? = null,
@@ -233,7 +233,7 @@ data class EditorState(
     }
 }
 
-class SessionEditorModel(
+internal class SessionEditorModel(
     private val sessionId: String?,
     private val programDay: ProgramDayRef? = null,
     /** Open a timed workout, ready to start (or resume the one running), rather than log a past one. */
@@ -664,7 +664,7 @@ class SessionEditorModel(
 }
 
 @Composable
-fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, live: Boolean = false, onDone: () -> Unit) {
+internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, live: Boolean = false, onDone: () -> Unit) {
     val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette

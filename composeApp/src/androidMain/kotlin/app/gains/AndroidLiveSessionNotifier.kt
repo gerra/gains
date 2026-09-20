@@ -26,7 +26,7 @@ import app.gains.platform.LiveSessionNotifier
  * prompt; it is shown once per workout, on the first notice, and the notice is posted when it is
  * granted. The receiver behind "Skip rest" posts on its own with no prompt to offer.
  */
-class AndroidLiveSessionNotifier(private val context: Context, private val requestPermission: () -> Unit = {}) : LiveSessionNotifier {
+internal class AndroidLiveSessionNotifier(private val context: Context, private val requestPermission: () -> Unit = {}) : LiveSessionNotifier {
     // Fetched on use: the activity constructs this before it has a base context.
     private val manager get() = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private var pending: LiveSessionNotice? = null

@@ -70,7 +70,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 
-data class HomeState(
+internal data class HomeState(
     val loading: Boolean = true,
     val sessionCount: Int = 0,
     val exerciseCount: Int = 0,
@@ -87,7 +87,7 @@ data class HomeState(
     val programSessionsThisWeek: Int = 0,
 )
 
-class HomeModel(
+internal class HomeModel(
     trainingData: TrainingData = inject(),
     settings: SettingsRepository = inject(),
     programs: ProgramRepository = inject(),
@@ -125,7 +125,7 @@ class HomeModel(
 }
 
 @Composable
-fun HomeScreen(
+internal fun HomeScreen(
     onImport: () -> Unit,
     onLog: () -> Unit,
     onOpenExercise: (String) -> Unit,
@@ -312,7 +312,7 @@ private fun HeroStat(label: String, value: String, color: Color? = null) {
 }
 
 @Composable
-fun InsightKind.color(): Color {
+internal fun InsightKind.color(): Color {
     val p = GainsColors.palette
     return when (this) {
         InsightKind.REGRESSION -> p.regression
@@ -334,7 +334,7 @@ private fun InsightKind.glyph(): String = when (this) {
 /** Tapping the card opens the exercise (or volume); each session the text mentions gets its own link below it. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun InsightCard(insight: Insight, onClick: () -> Unit, onOpenSession: (String) -> Unit = {}) {
+internal fun InsightCard(insight: Insight, onClick: () -> Unit, onOpenSession: (String) -> Unit = {}) {
     val color = insight.kind.color()
     val palette = GainsColors.palette
     val today = Dates.today()
