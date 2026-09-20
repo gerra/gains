@@ -1,6 +1,9 @@
 package app.gains.ui.charts
 
+import androidx.compose.ui.graphics.vector.PathNode
+import androidx.compose.ui.graphics.vector.PathParser
 import app.gains.domain.MuscleGroup
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -20,6 +23,30 @@ class BodyMapTest {
         for (outline in listOf(BodyMapModel.frontOutline, BodyMapModel.backOutline)) {
             val b = outline.getBounds()
             assertTrue(b.left >= 0f && b.right <= BodyMapPaths.WIDTH && b.height > 1000f, "outline out of place: $b")
+        }
+    }
+
+    /**
+     * Compose's [PathParser] does not read SVG's compact arc-flag syntax (`a1 1 0 01.5.5`): it drops the arc
+     * without complaint and the rest of the shape is drawn from the wrong point. Each arc command in the
+     * generated data carries exactly one arc, so the parsed arcs must match the commands one to one.
+     */
+    @Test
+    fun composeKeepsEveryArcOfTheDrawing() {
+        val paths = (BodyMapPaths.front + BodyMapPaths.back).map { it.d } + BodyMapPaths.frontOutline + BodyMapPaths.backOutline
+        for (d in paths) {
+            val arcs = PathParser().parsePathString(d).toNodes().count { it is PathNode.ArcTo || it is PathNode.RelativeArcTo }
+            assertEquals(d.count { it == 'a' || it == 'A' }, arcs, "an arc was lost in: ${d.take(80)}…")
+        }
+    }
+
+    /** A lost arc shifts part of a shape sideways; the head is the easiest place to see it, so it must stay centred. */
+    @Test
+    fun theHeadSitsOnTheMidlineOfBothFigures() {
+        for (region in BodyMapModel.regions) {
+            if (region.slug != "head" && region.slug != "hair") continue
+            val centre = (region.bounds.left + region.bounds.right) / 2
+            assertTrue(abs(centre - BodyMapPaths.WIDTH / 2) < 8f, "${region.side} ${region.slug} is off centre: ${region.bounds}")
         }
     }
 
