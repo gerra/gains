@@ -1,12 +1,14 @@
 package app.gains
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
@@ -16,6 +18,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
@@ -36,6 +39,7 @@ import app.gains.importer.ImportService
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.PickedFile
+import app.gains.ui.charts.BodyMapModel
 import app.gains.ui.components.GainsLogo
 import app.gains.ui.inject
 import kotlinx.coroutines.runBlocking
@@ -214,6 +218,17 @@ class ScreenshotTest {
         require(text("This week"))
         settle(1_500)
         shot("07-volume")
+        // 6b. Tap the left pec on the muscle map: the chest is outlined and the list narrows to it.
+        val map = onNode(hasContentDescription("Muscle map"))
+        val mapScale = map.fetchSemanticsNode().size.width / BodyMapModel.TOTAL_WIDTH
+        map.performTouchInput { click(Offset(310f * mapScale, 375f * mapScale)) }
+        require(text("Show all"))
+        require(text("sets this week"))
+        settle(1_500)
+        shot("07b-volume-muscle")
+        onNode(text("Show all") and hasClickAction()).performClick()
+        settle()
+        check(!exists(text("sets this week"))) { "Show all did not clear the muscle-map selection" }
 
         // 7. Bodyweight, with a few months of entries.
         val bodyweight = inject<BodyweightRepository>()
