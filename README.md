@@ -140,7 +140,9 @@ device today.
   flagged as maintenance under 8 sets and likely junk volume over 22. The sets are also shaded
   onto a body, front and back; tap a muscle to see its numbers and filter the list to it.
 - **Log and edit workouts.** Add sessions in the app, edit imported ones (date, duration,
-  exercises, sets, notes) and have the edits flow into the same analyses.
+  exercises, sets, notes) and have the edits flow into the same analyses. Each exercise card
+  has a menu to swap the lift for another while keeping every set typed so far, to move it up
+  or down the workout, or to remove it. Program slots can be swapped the same way.
 - **Bodyweight tracking** with a 7-day average, and any lift overlaid on the trend.
 - **A catalogue that understands names.** Nearly 300 built-in exercises with muscle
   contributions, equipment tags and aliases, so `Seated Dumbbell Shoulder Press` and

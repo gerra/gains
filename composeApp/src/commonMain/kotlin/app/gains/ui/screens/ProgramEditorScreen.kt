@@ -1,5 +1,6 @@
 package app.gains.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,6 +27,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.TrainingData
@@ -107,7 +113,16 @@ internal data class SlotDraft(
     }
 }
 
-internal data class DayDraft(val id: String, val name: String, val slots: List<SlotDraft>)
+internal data class DayDraft(val id: String, val name: String, val slots: List<SlotDraft>) {
+    /**
+     * The slot at [index] with its exercise swapped for [exercise]; sets, reps, progression and note
+     * stay. Unchanged when the exercise is already in the day or [index] is out of range.
+     */
+    fun replacing(index: Int, exercise: Exercise): DayDraft {
+        if (index !in slots.indices || slots.any { it.exercise.id == exercise.id }) return this
+        return copy(slots = slots.mapIndexed { i, s -> if (i == index) s.copy(exercise = exercise) else s })
+    }
+}
 
 internal data class ProgramEditorState(
     val loading: Boolean = true,
@@ -173,6 +188,8 @@ internal class ProgramEditorModel(
     }
 
     fun updateSlot(dayIndex: Int, slotIndex: Int, draft: SlotDraft) = updateDay(dayIndex) { d -> d.copy(slots = d.slots.mapIndexed { i, s -> if (i == slotIndex) draft else s }) }
+    /** Swap a slot's exercise for another, keeping its sets, reps, progression and note. */
+    fun replaceSlot(dayIndex: Int, slotIndex: Int, exercise: Exercise) = updateDay(dayIndex) { it.replacing(slotIndex, exercise) }
     fun removeSlot(dayIndex: Int, slotIndex: Int) = updateDay(dayIndex) { d -> d.copy(slots = d.slots.filterIndexed { i, _ -> i != slotIndex }) }
     fun moveSlot(dayIndex: Int, slotIndex: Int, delta: Int) = updateDay(dayIndex) { d ->
         val target = slotIndex + delta
@@ -213,6 +230,8 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerFor by remember { mutableStateOf<Int?>(null) }
+    /** The slot whose "change exercise" picker is open: day index to slot index. */
+    var replaceFor by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     if (state.loading) return
     if (state.saved) { onDone(); return }
     val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = palette.volt, unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant)
@@ -239,6 +258,7 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
                 for ((slotIndex, slot) in day.slots.withIndex()) {
                     SlotRow(slot, slotIndex, day.slots.size, fieldColors,
                         onChange = { model.updateSlot(dayIndex, slotIndex, it) },
+                        onChangeExercise = { replaceFor = dayIndex to slotIndex },
                         onMove = { model.moveSlot(dayIndex, slotIndex, it) },
                         onRemove = { model.removeSlot(dayIndex, slotIndex) })
                 }
@@ -265,17 +285,43 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
             onDismiss = { pickerFor = null },
         )
     }
+    replaceFor?.let { (dayIndex, slotIndex) ->
+        // Single-select: the tapped exercise takes the slot over; its sets, reps and progression stay.
+        val day = state.days.getOrNull(dayIndex)
+        val slot = day?.slots?.getOrNull(slotIndex)
+        if (day == null || slot == null) replaceFor = null
+        else ExercisePickerSheet(
+            catalogue = state.catalogue,
+            recent = state.recent,
+            alreadyAdded = day.slots.map { it.exercise.id }.toSet(),
+            onAdd = { picked -> picked.firstOrNull()?.let { model.replaceSlot(dayIndex, slotIndex, it) } },
+            onCreate = model::createExercise,
+            onDismiss = { replaceFor = null },
+            single = true,
+            title = "Replace ${slot.exercise.name}",
+        )
+    }
 }
 
 @Composable
 private fun SlotRow(
     slot: SlotDraft, index: Int, count: Int, fieldColors: androidx.compose.material3.TextFieldColors,
-    onChange: (SlotDraft) -> Unit, onMove: (Int) -> Unit, onRemove: () -> Unit,
+    onChange: (SlotDraft) -> Unit, onChangeExercise: () -> Unit, onMove: (Int) -> Unit, onRemove: () -> Unit,
 ) {
     val palette = GainsColors.palette
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(slot.exercise.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            // Tapping the name opens the picker to swap the exercise; the prescription below is kept.
+            Row(
+                Modifier.weight(1f).clip(MaterialTheme.shapes.small).clickable(onClick = onChangeExercise)
+                    .semantics { role = Role.Button; contentDescription = "Change ${slot.exercise.name}" }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(slot.exercise.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f, fill = false))
+                Spacer(Modifier.width(8.dp))
+                Text("Change", style = MaterialTheme.typography.labelMedium, color = palette.volt)
+            }
             TextButton(onClick = { onMove(-1) }, enabled = index > 0) { Text("↑") }
             TextButton(onClick = { onMove(1) }, enabled = index < count - 1) { Text("↓") }
             TextButton(onClick = onRemove) { Text("×", color = palette.coral) }

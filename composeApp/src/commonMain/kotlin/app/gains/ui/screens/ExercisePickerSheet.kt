@@ -75,6 +75,8 @@ internal fun ExercisePickerSheet(
     onDismiss: () -> Unit,
     /** Single-select: tapping a row adds it straight away. */
     single: Boolean = false,
+    /** The sheet's heading: "Add exercises" to add, or what is being replaced. */
+    title: String = "Add exercises",
 ) {
     val palette = GainsColors.palette
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -118,7 +120,7 @@ internal fun ExercisePickerSheet(
             // Header
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Add exercises", style = MaterialTheme.typography.headlineSmall)
+                    Text(title, style = MaterialTheme.typography.headlineSmall)
                     Text(
                         if (selected.isEmpty()) "${catalogue.size} in your library" else "${selected.size} selected",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
