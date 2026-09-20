@@ -121,6 +121,20 @@ The certificate and profile expire after a year; renew them and update the two s
 the workflow starts failing at the archive step. Everything is installed into a throwaway
 keychain and removed at the end of the run.
 
+Creating the certificate, profile and API key is the only part that touches a Mac (Keychain
+Access exports the `.p12`). After that, every upload runs on GitHub's macOS runners; commit,
+push a tag or press *Run workflow* from any machine.
+
+**Caching.** The first run downloads the Gradle distribution, all dependencies and the
+Kotlin/Native toolchain and takes 30 to 40 minutes. The workflow keeps the Gradle home
+(`gradle/actions/setup-gradle` with `cache-read-only: false`, because tag and manual runs are
+not on the default branch where the action writes by default) and `~/.konan`
+(`actions/cache`, keyed on `gradle/libs.versions.toml`). With both warm and Gradle's build
+cache from `gradle.properties`, a later run recompiles only the changed Kotlin. A Kotlin
+upgrade in the version catalog fetches a fresh toolchain once. GitHub evicts caches that go
+unused for a week and keeps at most 10 GB per repository, so a run after a long pause starts
+cold again.
+
 ## Upload from Xcode Cloud
 
 [Xcode Cloud](https://developer.apple.com/xcode-cloud/) is Apple's hosted CI. It clones the
