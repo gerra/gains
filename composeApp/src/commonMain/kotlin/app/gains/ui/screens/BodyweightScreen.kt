@@ -15,9 +15,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,6 +46,8 @@ import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
 import app.gains.ui.charts.LineChart
 import app.gains.ui.charts.LineSeries
+import app.gains.ui.components.ChooserRow
+import app.gains.ui.components.DatePickerSheet
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
@@ -55,6 +56,8 @@ import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
+import app.gains.ui.components.WeightPickerSheet
+import app.gains.ui.components.WheelWeight
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -123,8 +126,8 @@ internal fun BodyweightScreen() {
             ScreenTitle("Bodyweight", subtitle = "Daily entries with a 7-day average", trailing = {
                 TextButton(onClick = { showEntry = !showEntry }) { Text(if (showEntry) "Hide" else "+ Add", color = palette.volt) }
             })
-            if (showEntry) GainsCard(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                EntryForm(unit, today, onAdd = { d, kg -> model.add(d, kg); showEntry = false })
+            if (showEntry) GainsCard(Modifier.fillMaxWidth().padding(bottom = 12.dp), contentPadding = Dp16.Tight) {
+                EntryForm(unit, today, lastWeightKg = state.points.lastOrNull()?.weightKg, onAdd = { d, kg -> model.add(d, kg); showEntry = false })
             }
         }
         if (state.points.isEmpty()) {
@@ -172,30 +175,36 @@ internal fun BodyweightScreen() {
     }
 }
 
+/**
+ * A date and a weight, as two rows that open a chooser each: a calendar for the day and wheels for
+ * the weight, starting from the last entry so a typical day is a small nudge. Nothing is typed.
+ */
 @Composable
-private fun EntryForm(unit: WeightUnit, today: LocalDate, onAdd: (LocalDate, Double) -> Unit) {
-    var dateText by remember { mutableStateOf(today.toString()) }
-    var weightText by remember { mutableStateOf("") }
+private fun EntryForm(unit: WeightUnit, today: LocalDate, lastWeightKg: Double?, onAdd: (LocalDate, Double) -> Unit) {
+    var date by remember { mutableStateOf(today) }
+    var weightText by remember { mutableStateOf(lastWeightKg?.let { Format.number(Units.display(it, unit), 2) } ?: "") }
+    var datePickerOpen by remember { mutableStateOf(false) }
+    var weightPickerOpen by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val palette = GainsColors.palette
-    val colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = palette.volt, unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant)
+    val weight = WheelWeight.parse(weightText).value
+    val hairline = MaterialTheme.colorScheme.outlineVariant
     Column(Modifier.fillMaxWidth()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(dateText, { dateText = it }, label = { Text("Date (YYYY-MM-DD)") }, singleLine = true, modifier = Modifier.weight(1f), colors = colors, shape = MaterialTheme.shapes.medium)
-            OutlinedTextField(weightText, { weightText = it }, label = { Text("Weight (${unit.label})") }, singleLine = true, modifier = Modifier.weight(1f), colors = colors, shape = MaterialTheme.shapes.medium)
-        }
+        ChooserRow("Date", if (date == today) "Today" else Dates.contextual(date, today), onClick = { datePickerOpen = true })
+        HorizontalDivider(color = hairline)
+        ChooserRow("Weight", if (weight > 0) Format.number(weight, 2) + " " + unit.label else "Not set", onClick = { weightPickerOpen = true }, muted = weight <= 0)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp)) }
         Spacer(Modifier.height(12.dp))
         PrimaryButton("Save entry", onClick = {
-            val date = runCatching { LocalDate.parse(dateText.trim()) }.getOrNull()
-            val weight = weightText.trim().replace(',', '.').toDoubleOrNull()
-            when {
-                date == null -> error = "Enter the date as YYYY-MM-DD."
-                weight == null || weight <= 0 -> error = "Enter a weight."
-                else -> { error = null; onAdd(date, Units.fromDisplay(weight, unit)) }
-            }
+            if (weight <= 0) error = "Choose a weight."
+            else { error = null; onAdd(date, Units.fromDisplay(weight, unit)) }
         })
     }
+    if (datePickerOpen) DatePickerSheet(date, onPick = { date = it }, onDismiss = { datePickerOpen = false })
+    if (weightPickerOpen) WeightPickerSheet(
+        value = weightText, unit = unit, title = "Bodyweight", subtitle = if (date == today) "Today" else Dates.contextual(date, today),
+        onPick = { weightText = it; error = null }, onDismiss = { weightPickerOpen = false },
+        clearable = false, steps = WheelWeight.bodyweightSteps(unit),
+    )
 }
 
 @Composable
