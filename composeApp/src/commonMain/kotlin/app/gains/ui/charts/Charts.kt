@@ -56,10 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
-import app.gains.resources.Res
-import app.gains.resources.*
 import app.gains.ui.i18n.*
-import org.jetbrains.compose.resources.stringArrayResource
 import app.gains.ui.theme.GainsColors
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
@@ -91,6 +88,11 @@ internal data class StackedBar(val label: String, val segments: List<Pair<Color,
 
 internal data class ReferenceLine(val y: Double, val color: Color, val label: String)
 
+/** How a date is written on an x axis: "12 Feb", "12 Feb 2025" or "Feb 2025". */
+internal enum class DateForm { DAY_MONTH, DAY_MONTH_YEAR, MONTH_YEAR }
+
+internal data class AxisDate(val date: LocalDate, val form: DateForm)
+
 internal object ChartMath {
     /** "Nice" axis ticks covering [min, max]. */
     fun ticks(min: Double, max: Double, count: Int = 4): List<Double> {
@@ -115,6 +117,27 @@ internal object ChartMath {
 
     fun LocalDate.x(): Double = toEpochDays().toDouble()
     fun fromX(x: Double): LocalDate = LocalDate.fromEpochDays(x.toLong())
+
+    /** Five evenly spaced x ticks over [xMin]..[xMax], or the one point when there is no range. */
+    fun xTicks(xMin: Double, xMax: Double): List<Double> =
+        if (xMax - xMin < 1) listOf(xMin) else (0..4).map { xMin + (xMax - xMin) * it / 4 }
+
+    /**
+     * The date ticks of an x axis and how each is written. Inside [today]'s year the year goes without
+     * saying. Otherwise the first tick carries it, and so does every tick that starts a new year, so a
+     * window that reaches back into last year reads "12 Oct 2025 · 3 Nov · 25 Nov · 16 Dec · 7 Jan 2026".
+     * Over more than a year the ticks are months apart and the day is noise, so every tick is a month
+     * and year: "Feb 2024 · Nov 2024 · Jul 2025 · Mar 2026 · Sep 2026".
+     */
+    fun axisDates(ticks: List<Double>, today: LocalDate): List<AxisDate> {
+        val dates = ticks.map { fromX(it) }
+        if (dates.isEmpty()) return emptyList()
+        if (dates.all { it.year == today.year }) return dates.map { AxisDate(it, DateForm.DAY_MONTH) }
+        if (dates.last().toEpochDays() - dates.first().toEpochDays() > 365) return dates.map { AxisDate(it, DateForm.MONTH_YEAR) }
+        return dates.mapIndexed { i, d ->
+            AxisDate(d, if (i == 0 || d.year != dates[i - 1].year) DateForm.DAY_MONTH_YEAR else DateForm.DAY_MONTH)
+        }
+    }
 
     /** Monotone cubic interpolation: smooth without overshooting the data. */
     fun smoothPath(pts: List<Offset>): Path {
@@ -166,15 +189,27 @@ internal fun LineChart(
     series: List<LineSeries>,
     modifier: Modifier = Modifier,
     height: Dp = 200.dp,
-    /** Labels an x value; null labels it as a short date in the screen's language. */
+    /**
+     * Labels an x value; null labels it as a date in the screen's language, with the year whenever
+     * the axis leaves this year (see [ChartMath.axisDates]).
+     */
     xLabel: ((Double) -> String)? = null,
     yLabel: (Double) -> String = { formatAxis(it) },
     secondaryLabel: (Double) -> String = { formatAxis(it) },
     yMinZero: Boolean = false,
     showLegend: Boolean = series.size > 1,
 ) {
-    val months = stringArrayResource(Res.array.months_short)
-    val xLabel: (Double) -> String = xLabel ?: { ChartMath.fromX(it).let { d -> "${d.dayOfMonth} ${months[d.monthNumber - 1]}" } }
+    val all = series.flatMap { it.points }
+    val xMin = all.minOfOrNull { it.x } ?: 0.0
+    val xMax = all.maxOfOrNull { it.x }?.takeIf { it > xMin } ?: (xMin + 1)
+    val xTicks = ChartMath.xTicks(xMin, xMax)
+    val xTickLabels = if (xLabel != null) xTicks.map(xLabel) else ChartMath.axisDates(xTicks, Dates.today()).map { (d, form) ->
+        when (form) {
+            DateForm.DAY_MONTH -> dateShort(d)
+            DateForm.DAY_MONTH_YEAR -> dateShortWithYear(d)
+            DateForm.MONTH_YEAR -> monthYear(d)
+        }
+    }
     val measurer = rememberTextMeasurer()
     val palette = GainsColors.palette
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -187,7 +222,6 @@ internal fun LineChart(
 
     Column(modifier) {
         Canvas(Modifier.fillMaxWidth().height(height)) {
-            val all = series.flatMap { it.points }
             if (all.isEmpty()) return@Canvas
             val leftPad = 40.dp.toPx()
             val rightPad = if (secondary.isNotEmpty()) 40.dp.toPx() else 10.dp.toPx()
@@ -196,9 +230,6 @@ internal fun LineChart(
             val plotW = size.width - leftPad - rightPad
             val plotH = size.height - topPad - bottomPad
 
-            val xMin = all.minOf { it.x }
-            val xMaxRaw = all.maxOf { it.x }
-            val xMax = if (xMaxRaw > xMin) xMaxRaw else xMin + 1
             fun px(x: Double) = leftPad + ((x - xMin) / (xMax - xMin) * plotW).toFloat()
 
             fun scale(pts: List<ChartPoint>): Pair<List<Double>, (Double) -> Float> {
@@ -226,9 +257,8 @@ internal fun LineChart(
                 for (t in sTicks) axisLabel(measurer, secondaryLabel(t), leftPad + plotW + 6.dp.toPx(), sy(t) - 6.sp.toPx(), style.copy(color = secondary.first().color))
             }
 
-            val xTicks = if (xMax - xMin < 1) listOf(xMin) else (0..4).map { xMin + (xMax - xMin) * it / 4 }
             for ((i, t) in xTicks.withIndex()) {
-                axisLabel(measurer, xLabel(t), px(t), size.height - bottomPad + 6.dp.toPx(), style,
+                axisLabel(measurer, xTickLabels[i], px(t), size.height - bottomPad + 6.dp.toPx(), style,
                     alignRight = i == xTicks.lastIndex && xTicks.size > 1, alignCenter = i != 0 && i != xTicks.lastIndex)
             }
 
