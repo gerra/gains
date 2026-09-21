@@ -75,9 +75,12 @@ import app.gains.ui.i18n.*
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -255,7 +258,7 @@ internal class SessionSummaryModel(
         const val WRITE_DELAY_MS = 300L
 
         /** Outlives the screen: the flush on the way out must not be cancelled with it. */
-        private val flushScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+        private val flushScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 }
 

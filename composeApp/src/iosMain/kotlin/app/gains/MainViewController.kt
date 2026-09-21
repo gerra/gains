@@ -37,6 +37,7 @@ import platform.UniformTypeIdentifiers.UTType
 import platform.UniformTypeIdentifiers.UTTypeCommaSeparatedText
 import platform.UniformTypeIdentifiers.UTTypePlainText
 import platform.darwin.NSObject
+import platform.posix.memcpy
 
 private var koinStarted = false
 
@@ -88,8 +89,10 @@ private fun topViewController(): UIViewController? {
 @OptIn(ExperimentalForeignApi::class)
 private fun NSData.toByteArray(): ByteArray {
     val size = length.toInt()
-    if (size == 0) return ByteArray(0)
-    return ByteArray(size).apply { usePinned { getBytes(it.addressOf(0), length) } }
+    if (size <= 0) return ByteArray(0)
+    return ByteArray(size).apply {
+        usePinned { memcpy(it.addressOf(0), this@toByteArray.bytes, this@toByteArray.length) }
+    }
 }
 
 /**
