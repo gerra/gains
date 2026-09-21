@@ -7,6 +7,7 @@ How a commit becomes a build that testers can install. The short version lives i
 - [Versions and build numbers](#versions-and-build-numbers)
 - [Upload from Xcode](#upload-from-xcode)
 - [Upload from the command line](#upload-from-the-command-line)
+- [Daily releases](#daily-releases)
 - [Upload from GitHub Actions](#upload-from-github-actions)
 - [Upload from Xcode Cloud](#upload-from-xcode-cloud)
 - [Adding testers](#adding-testers)
@@ -42,15 +43,67 @@ Both numbers live in `Config.xcconfig` and flow into `Info.plist` through build 
 | `MARKETING_VERSION` | The version testers see, e.g. `1.0` | When a release is worth a new version. |
 | `CURRENT_PROJECT_VERSION` | The build number | **Before every upload.** App Store Connect rejects a build number it has already seen for that version. |
 
-Both can be overridden on the command line, which is how the GitHub workflow stamps each
-upload with its run number:
+On `main`, `MARKETING_VERSION` is the last version that was released: the
+[daily release](#daily-releases) cuts `release/<major>.<minor>` with the minor bumped, commits
+the new version on that branch, and its pull request carries it back to `main`.
+
+Both can be overridden on the command line, which is how the GitHub workflows stamp each
+upload with their run number:
 
 ```bash
 xcodebuild ... MARKETING_VERSION=1.1 CURRENT_PROJECT_VERSION=42
 ```
 
-If builds come from both Xcode and the workflow, keep the numbers moving in one direction: a
+If builds come from both Xcode and the workflows, keep the numbers moving in one direction: a
 manual upload should use a build number above the latest workflow run number.
+
+## Daily releases
+
+Not every commit on `main` becomes a build. Two scheduled workflows turn a day's worth of
+merges into one TestFlight build:
+
+1. **01:00 UTC, [Cut release branch](../.github/workflows/release-branch.yml).** Branches
+   `release/<major>.<minor>` off `main`, with the minor one above the newest release branch
+   (or above `MARKETING_VERSION` on `main`, whichever is higher), and commits the new
+   `MARKETING_VERSION` on it. `1.0` on `main` gives `release/1.1`, then `release/1.2` the next
+   day, and so on. On a day when nothing that reaches the iOS app changed since the previous
+   branch (docs, samples, tests, workflows and the Android- and desktop-only sources do not
+   count) no branch is cut.
+2. **19:00 UTC, [Release](../.github/workflows/release.yml).** Takes the newest release branch,
+   archives and uploads it through the [TestFlight workflow](../.github/workflows/testflight.yml),
+   tags the shipped commit `testflight/<version>/<build>` and opens a pull request
+   **Release \<version\>** from the branch to `main`. A branch whose tip is already tagged is not
+   uploaded again, so a day without a new cut is quiet.
+3. **Merge the pull request** once the build looks good. That puts the version bump, and any
+   fix committed on the branch, on `main`. Merge it before the next cut: a fix that is only on
+   `release/1.1` is not on `main`, so `release/1.2` would ship without it.
+
+Both workflows also run from **Actions > Run workflow**:
+
+- *Cut release branch* takes a **version** (`2.0` starts a new major; the following days give
+  `2.1`, `2.2`, …) and a **force** switch that cuts even when `main` has not changed.
+- *Release* takes a **branch** (to upload an older release branch) and a **force** switch that
+  uploads a commit again with a new build number. A fix pushed to a release branch after its
+  build needs no switch: the tip is untagged, so the next scheduled run, or a manual one,
+  ships it and comments on the open pull request.
+
+The build number is the Release workflow's run number. Keep re-releases of a version on that
+workflow rather than on *TestFlight > Run workflow*, whose own run number may be lower and
+would be rejected by App Store Connect for the same version.
+
+GitHub runs schedules in UTC and can start them a few minutes late when its queue is busy;
+on a public repository it also switches schedules off after 60 days without a commit, until
+someone re-enables the workflow. Both workflow files are read from `main`, so a change to the release process
+lands there, not on a release branch.
+
+**Pull requests and CI.** Work done with the default `GITHUB_TOKEN` triggers no other
+workflows, so the branch push and the pull request get no CI run, and the repository must
+allow Actions to open pull requests (**Settings > Actions > General > Workflow permissions >
+Allow GitHub Actions to create and approve pull requests**). To get CI on the release pull
+request instead, add a `RELEASE_TOKEN` secret: a
+[fine-grained personal access token](https://github.com/settings/personal-access-tokens)
+for this repository with *Contents* and *Pull requests* set to read and write. Both workflows
+use it when present.
 
 ## Upload from Xcode
 
@@ -103,12 +156,11 @@ command uploads in step 2 instead, which is what the workflow does.
 
 The [TestFlight workflow](../.github/workflows/testflight.yml) runs on a macOS runner, signs
 with material stored as repository secrets, and uploads with an App Store Connect API key.
-It runs on every push to `main` that touches the app (docs, samples and the Android- and
-desktop-only sources are ignored), on any tag such as `v1.0.0`, and by hand from
-**Actions > TestFlight > Run workflow** (optionally with a build number). The workflow run
-number becomes the build number, so nothing in `Config.xcconfig` has to change. Uploads are
-serialized by a concurrency group, so merging two pull requests back to back queues the second
-build instead of colliding.
+The [daily release](#daily-releases) calls it for the current release branch; it also runs on
+any tag such as `v1.0.0` and by hand from **Actions > TestFlight > Run workflow** (optionally
+with a build number). The workflow run number becomes the build number, so nothing in
+`Config.xcconfig` has to change. Uploads are serialized by a concurrency group, so two runs
+started back to back queue the second build instead of colliding.
 
 Add these six secrets under **Settings > Secrets and variables > Actions**:
 
@@ -127,12 +179,12 @@ keychain and removed at the end of the run.
 
 Creating the certificate, profile and API key is the only part that touches a Mac (Keychain
 Access exports the `.p12`). After that, every upload runs on GitHub's macOS runners; commit,
-push a tag or press *Run workflow* from any machine.
+let the daily release run, push a tag or press *Run workflow* from any machine.
 
 **Caching.** The first run downloads the Gradle distribution, all dependencies and the
 Kotlin/Native toolchain and takes 30 to 40 minutes. The workflow keeps the Gradle home
-(`gradle/actions/setup-gradle` with `cache-read-only: false`, because tag and manual runs are
-not on the default branch where the action writes by default) and `~/.konan`
+(`gradle/actions/setup-gradle` with `cache-read-only: false`, because release-branch, tag and
+manual runs are not on the default branch where the action writes by default) and `~/.konan`
 (`actions/cache`, keyed on `gradle/libs.versions.toml`). With both warm and Gradle's build
 cache from `gradle.properties`, a later run recompiles only the changed Kotlin. A Kotlin
 upgrade in the version catalog fetches a fresh toolchain once. GitHub evicts caches that go
@@ -169,8 +221,8 @@ One-time setup, from Xcode on any Mac or from the web:
 2. **Edit the default workflow** (App Store Connect > *Gains* > Xcode Cloud > **Manage
    Workflows**, or the Cloud tab of Xcode's Report navigator):
    - **Environment**: latest Xcode and macOS. Leave *Clean* off so the cache survives.
-   - **Start Conditions**: *Branch Changes* on `main`, or *Tag Changes* for `v*` to mirror the
-     GitHub workflow. Drop *Pull Request Changes* unless every PR should produce a build.
+   - **Start Conditions**: *Branch Changes* on `release/*` to mirror the GitHub release, or
+     on `main`, or *Tag Changes* for `v*`. Drop *Pull Request Changes* unless every PR should produce a build.
    - **Actions**: one **Archive** action, platform iOS, scheme `iosApp`, deployment preparation
      **TestFlight (Internal Testing Only)** or **TestFlight and App Store**.
    - **Post-Actions**: **TestFlight Internal Testing** with the internal group, so every green

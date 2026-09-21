@@ -1,0 +1,167 @@
+name: Release
+
+# Every day at 19:00 UTC, uploads the newest release branch (release/<major>.<minor>, cut by
+# the "Cut release branch" workflow at 01:00 UTC) to TestFlight, tags the commit that
+# shipped as testflight/<version>/<build>, and opens a pull request from the branch to
+# main. A branch whose tip already carries such a tag is left alone, so a day without a new
+# cut uploads nothing. "Run workflow" releases by hand, for a chosen branch or again for one
+# that shipped already (a fix pushed to a release branch is picked up either way).
+#
+# How the pieces fit together: docs/testflight.md#daily-releases
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Release branch to upload (release/<major>.<minor>). Defaults to the newest."
+        required: false
+        type: string
+      force:
+        description: "Upload even if this commit already went to TestFlight"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  pick:
+    name: Pick the release branch
+    runs-on: ubuntu-latest
+    outputs:
+      upload: ${{ steps.pick.outputs.upload }}
+      branch: ${{ steps.pick.outputs.branch }}
+      version: ${{ steps.pick.outputs.version }}
+      sha: ${{ steps.pick.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: pick
+        env:
+          REQUESTED: ${{ inputs.branch }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          if [ -n "$REQUESTED" ]; then
+            branch="${REQUESTED#origin/}"
+            [[ "$branch" =~ ^release/[0-9]+\.[0-9]+$ ]] \
+              || { echo "::error::Expected a branch named release/<major>.<minor>, got '$branch'"; exit 1; }
+            git rev-parse --verify -q "origin/$branch" >/dev/null \
+              || { echo "::error::There is no branch $branch on origin"; exit 1; }
+          else
+            newest="$(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release/' \
+              | sed 's#^origin/release/##' | grep -E '^[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n | tail -n1 || true)"
+            if [ -z "$newest" ]; then
+              echo "There is no release branch yet; nothing to upload." | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "upload=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            branch="release/$newest"
+          fi
+          version="${branch#release/}"
+          sha="$(git rev-parse "origin/$branch")"
+
+          shipped="$(git tag --points-at "$sha" --list 'testflight/*' | tr '\n' ' ')"
+          if [ -n "$shipped" ] && [ "$FORCE" != "true" ]; then
+            echo "$branch at ${sha:0:7} already went to TestFlight as $shipped; nothing to upload." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Releasing $branch at ${sha:0:7} as Gains $version"
+          {
+            echo "upload=true"
+            echo "branch=$branch"
+            echo "version=$version"
+            echo "sha=$sha"
+          } >> "$GITHUB_OUTPUT"
+
+  upload:
+    name: TestFlight
+    needs: pick
+    if: needs.pick.outputs.upload == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/testflight.yml
+    with:
+      # The commit picked above, so a push to the branch during the build cannot slip in
+      # untagged. The build number is this run's number; keep re-releases of a version on
+      # this workflow so its numbers only ever go up.
+      ref: ${{ needs.pick.outputs.sha }}
+      build_number: ${{ github.run_number }}
+    secrets: inherit
+
+  finish:
+    name: Tag and open the pull request
+    needs: [pick, upload]
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: ${{ needs.pick.outputs.branch }}
+      VERSION: ${{ needs.pick.outputs.version }}
+      SHA: ${{ needs.pick.outputs.sha }}
+      BUILD: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.pick.outputs.sha }}
+          fetch-depth: 0
+          # See the note on RELEASE_TOKEN in release-branch.yml: with it the pull request
+          # runs CI; without it the repository must allow Actions to create pull requests.
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+      - name: Tag the shipped commit
+        run: |
+          set -euo pipefail
+          tag="testflight/$VERSION/$BUILD"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "Tag $tag already exists (re-run)"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" "$SHA" -m "Gains $VERSION ($BUILD) uploaded to TestFlight"
+          git push origin "$tag"
+
+      - name: Open the pull request to main
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          short="${SHA:0:7}"
+          open="$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$open" ]; then
+            gh pr comment "$open" --body "Build $BUILD of Gains $VERSION went to TestFlight from $short."
+            echo "Pull request #$open for $BRANCH is already open; noted build $BUILD on it." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # The release branch this one follows, for the list of changes.
+          previous="$(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release/' \
+            | sed 's#^origin/release/##' | grep -E '^[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n \
+            | awk -v V="$VERSION" '$0 == V { exit } { p = $0 } END { print p }')"
+
+          body="$RUNNER_TEMP/pr-body.md"
+          {
+            echo "Gains **$VERSION** (build $BUILD) went to TestFlight from $short."
+            echo
+            echo "Merging brings the version bump, and anything else committed on \`$BRANCH\`, back to \`main\`."
+            if [ -n "$previous" ]; then
+              echo
+              echo "## Changes since release/$previous"
+              echo
+              git log -n 100 --no-merges --format='- %s' "origin/release/$previous..$SHA" -- . ':(exclude)iosApp/Configuration/Config.xcconfig'
+            fi
+          } > "$body"
+
+          if ! url="$(gh pr create --base main --head "$BRANCH" --title "Release $VERSION" --body-file "$body")"; then
+            echo "::error::Could not open the pull request. Without a RELEASE_TOKEN secret, Settings > Actions > General > Workflow permissions must allow GitHub Actions to create pull requests (docs/testflight.md#daily-releases)."
+            exit 1
+          fi
+          echo "Opened $url for Gains $VERSION (build $BUILD)." >> "$GITHUB_STEP_SUMMARY"
