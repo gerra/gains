@@ -451,22 +451,27 @@ the estimated 1RM, the warm-up steps, the default bar weight and increments, and
 
 ### Languages
 
-Every sentence, label and unit the app shows is a member of the `Strings` interface in
-[`shared/src/commonMain/kotlin/app/gains/i18n/`](shared/src/commonMain/kotlin/app/gains/i18n),
-with one object per language: `English` (the reference) and `Russian`. The UI reads the current
-one from `LocalStrings`; the shared code that produces text (the insight engine, the progression
-hints, the day planner) takes it as a parameter and defaults to English, which is what the unit
-tests see. The language is the device's, read once at launch through `Strings.system()`, so a
-change of language takes a relaunch. The built-in exercises, programs, day names and slot notes
-stay in English in the database and are translated on the way to the screen by id, so imports
-and aliases are unaffected; custom exercises and programs are shown as typed.
+Every sentence, label and unit the app shows is a string resource:
+[`composeApp/src/commonMain/composeResources/values/strings.xml`](composeApp/src/commonMain/composeResources/values/strings.xml)
+is the English reference and `values-ru/strings.xml` the Russian, with plurals (`<plurals>`)
+and month and day names (`<string-array>`) alongside the plain strings. Screens read them
+with `stringResource`; screen models, which live outside the composition, with the suspending
+`getString`. The shared module knows no language: the insight engine, the progression hints,
+the day planner and the CSV parser return structured values (`InsightDetail`,
+`Progression.Hint`, `CsvProblem`) and the UI words them in
+[`composeApp/src/commonMain/kotlin/app/gains/ui/i18n/`](composeApp/src/commonMain/kotlin/app/gains/ui/i18n).
+The language is the device's, so a change takes a relaunch. The built-in exercises, programs,
+day names and slot notes stay in English in the database and are looked up on the way to the
+screen by a key derived from their id (`exercise_bench_press`, `program_gzclp`,
+`day_workout_a`), so imports and aliases are unaffected; custom exercises and programs are shown
+as typed.
 
-**Adding a language.** Add an `object Xx : Strings` next to `Russian` (the compiler lists every
-entry it must supply), a name table like `RussianNames` for the catalogues, register it in
-`Strings.all`, add the locale to `composeApp/src/androidMain/res/xml/locales_config.xml`, a
-`values-xx/strings.xml` for the Android notification, and to `CFBundleLocalizations` in
-`iosApp/iosApp/Info.plist`. `StringsTest` checks that every built-in exercise, program, day and
-slot note has a name in each language.
+**Adding a language.** Add a `values-xx/strings.xml` with every key of the English file
+(`LocalizationResourcesTest` checks the two match and that every built-in exercise, program,
+day and slot note is covered), the locale to
+`composeApp/src/androidMain/res/xml/locales_config.xml`, a `values-xx/strings.xml` under
+`composeApp/src/androidMain/res` for the Android notification, and to `CFBundleLocalizations`
+in `iosApp/iosApp/Info.plist`.
 
 ## Roadmap
 

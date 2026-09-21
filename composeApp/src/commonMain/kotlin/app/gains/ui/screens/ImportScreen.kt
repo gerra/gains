@@ -46,7 +46,11 @@ import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
 import app.gains.csv.CsvProblem
-import app.gains.ui.i18n.strings
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -124,7 +128,6 @@ internal fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
     val model = rememberScreenModel { ImportModel() }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
-    val strings = strings
 
     LaunchedEffect(Unit) {
         model.load(IncomingFiles.consume())
@@ -133,32 +136,32 @@ internal fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
 
     when (val s = state) {
         ImportState.Idle -> EmptyState(
-            title = strings.importYourHistory,
-            body = strings.importBlurb,
+            title = stringResource(Res.string.import_your_history),
+            body = stringResource(Res.string.import_blurb),
             emoji = "↑",
-            action = { PrimaryButton(strings.chooseCsvFiles, pick) },
+            action = { PrimaryButton(stringResource(Res.string.choose_csv_files), pick) },
         )
-        is ImportState.Parsing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text(if (s.fileCount == 1) strings.readingTheFile else strings.readingFiles(s.fileCount), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        ImportState.Committing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text(strings.saving, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        is ImportState.Parsing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text(if (s.fileCount == 1) pluralStringResource(Res.plurals.reading_files, 1, 1) else pluralStringResource(Res.plurals.reading_files, s.fileCount, s.fileCount), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        ImportState.Committing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text(stringResource(Res.string.saving), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         is ImportState.Error -> {
             val message = when {
-                s.problem != null -> strings.csvProblem(s.problem)
-                s.whileSaving -> strings.savingFailed(s.cause ?: "")
-                s.cause != null -> strings.importFailed(s.cause)
-                else -> strings.couldNotReadTheFile
+                s.problem != null -> csvProblemText(s.problem)
+                s.whileSaving -> stringResource(Res.string.saving_failed, s.cause ?: "")
+                s.cause != null -> stringResource(Res.string.import_failed, s.cause)
+                else -> stringResource(Res.string.could_not_read_the_file)
             }
-            EmptyState(strings.couldNotImport, message, emoji = "!", action = {
+            EmptyState(stringResource(Res.string.could_not_import), message, emoji = "!", action = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SecondaryButton(strings.back, onClick = { model.reset() })
-                    PrimaryButton(strings.chooseAnotherFile, pick)
+                    SecondaryButton(stringResource(Res.string.back), onClick = { model.reset() })
+                    PrimaryButton(stringResource(Res.string.choose_another_file), pick)
                 }
             })
         }
         is ImportState.Done -> EmptyState(
-            title = strings.imported,
+            title = stringResource(Res.string.imported),
             emoji = "✓",
-            body = strings.importedSummary(s.result.sessionsWritten, s.result.exercisesCreated, s.result.outliersDiscarded),
-            action = { PrimaryButton(strings.done, onDone) },
+            body = importedSummary(s.result.sessionsWritten, s.result.exercisesCreated, s.result.outliersDiscarded),
+            action = { PrimaryButton(stringResource(Res.string.done), onDone) },
         )
         is ImportState.Preview -> PreviewContent(s, model, onCancel = { model.reset() })
     }
@@ -173,10 +176,9 @@ private fun Centered(content: @Composable () -> Unit) {
 private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel: () -> Unit) {
     val p = s.preview
     val palette = GainsColors.palette
-    val strings = strings
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle(strings.importTitle, subtitle = "${strings.files(p.files.size)} · ${strings.rows(p.rowCount)}")
+            ScreenTitle(stringResource(Res.string.import_title), subtitle = "${pluralStringResource(Res.plurals.files, p.files.size, p.files.size)} · ${pluralStringResource(Res.plurals.rows, p.rowCount, p.rowCount)}")
             run {
                 GainsCard(Modifier.fillMaxWidth(), contentPadding = app.gains.ui.components.Dp16.Tight) {
                     for (f in p.files) {
@@ -184,7 +186,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                             Column(Modifier.weight(1f)) {
                                 Text(f.name, style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    f.problem?.let(strings::csvProblem) ?: f.error ?: "${f.connector ?: strings.csv} · ${strings.rows(f.rowCount)} · ${strings.sessions(f.sessionCount)}",
+                                    f.problem?.let { csvProblemText(it) } ?: f.error ?: "${f.connector ?: stringResource(Res.string.csv)} · ${pluralStringResource(Res.plurals.rows, f.rowCount, f.rowCount)} · ${sessionsText(f.sessionCount)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (f.error != null) palette.coral else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -193,61 +195,61 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                     }
                     if (p.sessionsInSeveralFiles > 0) {
                         Text(
-                            strings.appearedInSeveralFiles(p.sessionsInSeveralFiles),
+                            stringResource(Res.string.appeared_in_several_files, sessionsText(p.sessionsInSeveralFiles)),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
                         )
                     }
                 }
             }
-            SectionHeader(strings.weightsInFileAreIn)
-            ChipRow(WeightUnit.entries, s.unit, { strings.unit(it) }, { model.setUnit(it) })
+            SectionHeader(stringResource(Res.string.weights_in_file_are_in))
+            ChipRow(WeightUnit.entries, s.unit, { it.label() }, { model.setUnit(it) })
             Spacer(Modifier.height(6.dp))
-            Text(strings.unitNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.unit_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
-            SectionHeader(strings.summary)
+            SectionHeader(stringResource(Res.string.summary))
             GainsCard(Modifier.fillMaxWidth()) {
                 val range = p.dateRange
-                KeyValueRow(strings.sessionsFound, p.candidates.size.toString())
-                KeyValueRow(strings.dateRange, if (range == null) "-" else "${strings.dateShortWithYear(range.start)} – ${strings.dateShortWithYear(range.endInclusive)}")
-                KeyValueRow(strings.newSessions, p.newCount.toString(), valueColor = if (p.newCount > 0) palette.volt else null)
-                if (p.changedCount > 0) KeyValueRow(strings.changedSinceLastImport, p.changedCount.toString(), valueColor = palette.cyan)
-                if (p.unchangedCount > 0) KeyValueRow(strings.alreadyImported, p.unchangedCount.toString())
-                if (p.sessionsInSeveralFiles > 0) KeyValueRow(strings.inMoreThanOneFile, p.sessionsInSeveralFiles.toString())
-                if (p.duplicates.isNotEmpty()) KeyValueRow(strings.duplicateSessions, p.duplicates.size.toString(), valueColor = palette.amber)
-                if (p.corruptDurationCount > 0) KeyValueRow(strings.durationsDiscarded, p.corruptDurationCount.toString(), valueColor = palette.amber)
-                if (p.newExercises.isNotEmpty()) KeyValueRow(strings.newExercisesLabel, p.newExercises.size.toString())
-                for ((reason, count) in p.skippedByReason) KeyValueRow(if (reason == app.gains.csv.SkipReason.EMPTY_ROW) strings.emptyRowsSkipped else strings.rowsSkipped(reason), count.toString(), valueColor = palette.muted)
+                KeyValueRow(stringResource(Res.string.sessions_found), p.candidates.size.toString())
+                KeyValueRow(stringResource(Res.string.date_range), if (range == null) "-" else "${dateShortWithYear(range.start)} – ${dateShortWithYear(range.endInclusive)}")
+                KeyValueRow(stringResource(Res.string.new_sessions), p.newCount.toString(), valueColor = if (p.newCount > 0) palette.volt else null)
+                if (p.changedCount > 0) KeyValueRow(stringResource(Res.string.changed_since_last_import), p.changedCount.toString(), valueColor = palette.cyan)
+                if (p.unchangedCount > 0) KeyValueRow(stringResource(Res.string.already_imported), p.unchangedCount.toString())
+                if (p.sessionsInSeveralFiles > 0) KeyValueRow(stringResource(Res.string.in_more_than_one_file), p.sessionsInSeveralFiles.toString())
+                if (p.duplicates.isNotEmpty()) KeyValueRow(stringResource(Res.string.duplicate_sessions), p.duplicates.size.toString(), valueColor = palette.amber)
+                if (p.corruptDurationCount > 0) KeyValueRow(stringResource(Res.string.durations_discarded), p.corruptDurationCount.toString(), valueColor = palette.amber)
+                if (p.newExercises.isNotEmpty()) KeyValueRow(stringResource(Res.string.new_exercises_label), p.newExercises.size.toString())
+                for ((reason, count) in p.skippedByReason) KeyValueRow(if (reason == app.gains.csv.SkipReason.EMPTY_ROW) stringResource(Res.string.empty_rows_skipped) else stringResource(Res.string.rows_skipped, reason.label()), count.toString(), valueColor = palette.muted)
             }
         }
         if (p.newExercises.isNotEmpty()) {
             item {
-                SectionHeader(strings.exercisesNotInCatalogue)
-                Text(strings.exercisesNotInCatalogueNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                SectionHeader(stringResource(Res.string.exercises_not_in_catalogue))
+                Text(stringResource(Res.string.exercises_not_in_catalogue_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
             }
             items(p.newExercises) { e ->
                 GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = app.gains.ui.components.Dp16.Tight) {
                     Text(e.name, style = MaterialTheme.typography.titleSmall)
-                    if (e.muscleGroups.isNotEmpty()) Text(e.muscleGroups.joinToString { strings.muscleGroup(it.group) }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (e.muscleGroups.isNotEmpty()) Text(e.muscleGroups.map { it.group.label() }.joinToString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         if (p.duplicates.isNotEmpty()) {
-            item { SectionHeader(strings.duplicatesDetected) }
+            item { SectionHeader(stringResource(Res.string.duplicates_detected)) }
             items(p.duplicates) { d ->
                 GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = app.gains.ui.components.Dp16.Tight) {
-                    Text(strings.loggedTwice(strings.dateShortWithYear(d.date), d.keptIsAlreadyStored), style = MaterialTheme.typography.titleSmall)
+                    Text(loggedTwiceText(dateShortWithYear(d.date), d.keptIsAlreadyStored), style = MaterialTheme.typography.titleSmall)
                     Text(d.exerciseNames.joinToString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         if (p.outliers.isNotEmpty()) {
             item {
-                SectionHeader(strings.suspiciousHolds, action = {
-                    TextButton(onClick = { model.setAllOutliers(true) }) { Text(strings.keepAll) }
-                    TextButton(onClick = { model.setAllOutliers(false) }) { Text(strings.discardAll) }
+                SectionHeader(stringResource(Res.string.suspicious_holds), action = {
+                    TextButton(onClick = { model.setAllOutliers(true) }) { Text(stringResource(Res.string.keep_all)) }
+                    TextButton(onClick = { model.setAllOutliers(false) }) { Text(stringResource(Res.string.discard_all)) }
                 })
-                Text(strings.suspiciousHoldsNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                Text(stringResource(Res.string.suspicious_holds_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
             }
             items(p.outliers.groupBy { "${it.date}|${it.exerciseId}" }.values.toList()) { group ->
                 val o = group.first()
@@ -262,8 +264,8 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                         )
                         Spacer(Modifier.width(4.dp))
                         Column {
-                            Text("${o.exerciseName} — ${strings.dateShortWithYear(o.date)}", style = MaterialTheme.typography.titleSmall)
-                            Text(strings.holdOutlier(group.size, strings.seconds(o.seconds), strings.seconds(o.medianSeconds)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${o.exerciseName} — ${dateShortWithYear(o.date)}", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(Res.string.hold_outlier, setsText(group.size), secondsText(o.seconds), secondsText(o.medianSeconds)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -273,8 +275,8 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
             Spacer(Modifier.height(16.dp))
             val toWrite = p.commitCount(s.confirmedOutliers)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SecondaryButton(strings.cancel, onCancel, Modifier.weight(1f))
-                PrimaryButton(if (toWrite == 0) strings.nothingNew else strings.importN(toWrite), { model.commit() }, Modifier.weight(1f), enabled = toWrite > 0)
+                SecondaryButton(stringResource(Res.string.cancel), onCancel, Modifier.weight(1f))
+                PrimaryButton(if (toWrite == 0) stringResource(Res.string.nothing_new) else stringResource(Res.string.import_n, toWrite), { model.commit() }, Modifier.weight(1f), enabled = toWrite > 0)
             }
         }
     }

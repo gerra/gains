@@ -19,7 +19,6 @@ import androidx.compose.ui.window.rememberWindowState
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.DesktopDriverFactory
 import app.gains.di.initKoin
-import app.gains.i18n.Strings
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.LiveSessionNotice
@@ -27,8 +26,13 @@ import app.gains.platform.LiveSessionNotifier
 import app.gains.platform.PickedFile
 import app.gains.platform.ResumeRequests
 import app.gains.platform.SkipRestRequests
+import app.gains.resources.Res
+import app.gains.resources.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
 import org.koin.dsl.module
 import java.awt.FileDialog
 import java.awt.Frame
@@ -41,7 +45,6 @@ fun main(args: Array<String>) {
     IncomingFiles.offer(args.map(::File).filter { it.isFile }.map { PickedFile(it.name, it.readText()) })
     application {
         val windowState = rememberWindowState(width = 480.dp, height = 860.dp)
-        val strings = remember { Strings.system() }
         val notifier = remember { DesktopLiveSessionNotifier() }
         val running by notifier.notice.collectAsState()
         var frame by remember { mutableStateOf<AwtWindow?>(null) }
@@ -55,12 +58,12 @@ fun main(args: Array<String>) {
                 }
                 Tray(
                     icon = VoltDot,
-                    tooltip = strings.trayInProgress(notice.title, resting = notice.restEndsAtMs != null),
+                    tooltip = stringResource(if (notice.restEndsAtMs != null) Res.string.tray_in_progress_resting else Res.string.tray_in_progress, notice.title),
                     onAction = resume,
                     menu = {
-                        Item(strings.trayResume(notice.title), onClick = resume)
+                        Item(stringResource(Res.string.tray_resume, notice.title), onClick = resume)
                         // Only while a rest counts down: the notice is re-sent without it once it is over.
-                        if (notice.restEndsAtMs != null) Item(strings.skipRest, onClick = { SkipRestRequests.request() })
+                        if (notice.restEndsAtMs != null) Item(stringResource(Res.string.skip_rest), onClick = { SkipRestRequests.request() })
                     },
                 )
             }
@@ -71,7 +74,7 @@ fun main(args: Array<String>) {
             state = windowState,
         ) {
             SideEffect { frame = window }
-            App(filePicker = DesktopFilePicker(), notifier = notifier, strings = strings)
+            App(filePicker = DesktopFilePicker(), notifier = notifier)
         }
     }
 }
@@ -93,7 +96,7 @@ private object VoltDot : Painter() {
 
 internal class DesktopFilePicker : CsvFilePicker {
     override fun pick(onResult: (List<PickedFile>) -> Unit) {
-        val dialog = FileDialog(null as Frame?, Strings.system().chooseCsvExports, FileDialog.LOAD)
+        val dialog = FileDialog(null as Frame?, runBlocking { getString(Res.string.choose_csv_exports) }, FileDialog.LOAD)
         dialog.setFilenameFilter { _, name -> name.endsWith(".csv", ignoreCase = true) }
         dialog.isMultipleMode = true
         dialog.isVisible = true

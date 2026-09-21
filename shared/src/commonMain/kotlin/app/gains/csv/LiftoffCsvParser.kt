@@ -58,17 +58,26 @@ data class ParsedCsv(
     val corruptDurationCount: Int get() = sessions.count { it.durationDiscarded }
 }
 
-/** Why a file could not be read, so the screen can say so in its own language; see `Strings.csvProblem`. */
+/** Why a file could not be read, so the screen can say so in its own language. */
 sealed interface CsvProblem {
     data object Empty : CsvProblem
     data object Unrecognised : CsvProblem
     data class MissingColumns(val columns: List<String>) : CsvProblem
     data class NotLiftoff(val columns: List<String>) : CsvProblem
     data object NoneReadable : CsvProblem
+
+    /** The English wording, for logs and tests; the screen words [CsvProblem] from its resources. */
+    val message: String get() = when (this) {
+        Empty -> "The file is empty."
+        Unrecognised -> "Not a recognised workout export. Expected columns for date, exercise, weight and reps."
+        is MissingColumns -> "Missing column(s): ${columns.joinToString()}."
+        is NotLiftoff -> "Not a Liftoff export: missing column(s) ${columns.joinToString()}."
+        NoneReadable -> "None of the files could be read."
+    }
 }
 
 /** A file the connectors cannot read. The message is the English wording of [problem]. */
-class CsvFormatException(val problem: CsvProblem) : Exception(app.gains.i18n.English.csvProblem(problem))
+class CsvFormatException(val problem: CsvProblem) : Exception(problem.message)
 
 /** Liftoff's export layout. Thin wrapper over the shared [WorkoutCsvParser]; see [LiftoffConnector]. */
 class LiftoffCsvParser(

@@ -8,8 +8,6 @@ import app.gains.domain.ProgressionRule
 import app.gains.domain.SetEntry
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
-import app.gains.i18n.English
-import app.gains.i18n.Strings
 import kotlin.math.floor
 import kotlin.math.round
 
@@ -37,9 +35,6 @@ object Gzclp {
         T1("T1", 0.85, 180..300, listOf(WarmupStep(0.4, 5), WarmupStep(0.6, 3), WarmupStep(0.8, 2))),
         T2("T2", 0.65, 120..180, listOf(WarmupStep(0.6, 5))),
         T3("T3", 0.525, 60..90, emptyList());
-
-        /** "3–5 min" / "60–90 s", worded by [strings]. */
-        fun restLabel(strings: Strings = English): String = restLabel(restSeconds, strings)
 
         /** What the rest timer counts down from: the short end of the range. */
         val restTimerSeconds: Int get() = restSeconds.first
@@ -69,9 +64,6 @@ object Gzclp {
 
     /** Rest after a warm-up set. */
     val WARMUP_REST: IntRange = 30..60
-
-    /** "30–60 s or as needed". */
-    fun warmupRestLabel(strings: Strings = English): String = restLabel(WARMUP_REST, strings) + " " + strings.warmUpRestOrAsNeeded
 
     fun tierOf(slot: ExerciseSlot): Tier? = tierOf(slot.progression)
 
@@ -150,9 +142,6 @@ object Gzclp {
         }
         return out
     }
-
-    /** "3–5 min" when the range sits on whole minutes, else "60–90 s". */
-    fun restLabel(range: IntRange, strings: Strings = English): String = strings.restRange(range.first, range.last)
 
     /** Round down to a multiple of [step], tolerating floating-point noise just under a boundary. */
     fun roundDown(value: Double, step: Double): Double = floor(value / step + 1e-9) * step

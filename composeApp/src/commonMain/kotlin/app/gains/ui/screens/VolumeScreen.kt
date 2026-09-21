@@ -48,8 +48,11 @@ import app.gains.ui.components.MetricTile
 import app.gains.ui.components.Pill
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SectionHeader
-import app.gains.i18n.Strings
-import app.gains.ui.i18n.strings
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -106,43 +109,46 @@ internal fun VolumeStatus.color(): Color {
 internal enum class BodyMapWindow {
     THIS_WEEK, LAST_WEEK, AVERAGE;
 
-    fun label(strings: Strings): String = when (this) {
-        THIS_WEEK -> strings.bodyMapThisWeek
-        LAST_WEEK -> strings.bodyMapLastWeek
-        AVERAGE -> strings.bodyMapAvg
+    @Composable
+    fun label(): String = when (this) {
+        THIS_WEEK -> stringResource(Res.string.body_map_this_week)
+        LAST_WEEK -> stringResource(Res.string.body_map_last_week)
+        AVERAGE -> stringResource(Res.string.body_map_avg)
     }
 
     /** "this week", "last week", "a week on average": the phrase that follows a count of sets. */
-    fun suffix(strings: Strings): String = when (this) {
-        THIS_WEEK -> strings.windowThisWeek
-        LAST_WEEK -> strings.windowLastWeek
-        AVERAGE -> strings.windowAverage
+    @Composable
+    fun suffix(): String = when (this) {
+        THIS_WEEK -> stringResource(Res.string.window_this_week)
+        LAST_WEEK -> stringResource(Res.string.window_last_week)
+        AVERAGE -> stringResource(Res.string.window_average)
     }
 
     /** "3.5 sets this week". */
-    fun setsIn(sets: String, strings: Strings): String = when (this) {
-        THIS_WEEK -> strings.setsThisWeek(sets)
-        LAST_WEEK -> strings.setsLastWeek(sets)
-        AVERAGE -> strings.setsAWeekOnAverage(sets)
+    @Composable
+    fun setsIn(sets: String): String = when (this) {
+        THIS_WEEK -> stringResource(Res.string.sets_in_window, sets, stringResource(Res.string.window_this_week))
+        LAST_WEEK -> stringResource(Res.string.sets_in_window, sets, stringResource(Res.string.window_last_week))
+        AVERAGE -> stringResource(Res.string.sets_in_window, sets, stringResource(Res.string.window_average))
     }
 }
 
 /** The wording of a status pill in the volume list. */
-internal fun VolumeStatus.label(strings: Strings): String = when (this) {
-    VolumeStatus.NONE -> strings.statusNone
-    VolumeStatus.LOW -> strings.statusUnder(VolumeAnalyzer.MAINTENANCE_SETS.toInt())
-    VolumeStatus.OK -> strings.statusOnTarget
-    VolumeStatus.HIGH -> strings.statusOver(VolumeAnalyzer.JUNK_SETS.toInt())
+@Composable
+internal fun VolumeStatus.label(): String = when (this) {
+    VolumeStatus.NONE -> stringResource(Res.string.status_none)
+    VolumeStatus.LOW -> stringResource(Res.string.status_under, VolumeAnalyzer.MAINTENANCE_SETS.toInt())
+    VolumeStatus.OK -> stringResource(Res.string.status_on_target)
+    VolumeStatus.HIGH -> stringResource(Res.string.status_over, VolumeAnalyzer.JUNK_SETS.toInt())
 }
 
 @Composable
 internal fun VolumeScreen() {
     val model = rememberScreenModel { VolumeModel() }
     val state by model.state.collectAsState()
-    val strings = strings
     if (state.loading) return
     if (!state.hasData) {
-        EmptyState(strings.noVolumeYet, strings.noVolumeYetBody, emoji = "▮")
+        EmptyState(stringResource(Res.string.no_volume_yet), stringResource(Res.string.no_volume_yet_body), emoji = "▮")
         return
     }
     val palette = GainsColors.palette
@@ -166,17 +172,17 @@ internal fun VolumeScreen() {
     val shownSets = windowSets.getValue(window)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle(strings.volumeTitle, subtitle = strings.volumeSubtitle)
+            ScreenTitle(stringResource(Res.string.volume_title), subtitle = stringResource(Res.string.volume_subtitle))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricTile(strings.thisWeek, Format.number(current?.total ?: 0.0, 0), Modifier.weight(1f), caption = strings.setsSoFar, accent = palette.volt)
-                MetricTile(strings.lastWeek, Format.number(lastFull?.total ?: 0.0, 0), Modifier.weight(1f), caption = lastFull?.let { strings.weekCommencing(strings.dateShort(it.weekStart)) })
-                MetricTile(strings.avg, Format.number(state.weeks.dropLast(1).map { it.total }.average().takeIf { !it.isNaN() } ?: 0.0, 0), Modifier.weight(1f), caption = strings.nWeekCaption(state.span))
+                MetricTile(stringResource(Res.string.this_week), Format.number(current?.total ?: 0.0, 0), Modifier.weight(1f), caption = stringResource(Res.string.sets_so_far), accent = palette.volt)
+                MetricTile(stringResource(Res.string.last_week), Format.number(lastFull?.total ?: 0.0, 0), Modifier.weight(1f), caption = lastFull?.let { stringResource(Res.string.week_commencing, dateShort(it.weekStart)) })
+                MetricTile(stringResource(Res.string.avg), Format.number(state.weeks.dropLast(1).map { it.total }.average().takeIf { !it.isNaN() } ?: 0.0, 0), Modifier.weight(1f), caption = pluralStringResource(Res.plurals.n_week_caption, state.span, state.span))
             }
         }
         item {
             SectionHeader(
-                strings.onTheBody,
-                action = { ChipRow(BodyMapWindow.entries, window, { if (it == BodyMapWindow.AVERAGE) strings.nWeekAvg(state.span) else it.label(strings) }, { pickedWindow = it }) },
+                stringResource(Res.string.on_the_body),
+                action = { ChipRow(BodyMapWindow.entries, window, { if (it == BodyMapWindow.AVERAGE) stringResource(Res.string.n_week_avg, state.span) else it.label() }, { pickedWindow = it }) },
             )
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 BodyMap(
@@ -196,37 +202,37 @@ internal fun VolumeScreen() {
                     Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Dot(g.color())
                         Spacer(Modifier.width(10.dp))
-                        Text(strings.muscleGroup(g), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                        Text(window.setsIn(Format.number(sets, 1), strings), style = MaterialTheme.typography.bodyMedium)
+                        Text(g.label(), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                        Text(window.setsIn(Format.number(sets, 1)), style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.width(10.dp))
-                        Pill(status.label(strings), status.color())
+                        Pill(status.label(), status.color())
                     }
                 }
                 if (selected.isNotEmpty()) {
-                    Pill(strings.showAll, palette.muted, Modifier.padding(top = 10.dp).align(Alignment.End), onClick = { selected = emptySet() })
+                    Pill(stringResource(Res.string.show_all), palette.muted, Modifier.padding(top = 10.dp).align(Alignment.End), onClick = { selected = emptySet() })
                 }
             }
             Text(
-                if (selected.isEmpty()) strings.bodyMapBlurb(window.suffix(strings)) else strings.bodyMapBlurbSelected,
+                if (selected.isEmpty()) stringResource(Res.string.body_map_blurb, window.suffix()) else stringResource(Res.string.body_map_blurb_selected),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
             )
         }
         item {
-            SectionHeader(strings.trend, action = { ChipRow(listOf(8, 12, 26, 52), state.span, { strings.nWeeksChip(it) }, { model.setSpan(it) }) })
+            SectionHeader(stringResource(Res.string.trend), action = { ChipRow(listOf(8, 12, 26, 52), state.span, { stringResource(Res.string.n_weeks_chip, it) }, { model.setSpan(it) }) })
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 val bars = state.weeks.map { w ->
-                    StackedBar(strings.dateShort(w.weekStart), groupsUsed.map { g -> g.color() to (w.sets[g] ?: 0.0) })
+                    StackedBar(dateShort(w.weekStart), groupsUsed.map { g -> g.color() to (w.sets[g] ?: 0.0) })
                 }
                 StackedBarChart(bars, labelEvery = maxOf(1, bars.size / 5))
-                Legend(groupsUsed.map { strings.muscleGroup(it) to it.color() })
+                Legend(groupsUsed.map { it.label() to it.color() })
             }
             Text(
-                strings.volumeCreditBlurb,
+                stringResource(Res.string.volume_credit_blurb),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
             )
         }
         item {
-            SectionHeader(current?.let { strings.thisWeekFrom(strings.dateShort(it.weekStart)) } ?: strings.thisWeek)
+            SectionHeader(current?.let { stringResource(Res.string.this_week_from, dateShort(it.weekStart)) } ?: stringResource(Res.string.this_week))
         }
         if (current != null) {
             items(MuscleGroup.entries.filter { selected.isEmpty() || it in selected }.sortedByDescending { current.sets[it] ?: 0.0 }) { g ->
@@ -236,10 +242,10 @@ internal fun VolumeScreen() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Dot(g.color())
                         Spacer(Modifier.width(10.dp))
-                        Text(strings.muscleGroup(g), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                        Text(g.label(), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                         Text(Format.number(sets, 1), style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.width(10.dp))
-                        Pill(status.label(strings), status.color())
+                        Pill(status.label(), status.color())
                     }
                     Spacer(Modifier.height(8.dp))
                     Meter((sets / VolumeAnalyzer.JUNK_SETS).toFloat(), status.color(), Modifier.fillMaxWidth(), marker = (VolumeAnalyzer.MAINTENANCE_SETS / VolumeAnalyzer.JUNK_SETS).toFloat())
@@ -247,7 +253,7 @@ internal fun VolumeScreen() {
             }
             item {
                 Text(
-                    strings.volumeBarsBlurb(VolumeAnalyzer.JUNK_SETS.toInt(), VolumeAnalyzer.MAINTENANCE_SETS.toInt()),
+                    stringResource(Res.string.volume_bars_blurb, VolumeAnalyzer.JUNK_SETS.toInt(), VolumeAnalyzer.MAINTENANCE_SETS.toInt()),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp),
                 )
             }

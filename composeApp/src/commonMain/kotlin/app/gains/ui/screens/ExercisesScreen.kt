@@ -40,8 +40,11 @@ import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.ScreenTitle
-import app.gains.i18n.Strings
-import app.gains.ui.i18n.strings
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -69,9 +72,10 @@ internal data class ExerciseRow(
 
 internal data class ExercisesState(val loading: Boolean = true, val rows: List<ExerciseRow> = emptyList())
 
-internal class ExercisesModel(strings: Strings, trainingData: TrainingData = inject(), settings: SettingsRepository = inject()) : ScreenModel() {
+internal class ExercisesModel(trainingData: TrainingData = inject(), settings: SettingsRepository = inject()) : ScreenModel() {
     val state: StateFlow<ExercisesState> = combine(trainingData.snapshot, settings.observeUnit()) { s, u -> s to u }
         .mapLatest { (snapshot, unit) ->
+            val labels = resolvedUnitLabels()
             withContext(Dispatchers.Default) {
                 val rows = snapshot.trainedExercises.map { exercise ->
                     val history = ExerciseAnalysis.history(snapshot.sessions, exercise)
@@ -79,10 +83,10 @@ internal class ExercisesModel(strings: Strings, trainingData: TrainingData = inj
                     val trend = history.mapNotNull { it.best?.value }.takeLast(12)
                     ExerciseRow(
                         exercise = exercise,
-                        name = strings.exerciseName(exercise),
+                        name = exercise.resolvedName(),
                         sessions = history.size,
                         lastTrained = history.last().date,
-                        bestText = best?.describe(exercise.modality, unit, strings) ?: "-",
+                        bestText = best?.describe(exercise.modality, unit, labels) ?: "-",
                         trend = trend,
                         trendDelta = if (trend.size >= 2 && trend.first() > 0) (trend.last() - trend.first()) / trend.first() else null,
                     )
@@ -95,24 +99,23 @@ internal class ExercisesModel(strings: Strings, trainingData: TrainingData = inj
 
 @Composable
 internal fun ExercisesScreen(onOpen: (String) -> Unit) {
-    val strings = strings
-    val model = rememberScreenModel(strings) { ExercisesModel(strings) }
+    val model = rememberScreenModel { ExercisesModel() }
     val state by model.state.collectAsState()
     var query by remember { mutableStateOf("") }
     val today = Dates.today()
     val palette = GainsColors.palette
 
     if (!state.loading && state.rows.isEmpty()) {
-        EmptyState(strings.noLiftsYet, strings.noLiftsYetBody, emoji = "≡")
+        EmptyState(stringResource(Res.string.no_lifts_yet), stringResource(Res.string.no_lifts_yet_body), emoji = "≡")
         return
     }
     val filtered = state.rows.filter { query.isBlank() || it.name.contains(query, ignoreCase = true) || it.exercise.name.contains(query, ignoreCase = true) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle(strings.liftsTitle, subtitle = strings.liftsSubtitle(state.rows.size))
+            ScreenTitle(stringResource(Res.string.lifts_title), subtitle = pluralStringResource(Res.plurals.lifts_subtitle, state.rows.size, state.rows.size))
             OutlinedTextField(
                 value = query, onValueChange = { query = it },
-                placeholder = { Text(strings.searchLifts) }, singleLine = true,
+                placeholder = { Text(stringResource(Res.string.search_lifts)) }, singleLine = true,
                 shape = CircleShape,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = palette.volt,
@@ -136,8 +139,8 @@ internal fun ExercisesScreen(onOpen: (String) -> Unit) {
                         Text(row.name, style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            "${strings.sessions(row.sessions)} · ${strings.dateContextual(row.lastTrained, today)}" +
-                                if (row.exercise.modality == Modality.WEIGHTED && row.exercise.isDumbbell) strings.perDumbbellSuffix else "",
+                            "${sessionsText(row.sessions)} · ${dateContextual(row.lastTrained, today)}" +
+                                if (row.exercise.modality == Modality.WEIGHTED && row.exercise.isDumbbell) stringResource(Res.string.per_dumbbell_suffix) else "",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

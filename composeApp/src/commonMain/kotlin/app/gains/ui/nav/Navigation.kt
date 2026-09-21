@@ -1,14 +1,17 @@
 package app.gains.ui.nav
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import app.gains.domain.ProgramDayRef
-import app.gains.i18n.Strings
+import app.gains.resources.Res
+import app.gains.resources.*
 import app.gains.ui.ScreenModel
 import kotlin.reflect.KClass
+import org.jetbrains.compose.resources.stringResource
 
 internal sealed interface Screen {
     data object Home : Screen
@@ -39,12 +42,13 @@ internal enum class Tab(val root: Screen) {
     VOLUME(Screen.Volume),
     BODY(Screen.Body);
 
-    fun label(strings: Strings): String = when (this) {
-        HOME -> strings.tabHome
-        HISTORY -> strings.tabHistory
-        EXERCISES -> strings.tabLifts
-        VOLUME -> strings.tabVolume
-        BODY -> strings.tabBody
+    @Composable
+    fun label(): String = when (this) {
+        HOME -> stringResource(Res.string.tab_home)
+        HISTORY -> stringResource(Res.string.tab_history)
+        EXERCISES -> stringResource(Res.string.tab_lifts)
+        VOLUME -> stringResource(Res.string.tab_volume)
+        BODY -> stringResource(Res.string.tab_body)
     }
 }
 

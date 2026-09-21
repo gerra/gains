@@ -27,8 +27,12 @@ class InsightEngineTest {
         )
         val insights = engine.generate(sessions, TestData.exercises, today)
         val regression = insights.first { it.kind == InsightKind.REGRESSION }
-        assertEquals("Seated Dumbbell Shoulder Press", regression.title)
-        assertEquals("12 kg × 10 now, 14 kg × 12 on 10 Feb — down 18%.", regression.detail)
+        assertEquals(TestData.dbPress, (regression.subject as InsightSubject.Lift).exercise)
+        val detail = regression.detail as InsightDetail.Regression
+        assertEquals(12.0 to 10, detail.current.set.weightKg to detail.current.set.reps)
+        assertEquals(14.0 to 12, detail.best.set.weightKg to detail.best.set.reps)
+        assertEquals(LocalDate(2026, 2, 10), detail.bestDate)
+        assertEquals(0.18, detail.drop, 0.005)
         assertEquals(TestData.dbPress.id, regression.exerciseId)
         assertTrue(regression === insights.first(), "regression should sort first")
         assertNull(insights.firstOrNull { it.kind == InsightKind.STALL && it.exerciseId == TestData.dbPress.id })
@@ -59,8 +63,8 @@ class InsightEngineTest {
             listOf(weighted(4.0, 15), weighted(4.0, 15, 1))
         }
         val stall = engine.generate(sessions, TestData.exercises, today).first { it.kind == InsightKind.STALL }
-        assertEquals("Dumbbell Lateral Raise", stall.title)
-        assertEquals("4 kg since 1 Jun. 14 sessions, no change in 13 weeks.", stall.detail)
+        assertEquals(TestData.lateralRaise, (stall.subject as InsightSubject.Lift).exercise)
+        assertEquals(InsightDetail.Stall(4.0, (stall.detail as InsightDetail.Stall).best, LocalDate(2026, 6, 1), 14, 13), stall.detail)
     }
 
     @Test
@@ -90,8 +94,8 @@ class InsightEngineTest {
             listOf(SetEntry(0, SetType.BODYWEIGHT, reps = 8))
         }
         val neglect = engine.generate(sessions, TestData.exercises, today).first { it.kind == InsightKind.NEGLECT }
-        assertEquals("Pull Up", neglect.title)
-        assertEquals("Last trained 14 Jul, 7 weeks ago, after 8 sessions in the 12 weeks before that.", neglect.detail)
+        assertEquals(TestData.pullUp, (neglect.subject as InsightSubject.Lift).exercise)
+        assertEquals(InsightDetail.NeglectedExercise(LocalDate(2026, 7, 14), 7, 8, 12), neglect.detail)
     }
 
     @Test
@@ -111,8 +115,12 @@ class InsightEngineTest {
         val recent = (0 until 2).map { w -> session(Dates.weekStart(today).minusDays(w * 7 - 1), entry(TestData.bench, weighted(60.0, 8))) }
         val insights = engine.neglectedMuscles(squats + recent, TestData.exercises.associateBy { it.id }, today)
         val quads = insights.first { it.muscleGroup == app.gains.domain.MuscleGroup.QUADS }
-        assertEquals("Quads", quads.title)
-        assertEquals("0 sets/week over the last 2 weeks, down from 9/week over the 8 weeks before.", quads.detail)
+        assertEquals(InsightSubject.Muscle(app.gains.domain.MuscleGroup.QUADS), quads.subject)
+        val detail = quads.detail as InsightDetail.NeglectedMuscle
+        assertEquals(0.0, detail.recentSetsPerWeek)
+        assertEquals(2, detail.recentWeeks)
+        assertEquals(9.0, detail.baselineSetsPerWeek, 1e-9)
+        assertEquals(8, detail.baselineWeeks)
     }
 
     @Test
@@ -124,8 +132,8 @@ class InsightEngineTest {
         assertEquals(4.0, stats.previousSessionsPerWeek)
         assertEquals(Trend.DOWN, stats.trend)
         val insight = engine.consistency(previous + recent, today)!!
-        assertEquals("Training less often", insight.title)
-        assertEquals("2 sessions/week over the last 4 weeks, down from 4 the 4 weeks before.", insight.detail)
+        assertEquals(InsightSubject.Frequency(Trend.DOWN), insight.subject)
+        assertEquals(InsightDetail.Consistency(2.0, 4.0, Trend.DOWN, 4), insight.detail)
     }
 
     @Test
@@ -135,8 +143,13 @@ class InsightEngineTest {
             session(LocalDate(2026, 8, 20), entry(TestData.bench, weighted(62.5, 8))),
         )
         val progress = engine.generate(sessions, TestData.exercises, today).first { it.kind == InsightKind.PROGRESS }
-        assertEquals("Bench Press", progress.title)
-        assertEquals("62.5 kg × 8 on 20 Aug, up 4% on 60 kg × 8 from 5 Jun.", progress.detail)
+        assertEquals(TestData.bench, (progress.subject as InsightSubject.Lift).exercise)
+        val detail = progress.detail as InsightDetail.Progress
+        assertEquals(62.5 to 8, detail.current.set.weightKg to detail.current.set.reps)
+        assertEquals(LocalDate(2026, 8, 20), detail.currentDate)
+        assertEquals(60.0 to 8, detail.previous.set.weightKg to detail.previous.set.reps)
+        assertEquals(LocalDate(2026, 6, 5), detail.previousDate)
+        assertEquals(0.04, detail.gain, 0.005)
     }
 
     @Test
@@ -147,7 +160,11 @@ class InsightEngineTest {
         )
         val r = engine.regression(TestData.plank, ExerciseAnalysis.history(sessions, TestData.plank), today)
         assertNotNull(r)
-        assertEquals("1:00 now, 2:00 on 5 May — down 50%.", r.detail)
+        val detail = r.detail as InsightDetail.Regression
+        assertEquals(60, detail.current.set.seconds)
+        assertEquals(120, detail.best.set.seconds)
+        assertEquals(LocalDate(2026, 5, 5), detail.bestDate)
+        assertEquals(0.5, detail.drop, 1e-9)
     }
 
     @Test

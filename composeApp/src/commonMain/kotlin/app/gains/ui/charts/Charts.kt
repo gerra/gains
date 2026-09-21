@@ -56,7 +56,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
-import app.gains.ui.i18n.strings
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.stringArrayResource
 import app.gains.ui.theme.GainsColors
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
@@ -170,8 +173,8 @@ internal fun LineChart(
     yMinZero: Boolean = false,
     showLegend: Boolean = series.size > 1,
 ) {
-    val strings = strings
-    val xLabel: (Double) -> String = xLabel ?: { strings.dateShort(ChartMath.fromX(it)) }
+    val months = stringArrayResource(Res.array.months_short)
+    val xLabel: (Double) -> String = xLabel ?: { ChartMath.fromX(it).let { d -> "${d.dayOfMonth} ${months[d.monthNumber - 1]}" } }
     val measurer = rememberTextMeasurer()
     val palette = GainsColors.palette
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -353,7 +356,6 @@ internal fun CalendarHeatmap(
     minCell: Dp = 30.dp,
     onDayClick: ((LocalDate) -> Unit)? = null,
 ) {
-    val strings = strings
     val palette = GainsColors.palette
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val empty = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -371,7 +373,7 @@ internal fun CalendarHeatmap(
             Column(Modifier.width(leftPad).padding(top = topPad)) {
                 for (row in 0 until 7) {
                     Box(Modifier.height(cell), contentAlignment = Alignment.CenterStart) {
-                        if (row % 2 == 0) Text(strings.dayShort(DayOfWeek.entries[row]), style = labelStyle, maxLines = 1)
+                        if (row % 2 == 0) Text(dayShort(DayOfWeek.entries[row]), style = labelStyle, maxLines = 1)
                     }
                 }
             }
@@ -387,7 +389,7 @@ internal fun CalendarHeatmap(
                     }
                     Column(Modifier.width(cell)) {
                         Box(Modifier.height(topPad).wrapContentWidth(Alignment.Start, unbounded = true)) {
-                            if (labelled) Text(strings.monthShort(weekStart), style = labelStyle, maxLines = 1, softWrap = false)
+                            if (labelled) Text(monthShort(weekStart), style = labelStyle, maxLines = 1, softWrap = false)
                         }
                         for (d in 0 until 7) {
                             val date = Dates.run { weekStart.plusDays(d) }
@@ -396,7 +398,7 @@ internal fun CalendarHeatmap(
                                 continue
                             }
                             val n = counts[date] ?: 0
-                            val description = strings.heatmapDay(date, n)
+                            val description = heatmapDayText(date, n)
                             Box(
                                 Modifier.size(cell)
                                     .clip(shape)

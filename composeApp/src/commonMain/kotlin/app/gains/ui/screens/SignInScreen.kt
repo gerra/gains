@@ -55,7 +55,10 @@ import app.gains.ui.components.GainsCard
 import app.gains.ui.components.GainsLogo
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
-import app.gains.ui.i18n.strings
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -90,7 +93,6 @@ internal class SignInModel(
 @Composable
 internal fun SignInScreen() {
     val model = rememberScreenModel { SignInModel() }
-    val strings = strings
     BoxWithConstraints(Modifier.fillMaxSize()) {
         AuroraBackground(Modifier.fillMaxSize())
         val compact = maxHeight < 760.dp
@@ -101,13 +103,13 @@ internal fun SignInScreen() {
             GainsLogo(size = if (compact) 52.dp else 64.dp)
             Spacer(Modifier.height(if (compact) 10.dp else 16.dp))
             Text(
-                strings.signInHeadline,
+                stringResource(Res.string.sign_in_headline),
                 style = if (compact) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                strings.signInBlurb,
+                stringResource(Res.string.sign_in_blurb),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -126,10 +128,10 @@ internal fun SignInScreen() {
                 ProviderButton("Apple", enabled = model.config.appleEnabled, Modifier.weight(1f)) { model.signInWithApple() }
             }
             Spacer(Modifier.height(10.dp))
-            PrimaryButton(strings.continueAsGuest, onClick = { model.continueAsGuest() }, modifier = Modifier.fillMaxWidth())
+            PrimaryButton(stringResource(Res.string.continue_as_guest), onClick = { model.continueAsGuest() }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
-            val note = if (model.config.googleEnabled && model.config.appleEnabled) strings.guestNoteWithSync else strings.guestNoteComingSoon
-            Text(model.error?.let { strings.signInNotConfigured(it.provider) } ?: note, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+            val note = if (model.config.googleEnabled && model.config.appleEnabled) stringResource(Res.string.guest_note_with_sync) else stringResource(Res.string.guest_note_coming_soon)
+            Text(model.error?.let { stringResource(Res.string.sign_in_not_configured, it.provider.label()) } ?: note, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
                 color = if (model.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -160,16 +162,15 @@ private fun HeroPreview(chartHeight: Dp) {
     val palette = GainsColors.palette
     val transition = rememberInfiniteTransition(label = "hero")
     val progress by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Restart), label = "p")
-    val strings = strings
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Normal) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Pill(strings.insightKind(InsightKind.PROGRESS), palette.progress)
+            Pill(InsightKind.PROGRESS.label(), palette.progress)
             Spacer(Modifier.weight(1f))
             DeltaBadge(0.06)
         }
         Spacer(Modifier.height(8.dp))
-        Text(strings.heroExercise, style = MaterialTheme.typography.titleMedium)
-        Text(strings.heroDetail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(Res.string.hero_exercise), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(Res.string.hero_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         val values = listOf(72.0, 74.0, 73.5, 76.0, 76.0, 78.5, 80.0, 79.5, 82.0, 84.0)
         Canvas(Modifier.fillMaxWidth().height(chartHeight)) {
@@ -191,20 +192,19 @@ private fun HeroPreview(chartHeight: Dp) {
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Pill(strings.insightKind(InsightKind.REGRESSION), palette.regression)
-            Pill(strings.insightKind(InsightKind.STALL), palette.stall)
-            Pill(strings.insightKind(InsightKind.CONSISTENCY), palette.consistency)
+            Pill(InsightKind.REGRESSION.label(), palette.regression)
+            Pill(InsightKind.STALL.label(), palette.stall)
+            Pill(InsightKind.CONSISTENCY.label(), palette.consistency)
         }
     }
 }
 
 @Composable
 private fun FeatureRow() {
-    val strings = strings
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Feature(strings.featureLog, strings.featureLogBody, Modifier.weight(1f))
-        Feature(strings.featureImport, strings.featureImportBody, Modifier.weight(1f))
-        Feature(strings.featureAnalyse, strings.featureAnalyseBody, Modifier.weight(1f))
+        Feature(stringResource(Res.string.feature_log), stringResource(Res.string.feature_log_body), Modifier.weight(1f))
+        Feature(stringResource(Res.string.feature_import), stringResource(Res.string.feature_import_body), Modifier.weight(1f))
+        Feature(stringResource(Res.string.feature_analyse), stringResource(Res.string.feature_analyse_body), Modifier.weight(1f))
     }
 }
 

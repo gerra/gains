@@ -37,7 +37,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.VolumeAnalyzer
 import app.gains.domain.MuscleGroup
-import app.gains.ui.i18n.strings
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.theme.GainsColors
 
 /** The two figures of the muscle map. */
@@ -210,7 +213,7 @@ internal fun BodyMapLegend(maxSets: Double = VolumeAnalyzer.JUNK_SETS, modifier:
             Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp))
                 .background(Brush.horizontalGradient(listOf(resting, lerp(resting, accent, 0.25f), accent))),
         )
-        Text(strings.legendMaxSets(maxSets.toInt()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(Res.string.legend_max_sets, maxSets.toInt()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(2.dp))
     }
 }

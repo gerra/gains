@@ -161,7 +161,7 @@ internal fun MetricTile(
 
 /** Segmented pill selector. */
 @Composable
-internal fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit, modifier: Modifier = Modifier) {
+internal fun <T> ChipRow(options: List<T>, selected: T, label: @Composable (T) -> String, onSelect: (T) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier
             .clip(CircleShape)

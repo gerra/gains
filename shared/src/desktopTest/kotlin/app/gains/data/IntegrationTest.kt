@@ -63,7 +63,7 @@ class IntegrationTest {
         assertEquals(listOf(true, false, false), benchAfter.sets.map { it.isWarmup })
 
         // Insights run over the stored data without error.
-        val insights = InsightEngine(unit = WeightUnit.KG).generate(updated.sessions, updated.exercises, LocalDate(2026, 5, 15))
+        val insights = InsightEngine().generate(updated.sessions, updated.exercises, LocalDate(2026, 5, 15))
         assertTrue(insights.any { it.kind == InsightKind.PROGRESS && it.exerciseId == "bench_press" })
 
         val volume = VolumeAnalyzer.currentWeek(updated.sessions, updated.exercisesById, LocalDate(2026, 2, 18))

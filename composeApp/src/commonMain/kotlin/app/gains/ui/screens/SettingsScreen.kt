@@ -53,8 +53,10 @@ import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
-import app.gains.i18n.Strings
-import app.gains.ui.i18n.strings
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -84,7 +86,6 @@ internal data class SettingsState(
 private data class Prefs(val unit: WeightUnit, val theme: ThemeMode, val account: Account?, val autoWarmups: Boolean, val barWeightKg: Double)
 
 internal class SettingsModel(
-    strings: Strings,
     private val settings: SettingsRepository = inject(),
     private val accounts: AccountRepository = inject(),
     val authConfig: AuthConfig = inject(),
@@ -99,7 +100,7 @@ internal class SettingsModel(
     ) { prefs, snapshot, aliases, overrides, programState ->
         SettingsState(
             profile = programState.profile,
-            activeProgramName = programState.active?.let(strings::programName),
+            activeProgramName = programState.active?.resolvedName(),
             account = prefs.account,
             unit = prefs.unit,
             theme = prefs.theme,
@@ -135,98 +136,97 @@ internal class SettingsModel(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}) {
-    val strings = strings
-    val model = rememberScreenModel(strings) { SettingsModel(strings) }
+    val model = rememberScreenModel { SettingsModel() }
     val state by model.state.collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }
     val palette = GainsColors.palette
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle(strings.settingsTitle)
-            SectionHeader(strings.account)
+            ScreenTitle(stringResource(Res.string.settings_title))
+            SectionHeader(stringResource(Res.string.account))
             GainsCard(Modifier.fillMaxWidth()) {
                 val account = state.account
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(account?.displayName ?: account?.kind?.let(strings::accountKind) ?: strings.notSignedIn, style = MaterialTheme.typography.titleMedium)
+                        Text(account?.displayName ?: account?.kind?.label() ?: stringResource(Res.string.not_signed_in), style = MaterialTheme.typography.titleMedium)
                         Text(
                             when {
                                 account == null -> ""
-                                account.isGuest -> strings.guestDataNote
-                                else -> account.email ?: strings.syncedToServer
+                                account.isGuest -> stringResource(Res.string.guest_data_note)
+                                else -> account.email ?: stringResource(Res.string.synced_to_server)
                             },
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    TextButton(onClick = { model.signOut() }) { Text(if (account?.isGuest == true) strings.signIn else strings.signOut, color = palette.volt) }
+                    TextButton(onClick = { model.signOut() }) { Text(if (account?.isGuest == true) stringResource(Res.string.sign_in) else stringResource(Res.string.sign_out), color = palette.volt) }
                 }
                 if (!model.authConfig.googleEnabled && !model.authConfig.appleEnabled) {
                     Spacer(Modifier.height(6.dp))
-                    Text(strings.signInNotConfiguredNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(Res.string.sign_in_not_configured_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            SectionHeader(strings.trainingGoal)
+            SectionHeader(stringResource(Res.string.training_goal))
             GainsCard(Modifier.fillMaxWidth()) {
                 val profile = state.profile
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (g in Goal.entries) Pill(strings.goal(g), palette.volt, filled = profile?.goal == g, onClick = { model.setGoal(g) })
+                    for (g in Goal.entries) Pill(g.label(), palette.volt, filled = profile?.goal == g, onClick = { model.setGoal(g) })
                 }
                 Spacer(Modifier.height(10.dp))
-                ChipRow(Experience.entries, profile?.experience ?: Experience.BEGINNER, { strings.experience(it) }, { model.setExperience(it) })
+                ChipRow(Experience.entries, profile?.experience ?: Experience.BEGINNER, { it.label() }, { model.setExperience(it) })
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(strings.daysAWeekLabel, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    Text(stringResource(Res.string.days_a_week_label), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     ChipRow((GoalProfile.MIN_DAYS..GoalProfile.MAX_DAYS).toList(), profile?.daysPerWeek ?: 3, { it.toString() }, { model.setDays(it) })
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    KeyValueRow(strings.activeProgram, state.activeProgramName ?: strings.none, Modifier.weight(1f))
-                    TextButton(onClick = onOpenPrograms) { Text(strings.change, color = palette.volt) }
+                    KeyValueRow(stringResource(Res.string.active_program), state.activeProgramName ?: stringResource(Res.string.none), Modifier.weight(1f))
+                    TextButton(onClick = onOpenPrograms) { Text(stringResource(Res.string.change), color = palette.volt) }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onOpenOnboarding) { Text(strings.redoSetup, color = palette.volt) }
+                    TextButton(onClick = onOpenOnboarding) { Text(stringResource(Res.string.redo_setup), color = palette.volt) }
                 }
                 Text(
-                    if (profile == null) strings.noGoalSetNote else strings.goalSortNote(profile.goal),
+                    if (profile == null) stringResource(Res.string.no_goal_set_note) else stringResource(Res.string.goal_sort_note, profile.goal.label().lowercase()),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            SectionHeader(strings.appearance)
+            SectionHeader(stringResource(Res.string.appearance))
             GainsCard(Modifier.fillMaxWidth()) {
-                ChipRow(ThemeMode.entries, state.theme, { strings.themeMode(it) }, { model.setTheme(it) })
+                ChipRow(ThemeMode.entries, state.theme, { it.label() }, { model.setTheme(it) })
             }
-            SectionHeader(strings.displayUnits)
+            SectionHeader(stringResource(Res.string.display_units))
             GainsCard(Modifier.fillMaxWidth()) {
-                ChipRow(WeightUnit.entries, state.unit, { strings.unit(it) }, { model.setUnit(it) })
+                ChipRow(WeightUnit.entries, state.unit, { it.label() }, { model.setUnit(it) })
                 Spacer(Modifier.height(10.dp))
-                Text(strings.unitsNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.units_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            SectionHeader(strings.warmUps)
+            SectionHeader(stringResource(Res.string.warm_ups))
             GainsCard(Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(strings.prefillWarmUps, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                    ChipRow(listOf(true, false), state.autoWarmups, { if (it) strings.on else strings.off }, { model.setAutoWarmups(it) })
+                    Text(stringResource(Res.string.prefill_warm_ups), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    ChipRow(listOf(true, false), state.autoWarmups, { if (it) stringResource(Res.string.on) else stringResource(Res.string.off) }, { model.setAutoWarmups(it) })
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(strings.emptyBar, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    Text(stringResource(Res.string.empty_bar), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     val options = if (state.unit == WeightUnit.KG) listOf(10.0, 15.0, 20.0) else listOf(25.0, 35.0, 45.0)
                     val current = Units.display(state.barWeightKg, state.unit)
                     val selected = options.minBy { kotlin.math.abs(it - current) }
-                    ChipRow(options, selected, { "${Format.number(it, 0)} ${strings.unit(state.unit)}" }, { model.setBarWeightKg(Units.roundToQuarter(Units.fromDisplay(it, state.unit))) })
+                    ChipRow(options, selected, { "${Format.number(it, 0)} ${state.unit.label()}" }, { model.setBarWeightKg(Units.roundToQuarter(Units.fromDisplay(it, state.unit))) })
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    strings.warmUpsNote,
+                    stringResource(Res.string.warm_ups_note),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
         item {
-            SectionHeader(strings.customExercises)
+            SectionHeader(stringResource(Res.string.custom_exercises))
             Text(
-                if (state.customExercises.isEmpty()) strings.allExercisesMatched else strings.customExercisesNote,
+                if (state.customExercises.isEmpty()) stringResource(Res.string.all_exercises_matched) else stringResource(Res.string.custom_exercises_note),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp),
             )
         }
@@ -234,36 +234,36 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
             MergeRow(custom, state.catalogue, onMerge = { model.merge(custom, it) })
         }
         if (state.aliases.isNotEmpty()) {
-            item { SectionHeader(strings.aliases) }
+            item { SectionHeader(stringResource(Res.string.aliases)) }
             items(state.aliases.entries.toList(), key = { it.key }) { (raw, id) ->
                 GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(raw, style = MaterialTheme.typography.titleSmall)
-                            Text("→ ${state.exercisesById[id]?.let(strings::exerciseName) ?: id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("→ ${state.exercisesById[id]?.displayName() ?: id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        TextButton(onClick = { model.removeAlias(raw) }) { Text(strings.remove, color = palette.coral) }
+                        TextButton(onClick = { model.removeAlias(raw) }) { Text(stringResource(Res.string.remove), color = palette.coral) }
                     }
                 }
             }
         }
         if (state.overrides.isNotEmpty()) {
-            item { SectionHeader(strings.workingSetOverrides) }
+            item { SectionHeader(stringResource(Res.string.working_set_overrides)) }
             items(state.overrides.entries.toList(), key = { "o" + it.key }) { (id, ratio) ->
                 GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("${state.exercisesById[id]?.let(strings::exerciseName) ?: id}: ${(ratio * 100).toInt()}%", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                        TextButton(onClick = { model.clearOverride(id) }) { Text(strings.reset, color = palette.coral) }
+                        Text("${state.exercisesById[id]?.displayName() ?: id}: ${(ratio * 100).toInt()}%", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                        TextButton(onClick = { model.clearOverride(id) }) { Text(stringResource(Res.string.reset), color = palette.coral) }
                     }
                 }
             }
         }
         item {
-            SectionHeader(strings.data)
+            SectionHeader(stringResource(Res.string.data))
             GainsCard(Modifier.fillMaxWidth()) {
-                Text(strings.dataNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.data_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
-                SecondaryButton(strings.deleteAllSessions, onClick = { confirmDelete = true })
+                SecondaryButton(stringResource(Res.string.delete_all_sessions), onClick = { confirmDelete = true })
             }
         }
     }
@@ -271,10 +271,10 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             shape = MaterialTheme.shapes.large,
-            title = { Text(strings.deleteAllSessionsTitle) },
-            text = { Text(strings.deleteAllSessionsBody) },
-            confirmButton = { PrimaryButton(strings.delete, onClick = { model.deleteAllData(); confirmDelete = false }) },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(strings.cancel) } },
+            title = { Text(stringResource(Res.string.delete_all_sessions_title)) },
+            text = { Text(stringResource(Res.string.delete_all_sessions_body)) },
+            confirmButton = { PrimaryButton(stringResource(Res.string.delete), onClick = { model.deleteAllData(); confirmDelete = false }) },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(Res.string.cancel)) } },
         )
     }
 }
@@ -283,17 +283,16 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
 private fun MergeRow(custom: Exercise, catalogue: List<Exercise>, onMerge: (Exercise) -> Unit) {
     var open by remember { mutableStateOf(false) }
     val palette = GainsColors.palette
-    val strings = strings
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text(custom.name, style = MaterialTheme.typography.titleSmall)
                 Text(
-                    if (custom.muscleGroups.isEmpty()) strings.noMuscleGroupsGuessed else custom.muscleGroups.joinToString { strings.muscleGroup(it.group) },
+                    if (custom.muscleGroups.isEmpty()) stringResource(Res.string.no_muscle_groups_guessed) else custom.muscleGroups.map { it.group.label() }.joinToString(),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            TextButton(onClick = { open = true }) { Text(strings.mergeInto, color = palette.volt) }
+            TextButton(onClick = { open = true }) { Text(stringResource(Res.string.merge_into), color = palette.volt) }
         }
     }
     if (open) ExercisePickerSheet(

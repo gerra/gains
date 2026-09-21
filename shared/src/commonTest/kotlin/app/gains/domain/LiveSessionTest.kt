@@ -77,8 +77,8 @@ class LiveSessionTest {
         assertEquals("12:05", Format.clock(12 * 60 + 5))
         assertEquals("1:02:34", Format.clock(3600 + 2 * 60 + 34))
         assertEquals("0:00", Format.clock(-5))
-        assertEquals("45 min", Format.minutes(45))
-        assertEquals("1 h", Format.minutes(60))
-        assertEquals("3 h 42 min", Format.minutes(222))
+        assertEquals("45 min", Format.minutes(45, app.gains.englishLabels))
+        assertEquals("1 h", Format.minutes(60, app.gains.englishLabels))
+        assertEquals("3 h 42 min", Format.minutes(222, app.gains.englishLabels))
     }
 }

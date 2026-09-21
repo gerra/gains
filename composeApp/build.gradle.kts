@@ -61,6 +61,7 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
             implementation(libs.compose.material.icons.core)
+            implementation(compose.components.resources)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.coroutines.core)
         }
@@ -86,10 +87,20 @@ kotlin {
     }
 }
 
+// Every string the UI shows lives in src/commonMain/composeResources/values/strings.xml, with a
+// values-<lang>/strings.xml per translation; the plugin generates `Res` from them. The Res class is
+// kept internal, like the rest of the UI, so it stays out of the iOS framework's header.
+compose.resources {
+    packageOfResClass = "app.gains.resources"
+    publicResClass = false
+}
+
 // The screenshot test (composeApp/src/desktopTest) writes into build/screenshots unless
 // `-Pgains.screenshotDir=<dir>` (relative to the repository root) points it elsewhere.
 tasks.withType<Test>().configureEach {
     timeout.set(Duration.ofMinutes(10))
+    // The UI tests look for English text and the screenshots are the README's, whatever the runner's locale.
+    jvmArgs("-Duser.language=en", "-Duser.country=US")
     testLogging {
         showStandardStreams = true
         events("passed", "failed", "skipped")

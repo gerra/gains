@@ -1,6 +1,5 @@
 package app.gains.program
 
-import app.gains.analysis.Format
 import app.gains.domain.Exercise
 import app.gains.domain.ExerciseEntry
 import app.gains.domain.ExerciseSlot
@@ -9,20 +8,46 @@ import app.gains.domain.ProgressionRule
 import app.gains.domain.SetsReps
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
-import app.gains.i18n.English
-import app.gains.i18n.Strings
 
 /**
  * Turns "what you did last time" plus the slot's rule into "what to load today".
  * Pure: the caller supplies the most recent entry for the exercise (from any session).
  */
 object Progression {
+    /**
+     * What the lifter did last time, as every hint opens: "Last: 60 kg × 5,5,5". [weightKg] is the
+     * weight to show, or null when the lift is not loaded; [addedLoad] marks it as a plus over
+     * bodyweight ("+10 kg"). [reps] are per set, in order.
+     */
+    data class LastTime(val weightKg: Double?, val reps: List<Int>, val addedLoad: Boolean = false)
+
+    /** One line for the editor, worded by the UI: "Last: 60 kg × 5,5,5 → try 62.5 kg". */
+    sealed interface Hint {
+        val last: LastTime
+
+        /** Nothing to suggest beyond what was done. */
+        data class LastOnly(override val last: LastTime) : Hint
+        data class Try(override val last: LastTime, val weightKg: Double) : Hint
+        data class Repeat(override val last: LastTime, val weightKg: Double) : Hint
+        /** Every set reached [maxReps] on a bodyweight double progression: on to the harder variation. */
+        data class MoveOn(override val last: LastTime, val maxReps: Int) : Hint
+        data class TryReps(override val last: LastTime, val weightKg: Double, val reps: Int) : Hint
+        /** Aim for [reps] this time, at [weightKg] when loaded. */
+        data class Target(override val last: LastTime, val weightKg: Double?, val reps: Int) : Hint
+        data class TryStage(override val last: LastTime, val weightKg: Double, val stage: SetsReps) : Hint
+        data class Missed(override val last: LastTime, val stage: SetsReps, val weightKg: Double) : Hint
+        data class Reset(override val last: LastTime, val weightKg: Double, val stage: SetsReps) : Hint
+        /** A tier's first session: [startKg] from the Epley estimate [e1rmKg], or null when nothing is worth loading; [cappedBelowKg] when a failed weight pulled it down. */
+        data class Estimate(override val last: LastTime, val e1rmKg: Double, val addedLoad: Boolean, val tier: Gzclp.Tier, val startKg: Double?, val cappedBelowKg: Double?) : Hint
+        /** A slot's first session outside a tier: start [target] at [weightKg], borrowed from [source]. */
+        data class Start(override val last: LastTime, val source: Source, val target: SetsReps, val weightKg: Double?) : Hint
+    }
+
     data class Suggestion(
         val weightKg: Double?,
         val sets: Int,
         val reps: Int,
-        /** One line for the editor: "Last: 60 kg × 5,5,5 → try 62.5 kg". */
-        val hint: String?,
+        val hint: Hint?,
         /**
          * What today's sets are measured against. For a stage ladder this is the stage the lifter is
          * on, which the slot's own sets × reps (the first stage) stops describing after a missed session.
@@ -34,37 +59,35 @@ object Progression {
      * What to load today given [last], the most recent entry logged against this same slot (or one
      * with the [ExerciseSlot.sameScheme]). The rule reads it as a success or a failure of the slot's
      * prescription, so an entry from a free session or a different scheme must not be passed here:
-     * use [start] for those. [strings] words the hint: English unless the UI passes its own.
+     * use [start] for those.
      */
-    fun suggest(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit, strings: Strings = English): Suggestion {
+    fun suggest(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit): Suggestion {
         val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null, slot.target)
         val sets = last?.workingSets?.ifEmpty { last.sets }.orEmpty()
         if (sets.isEmpty()) return fallback
         val loaded = exercise.modality == Modality.WEIGHTED
         val lastWeight = sets.mapNotNull { it.weightKg }.maxOrNull()
         val reps = sets.map { it.reps ?: it.seconds ?: 0 }
-        val lastLabel = lastLabel(loaded, lastWeight, reps, unit, strings = strings)
-        if (loaded && lastWeight == null) return fallback.copy(hint = lastLabel)
+        val lastTime = lastTime(loaded, lastWeight, reps)
+        if (loaded && lastWeight == null) return fallback.copy(hint = Hint.LastOnly(lastTime))
 
         fun bump(weight: Double?, rule: ProgressionRule): Double? {
             if (weight == null) return null
             val step = rule.step(unit) ?: return weight
             return Units.roundToQuarter(Units.fromDisplay(Units.display(weight, unit) + step, unit))
         }
-        fun w(kg: Double) = strings.weight(kg, unit)
-
         return when (val rule = slot.progression) {
-            ProgressionRule.None -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, slot.reps.prefillReps, lastLabel, slot.target)
+            ProgressionRule.None -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, slot.reps.prefillReps, Hint.LastOnly(lastTime), slot.target)
 
             is ProgressionRule.Linear -> {
                 val hit = sets.size >= slot.sets && reps.all { it >= slot.reps.successReps }
                 if (!loaded || lastWeight == null) {
-                    Suggestion(null, slot.sets, slot.reps.prefillReps, lastLabel, slot.target)
+                    Suggestion(null, slot.sets, slot.reps.prefillReps, Hint.LastOnly(lastTime), slot.target)
                 } else if (hit) {
                     val next = bump(lastWeight, rule)!!
-                    Suggestion(next, slot.sets, slot.reps.prefillReps, strings.hintTry(lastLabel, w(next)), slot.target)
+                    Suggestion(next, slot.sets, slot.reps.prefillReps, Hint.Try(lastTime, next), slot.target)
                 } else {
-                    Suggestion(lastWeight, slot.sets, slot.reps.prefillReps, strings.hintRepeat(lastLabel, w(lastWeight)), slot.target)
+                    Suggestion(lastWeight, slot.sets, slot.reps.prefillReps, Hint.Repeat(lastTime, lastWeight), slot.target)
                 }
             }
 
@@ -72,15 +95,14 @@ object Progression {
                 val hit = sets.size >= slot.sets && reps.all { it >= rule.max }
                 val moveUp = rule.stepKg <= 0.0
                 when {
-                    hit && moveUp -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, rule.min, strings.hintMoveOn(lastLabel, rule.max), slot.target)
+                    hit && moveUp -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, rule.min, Hint.MoveOn(lastTime, rule.max), slot.target)
                     hit && loaded && lastWeight != null -> {
                         val next = bump(lastWeight, rule)!!
-                        Suggestion(next, slot.sets, rule.min, strings.hintTryReps(lastLabel, w(next), rule.min), slot.target)
+                        Suggestion(next, slot.sets, rule.min, Hint.TryReps(lastTime, next, rule.min), slot.target)
                     }
                     else -> {
                         val target = (reps.minOrNull()!! + 1).coerceIn(rule.min, rule.max)
-                        val weightText = if (loaded && lastWeight != null) "${w(lastWeight)} × " else ""
-                        Suggestion(lastWeight.takeIf { loaded }, slot.sets, target, strings.hintTarget(lastLabel, weightText, target), slot.target)
+                        Suggestion(lastWeight.takeIf { loaded }, slot.sets, target, Hint.Target(lastTime, lastWeight.takeIf { loaded }, target), slot.target)
                     }
                 }
             }
@@ -91,26 +113,26 @@ object Progression {
                 val stage = stages[stageIndex]
                 val success = sets.size >= stage.sets && reps.all { it >= stage.reps.successReps }
                 when {
-                    !loaded || lastWeight == null -> Suggestion(null, stage.sets, stage.reps.prefillReps, lastLabel, stage)
+                    !loaded || lastWeight == null -> Suggestion(null, stage.sets, stage.reps.prefillReps, Hint.LastOnly(lastTime), stage)
                     success -> {
                         val next = bump(lastWeight, rule)!!
-                        Suggestion(next, stage.sets, stage.reps.prefillReps, strings.hintTryStage(lastLabel, w(next), stage.label), stage)
+                        Suggestion(next, stage.sets, stage.reps.prefillReps, Hint.TryStage(lastTime, next, stage), stage)
                     }
                     stageIndex + 1 < stages.size -> {
                         val nextStage = stages[stageIndex + 1]
-                        Suggestion(lastWeight, nextStage.sets, nextStage.reps.prefillReps, strings.hintMissed(lastLabel, nextStage.label, w(lastWeight)), nextStage)
+                        Suggestion(lastWeight, nextStage.sets, nextStage.reps.prefillReps, Hint.Missed(lastTime, nextStage, lastWeight), nextStage)
                     }
                     else -> {
                         val reset = resetWeight(lastWeight, rule, unit)
                         val first = stages.first()
-                        Suggestion(reset, first.sets, first.reps.prefillReps, strings.hintReset(lastLabel, w(reset), first.label), first)
+                        Suggestion(reset, first.sets, first.reps.prefillReps, Hint.Reset(lastTime, reset, first), first)
                     }
                 }
             }
         }
     }
 
-    /** Where a borrowed starting weight came from, for the hint. [label] is English; the UI shows `Strings.progressionSource`. */
+    /** Where a borrowed starting weight came from, for the hint. */
     enum class Source(val label: String) {
         /** A workout logged without a program day. */
         FREE_SESSION("free session"),
@@ -130,7 +152,7 @@ object Progression {
      * [Gzclp.estimate]). 50 kg × 6, 8, 9 becomes "T2 start 40 kg", not "3 × 10 at 50 kg". Slots
      * with no tier keep the last weight as before. The hint spells out the reasoning.
      */
-    fun start(slot: ExerciseSlot, exercise: Exercise, recent: List<ExerciseEntry>, unit: WeightUnit, source: Source = Source.FREE_SESSION, strings: Strings = English): Suggestion {
+    fun start(slot: ExerciseSlot, exercise: Exercise, recent: List<ExerciseEntry>, unit: WeightUnit, source: Source = Source.FREE_SESSION): Suggestion {
         val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null, slot.target)
         val last = recent.firstOrNull() ?: return fallback
         val sets = last.workingSets.ifEmpty { last.sets }
@@ -139,58 +161,28 @@ object Progression {
         val bodyweight = exercise.modality == Modality.BODYWEIGHT
         val lastWeight = sets.mapNotNull { it.weightKg }.maxOrNull()
         val reps = sets.map { it.reps ?: it.seconds ?: 0 }
-        val lastLabel = lastLabel(loaded, lastWeight, reps, unit, addedLoad = bodyweight, strings = strings)
+        val lastTime = lastTime(loaded, lastWeight, reps, addedLoad = bodyweight)
 
         val tier = Gzclp.tierOf(slot)
         if (tier != null && (loaded || bodyweight)) {
             val pool = recent.flatMap { it.workingSets.ifEmpty { it.sets } }
             val estimate = Gzclp.estimate(tier, pool, slot.reps.prefillReps, Gzclp.increment(slot, unit), unit)
             if (estimate != null) {
-                val plus = if (bodyweight) "+" else ""
-                val startText = estimate.startKg?.let { plus + strings.weight(it, unit) }
-                    ?: if (bodyweight) strings.withNoAddedLoad else strings.asLightAsYouCanLoad
-                val cap = estimate.cappedBelowKg?.let { strings.capKeptUnder(plus + strings.weight(it, unit)) } ?: ""
-                val hint = strings.hintEstimate(lastLabel, plus + strings.weight(estimate.e1rmKg, unit, 0), tier.label, startText, cap)
+                val hint = Hint.Estimate(lastTime, estimate.e1rmKg, bodyweight, tier, estimate.startKg, estimate.cappedBelowKg)
                 return Suggestion(estimate.startKg, slot.sets, slot.reps.prefillReps, hint, slot.target)
             }
         }
 
         val weight = lastWeight.takeIf { loaded }
-        val at = weight?.let { strings.atWeight(strings.weight(it, unit)) } ?: ""
-        val hint = strings.hintStart(lastLabel, strings.progressionSource(source), slot.target.label, at)
-        return Suggestion(weight, slot.sets, slot.reps.prefillReps, hint, slot.target)
+        return Suggestion(weight, slot.sets, slot.reps.prefillReps, Hint.Start(lastTime, source, slot.target, weight), slot.target)
     }
 
-    /** "Last: 60 kg × 5,5,5", "Last: +10 kg × 8,8,8" for a bodyweight lift with added load, or "Last: 8,8,8". */
-    private fun lastLabel(loaded: Boolean, lastWeight: Double?, reps: List<Int>, unit: WeightUnit, addedLoad: Boolean = false, strings: Strings): String {
-        val weight = when {
-            lastWeight == null -> ""
-            loaded -> strings.weight(lastWeight, unit) + " × "
-            addedLoad && lastWeight > 0.0 -> "+" + strings.weight(lastWeight, unit) + " × "
-            else -> ""
-        }
-        return strings.lastLabel(weight, reps.joinToString(","))
-    }
-
-    /**
-     * The rule in plain words for the program overview: what happens after a good session, a missed
-     * one, and where the ladder ends. Null for [ProgressionRule.None], which has nothing to say.
-     */
-    fun describe(rule: ProgressionRule, unit: WeightUnit, strings: Strings = English): String? {
-        val step = rule.step(unit)?.takeIf { it > 0.0 }?.let { strings.stepLabel(it, unit) }
-        return when (rule) {
-            ProgressionRule.None -> null
-            is ProgressionRule.Linear -> strings.describeLinear(step.toString())
-            is ProgressionRule.DoubleProgression -> {
-                val then = if (step == null) strings.describeDoubleThenHarder else strings.describeDoubleThenAdd(step, rule.min)
-                strings.describeDouble(rule.min, rule.max, then)
-            }
-            is ProgressionRule.StageLadder -> {
-                val stages = rule.stages.joinToString(" → ") { it.label }
-                val first = rule.stages.first().label
-                strings.describeLadder(stages, step.toString(), first)
-            }
-        }
+    /** "60 kg × 5,5,5" for a loaded lift, "+10 kg × 8,8,8" for a bodyweight lift with added load, "8,8,8" otherwise. */
+    private fun lastTime(loaded: Boolean, lastWeight: Double?, reps: List<Int>, addedLoad: Boolean = false): LastTime = when {
+        lastWeight == null -> LastTime(null, reps)
+        loaded -> LastTime(lastWeight, reps)
+        addedLoad && lastWeight > 0.0 -> LastTime(lastWeight, reps, addedLoad = true)
+        else -> LastTime(null, reps)
     }
 
     /** The stage whose set count matches; among several, the one whose reps are closest to the first (non-AMRAP) set. */

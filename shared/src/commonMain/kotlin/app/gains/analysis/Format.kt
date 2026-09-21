@@ -2,12 +2,14 @@ package app.gains.analysis
 
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
-import app.gains.i18n.English
-import app.gains.i18n.Strings
 import kotlin.math.abs
 import kotlin.math.round
 import kotlin.math.roundToInt
 
+/**
+ * Numbers as text. Anything with a unit word in it takes the [UnitLabels] of the screen's
+ * language; the sentences around the numbers live in the UI's string resources.
+ */
 object Format {
     fun number(value: Double, decimals: Int = 1): String {
         if (decimals == 0) return value.roundToInt().toString()
@@ -23,24 +25,21 @@ object Format {
         return if (fracText.isEmpty()) "$sign$wholeAdj" else "$sign$wholeAdj.$fracText"
     }
 
-    /*
-     * Anything with a unit word in it is worded by a [Strings]; the language defaults to English so
-     * that tests and the shared module's own callers read as before, and the UI passes its own.
-     */
-
     /** "60 kg" / "132.3 lbs" */
-    fun weight(kg: Double, unit: WeightUnit, decimals: Int = if (unit == WeightUnit.KG) 2 else 1, strings: Strings = English): String =
-        strings.weight(kg, unit, decimals)
+    fun weight(kg: Double, unit: WeightUnit, labels: UnitLabels, decimals: Int = if (unit == WeightUnit.KG) 2 else 1): String =
+        number(Units.display(kg, unit), decimals) + " " + labels.unit(unit)
 
     fun weightValue(kg: Double, unit: WeightUnit): String =
         number(Units.display(kg, unit), if (unit == WeightUnit.KG) 2 else 1)
 
     /** "60 kg × 8" */
-    fun set(weightKg: Double, reps: Int, unit: WeightUnit, strings: Strings = English): String = strings.set(weightKg, reps, unit)
+    fun set(weightKg: Double, reps: Int, unit: WeightUnit, labels: UnitLabels): String = "${weight(weightKg, unit, labels)} × $reps"
 
     fun percent(fraction: Double): String = number(fraction * 100, 0) + "%"
 
-    fun seconds(seconds: Int, strings: Strings = English): String = strings.seconds(seconds)
+    /** "1:30" past a minute, else "30 s". */
+    fun seconds(seconds: Int, labels: UnitLabels): String =
+        if (seconds >= 60) "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}" else "$seconds ${labels.second}"
 
     /** A running clock: "0:42", "12:05", "1:02:34". */
     fun clock(totalSeconds: Long): String {
@@ -53,11 +52,15 @@ object Format {
     }
 
     /** "45 min", "1 h", "3 h 42 min". */
-    fun minutes(minutes: Int, strings: Strings = English): String = strings.minutes(minutes)
+    fun minutes(minutes: Int, labels: UnitLabels): String {
+        val h = minutes / 60
+        val m = minutes % 60
+        return when {
+            h == 0 -> "$m ${labels.minute}"
+            m == 0 -> "$h ${labels.hour}"
+            else -> "$h ${labels.hour} $m ${labels.minute}"
+        }
+    }
 
-    fun km(km: Double, strings: Strings = English): String = strings.km(km)
-
-    /** English only: the UI counts things through its [Strings]. */
-    fun plural(count: Int, singular: String, plural: String = singular + "s"): String =
-        "$count " + if (count == 1) singular else plural
+    fun km(km: Double, labels: UnitLabels): String = number(km, 2) + " " + labels.km
 }

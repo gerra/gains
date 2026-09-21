@@ -56,8 +56,11 @@ import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
-import app.gains.i18n.Strings
-import app.gains.ui.i18n.strings
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -70,11 +73,12 @@ import kotlinx.coroutines.launch
 internal enum class ProgressionChoice {
     NONE, SMALL, BIG, DOUBLE;
 
-    fun label(strings: Strings): String = when (this) {
-        NONE -> strings.progressionNone
-        SMALL -> strings.progressionSmall
-        BIG -> strings.progressionBig
-        DOUBLE -> strings.progressionDouble
+    @Composable
+    fun label(): String = when (this) {
+        NONE -> stringResource(Res.string.progression_none)
+        SMALL -> stringResource(Res.string.progression_small)
+        BIG -> stringResource(Res.string.progression_big)
+        DOUBLE -> stringResource(Res.string.progression_double)
     }
 
     companion object {
@@ -153,8 +157,6 @@ internal data class ProgramEditorState(
 
 internal class ProgramEditorModel(
     private val programId: String?,
-    /** Names new days ("Day 1") in the screen's language. */
-    private val strings: Strings,
     private val programs: ProgramRepository = inject(),
     private val exercises: ExerciseRepository = inject(),
     trainingData: TrainingData = inject(),
@@ -170,7 +172,7 @@ internal class ProgramEditorModel(
             val base = ProgramEditorState(
                 loading = false, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12), profile = programState.profile,
             )
-            _state.value = if (existing == null) base.copy(days = listOf(DayDraft(ProgramRepository.newDayId("new", 0), strings.dayN(1), emptyList())))
+            _state.value = if (existing == null) base.copy(days = listOf(DayDraft(ProgramRepository.newDayId("new", 0), getString(Res.string.day_n, 1), emptyList())))
             else base.copy(
                 id = existing.id, name = existing.name, description = existing.description,
                 days = existing.days.map { d -> DayDraft(d.id, d.name, d.slots.mapNotNull { s -> snapshot.exercisesById[s.exerciseId]?.let { SlotDraft.from(s, it) } }) },
@@ -183,7 +185,12 @@ internal class ProgramEditorModel(
 
     fun setName(v: String) = update { it.copy(name = v) }
     fun setDescription(v: String) = update { it.copy(description = v) }
-    fun addDay() = update { s -> s.copy(days = s.days + DayDraft(ProgramRepository.newDayId(s.id ?: "new", s.days.size), strings.dayN(s.days.size + 1), emptyList())) }
+    fun addDay() {
+        scope.launch {
+            val name = getString(Res.string.day_n, _state.value.days.size + 1)
+            update { s -> s.copy(days = s.days + DayDraft(ProgramRepository.newDayId(s.id ?: "new", s.days.size), name, emptyList())) }
+        }
+    }
     fun renameDay(index: Int, name: String) = updateDay(index) { it.copy(name = name) }
     fun removeDay(index: Int) = update { s -> s.copy(days = s.days.filterIndexed { i, _ -> i != index }) }
     fun moveDay(index: Int, delta: Int) = update { s ->
@@ -212,7 +219,9 @@ internal class ProgramEditorModel(
         if (target !in d.slots.indices) d else d.copy(slots = d.slots.toMutableList().apply { add(target, removeAt(slotIndex)) })
     }
 
-    fun save() {
+    fun save() { scope.launch { saveNow() } }
+
+    private suspend fun saveNow() {
         val s = _state.value
         val name = s.name.trim()
         if (name.isEmpty()) { update { it.copy(error = EditorError.NoName) }; return }
@@ -220,7 +229,8 @@ internal class ProgramEditorModel(
         val id = s.id ?: ProgramRepository.newProgramId()
         val days = ArrayList<ProgramDay>()
         for ((di, day) in s.days.withIndex()) {
-            if (day.slots.isEmpty()) { update { it.copy(error = EditorError.DayWithoutExercises(day.name.ifBlank { strings.dayN(di + 1) })) }; return }
+            val dayName = day.name.trim().ifBlank { getString(Res.string.day_n, di + 1) }
+            if (day.slots.isEmpty()) { update { it.copy(error = EditorError.DayWithoutExercises(dayName)) }; return }
             val slots = ArrayList<ExerciseSlot>()
             for (slot in day.slots) {
                 slots.add(slot.toSlot() ?: run {
@@ -229,21 +239,21 @@ internal class ProgramEditorModel(
                 })
             }
             val dayId = if (day.id.startsWith("new/")) ProgramRepository.newDayId(id, di) else day.id
-            days.add(ProgramDay(dayId, day.name.trim().ifBlank { strings.dayN(di + 1) }, slots))
+            days.add(ProgramDay(dayId, dayName, slots))
         }
         val program = Program(
             id = id, name = name, description = s.description.trim(),
             goals = setOf(s.profile?.goal ?: Goal.GENERAL_FITNESS), level = s.profile?.experience ?: Experience.BEGINNER,
             daysPerWeek = days.size.coerceIn(GoalProfile.MIN_DAYS, GoalProfile.MAX_DAYS), days = days, isBuiltIn = false,
         )
-        scope.launch { programs.upsert(program); update { it.copy(saved = true, error = null) } }
+        programs.upsert(program)
+        update { it.copy(saved = true, error = null) }
     }
 }
 
 @Composable
 internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
-    val strings = strings
-    val model = rememberScreenModel(programId, strings) { ProgramEditorModel(programId, strings) }
+    val model = rememberScreenModel(programId) { ProgramEditorModel(programId) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerFor by remember { mutableStateOf<Int?>(null) }
@@ -255,18 +265,18 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            Text(if (state.id == null) strings.newProgram else strings.editProgram, style = MaterialTheme.typography.headlineLarge)
+            Text(if (state.id == null) stringResource(Res.string.new_program) else stringResource(Res.string.edit_program), style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(state.name, model::setName, label = { Text(strings.name) }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium)
+            OutlinedTextField(state.name, model::setName, label = { Text(stringResource(Res.string.name)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium)
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(state.description, model::setDescription, label = { Text(strings.descriptionOptional) }, modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium, maxLines = 3)
-            SectionHeader(strings.days, action = { TextButton(onClick = { model.addDay() }) { Text(strings.plusAddDay, color = palette.volt) } })
-            Text(strings.daysRotateNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+            OutlinedTextField(state.description, model::setDescription, label = { Text(stringResource(Res.string.description_optional)) }, modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium, maxLines = 3)
+            SectionHeader(stringResource(Res.string.days), action = { TextButton(onClick = { model.addDay() }) { Text(stringResource(Res.string.plus_add_day), color = palette.volt) } })
+            Text(stringResource(Res.string.days_rotate_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
         }
         itemsIndexed(state.days, key = { _, d -> d.id }) { dayIndex, day ->
             GainsCard(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    OutlinedTextField(day.name, { model.renameDay(dayIndex, it) }, label = { Text(strings.dayName) }, singleLine = true, modifier = Modifier.weight(1f), colors = fieldColors, shape = MaterialTheme.shapes.medium)
+                    OutlinedTextField(day.name, { model.renameDay(dayIndex, it) }, label = { Text(stringResource(Res.string.day_name)) }, singleLine = true, modifier = Modifier.weight(1f), colors = fieldColors, shape = MaterialTheme.shapes.medium)
                     TextButton(onClick = { model.moveDay(dayIndex, -1) }, enabled = dayIndex > 0) { Text("↑") }
                     TextButton(onClick = { model.moveDay(dayIndex, 1) }, enabled = dayIndex < state.days.lastIndex) { Text("↓") }
                     TextButton(onClick = { model.removeDay(dayIndex) }) { Text("×", color = palette.coral) }
@@ -279,23 +289,23 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
                         onMove = { model.moveSlot(dayIndex, slotIndex, it) },
                         onRemove = { model.removeSlot(dayIndex, slotIndex) })
                 }
-                TextButton(onClick = { pickerFor = dayIndex }) { Text(strings.plusAddExercise, color = palette.volt) }
+                TextButton(onClick = { pickerFor = dayIndex }) { Text(stringResource(Res.string.plus_add_exercise), color = palette.volt) }
             }
         }
         item {
             state.error?.let { error ->
                 val text = when (error) {
-                    EditorError.NoName -> strings.giveTheProgramAName
-                    EditorError.NoDays -> strings.addAtLeastOneDay
-                    is EditorError.DayWithoutExercises -> strings.dayHasNoExercises(error.dayName)
-                    is EditorError.BadSlot -> strings.slotInvalid(strings.exerciseName(error.exercise))
+                    EditorError.NoName -> stringResource(Res.string.give_the_program_a_name)
+                    EditorError.NoDays -> stringResource(Res.string.add_at_least_one_day)
+                    is EditorError.DayWithoutExercises -> stringResource(Res.string.day_has_no_exercises, error.dayName)
+                    is EditorError.BadSlot -> stringResource(Res.string.slot_invalid, error.exercise.displayName())
                 }
                 Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SecondaryButton(strings.cancel, onDone, Modifier.weight(1f))
-                PrimaryButton(strings.saveProgram, { model.save() }, Modifier.weight(1f))
+                SecondaryButton(stringResource(Res.string.cancel), onDone, Modifier.weight(1f))
+                PrimaryButton(stringResource(Res.string.save_program), { model.save() }, Modifier.weight(1f))
             }
         }
     }
@@ -323,7 +333,7 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
             onCreate = model::createExercise,
             onDismiss = { replaceFor = null },
             single = true,
-            title = strings.replaceNamed(strings.exerciseName(slot.exercise)),
+            title = stringResource(Res.string.replace_named, slot.exercise.displayName()),
         )
     }
 }
@@ -334,37 +344,37 @@ private fun SlotRow(
     onChange: (SlotDraft) -> Unit, onChangeExercise: () -> Unit, onMove: (Int) -> Unit, onRemove: () -> Unit,
 ) {
     val palette = GainsColors.palette
-    val strings = strings
-    val name = strings.exerciseName(slot.exercise)
+    val name = slot.exercise.displayName()
+    val changeDescription = stringResource(Res.string.change_named, name)
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Tapping the name opens the picker to swap the exercise; the prescription below is kept.
             Row(
                 Modifier.weight(1f).clip(MaterialTheme.shapes.small).clickable(onClick = onChangeExercise)
-                    .semantics { role = Role.Button; contentDescription = strings.changeNamed(name) }
+                    .semantics { role = Role.Button; contentDescription = changeDescription }
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f, fill = false))
                 Spacer(Modifier.width(8.dp))
-                Text(strings.change, style = MaterialTheme.typography.labelMedium, color = palette.volt)
+                Text(stringResource(Res.string.change), style = MaterialTheme.typography.labelMedium, color = palette.volt)
             }
             TextButton(onClick = { onMove(-1) }, enabled = index > 0) { Text("↑") }
             TextButton(onClick = { onMove(1) }, enabled = index < count - 1) { Text("↓") }
             TextButton(onClick = onRemove) { Text("×", color = palette.coral) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(slot.sets, { onChange(slot.copy(sets = it)) }, label = { Text(strings.setsLabel) }, singleLine = true, modifier = Modifier.width(80.dp), colors = fieldColors, shape = MaterialTheme.shapes.small, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            OutlinedTextField(slot.reps, { onChange(slot.copy(reps = it)) }, label = { Text(strings.repsLabel) }, singleLine = true, modifier = Modifier.width(110.dp), colors = fieldColors, shape = MaterialTheme.shapes.small, placeholder = { Text("8-12") })
-            OutlinedTextField(slot.note, { onChange(slot.copy(note = it)) }, label = { Text(strings.note) }, singleLine = true, modifier = Modifier.weight(1f), colors = fieldColors, shape = MaterialTheme.shapes.small)
+            OutlinedTextField(slot.sets, { onChange(slot.copy(sets = it)) }, label = { Text(stringResource(Res.string.sets_label)) }, singleLine = true, modifier = Modifier.width(80.dp), colors = fieldColors, shape = MaterialTheme.shapes.small, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            OutlinedTextField(slot.reps, { onChange(slot.copy(reps = it)) }, label = { Text(stringResource(Res.string.reps_label)) }, singleLine = true, modifier = Modifier.width(110.dp), colors = fieldColors, shape = MaterialTheme.shapes.small, placeholder = { Text("8-12") })
+            OutlinedTextField(slot.note, { onChange(slot.copy(note = it)) }, label = { Text(stringResource(Res.string.note)) }, singleLine = true, modifier = Modifier.weight(1f), colors = fieldColors, shape = MaterialTheme.shapes.small)
         }
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (slot.ladder != null) {
-                Pill(strings.programLadderKept, palette.violet)
-                TextButton(onClick = { onChange(slot.copy(ladder = null)) }) { Text(strings.change, color = palette.volt) }
+                Pill(stringResource(Res.string.program_ladder_kept), palette.violet)
+                TextButton(onClick = { onChange(slot.copy(ladder = null)) }) { Text(stringResource(Res.string.change), color = palette.volt) }
             } else {
-                ChipRow(ProgressionChoice.entries, slot.choice, { it.label(strings) }, { onChange(slot.copy(choice = it)) })
+                ChipRow(ProgressionChoice.entries, slot.choice, { it.label() }, { onChange(slot.copy(choice = it)) })
             }
         }
     }

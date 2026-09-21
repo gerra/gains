@@ -1,8 +1,6 @@
 package app.gains.analysis
 
 import app.gains.domain.Goal
-import app.gains.i18n.English
-import app.gains.i18n.Strings
 
 /** How the chosen goal changes what the insight engine flags and which insights lead. */
 object GoalTuning {
@@ -26,7 +24,4 @@ object GoalTuning {
         if (bonus.isEmpty()) return insights
         return insights.sortedByDescending { it.severity + (bonus[it.kind] ?: 0.0) }
     }
-
-    /** Subtitle under "What's moving". */
-    fun headline(goal: Goal?, strings: Strings = English): String? = strings.goalHeadline(goal)
 }
