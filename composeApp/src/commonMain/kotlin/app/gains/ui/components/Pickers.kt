@@ -115,6 +115,10 @@ internal fun WheelPicker(
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val latest by rememberUpdatedState(current)
+    // The collector below outlives any one composition, so it must read the caller's newest lambda:
+    // the first one captured the value the sheet opened with, and a wheel settling after another
+    // wheel had moved would hand back that opening value for the other column.
+    val select by rememberUpdatedState(onSelect)
 
     // The real row nearest the middle of the viewport (the blank rows at either end never qualify).
     val centred by remember(count) {
@@ -130,7 +134,7 @@ internal fun WheelPicker(
     }
     LaunchedEffect(state) {
         snapshotFlow { centred to state.isScrollInProgress }.collect { (index, scrolling) ->
-            if (index != null && !scrolling && index != latest) onSelect(index)
+            if (index != null && !scrolling && index != latest) select(index)
         }
     }
     LaunchedEffect(current) {
