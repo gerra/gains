@@ -51,6 +51,8 @@ kotlin {
     sourceSets.all {
         languageSettings.optIn("kotlin.time.ExperimentalTime")
         languageSettings.optIn("kotlinx.coroutines.ExperimentalCoroutinesApi")
+        // Res.allStringResources (the catalogue names) and the resource environment for screen models.
+        languageSettings.optIn("org.jetbrains.compose.resources.ExperimentalResourceApi")
     }
 
     sourceSets {

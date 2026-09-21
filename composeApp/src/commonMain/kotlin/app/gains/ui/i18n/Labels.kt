@@ -185,10 +185,10 @@ internal fun unitLabels(): UnitLabels = UnitLabels(
 )
 
 /** [unitLabels] for a screen model, which lives outside the composition. */
-internal suspend fun resolvedUnitLabels(): UnitLabels = UnitLabels(
-    kg = getString(Res.string.unit_kg), lbs = getString(Res.string.unit_lbs),
-    second = getString(Res.string.second_abbrev), minute = getString(Res.string.minute_abbrev), hour = getString(Res.string.hour_abbrev),
-    km = getString(Res.string.km_abbrev), reps = getString(Res.string.reps_suffix),
+internal suspend fun resolvedUnitLabels(texts: Texts): UnitLabels = UnitLabels(
+    kg = texts.get(Res.string.unit_kg), lbs = texts.get(Res.string.unit_lbs),
+    second = texts.get(Res.string.second_abbrev), minute = texts.get(Res.string.minute_abbrev), hour = texts.get(Res.string.hour_abbrev),
+    km = texts.get(Res.string.km_abbrev), reps = texts.get(Res.string.reps_suffix),
 )
 
 @Composable internal fun weightText(kg: Double, unit: WeightUnit, decimals: Int = if (unit == WeightUnit.KG) 2 else 1): String = Format.weight(kg, unit, unitLabels(), decimals)

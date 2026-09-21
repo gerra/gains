@@ -111,7 +111,6 @@ import app.gains.ui.components.WeightPickerSheet
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.i18n.*
-import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
@@ -285,6 +284,8 @@ internal class SessionEditorModel(
     private val programDay: ProgramDayRef? = null,
     /** Open a timed workout, ready to start (or resume the one running), rather than log a past one. */
     private val live: Boolean = false,
+    /** The titles and day tags the model makes. */
+    private val texts: Texts,
     private val sessions: SessionRepository = inject(),
     private val exercises: ExerciseRepository = inject(),
     private val liveSessions: LiveSessionRepository = inject(),
@@ -329,8 +330,8 @@ internal class SessionEditorModel(
             // which must not be frozen into the row on save.
             val existing = sessionId?.let { id -> sessions.observeRawSessions().first().firstOrNull { it.id == id } }
             val programList = programs.observePrograms().first()
-            val dayOptions = programList.flatMap { p -> val programName = p.resolvedName(); p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), programName, it.resolvedName()) } }
-            val titles = Titles(getString(Res.string.log_workout), getString(Res.string.edit_workout), getString(Res.string.workout))
+            val dayOptions = programList.flatMap { p -> val programName = p.resolvedName(texts); p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), programName, it.resolvedName(texts)) } }
+            val titles = Titles(texts.get(Res.string.log_workout), texts.get(Res.string.edit_workout), texts.get(Res.string.workout))
             val ctx = Context(snapshot, unit, planOptions, programList, dayOptions, titles, dayOptions.associate { it.ref.dayId to it.dayName }, editing = existing)
             context = ctx
             val stored = if (live && existing == null) liveSessions.load() else null
@@ -728,7 +729,8 @@ internal class SessionEditorModel(
 
 @Composable
 internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, live: Boolean = false, onDone: () -> Unit) {
-    val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live) }
+    val texts = rememberTexts()
+    val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live, texts) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerOpen by remember { mutableStateOf(false) }

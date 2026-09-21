@@ -103,14 +103,14 @@ internal data class HistoryState(
     val dayNames: Map<String, String> = emptyMap(),
 )
 
-internal class HistoryModel(trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
+internal class HistoryModel(texts: Texts, trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
     val state: StateFlow<HistoryState> = combine(trainingData.snapshot, programs.observePrograms()) { snapshot, programList ->
         withContext(Dispatchers.Default) {
             val today = Dates.today()
             val sessions = snapshot.sessions.sortedByDescending { it.timestamp }
             HistoryState(
                 loading = false,
-                dayNames = programList.flatMap { p -> p.days.map { it.id to it.resolvedName() } }.toMap(),
+                dayNames = programList.flatMap { p -> p.days.map { it.id to it.resolvedName(texts) } }.toMap(),
                 sessions = sessions,
                 years = groupByYearAndMonth(sessions),
                 exercisesById = snapshot.exercisesById,
@@ -130,7 +130,8 @@ internal class HistoryModel(trainingData: TrainingData = inject(), programs: Pro
  */
 @Composable
 internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
-    val model = rememberScreenModel { HistoryModel() }
+    val texts = rememberTexts()
+    val model = rememberScreenModel { HistoryModel(texts) }
     val state by model.state.collectAsState()
     if (state.loading) return
     val today = Dates.today()

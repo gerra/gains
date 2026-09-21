@@ -28,10 +28,11 @@ import app.gains.platform.ResumeRequests
 import app.gains.platform.SkipRestRequests
 import app.gains.resources.Res
 import app.gains.resources.*
+import app.gains.ui.i18n.Texts
+import app.gains.ui.i18n.rememberTexts
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.dsl.module
 import java.awt.FileDialog
@@ -74,7 +75,9 @@ fun main(args: Array<String>) {
             state = windowState,
         ) {
             SideEffect { frame = window }
-            App(filePicker = DesktopFilePicker(), notifier = notifier)
+            val texts = rememberTexts()
+            val filePicker = remember(texts) { DesktopFilePicker(texts) }
+            App(filePicker = filePicker, notifier = notifier)
         }
     }
 }
@@ -94,9 +97,9 @@ private object VoltDot : Painter() {
     }
 }
 
-internal class DesktopFilePicker : CsvFilePicker {
+internal class DesktopFilePicker(private val texts: Texts) : CsvFilePicker {
     override fun pick(onResult: (List<PickedFile>) -> Unit) {
-        val dialog = FileDialog(null as Frame?, runBlocking { getString(Res.string.choose_csv_exports) }, FileDialog.LOAD)
+        val dialog = FileDialog(null as Frame?, runBlocking { texts.get(Res.string.choose_csv_exports) }, FileDialog.LOAD)
         dialog.setFilenameFilter { _, name -> name.endsWith(".csv", ignoreCase = true) }
         dialog.isMultipleMode = true
         dialog.isVisible = true

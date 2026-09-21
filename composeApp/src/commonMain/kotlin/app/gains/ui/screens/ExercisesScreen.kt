@@ -72,10 +72,10 @@ internal data class ExerciseRow(
 
 internal data class ExercisesState(val loading: Boolean = true, val rows: List<ExerciseRow> = emptyList())
 
-internal class ExercisesModel(trainingData: TrainingData = inject(), settings: SettingsRepository = inject()) : ScreenModel() {
+internal class ExercisesModel(texts: Texts, trainingData: TrainingData = inject(), settings: SettingsRepository = inject()) : ScreenModel() {
     val state: StateFlow<ExercisesState> = combine(trainingData.snapshot, settings.observeUnit()) { s, u -> s to u }
         .mapLatest { (snapshot, unit) ->
-            val labels = resolvedUnitLabels()
+            val labels = resolvedUnitLabels(texts)
             withContext(Dispatchers.Default) {
                 val rows = snapshot.trainedExercises.map { exercise ->
                     val history = ExerciseAnalysis.history(snapshot.sessions, exercise)
@@ -83,7 +83,7 @@ internal class ExercisesModel(trainingData: TrainingData = inject(), settings: S
                     val trend = history.mapNotNull { it.best?.value }.takeLast(12)
                     ExerciseRow(
                         exercise = exercise,
-                        name = exercise.resolvedName(),
+                        name = exercise.resolvedName(texts),
                         sessions = history.size,
                         lastTrained = history.last().date,
                         bestText = best?.describe(exercise.modality, unit, labels) ?: "-",
@@ -99,7 +99,8 @@ internal class ExercisesModel(trainingData: TrainingData = inject(), settings: S
 
 @Composable
 internal fun ExercisesScreen(onOpen: (String) -> Unit) {
-    val model = rememberScreenModel { ExercisesModel() }
+    val texts = rememberTexts()
+    val model = rememberScreenModel { ExercisesModel(texts) }
     val state by model.state.collectAsState()
     var query by remember { mutableStateOf("") }
     val today = Dates.today()

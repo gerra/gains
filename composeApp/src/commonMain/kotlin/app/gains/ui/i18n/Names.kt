@@ -6,9 +6,7 @@ import app.gains.domain.Program
 import app.gains.domain.ProgramDay
 import app.gains.resources.Res
 import app.gains.resources.allStringResources
-import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.StringResource
-import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 
 /*
@@ -17,19 +15,14 @@ import org.jetbrains.compose.resources.stringResource
  * resources by a key derived from its id (`exercise_bench_press`, `program_gzclp`,
  * `program_gzclp_description`, `day_workout_a`) or, for a slot note, by its English text; a
  * custom one is shown as typed. Each name has a composable form for screens and a suspend form
- * for screen models, which live outside the composition.
+ * for screen models, which live outside the composition and read through [Texts].
  */
 
-@OptIn(ExperimentalResourceApi::class)
 private fun exerciseKey(exercise: Exercise): StringResource? = if (exercise.isBuiltIn) Res.allStringResources["exercise_${exercise.id}"] else null
-@OptIn(ExperimentalResourceApi::class)
 private fun programKey(program: Program): StringResource? = if (program.isBuiltIn) Res.allStringResources["program_${program.id}"] else null
-@OptIn(ExperimentalResourceApi::class)
 private fun programDescriptionKey(program: Program): StringResource? = if (program.isBuiltIn) Res.allStringResources["program_${program.id}_description"] else null
 /** A day of a built-in program, or a custom day that kept a built-in name; "A1"-style names have no entry and stay as they are. */
-@OptIn(ExperimentalResourceApi::class)
 private fun dayKey(day: ProgramDay): StringResource? = Res.allStringResources["day_" + day.name.lowercase().replace(' ', '_')]
-@OptIn(ExperimentalResourceApi::class)
 private fun slotNoteKey(note: String): StringResource? = SlotNoteKeys.keys[note]?.let { Res.allStringResources[it] }
 
 @Composable
@@ -47,9 +40,9 @@ internal fun ProgramDay.displayName(): String = dayKey(this)?.let { stringResour
 @Composable
 internal fun slotNoteText(note: String): String = slotNoteKey(note)?.let { stringResource(it) } ?: note
 
-internal suspend fun Exercise.resolvedName(): String = exerciseKey(this)?.let { getString(it) } ?: name
-internal suspend fun Program.resolvedName(): String = programKey(this)?.let { getString(it) } ?: name
-internal suspend fun ProgramDay.resolvedName(): String = dayKey(this)?.let { getString(it) } ?: name
+internal suspend fun Exercise.resolvedName(texts: Texts): String = exerciseKey(this)?.let { texts.get(it) } ?: name
+internal suspend fun Program.resolvedName(texts: Texts): String = programKey(this)?.let { texts.get(it) } ?: name
+internal suspend fun ProgramDay.resolvedName(texts: Texts): String = dayKey(this)?.let { texts.get(it) } ?: name
 
 /** The slot notes of the built-in programs by their English text, which a duplicated program carries with it. */
 internal object SlotNoteKeys {

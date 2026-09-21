@@ -86,6 +86,7 @@ internal data class SettingsState(
 private data class Prefs(val unit: WeightUnit, val theme: ThemeMode, val account: Account?, val autoWarmups: Boolean, val barWeightKg: Double)
 
 internal class SettingsModel(
+    texts: Texts,
     private val settings: SettingsRepository = inject(),
     private val accounts: AccountRepository = inject(),
     val authConfig: AuthConfig = inject(),
@@ -100,7 +101,7 @@ internal class SettingsModel(
     ) { prefs, snapshot, aliases, overrides, programState ->
         SettingsState(
             profile = programState.profile,
-            activeProgramName = programState.active?.resolvedName(),
+            activeProgramName = programState.active?.resolvedName(texts),
             account = prefs.account,
             unit = prefs.unit,
             theme = prefs.theme,
@@ -136,7 +137,8 @@ internal class SettingsModel(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}) {
-    val model = rememberScreenModel { SettingsModel() }
+    val texts = rememberTexts()
+    val model = rememberScreenModel { SettingsModel(texts) }
     val state by model.state.collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }
     val palette = GainsColors.palette

@@ -59,7 +59,6 @@ import app.gains.ui.components.SectionHeader
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.i18n.*
-import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
@@ -157,6 +156,8 @@ internal data class ProgramEditorState(
 
 internal class ProgramEditorModel(
     private val programId: String?,
+    /** Names new days ("Day 1"). */
+    private val texts: Texts,
     private val programs: ProgramRepository = inject(),
     private val exercises: ExerciseRepository = inject(),
     trainingData: TrainingData = inject(),
@@ -172,7 +173,7 @@ internal class ProgramEditorModel(
             val base = ProgramEditorState(
                 loading = false, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12), profile = programState.profile,
             )
-            _state.value = if (existing == null) base.copy(days = listOf(DayDraft(ProgramRepository.newDayId("new", 0), getString(Res.string.day_n, 1), emptyList())))
+            _state.value = if (existing == null) base.copy(days = listOf(DayDraft(ProgramRepository.newDayId("new", 0), texts.get(Res.string.day_n, 1), emptyList())))
             else base.copy(
                 id = existing.id, name = existing.name, description = existing.description,
                 days = existing.days.map { d -> DayDraft(d.id, d.name, d.slots.mapNotNull { s -> snapshot.exercisesById[s.exerciseId]?.let { SlotDraft.from(s, it) } }) },
@@ -187,7 +188,7 @@ internal class ProgramEditorModel(
     fun setDescription(v: String) = update { it.copy(description = v) }
     fun addDay() {
         scope.launch {
-            val name = getString(Res.string.day_n, _state.value.days.size + 1)
+            val name = texts.get(Res.string.day_n, _state.value.days.size + 1)
             update { s -> s.copy(days = s.days + DayDraft(ProgramRepository.newDayId(s.id ?: "new", s.days.size), name, emptyList())) }
         }
     }
@@ -229,7 +230,7 @@ internal class ProgramEditorModel(
         val id = s.id ?: ProgramRepository.newProgramId()
         val days = ArrayList<ProgramDay>()
         for ((di, day) in s.days.withIndex()) {
-            val dayName = day.name.trim().ifBlank { getString(Res.string.day_n, di + 1) }
+            val dayName = day.name.trim().ifBlank { texts.get(Res.string.day_n, di + 1) }
             if (day.slots.isEmpty()) { update { it.copy(error = EditorError.DayWithoutExercises(dayName)) }; return }
             val slots = ArrayList<ExerciseSlot>()
             for (slot in day.slots) {
@@ -253,7 +254,8 @@ internal class ProgramEditorModel(
 
 @Composable
 internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
-    val model = rememberScreenModel(programId) { ProgramEditorModel(programId) }
+    val texts = rememberTexts()
+    val model = rememberScreenModel(programId) { ProgramEditorModel(programId, texts) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerFor by remember { mutableStateOf<Int?>(null) }

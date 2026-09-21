@@ -455,8 +455,8 @@ Every sentence, label and unit the app shows is a string resource:
 [`composeApp/src/commonMain/composeResources/values/strings.xml`](composeApp/src/commonMain/composeResources/values/strings.xml)
 is the English reference and `values-ru/strings.xml` the Russian, with plurals (`<plurals>`)
 and month and day names (`<string-array>`) alongside the plain strings. Screens read them
-with `stringResource`; screen models, which live outside the composition, with the suspending
-`getString`. The shared module knows no language: the insight engine, the progression hints,
+with `stringResource`; screen models, which live outside the composition, through `Texts`,
+which carries the composition's resource environment to them. The shared module knows no language: the insight engine, the progression hints,
 the day planner and the CSV parser return structured values (`InsightDetail`,
 `Progression.Hint`, `CsvProblem`) and the UI words them in
 [`composeApp/src/commonMain/kotlin/app/gains/ui/i18n/`](composeApp/src/commonMain/kotlin/app/gains/ui/i18n).

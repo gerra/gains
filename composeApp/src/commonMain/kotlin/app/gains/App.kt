@@ -157,9 +157,10 @@ internal fun App(
     // null = not read yet; false = the goal questions have never been answered or skipped.
     val onboardingDone by programs.observeOnboardingDone().collectAsState(initial = null)
     // The active program's next day, for the "+" menu.
-    val upNext by remember {
+    val texts = rememberTexts()
+    val upNext by remember(texts) {
         combine(programs.observeState(), sessions.observeProgramLinks()) { state, links ->
-            state.active?.let { p -> Rotation.nextDay(p, links)?.let { UpNext(ProgramDayRef(p.id, it.id), it.resolvedName()) } }
+            state.active?.let { p -> Rotation.nextDay(p, links)?.let { UpNext(ProgramDayRef(p.id, it.id), it.resolvedName(texts)) } }
         }
     }.collectAsState(initial = null)
     // The workout in progress, if any: shown as a resume bar on every screen but its own.
