@@ -383,17 +383,31 @@ internal data class WheelWeight(val whole: Int, val quarters: Int) {
 
         /** Plate jumps for the quick buttons: a small and a large step either way. */
         fun steps(unit: WeightUnit): List<Double> = if (unit == WeightUnit.KG) listOf(-5.0, -2.5, 2.5, 5.0) else listOf(-10.0, -5.0, 5.0, 10.0)
+
+        /** The finer jumps a body weight moves by day to day. */
+        fun bodyweightSteps(unit: WeightUnit): List<Double> = if (unit == WeightUnit.KG) listOf(-1.0, -0.5, 0.5, 1.0) else listOf(-2.0, -1.0, 1.0, 2.0)
     }
 }
 
 private val QuarterLabels = listOf(".00", ".25", ".50", ".75")
 
 /**
- * Whole units and quarters on two wheels, as Health enters a body weight, with plate-jump buttons
- * for the usual step between sets. [value] is the row's text and [onPick] receives the new text.
+ * Whole units and quarters on two wheels, as Health enters a body weight, with jump buttons for
+ * the usual step. [value] is the row's text and [onPick] receives the new text. Set weights can be
+ * [clearable] to "no added weight" and jump by plate sizes; a body weight cannot, and jumps by
+ * smaller [steps].
  */
 @Composable
-internal fun WeightPickerSheet(value: String, unit: WeightUnit, title: String, subtitle: String?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun WeightPickerSheet(
+    value: String,
+    unit: WeightUnit,
+    title: String,
+    subtitle: String?,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+    clearable: Boolean = true,
+    steps: List<Double> = WheelWeight.steps(unit),
+) {
     val palette = GainsColors.palette
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val weight = WheelWeight.parse(value)
@@ -401,10 +415,10 @@ internal fun WeightPickerSheet(value: String, unit: WeightUnit, title: String, s
     val wholeLabels = remember(max) { List(max + 1) { it.toString() } }
     PickerSheet(
         title, onDismiss = onDismiss, subtitle = subtitle,
-        trailing = { TextButton(onClick = { onPick("") }) { Text("No weight", color = muted) } },
+        trailing = if (clearable) ({ TextButton(onClick = { onPick("") }) { Text("No weight", color = muted) } }) else null,
     ) {
         Text(
-            if (weight.value == 0.0) "No weight" else Format.number(weight.value, 2) + " " + unit.label,
+            if (weight.value == 0.0) (if (clearable) "No weight" else "—") else Format.number(weight.value, 2) + " " + unit.label,
             style = MaterialTheme.typography.displaySmall, color = palette.volt, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(12.dp))
@@ -418,7 +432,7 @@ internal fun WeightPickerSheet(value: String, unit: WeightUnit, title: String, s
         }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
-            for (step in WheelWeight.steps(unit)) {
+            for (step in steps) {
                 StepChip((if (step < 0) "−" else "+") + Format.number(abs(step), 2)) { onPick(weight.plus(step, max).text) }
             }
         }
