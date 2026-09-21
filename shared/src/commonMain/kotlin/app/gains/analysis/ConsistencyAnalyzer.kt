@@ -1,6 +1,5 @@
 package app.gains.analysis
 
-import app.gains.analysis.Dates.minusDays
 import app.gains.domain.Session
 import kotlinx.datetime.LocalDate
 
@@ -25,18 +24,4 @@ object ConsistencyAnalyzer {
 
     /** Sessions per calendar day, for the heat-map. */
     fun perDay(sessions: List<Session>): Map<LocalDate, Int> = sessions.groupingBy { it.date }.eachCount()
-
-    /** Number of consecutive weeks up to [today] with at least one session. */
-    fun currentStreakWeeks(sessions: List<Session>, today: LocalDate): Int {
-        val weeks = sessions.map { Dates.weekStart(it.date) }.toSet()
-        var streak = 0
-        var week = Dates.weekStart(today)
-        // The current week counts only if it already has a session; otherwise start from last week.
-        if (week !in weeks) week = week.minusDays(7)
-        while (week in weeks) {
-            streak++
-            week = week.minusDays(7)
-        }
-        return streak
-    }
 }

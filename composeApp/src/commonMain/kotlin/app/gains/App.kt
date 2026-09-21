@@ -61,7 +61,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.gains.analysis.Dates
 import app.gains.analysis.Format
+import app.gains.analysis.StreakEngine
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.i18n.*
@@ -81,12 +83,17 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import app.gains.data.ThemeMode
 import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.LiveSessionNotice
 import app.gains.platform.LiveSessionNotifier
+import app.gains.platform.Nudge
+import app.gains.platform.NudgeScheduler
 import app.gains.platform.ResumeRequests
 import app.gains.platform.SkipRestRequests
 import app.gains.ui.components.GainsWordmark
@@ -127,6 +134,10 @@ import app.gains.ui.theme.GainsTheme
  * [notifier] is told about the workout in progress, so the platform can keep a way back to it in
  * its tray while the lifter is elsewhere; a tap there comes back through [ResumeRequests].
  *
+ * [nudges] holds the streak reminders the platform is to deliver while the app is not running. The
+ * whole plan is handed over again every time the streak changes, so it can never fall behind what
+ * has actually been logged.
+ *
  * Everything on screen is in the device's language, through the string resources: a change of
  * language takes a relaunch.
  */
@@ -135,6 +146,7 @@ internal fun App(
     filePicker: CsvFilePicker,
     systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> },
     notifier: LiveSessionNotifier = LiveSessionNotifier.None,
+    nudges: NudgeScheduler = NudgeScheduler.None,
 ) {
     // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
     // while the entry lives, so a screen comes back as it was left once the one covering it is popped.
@@ -179,6 +191,26 @@ internal fun App(
                     delay(restEnds - nowMs())
                 }
                 notifier.update(notice?.copy(restEndsAtMs = null))
+            }
+    }
+    // The streak reminder. Nothing is scheduled until the lifter has asked for it, and nothing is
+    // scheduled in a week they have already trained: the plan comes back empty and cancels itself.
+    LaunchedEffect(texts) {
+        combine(sessions.observeSessionTimes(), programs.observeState(), settings.observeStreakReminder()) { times, programState, on ->
+            if (on != true) emptyList() else {
+                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                val streak = StreakEngine.computeAt(times, now.date, programState.weeklyGoal)
+                StreakEngine.plan(streak, now, StreakEngine.usualHourAt(times))
+            }
+        }
+            .distinctUntilChanged()
+            .collectLatest { planned ->
+                nudges.schedule(
+                    planned.map { nudge ->
+                        val (title, body) = nudgeWords(texts, nudge)
+                        Nudge(nudge.id, Dates.epochMs(nudge.at), title, body)
+                    },
+                )
             }
     }
     // A tap on that notice: open the running workout once the database has said there is one.
@@ -283,6 +315,7 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
                 onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
                 onOpenSession = { navigator.push(Screen.EditSession(it)) },
                 onOpenVolume = { navigator.switchTab(Tab.VOLUME) },
+                onOpenHistory = { navigator.switchTab(Tab.HISTORY) },
                 onOpenOnboarding = { navigator.push(Screen.Onboarding) },
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenProgram = { navigator.push(Screen.ProgramDetail(it)) },

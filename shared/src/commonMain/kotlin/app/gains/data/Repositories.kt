@@ -83,6 +83,11 @@ class SessionRepository(
         }
     }.flowOn(io)
 
+    /** When each session happened, and nothing else: what the streak and its reminder run on. */
+    fun observeSessionTimes(): Flow<List<LocalDateTime>> = q.selectSessions().asFlow().mapToList(io).map { rows ->
+        rows.map { LocalDateTime.parse(it.timestamp) }
+    }.flowOn(io)
+
     /** Sessions started from a program day, oldest first. Cheap: no sets are loaded. */
     fun observeProgramLinks(): Flow<List<ProgramLink>> = q.selectProgramSessions().asFlow().mapToList(io).map { rows ->
         rows.mapNotNull { r -> programRef(r.program_id, r.program_day_id)?.let { ProgramLink(r.id, LocalDateTime.parse(r.timestamp), it) } }
@@ -317,11 +322,23 @@ class SettingsRepository(
 
     suspend fun setAutoWarmups(on: Boolean) = withContext(io) { q.upsert(KEY_AUTO_WARMUPS, if (on) "1" else "0") }
 
+    /**
+     * Whether the streak reminder may be sent. Null until the lifter has answered either way, which
+     * keeps the app quiet — and, on iOS, keeps the system's permission prompt away — until they ask
+     * for it. Off is the answer until then.
+     */
+    fun observeStreakReminder(): Flow<Boolean?> = q.selectValue(KEY_STREAK_REMINDER).asFlow().map { query ->
+        query.executeAsOneOrNull()?.let { it == "1" }
+    }.flowOn(io)
+
+    suspend fun setStreakReminder(on: Boolean) = withContext(io) { q.upsert(KEY_STREAK_REMINDER, if (on) "1" else "0") }
+
     companion object {
         const val KEY_UNIT = "weight_unit"
         const val KEY_THEME = "theme_mode"
         const val KEY_BAR_WEIGHT = "bar_weight_kg"
         const val KEY_AUTO_WARMUPS = "auto_warmups"
+        const val KEY_STREAK_REMINDER = "streak_reminder"
     }
 }
 

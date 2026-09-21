@@ -99,6 +99,31 @@
     <string name="trend_down">Down</string>
     <string name="trend_steady">Steady</string>
     <string name="streak">Streak</string>
+    <!-- Streak: the card on Home, the reminder, and the words for what is at stake. -->
+    <string name="streak_personal_best">Personal best</string>
+    <string name="streak_best">Best %1$s</string>
+    <string name="streak_milestone">Milestone</string>
+    <string name="streak_goal_progress">%1$d of %2$d this week</string>
+    <string name="streak_none">Train this week to start a streak.</string>
+    <string name="streak_full_week">Full week done. The streak is safe.</string>
+    <string name="streak_safe">The streak is safe. %1$s to a full week.</string>
+    <string name="streak_days_left">%1$s left to keep the streak.</string>
+    <string name="streak_days_left_rest">%1$s left, then a rest week covers it.</string>
+    <string name="streak_last_day">Last day to keep the streak.</string>
+    <string name="streak_last_day_rest">Last day, then a rest week covers it.</string>
+    <string name="streak_rest_week_used">A rest week covered last week; the run held.</string>
+    <string name="streak_rest_in_hand">%1$s in hand</string>
+    <string name="streak_remind_me">Remind me</string>
+    <string name="streak_reminder">Streak reminder</string>
+    <string name="streak_reminder_note">At most two a week, only in a week with nothing logged, around %1$s — the hour you usually train. Once you have trained, nothing is sent.</string>
+    <string name="streak_reminder_note_off">Off. Nothing is sent about the streak.</string>
+    <string name="rest_week_day">%1$s, rest week</string>
+    <string name="nudge_keep_title">Two days to keep the streak</string>
+    <string name="nudge_keep_body">%1$s so far. One session before Sunday night keeps it going.</string>
+    <string name="nudge_keep_rest_body">%1$s so far. Miss this week and it spends one of your rest weeks.</string>
+    <string name="nudge_last_title">Last day of the week</string>
+    <string name="nudge_last_body">%1$s so far, nothing logged this week. One session today keeps it.</string>
+    <string name="nudge_last_rest_body">%1$s so far, nothing logged this week. Skip it and a rest week covers you.</string>
     <string name="last26_weeks">Last 26 weeks</string>
     <string name="tap_a_day_to_open">Tap a day to open it</string>
     <string name="sessions_per_week">Sessions per week</string>
@@ -944,9 +969,17 @@
         <item quantity="one">%1$d day a week</item>
         <item quantity="other">%1$d days a week</item>
     </plurals>
-    <plurals name="week_streak">
-        <item quantity="one">%1$d wk streak</item>
-        <item quantity="other">%1$d wks streak</item>
+    <plurals name="week_streak_label">
+        <item quantity="one">week streak</item>
+        <item quantity="other">week streak</item>
+    </plurals>
+    <plurals name="days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="rest_weeks">
+        <item quantity="one">%1$d rest week</item>
+        <item quantity="other">%1$d rest weeks</item>
     </plurals>
     <plurals name="week_word">
         <item quantity="one">week</item>

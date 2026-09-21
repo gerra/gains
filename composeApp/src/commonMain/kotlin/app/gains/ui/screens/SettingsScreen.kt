@@ -26,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.gains.analysis.Format
+import app.gains.analysis.StreakEngine
 import app.gains.analysis.TrainingData
 import app.gains.auth.Account
 import app.gains.auth.AccountRepository
@@ -41,7 +43,6 @@ import app.gains.domain.Goal
 import app.gains.domain.GoalProfile
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
-import app.gains.analysis.Format
 import app.gains.program.Gzclp
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
@@ -80,6 +81,10 @@ internal data class SettingsState(
     /** Program days pre-fill warm-up sets. */
     val autoWarmups: Boolean = true,
     val barWeightKg: Double = Gzclp.DEFAULT_BAR_KG,
+    /** The streak reminder may be sent. Off until asked for. */
+    val streakReminder: Boolean = false,
+    /** The hour it would arrive at: the one they usually train. */
+    val reminderHour: Int = StreakEngine.REMINDER_HOURS.first,
 )
 
 /** The plain preferences, combined first because combine takes five flows at most. */
@@ -97,9 +102,12 @@ internal class SettingsModel(
 ) : ScreenModel() {
     val state: StateFlow<SettingsState> = combine(
         combine(settings.observeUnit(), settings.observeThemeMode(), accounts.observeAccount(), settings.observeAutoWarmups(), settings.observeBarWeightKg()) { u, t, a, w, b -> Prefs(u, t, a, w, b) },
-        trainingData.snapshot, exercises.observeAliases(), exercises.observeWorkingSetRatios(), programs.observeState(),
-    ) { prefs, snapshot, aliases, overrides, programState ->
+        combine(trainingData.snapshot, settings.observeStreakReminder()) { snapshot, reminder -> snapshot to reminder },
+        exercises.observeAliases(), exercises.observeWorkingSetRatios(), programs.observeState(),
+    ) { prefs, (snapshot, reminder), aliases, overrides, programState ->
         SettingsState(
+            streakReminder = reminder == true,
+            reminderHour = StreakEngine.usualHour(snapshot.sessions),
             profile = programState.profile,
             activeProgramName = programState.active?.resolvedName(texts),
             account = prefs.account,
@@ -118,6 +126,7 @@ internal class SettingsModel(
     fun setUnit(unit: WeightUnit) { scope.launch { settings.setUnit(unit) } }
     fun setTheme(mode: ThemeMode) { scope.launch { settings.setThemeMode(mode) } }
     fun setAutoWarmups(on: Boolean) { scope.launch { settings.setAutoWarmups(on) } }
+    fun setStreakReminder(on: Boolean) { scope.launch { settings.setStreakReminder(on) } }
     fun setBarWeightKg(kg: Double) { scope.launch { settings.setBarWeightKg(kg) } }
     fun signOut() { scope.launch { accounts.signOut() } }
     fun merge(custom: Exercise, into: Exercise) { scope.launch { exercises.merge(custom.id, into.id, custom.name) } }
@@ -203,6 +212,18 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                 ChipRow(WeightUnit.entries, state.unit, { it.label() }, { model.setUnit(it) })
                 Spacer(Modifier.height(10.dp))
                 Text(stringResource(Res.string.units_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            SectionHeader(stringResource(Res.string.streak_reminder))
+            GainsCard(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(Res.string.streak_reminder), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    ChipRow(listOf(true, false), state.streakReminder, { if (it) stringResource(Res.string.on) else stringResource(Res.string.off) }, { model.setStreakReminder(it) })
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    if (state.streakReminder) stringResource(Res.string.streak_reminder_note, clockHour(state.reminderHour)) else stringResource(Res.string.streak_reminder_note_off),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             SectionHeader(stringResource(Res.string.warm_ups))
             GainsCard(Modifier.fillMaxWidth()) {

@@ -120,7 +120,7 @@ class AnalyzersTest {
         val weeks = ConsistencyAnalyzer.sessionsPerWeek(sessions, today)
         assertEquals(listOf(2, 0, 1, 1), weeks.map { it.sessions })
         assertEquals(1.0, weeks.last().rollingAverage)
-        assertEquals(2, ConsistencyAnalyzer.currentStreakWeeks(sessions, today))
+        assertEquals(2, StreakEngine.compute(sessions, today).weeks)
     }
 
     @Test

@@ -2,11 +2,13 @@ package app.gains.analysis
 
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 
@@ -17,6 +19,9 @@ object Dates {
     fun weekStart(date: LocalDate): LocalDate = date.minus(date.dayOfWeek.isoDayNumber - 1, DateTimeUnit.DAY)
 
     fun daysBetween(from: LocalDate, to: LocalDate): Int = from.daysUntil(to)
+
+    /** A local moment as epoch milliseconds in the device's zone: what the platforms schedule against. */
+    fun epochMs(at: LocalDateTime): Long = at.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds()
 
     fun LocalDate.plusDays(days: Int): LocalDate = this.plus(days, DateTimeUnit.DAY)
     fun LocalDate.minusDays(days: Int): LocalDate = this.minus(days, DateTimeUnit.DAY)

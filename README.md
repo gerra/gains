@@ -26,6 +26,7 @@
   <a href="#testflight">TestFlight</a> ·
   <a href="#importing-your-history">Importing</a> ·
   <a href="#insights">Insights</a> ·
+  <a href="#streaks-and-the-nudge">Streaks</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#contributing">Contributing</a>
 </p>
@@ -69,6 +70,7 @@ device today.
   - [Supported exports](#supported-exports)
   - [What happens to a file](#what-happens-to-a-file)
 - [Insights](#insights)
+- [Streaks and the nudge](#streaks-and-the-nudge)
 - [Architecture](#architecture)
 - [Development](#development)
 - [Roadmap](#roadmap)
@@ -134,6 +136,15 @@ device today.
 - **Honest insights.** Six rules, each a pure function with tunable thresholds, report
   progress, regressions, stalls, neglected lifts, neglected muscle groups and consistency.
   Nothing is reported without the sessions to back it up.
+- **A week streak that survives a rest week.** The streak counts consecutive *weeks* with at least
+  one session, not days — a training log that asked for a session every day would be asking for
+  something no program wants. Home leads with it: the number, the week Monday to Sunday with the
+  days trained filled and today ringed, your sessions against your own days-a-week target, and one
+  plain sentence about what is actually at stake. Every four weeks kept banks a **rest week**, two
+  at most; a missed week spends one instead of ending the run, silently, and the calendar shows it
+  afterwards. Miss a whole week with none banked and the run ends — there is no way to buy it back.
+  Nothing on the card moves except the ring around today, and only on the two days it means
+  something. See [Streaks and the nudge](#streaks-and-the-nudge).
 - **Per-lift analysis.** Estimated 1RM (Epley) over working sets, top set weight, volume per
   session and best set per session, over 3-month, 6-month, 1-year or all-time windows.
 - **Weekly volume by muscle group.** Working sets per week with primary and secondary credit,
@@ -370,6 +381,41 @@ drawing is coarser than the 17 groups in a few places: its one deltoid per view 
 and side delts on the front, rear and side delts on the back; abs and obliques together are core;
 adductors and tibialis are drawn but not tracked.
 
+## Streaks and the nudge
+
+The whole streak is one forward pass over the session history in
+[`StreakEngine.kt`](shared/src/commonMain/kotlin/app/gains/analysis/StreakEngine.kt). Nothing is
+stored: importing ten years of history, editing a session's date or deleting one all give the streak
+that history deserves, with no state to migrate and nothing that can drift out of step with what is
+actually logged.
+
+| Rule | |
+|------|--|
+| **Week** | ISO Monday to Sunday. |
+| **Kept** | At least one session in the week. The week still running is pending, neither kept nor missed. |
+| **Rest week** | One banked per 4 kept weeks, 2 at most. A missed week spends one: the run holds but does not advance, because a week off is not a week trained. A broken run clears the bank. |
+| **Goal** | The active program's days a week, else the onboarding answer, else 3. It fills the week ring and is never what breaks a streak. |
+| **Milestones** | 4, 8, 12, 26, 52 and 104 weeks, then yearly — rare enough that each one registers. |
+
+The reminder is the part most apps get wrong, so it is deliberately quiet. It is **off until asked
+for**: the card offers it once there are two weeks to protect, and turning it on is what brings up
+the system's permission prompt, at a moment the lifter chose. After that:
+
+- Nothing is sent in a week that already has a session in it. Training is the off switch.
+- At most two go out in a week that does not: one on Saturday, one on Sunday.
+- They arrive at the hour you usually train — the most common start hour of your last 30 sessions,
+  kept between 09:00 and 20:00 — not at an hour the app picked.
+- With a rest week banked, the reminder says a rest week is what a miss would cost, because that is
+  what is true. The wording never claims the run is about to end when it is not; there is a test
+  that says so.
+
+The words are worked out when the plan is made, by the shared code that knows both the streak and
+the device's language, and handed to the platform finished: by the time one is shown the app may be
+asleep, killed, or on a device that has rebooted since. iOS holds them as scheduled
+`UNNotificationRequest`s, Android as inexact `AlarmManager` alarms restored after a reboot, and the
+desktop has nowhere to put one. Every plan replaces the last one whole, so saving a workout on
+Saturday morning takes the evening's reminder down before it is ever shown.
+
 ## Architecture
 
 ```mermaid
@@ -385,6 +431,7 @@ flowchart LR
     P --> A[Import analyzer<br/>dedupe · outliers · warm-ups]
     A --> DB[(SQLDelight<br/>SQLite)]
     DB --> E[Insight engine<br/>volume · consistency · e1RM]
+    DB --> ST[Streak engine<br/>run · rest weeks · reminders]
     PC[Program catalogue] --> PR[Programs<br/>rotation · progression]
     DB --> PR
   end
@@ -394,13 +441,15 @@ flowchart LR
   PR --> UI
   L & S & H & C --> R
   E --> UI
+  ST --> UI
+  UI -->|schedule reminders| N[Local notifications]
   UI -->|log / edit| DB
   UI --- iOS & Android & Desktop
 ```
 
 | Module | Contents |
 |--------|----------|
-| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence (including the workout in progress), insight engine, program rotation and progression logic. Pure Kotlin, no UI, 100+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
+| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence (including the workout in progress), insight engine, streak engine, program rotation and progression logic. Pure Kotlin, no UI, 100+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
 | [`composeApp/`](composeApp) | Compose Multiplatform UI (goal onboarding, home insights with the next program day, programs and a program editor, history with a workout editor, import preview, lifts, volume, bodyweight, settings), Canvas charts and the Android, iOS and desktop entry points. |
 | [`iosApp/`](iosApp) | Xcode project wrapping the `ComposeApp` framework in SwiftUI. |
 | [`samples/`](samples) | A generated eight-month Liftoff export used by the screenshots and handy for trying the app. |

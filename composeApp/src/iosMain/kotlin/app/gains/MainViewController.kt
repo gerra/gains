@@ -35,7 +35,7 @@ fun MainViewController(): UIViewController {
         initKoin(module { single<DatabaseDriverFactory> { IosDriverFactory() } })
         koinStarted = true
     }
-    return ComposeUIViewController { App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier) }
+    return ComposeUIViewController { App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier, nudges = IosNudgeScheduler) }
 }
 
 /**

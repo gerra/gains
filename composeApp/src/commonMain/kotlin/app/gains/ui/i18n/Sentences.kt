@@ -6,6 +6,9 @@ import app.gains.analysis.Insight
 import app.gains.analysis.InsightDetail
 import app.gains.analysis.InsightSubject
 import app.gains.analysis.Performance
+import app.gains.analysis.Streak
+import app.gains.analysis.StreakNudge
+import app.gains.analysis.StreakStatus
 import app.gains.analysis.Trend
 import app.gains.domain.Modality
 import app.gains.domain.ProgressionRule
@@ -123,3 +126,34 @@ internal fun progressionDescription(rule: ProgressionRule, unit: WeightUnit): St
 /** "30–60 s or as needed": the rest after a warm-up set. */
 @Composable
 internal fun warmupRestText(): String = restRangeText(Gzclp.WARMUP_REST) + " " + stringResource(Res.string.warm_up_rest_or_as_needed)
+
+/**
+ * The one line under the streak: what is safe, what is left, or what a missed week would cost.
+ * It follows the [Streak] and nothing else, so it can never claim a week is at risk when it is not,
+ * and it never says the run will end while a rest week would still cover it.
+ */
+@Composable
+internal fun streakLine(streak: Streak): String = when {
+    streak.status == StreakStatus.NONE -> stringResource(Res.string.streak_none)
+    streak.status == StreakStatus.SAFE && streak.fullWeek -> stringResource(Res.string.streak_full_week)
+    streak.status == StreakStatus.SAFE -> stringResource(Res.string.streak_safe, sessionsText(streak.shortOfGoal))
+    streak.daysLeftInWeek <= 1 ->
+        stringResource(if (streak.protectedByRestWeek) Res.string.streak_last_day_rest else Res.string.streak_last_day)
+    else ->
+        stringResource(if (streak.protectedByRestWeek) Res.string.streak_days_left_rest else Res.string.streak_days_left, daysText(streak.daysLeftInWeek))
+}
+
+/**
+ * The reminder's own words, read outside the composition because the platform is handed finished
+ * text to show hours later, when the app may not be running at all.
+ */
+internal suspend fun nudgeWords(texts: Texts, nudge: StreakNudge): Pair<String, String> {
+    val weeks = texts.plural(Res.plurals.weeks, nudge.streak.weeks, nudge.streak.weeks)
+    val covered = nudge.streak.protectedByRestWeek
+    return when (nudge.kind) {
+        StreakNudge.Kind.KEEP_ALIVE -> texts.get(Res.string.nudge_keep_title) to
+            texts.get(if (covered) Res.string.nudge_keep_rest_body else Res.string.nudge_keep_body, weeks)
+        StreakNudge.Kind.LAST_DAY -> texts.get(Res.string.nudge_last_title) to
+            texts.get(if (covered) Res.string.nudge_last_rest_body else Res.string.nudge_last_body, weeks)
+    }
+}
