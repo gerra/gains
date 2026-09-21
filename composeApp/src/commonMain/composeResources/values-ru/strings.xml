@@ -1053,7 +1053,6 @@
     <string name="caption_placeholder">Как прошло?</string>
     <string name="workout_photo">Фото тренировки</string>
     <string name="add_photo">Добавить фото</string>
-    <string name="change_photo">Заменить фото</string>
     <string name="remove_photo">Убрать</string>
     <string name="adding_photo">Добавляем…</string>
     <string name="summary_row">Итоги, фото и подпись</string>

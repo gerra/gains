@@ -1009,7 +1009,6 @@
     <string name="caption_placeholder">How did it go?</string>
     <string name="workout_photo">Workout photo</string>
     <string name="add_photo">Add photo</string>
-    <string name="change_photo">Change photo</string>
     <string name="remove_photo">Remove</string>
     <string name="adding_photo">Adding…</string>
     <string name="summary_row">Summary, photo and caption</string>

@@ -9,19 +9,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,7 +68,6 @@ import app.gains.ui.components.GainsCard
 import app.gains.ui.components.Meter
 import app.gains.ui.components.MetricTile
 import app.gains.ui.components.PrimaryButton
-import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
 import app.gains.ui.components.WeightPickerSheet
 import app.gains.ui.components.WheelWeight
@@ -346,53 +348,26 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
         }
         item {
             SectionHeader(stringResource(Res.string.caption_and_photo))
+            // One row, as Liftoff has it: a small picture on the left and the line about the
+            // session beside it, so the two read as one note rather than two sections.
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
-                OutlinedTextField(
-                    state.caption,
-                    model::setCaption,
-                    placeholder = { Text(stringResource(Res.string.caption_placeholder)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = fieldColors,
-                    shape = MaterialTheme.shapes.medium,
-                    minLines = 2,
-                    maxLines = 4,
-                )
-                Spacer(Modifier.height(12.dp))
-                val photo = state.photo
-                if (photo != null) {
-                    Image(
-                        photo,
-                        stringResource(Res.string.workout_photo),
-                        Modifier.fillMaxWidth().heightForPhoto().clip(MaterialTheme.shapes.large),
-                        contentScale = ContentScale.Crop,
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    PhotoThumbnail(
+                        state.photo, state.photoBusy,
+                        onPick = { picker.pick(model::setPhoto) },
+                        onRemove = { model.setPhoto(null) },
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SecondaryButton(stringResource(Res.string.change_photo), { picker.pick(model::setPhoto) }, Modifier.weight(1f))
-                        TextButton(onClick = { model.setPhoto(null) }) { Text(stringResource(Res.string.remove_photo), color = palette.coral) }
-                    }
-                } else {
-                    val addPhoto = stringResource(Res.string.add_photo)
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .heightForPhoto()
-                            .clip(MaterialTheme.shapes.large)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                            .clickable { picker.pick(model::setPhoto) }
-                            .semantics { contentDescription = addPhoto },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("＋", style = MaterialTheme.typography.headlineMedium, color = palette.volt)
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                if (state.photoBusy) stringResource(Res.string.adding_photo) else addPhoto,
-                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                    }
+                    Spacer(Modifier.width(12.dp))
+                    OutlinedTextField(
+                        state.caption,
+                        model::setCaption,
+                        placeholder = { Text(stringResource(Res.string.caption_placeholder)) },
+                        modifier = Modifier.weight(1f).height(PhotoHeight),
+                        colors = fieldColors,
+                        shape = MaterialTheme.shapes.medium,
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        maxLines = 3,
+                    )
                 }
             }
         }
@@ -411,8 +386,61 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
     )
 }
 
-/** A photo's place on the screen: wide enough to see, short enough that the rest of the summary stays in view. */
-private fun Modifier.heightForPhoto(): Modifier = this.aspectRatio(4f / 3f)
+/** A passport-sized picture: enough to recognise the session by, small enough to sit on one row. */
+private val PhotoWidth = 72.dp
+private val PhotoHeight = 92.dp
+
+/**
+ * The workout's picture beside its caption: tap it to choose or change one, and the cross in its
+ * corner to take it off again. Empty, it is the place the photo goes and says so.
+ */
+@Composable
+private fun PhotoThumbnail(photo: ImageBitmap?, busy: Boolean, onPick: () -> Unit, onRemove: () -> Unit) {
+    val palette = GainsColors.palette
+    val shape = MaterialTheme.shapes.medium
+    Box(Modifier.size(PhotoWidth, PhotoHeight)) {
+        if (photo == null) {
+            val addPhoto = stringResource(Res.string.add_photo)
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clip(shape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .clickable(onClick = onPick)
+                    .semantics { contentDescription = addPhoto },
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("＋", style = MaterialTheme.typography.titleLarge, color = palette.volt)
+                    Text(
+                        if (busy) stringResource(Res.string.adding_photo) else stringResource(Res.string.photo_pill),
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            return@Box
+        }
+        Image(
+            photo,
+            stringResource(Res.string.workout_photo),
+            Modifier.fillMaxSize().clip(shape).clickable(onClick = onPick),
+            contentScale = ContentScale.Crop,
+        )
+        val remove = stringResource(Res.string.remove_photo)
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(4.dp)
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                .clickable(onClick = onRemove)
+                .semantics { contentDescription = remove },
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Default.Close, null, tint = palette.coral, modifier = Modifier.size(14.dp)) }
+    }
+}
 
 /** "18:05" */
 private fun clockText(time: LocalTime): String =
