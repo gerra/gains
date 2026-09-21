@@ -96,6 +96,13 @@ private fun NSData.toByteArray(): ByteArray {
 }
 
 /**
+ * What the picked photo is asked for as. The UTI rather than UTTypeImage, whose binding is nullable
+ * while this never is; file scope rather than a companion, which Kotlin/Native does not allow to
+ * hold fields on a subclass of an Objective-C type.
+ */
+private const val IMAGE_UTI = "public.image"
+
+/**
  * The workout photo, from the system photo picker. It runs out of process and hands back only what
  * was chosen, so the app needs no access to the library and no permission prompt.
  */
@@ -127,14 +134,9 @@ internal class IosPhotoPicker : PhotoPicker {
 
         /** The chosen image's bytes, whatever the library holds it as; null when it cannot be read. */
         private fun load(provider: NSItemProvider, onLoaded: (ByteArray?) -> Unit) {
-            // The UTI rather than UTTypeImage: the constant is bound as nullable and this never is.
             provider.loadDataRepresentationForTypeIdentifier(IMAGE_UTI) { data: NSData?, _: NSError? ->
                 onLoaded(data?.toByteArray())
             }
-        }
-
-        private companion object {
-            const val IMAGE_UTI = "public.image"
         }
     }
 }
