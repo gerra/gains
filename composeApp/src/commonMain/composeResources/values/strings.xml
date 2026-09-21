@@ -130,6 +130,14 @@
     <string name="working_set_rule">Working-set rule</string>
     <string name="sessions_tap_to_open">Sessions · tap to open</string>
     <string name="reset_to_default">Reset to default</string>
+    <string name="how_to_do_it">How to do it</string>
+    <string name="demo_start_end">Start and end position, public-domain photos from free-exercise-db.</string>
+    <string name="demo_none">No photos for this exercise yet.</string>
+    <string name="watch_video">Watch a video</string>
+    <string name="watch_video_note">Opens a YouTube search for the exercise in your browser.</string>
+    <string name="demo_frame_start">Start</string>
+    <string name="demo_frame_end">End</string>
+    <string name="demo_of">How to do %1$s</string>
     <string name="add_exercises">Add exercises</string>
     <string name="search_or_type_new">Search or type a new exercise</string>
     <string name="clear">Clear</string>

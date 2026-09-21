@@ -149,6 +149,12 @@ device today.
   `Seated Shoulder Press` are one lift. About 180 of them were curated from the public-domain
   [free-exercise-db](https://github.com/yuhonas/free-exercise-db). Unknown names become custom
   exercises you can merge later.
+- **How to do it.** Every built-in exercise but a handful has its start and end position from
+  free-exercise-db, cross-faded into a loop on the lift's page and under **How to do it** in an
+  exercise card's menu while you train; tap the picture to freeze it. The photos ship inside the
+  app, so they work in a basement gym with no signal. Every exercise, custom ones included, also
+  has a **Watch a video** button that opens a YouTube search in the browser, the one place the
+  app reaches outside itself, and only when you tap it.
 - **Careful with bad data.** Real RFC 4180 parsing, unit conversion and rounding, warm-up
   detection, timer-default holds flagged for review, corrupt durations dropped, empty rows
   listed with a reason.
@@ -449,6 +455,15 @@ the estimated 1RM, the warm-up steps, the default bar weight and increments, and
 **Changing the schema.** Edit the `.sq` file and add a `migrations/N.sqm` with the same DDL;
 `MigrationTest` upgrades a database from the previous version and compares it with a fresh one.
 
+**Exercise photos.** `python3 tools/exercise_demos.py` (needs Pillow) matches every catalogue
+exercise to a [free-exercise-db](https://github.com/yuhonas/free-exercise-db) entry by its
+`// src:` comment, name and aliases, downloads the two photos, scales them to 480 px WebP under
+`composeApp/src/commonMain/composeResources/files/exercises/<id>/` and regenerates
+`ExerciseDemos.kt`, the table of which exercises have photos and where each came from. Pin a
+better photo set in the script's `OVERRIDES`, or list an exercise the database has no photos
+for in `SKIP`; `ExerciseDemosTest` checks the table, the files and the catalogue agree. A new
+catalogue exercise makes the script stop until it is in one of the two.
+
 ### Languages
 
 Every sentence, label and unit the app shows is a string resource:
@@ -501,6 +516,8 @@ opening a PR.
 - [kotlinx-datetime](https://github.com/Kotlin/kotlinx-datetime) for dates without tears
 - [react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter) (MIT,
   © 2022 ELABBASSI Hicham) for the body drawing behind the muscle map, ported to Compose path data
+- [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain, Unlicense) for
+  the exercise photos and for the names of about 180 catalogue exercises
 - The README layout borrows from the projects collected in [awesome-readme](https://github.com/matiassingers/awesome-readme)
 
 ## License
