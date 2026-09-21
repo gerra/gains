@@ -209,6 +209,8 @@ internal fun restRangeText(range: IntRange): String =
 /** "12 Feb". */
 @Composable internal fun dateShort(date: LocalDate): String = stringResource(Res.string.date_short, date.day, monthShort(date))
 @Composable internal fun dateShortWithYear(date: LocalDate): String = stringResource(Res.string.date_with_year, date.day, monthShort(date), date.year)
+/** "Feb 2025": a chart tick months away from its neighbours. */
+@Composable internal fun monthYear(date: LocalDate): String = stringResource(Res.string.month_year, monthShort(date), date.year)
 /** "12 Feb" in the current year, otherwise "12 Feb 2025". */
 @Composable internal fun dateContextual(date: LocalDate, today: LocalDate): String = if (date.year == today.year) dateShort(date) else dateShortWithYear(date)
 /** "Wed 17 Sep", with the year once it is not this one. */
