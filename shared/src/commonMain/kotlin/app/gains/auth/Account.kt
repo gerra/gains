@@ -29,7 +29,7 @@ data class AuthConfig(
     val syncEnabled: Boolean get() = !serverBaseUrl.isNullOrBlank()
 }
 
-class AuthNotConfiguredException(provider: AccountKind) :
+class AuthNotConfiguredException(val provider: AccountKind) :
     IllegalStateException("${provider.label} sign-in is not configured yet.")
 
 /** Persists which account the app is running under. Sign-in providers are stubs until configured. */

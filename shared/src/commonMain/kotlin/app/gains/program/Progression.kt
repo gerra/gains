@@ -9,6 +9,8 @@ import app.gains.domain.ProgressionRule
 import app.gains.domain.SetsReps
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
+import app.gains.i18n.English
+import app.gains.i18n.Strings
 
 /**
  * Turns "what you did last time" plus the slot's rule into "what to load today".
@@ -32,16 +34,16 @@ object Progression {
      * What to load today given [last], the most recent entry logged against this same slot (or one
      * with the [ExerciseSlot.sameScheme]). The rule reads it as a success or a failure of the slot's
      * prescription, so an entry from a free session or a different scheme must not be passed here:
-     * use [start] for those.
+     * use [start] for those. [strings] words the hint: English unless the UI passes its own.
      */
-    fun suggest(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit): Suggestion {
+    fun suggest(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit, strings: Strings = English): Suggestion {
         val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null, slot.target)
         val sets = last?.workingSets?.ifEmpty { last.sets }.orEmpty()
         if (sets.isEmpty()) return fallback
         val loaded = exercise.modality == Modality.WEIGHTED
         val lastWeight = sets.mapNotNull { it.weightKg }.maxOrNull()
         val reps = sets.map { it.reps ?: it.seconds ?: 0 }
-        val lastLabel = lastLabel(loaded, lastWeight, reps, unit)
+        val lastLabel = lastLabel(loaded, lastWeight, reps, unit, strings = strings)
         if (loaded && lastWeight == null) return fallback.copy(hint = lastLabel)
 
         fun bump(weight: Double?, rule: ProgressionRule): Double? {
@@ -49,7 +51,7 @@ object Progression {
             val step = rule.step(unit) ?: return weight
             return Units.roundToQuarter(Units.fromDisplay(Units.display(weight, unit) + step, unit))
         }
-        fun w(kg: Double) = Format.weight(kg, unit)
+        fun w(kg: Double) = strings.weight(kg, unit)
 
         return when (val rule = slot.progression) {
             ProgressionRule.None -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, slot.reps.prefillReps, lastLabel, slot.target)
@@ -60,9 +62,9 @@ object Progression {
                     Suggestion(null, slot.sets, slot.reps.prefillReps, lastLabel, slot.target)
                 } else if (hit) {
                     val next = bump(lastWeight, rule)!!
-                    Suggestion(next, slot.sets, slot.reps.prefillReps, "$lastLabel → try ${w(next)}", slot.target)
+                    Suggestion(next, slot.sets, slot.reps.prefillReps, strings.hintTry(lastLabel, w(next)), slot.target)
                 } else {
-                    Suggestion(lastWeight, slot.sets, slot.reps.prefillReps, "$lastLabel → repeat ${w(lastWeight)}", slot.target)
+                    Suggestion(lastWeight, slot.sets, slot.reps.prefillReps, strings.hintRepeat(lastLabel, w(lastWeight)), slot.target)
                 }
             }
 
@@ -70,15 +72,15 @@ object Progression {
                 val hit = sets.size >= slot.sets && reps.all { it >= rule.max }
                 val moveUp = rule.stepKg <= 0.0
                 when {
-                    hit && moveUp -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, rule.min, "$lastLabel → all sets at ${rule.max}: move to the next progression", slot.target)
+                    hit && moveUp -> Suggestion(lastWeight.takeIf { loaded }, slot.sets, rule.min, strings.hintMoveOn(lastLabel, rule.max), slot.target)
                     hit && loaded && lastWeight != null -> {
                         val next = bump(lastWeight, rule)!!
-                        Suggestion(next, slot.sets, rule.min, "$lastLabel → try ${w(next)} × ${rule.min}", slot.target)
+                        Suggestion(next, slot.sets, rule.min, strings.hintTryReps(lastLabel, w(next), rule.min), slot.target)
                     }
                     else -> {
                         val target = (reps.minOrNull()!! + 1).coerceIn(rule.min, rule.max)
                         val weightText = if (loaded && lastWeight != null) "${w(lastWeight)} × " else ""
-                        Suggestion(lastWeight.takeIf { loaded }, slot.sets, target, "$lastLabel → $weightText$target", slot.target)
+                        Suggestion(lastWeight.takeIf { loaded }, slot.sets, target, strings.hintTarget(lastLabel, weightText, target), slot.target)
                     }
                 }
             }
@@ -92,23 +94,23 @@ object Progression {
                     !loaded || lastWeight == null -> Suggestion(null, stage.sets, stage.reps.prefillReps, lastLabel, stage)
                     success -> {
                         val next = bump(lastWeight, rule)!!
-                        Suggestion(next, stage.sets, stage.reps.prefillReps, "$lastLabel → try ${w(next)}, ${stage.label}", stage)
+                        Suggestion(next, stage.sets, stage.reps.prefillReps, strings.hintTryStage(lastLabel, w(next), stage.label), stage)
                     }
                     stageIndex + 1 < stages.size -> {
                         val nextStage = stages[stageIndex + 1]
-                        Suggestion(lastWeight, nextStage.sets, nextStage.reps.prefillReps, "$lastLabel → missed reps: ${nextStage.label} at ${w(lastWeight)}", nextStage)
+                        Suggestion(lastWeight, nextStage.sets, nextStage.reps.prefillReps, strings.hintMissed(lastLabel, nextStage.label, w(lastWeight)), nextStage)
                     }
                     else -> {
                         val reset = resetWeight(lastWeight, rule, unit)
                         val first = stages.first()
-                        Suggestion(reset, first.sets, first.reps.prefillReps, "$lastLabel → cycle done: reset to ${w(reset)} and restart ${first.label}", first)
+                        Suggestion(reset, first.sets, first.reps.prefillReps, strings.hintReset(lastLabel, w(reset), first.label), first)
                     }
                 }
             }
         }
     }
 
-    /** Where a borrowed starting weight came from, for the hint. */
+    /** Where a borrowed starting weight came from, for the hint. [label] is English; the UI shows `Strings.progressionSource`. */
     enum class Source(val label: String) {
         /** A workout logged without a program day. */
         FREE_SESSION("free session"),
@@ -128,7 +130,7 @@ object Progression {
      * [Gzclp.estimate]). 50 kg × 6, 8, 9 becomes "T2 start 40 kg", not "3 × 10 at 50 kg". Slots
      * with no tier keep the last weight as before. The hint spells out the reasoning.
      */
-    fun start(slot: ExerciseSlot, exercise: Exercise, recent: List<ExerciseEntry>, unit: WeightUnit, source: Source = Source.FREE_SESSION): Suggestion {
+    fun start(slot: ExerciseSlot, exercise: Exercise, recent: List<ExerciseEntry>, unit: WeightUnit, source: Source = Source.FREE_SESSION, strings: Strings = English): Suggestion {
         val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null, slot.target)
         val last = recent.firstOrNull() ?: return fallback
         val sets = last.workingSets.ifEmpty { last.sets }
@@ -137,7 +139,7 @@ object Progression {
         val bodyweight = exercise.modality == Modality.BODYWEIGHT
         val lastWeight = sets.mapNotNull { it.weightKg }.maxOrNull()
         val reps = sets.map { it.reps ?: it.seconds ?: 0 }
-        val lastLabel = lastLabel(loaded, lastWeight, reps, unit, addedLoad = bodyweight)
+        val lastLabel = lastLabel(loaded, lastWeight, reps, unit, addedLoad = bodyweight, strings = strings)
 
         val tier = Gzclp.tierOf(slot)
         if (tier != null && (loaded || bodyweight)) {
@@ -145,49 +147,48 @@ object Progression {
             val estimate = Gzclp.estimate(tier, pool, slot.reps.prefillReps, Gzclp.increment(slot, unit), unit)
             if (estimate != null) {
                 val plus = if (bodyweight) "+" else ""
-                val startText = estimate.startKg?.let { plus + Format.weight(it, unit) }
-                    ?: if (bodyweight) "with no added load" else "as light as you can load"
-                val cap = estimate.cappedBelowKg?.let { " (kept under $plus${Format.weight(it, unit)})" } ?: ""
-                val hint = "$lastLabel → est. 1RM ~$plus${Format.weight(estimate.e1rmKg, unit, 0)} → ${tier.label} start $startText$cap"
+                val startText = estimate.startKg?.let { plus + strings.weight(it, unit) }
+                    ?: if (bodyweight) strings.withNoAddedLoad else strings.asLightAsYouCanLoad
+                val cap = estimate.cappedBelowKg?.let { strings.capKeptUnder(plus + strings.weight(it, unit)) } ?: ""
+                val hint = strings.hintEstimate(lastLabel, plus + strings.weight(estimate.e1rmKg, unit, 0), tier.label, startText, cap)
                 return Suggestion(estimate.startKg, slot.sets, slot.reps.prefillReps, hint, slot.target)
             }
         }
 
         val weight = lastWeight.takeIf { loaded }
-        val at = weight?.let { " at ${Format.weight(it, unit)}" } ?: ""
-        val hint = "$lastLabel (${source.label}) → start ${slot.target.label}$at"
+        val at = weight?.let { strings.atWeight(strings.weight(it, unit)) } ?: ""
+        val hint = strings.hintStart(lastLabel, strings.progressionSource(source), slot.target.label, at)
         return Suggestion(weight, slot.sets, slot.reps.prefillReps, hint, slot.target)
     }
 
     /** "Last: 60 kg × 5,5,5", "Last: +10 kg × 8,8,8" for a bodyweight lift with added load, or "Last: 8,8,8". */
-    private fun lastLabel(loaded: Boolean, lastWeight: Double?, reps: List<Int>, unit: WeightUnit, addedLoad: Boolean = false): String {
+    private fun lastLabel(loaded: Boolean, lastWeight: Double?, reps: List<Int>, unit: WeightUnit, addedLoad: Boolean = false, strings: Strings): String {
         val weight = when {
             lastWeight == null -> ""
-            loaded -> Format.weight(lastWeight, unit) + " × "
-            addedLoad && lastWeight > 0.0 -> "+" + Format.weight(lastWeight, unit) + " × "
+            loaded -> strings.weight(lastWeight, unit) + " × "
+            addedLoad && lastWeight > 0.0 -> "+" + strings.weight(lastWeight, unit) + " × "
             else -> ""
         }
-        return "Last: $weight" + reps.joinToString(",")
+        return strings.lastLabel(weight, reps.joinToString(","))
     }
 
     /**
      * The rule in plain words for the program overview: what happens after a good session, a missed
      * one, and where the ladder ends. Null for [ProgressionRule.None], which has nothing to say.
      */
-    fun describe(rule: ProgressionRule, unit: WeightUnit): String? {
-        val step = rule.step(unit)?.takeIf { it > 0.0 }?.let { "${Format.number(it, 2)} ${unit.label}" }
+    fun describe(rule: ProgressionRule, unit: WeightUnit, strings: Strings = English): String? {
+        val step = rule.step(unit)?.takeIf { it > 0.0 }?.let { strings.stepLabel(it, unit) }
         return when (rule) {
             ProgressionRule.None -> null
-            is ProgressionRule.Linear ->
-                "Add $step every session you hit every set. Miss the reps and the weight repeats."
+            is ProgressionRule.Linear -> strings.describeLinear(step.toString())
             is ProgressionRule.DoubleProgression -> {
-                val then = if (step == null) "move on to the harder variation" else "add $step and drop back to ${rule.min}"
-                "Reps climb from ${rule.min} to ${rule.max} at one weight. Once every set reaches ${rule.max}, $then."
+                val then = if (step == null) strings.describeDoubleThenHarder else strings.describeDoubleThenAdd(step, rule.min)
+                strings.describeDouble(rule.min, rule.max, then)
             }
             is ProgressionRule.StageLadder -> {
                 val stages = rule.stages.joinToString(" → ") { it.label }
                 val first = rule.stages.first().label
-                "Stages: $stages. Hit the reps: add $step and stay on the stage. Miss: next stage at the same weight. Miss the last stage: drop about 10% and start over at $first."
+                strings.describeLadder(stages, step.toString(), first)
             }
         }
     }

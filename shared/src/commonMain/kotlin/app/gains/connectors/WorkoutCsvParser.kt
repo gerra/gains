@@ -1,6 +1,7 @@
 package app.gains.connectors
 
 import app.gains.csv.CsvFormatException
+import app.gains.csv.CsvProblem
 import app.gains.csv.CsvReader
 import app.gains.csv.ParsedCsv
 import app.gains.csv.RawExercise
@@ -61,12 +62,12 @@ class WorkoutCsvParser(
 ) {
     fun parse(text: String): ParsedCsv {
         val records = CsvReader.parse(text)
-        if (records.isEmpty()) throw CsvFormatException("The file is empty.")
+        if (records.isEmpty()) throw CsvFormatException(CsvProblem.Empty)
         val header = records.first().fields.map { it.trim() }
         val col = ColumnIndex(header, spec)
         val missing = spec.required.filter { candidates -> candidates.none { it in col.byName } }
         if (missing.isNotEmpty()) {
-            throw CsvFormatException("Missing column(s): ${missing.joinToString { it.first() }}.")
+            throw CsvFormatException(CsvProblem.MissingColumns(missing.map { it.first() }))
         }
 
         val skipped = ArrayList<SkippedRow>()

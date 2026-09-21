@@ -62,6 +62,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Format
+import app.gains.i18n.Strings
+import app.gains.ui.i18n.LocalStrings
+import app.gains.ui.i18n.strings
 import app.gains.auth.AccountRepository
 import app.gains.data.ExerciseRepository
 import app.gains.data.LiveSessionRepository
@@ -122,12 +125,16 @@ import app.gains.ui.theme.GainsTheme
  *
  * [notifier] is told about the workout in progress, so the platform can keep a way back to it in
  * its tray while the lifter is elsewhere; a tap there comes back through [ResumeRequests].
+ *
+ * [strings] is the language of everything on screen: the device's unless a caller (a test) wants
+ * a particular one. Read once, when the app starts: a change of language takes a relaunch.
  */
 @Composable
 internal fun App(
     filePicker: CsvFilePicker,
     systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> },
     notifier: LiveSessionNotifier = LiveSessionNotifier.None,
+    strings: Strings = remember { Strings.system() },
 ) {
     // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
     // while the entry lives, so a screen comes back as it was left once the one covering it is popped.
@@ -152,7 +159,7 @@ internal fun App(
     // The active program's next day, for the "+" menu.
     val upNext by remember {
         combine(programs.observeState(), sessions.observeProgramLinks()) { state, links ->
-            state.active?.let { p -> Rotation.nextDay(p, links)?.let { UpNext(ProgramDayRef(p.id, it.id), it.name) } }
+            state.active?.let { p -> Rotation.nextDay(p, links)?.let { UpNext(ProgramDayRef(p.id, it.id), strings.programDayName(it)) } }
         }
     }.collectAsState(initial = null)
     // The workout in progress, if any: shown as a resume bar on every screen but its own.
@@ -200,45 +207,47 @@ internal fun App(
         ThemeMode.LIGHT -> false
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
-    GainsTheme(darkTheme = dark) {
-        val screen = navigator.current
-        // Surface sets the content colour for every Text below it and paints the background.
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
-            if (accountState === AccountLoading) return@Surface
-            if (accountState == null) { SignInScreen(); return@Surface }
-            if (onboardingDone == null) return@Surface
-            if (onboardingDone == false) { OnboardingScreen(onDone = {}); return@Surface }
-            // Tapping outside a text field anywhere in the app puts the keyboard away.
-            Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
-                TopBar(navigator, screen, upNext)
-                val transition = updateTransition(navigator.currentEntry, label = "screen")
-                SwipeBack(
-                    // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
-                    enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
-                    onBack = { navigator.pop(animated = false) },
-                    modifier = Modifier.weight(1f),
-                    previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, stateHolder) } },
-                ) {
-                    transition.AnimatedContent(
-                        transitionSpec = {
-                            if (navigator.skipTransition) {
-                                // The swipe-back gesture has already slid the old screen away.
-                                EnterTransition.None togetherWith ExitTransition.None
-                            } else {
-                                val forward = navigator.stack.size > 1 && targetState.screen !is Screen.Home
-                                val enter = fadeIn(tween(220)) + slideInHorizontally(tween(260)) { if (forward) it / 12 else -it / 12 }
-                                val exit = fadeOut(tween(160)) + slideOutHorizontally(tween(220)) { if (forward) -it / 16 else it / 16 }
-                                enter togetherWith exit
-                            }
-                        },
-                    ) { entry -> ScreenContent(entry, navigator, filePicker, stateHolder) }
-                }
-                live?.let { running ->
-                    if (!(screen is Screen.EditSession && screen.live)) {
-                        LiveSessionBar(running, onResume = { navigator.push(Screen.EditSession(null, running.program, live = true)) })
+    CompositionLocalProvider(LocalStrings provides strings) {
+        GainsTheme(darkTheme = dark) {
+            val screen = navigator.current
+            // Surface sets the content colour for every Text below it and paints the background.
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
+                if (accountState === AccountLoading) return@Surface
+                if (accountState == null) { SignInScreen(); return@Surface }
+                if (onboardingDone == null) return@Surface
+                if (onboardingDone == false) { OnboardingScreen(onDone = {}); return@Surface }
+                // Tapping outside a text field anywhere in the app puts the keyboard away.
+                Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
+                    TopBar(navigator, screen, upNext)
+                    val transition = updateTransition(navigator.currentEntry, label = "screen")
+                    SwipeBack(
+                        // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
+                        enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
+                        onBack = { navigator.pop(animated = false) },
+                        modifier = Modifier.weight(1f),
+                        previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, stateHolder) } },
+                    ) {
+                        transition.AnimatedContent(
+                            transitionSpec = {
+                                if (navigator.skipTransition) {
+                                    // The swipe-back gesture has already slid the old screen away.
+                                    EnterTransition.None togetherWith ExitTransition.None
+                                } else {
+                                    val forward = navigator.stack.size > 1 && targetState.screen !is Screen.Home
+                                    val enter = fadeIn(tween(220)) + slideInHorizontally(tween(260)) { if (forward) it / 12 else -it / 12 }
+                                    val exit = fadeOut(tween(160)) + slideOutHorizontally(tween(220)) { if (forward) -it / 16 else it / 16 }
+                                    enter togetherWith exit
+                                }
+                            },
+                        ) { entry -> ScreenContent(entry, navigator, filePicker, stateHolder) }
                     }
+                    live?.let { running ->
+                        if (!(screen is Screen.EditSession && screen.live)) {
+                            LiveSessionBar(running, onResume = { navigator.push(Screen.EditSession(null, running.program, live = true)) })
+                        }
+                    }
+                    BottomNav(navigator)
                 }
-                BottomNav(navigator)
             }
         }
     }
@@ -312,12 +321,13 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
 
 @Composable
 private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
+    val strings = strings
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (navigator.canGoBack) {
-            IconCircle(Icons.AutoMirrored.Filled.ArrowBack, "Back") { navigator.pop() }
+            IconCircle(Icons.AutoMirrored.Filled.ArrowBack, strings.back) { navigator.pop() }
             Spacer(Modifier.size(8.dp))
         } else {
             GainsWordmark(Modifier.padding(start = 4.dp))
@@ -327,33 +337,33 @@ private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
         if (screen != Screen.Import && screen !is Screen.EditSession) {
             var menuOpen by remember { mutableStateOf(false) }
             Box {
-                IconCircle(Icons.Default.Add, "Add") { menuOpen = true }
+                IconCircle(Icons.Default.Add, strings.addDescription) { menuOpen = true }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, shape = MaterialTheme.shapes.medium) {
                     if (upNext != null) {
                         DropdownMenuItem(
-                            text = { Text("Start ${upNext.dayName}") },
+                            text = { Text(strings.menuStartDay(upNext.dayName)) },
                             leadingIcon = { Icon(Icons.Default.Star, null, modifier = Modifier.size(18.dp)) },
                             onClick = { menuOpen = false; navigator.push(Screen.EditSession(null, upNext.ref, live = true)) },
                         )
                     }
                     DropdownMenuItem(
-                        text = { Text("Start workout") },
+                        text = { Text(strings.menuStartWorkout) },
                         leadingIcon = { Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp)) },
                         onClick = { menuOpen = false; navigator.push(Screen.EditSession(null, live = true)) },
                     )
                     DropdownMenuItem(
-                        text = { Text("Log past workout") },
+                        text = { Text(strings.menuLogPastWorkout) },
                         leadingIcon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp)) },
                         onClick = { menuOpen = false; navigator.push(Screen.EditSession(null)) },
                     )
                     DropdownMenuItem(
-                        text = { Text("Import CSV") },
+                        text = { Text(strings.menuImportCsv) },
                         leadingIcon = { Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp)) },
                         onClick = { menuOpen = false; navigator.push(Screen.Import) },
                     )
                     if (screen != Screen.Programs) {
                         DropdownMenuItem(
-                            text = { Text("Programs") },
+                            text = { Text(strings.menuPrograms) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, null, modifier = Modifier.size(18.dp)) },
                             onClick = { menuOpen = false; navigator.push(Screen.Programs) },
                         )
@@ -362,7 +372,7 @@ private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
             }
         }
         Spacer(Modifier.size(8.dp))
-        if (screen != Screen.Settings) IconCircle(Icons.Default.Settings, "Settings") { navigator.push(Screen.Settings) }
+        if (screen != Screen.Settings) IconCircle(Icons.Default.Settings, strings.settingsDescription) { navigator.push(Screen.Settings) }
     }
 }
 
@@ -383,6 +393,7 @@ private fun IconCircle(icon: ImageVector, description: String, onClick: () -> Un
 @Composable
 private fun BottomNav(navigator: Navigator) {
     val palette = GainsColors.palette
+    val strings = strings
     Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(
             Modifier
@@ -404,14 +415,15 @@ private fun BottomNav(navigator: Navigator) {
                         .padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    val label = tab.label(strings)
                     Icon(
-                        tab.icon(), tab.label,
+                        tab.icon(), label,
                         tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp),
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        tab.label,
+                        label,
                         style = MaterialTheme.typography.labelSmall,
                         color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -428,6 +440,7 @@ private fun BottomNav(navigator: Navigator) {
 @Composable
 private fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
     val palette = GainsColors.palette
+    val strings = strings
     var now by remember { mutableStateOf(nowMs()) }
     LaunchedEffect(Unit) { while (true) { delay(1000); now = nowMs() } }
     val remaining = live.rest?.remainingSeconds(now)
@@ -446,10 +459,10 @@ private fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
         Text(Format.clock(live.elapsedMs(now) / 1000), style = MaterialTheme.typography.titleSmall, color = onAccent)
         if (remaining != null && remaining > 0) {
             Spacer(Modifier.size(10.dp))
-            Text("Rest ${Format.clock(remaining.toLong())}", style = MaterialTheme.typography.bodySmall, color = onAccent)
+            Text(strings.restCountdown(Format.clock(remaining.toLong())), style = MaterialTheme.typography.bodySmall, color = onAccent)
         }
         Spacer(Modifier.size(10.dp))
-        Text("Resume ›", style = MaterialTheme.typography.labelSmall, color = onAccent)
+        Text(strings.resumeChevron, style = MaterialTheme.typography.labelSmall, color = onAccent)
     }
 }
 

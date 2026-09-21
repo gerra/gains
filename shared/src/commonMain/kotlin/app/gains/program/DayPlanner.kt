@@ -9,6 +9,8 @@ import app.gains.domain.Program
 import app.gains.domain.ProgramDay
 import app.gains.domain.Session
 import app.gains.domain.WeightUnit
+import app.gains.i18n.English
+import app.gains.i18n.Strings
 
 data class PlannedSet(val weightKg: Double?, val reps: Int?, val seconds: Int?, val isWarmup: Boolean = false)
 
@@ -50,15 +52,16 @@ data class PlanOptions(val barKg: Double = Gzclp.DEFAULT_BAR_KG, val warmups: Bo
  * has its own history that history wins outright.
  */
 object DayPlanner {
-    fun plan(program: Program, day: ProgramDay, snapshot: TrainingSnapshot, unit: WeightUnit, options: PlanOptions = PlanOptions()): DayPlan {
+    /** [strings] words the hints: English unless the UI passes its own. */
+    fun plan(program: Program, day: ProgramDay, snapshot: TrainingSnapshot, unit: WeightUnit, options: PlanOptions = PlanOptions(), strings: Strings = English): DayPlan {
         val planned = day.slots.mapNotNull { slot ->
             val exercise = snapshot.exercisesById[slot.exerciseId] ?: return@mapNotNull null
             val own = lastSession(snapshot, slot.exerciseId) { onSameScheme(program, slot, it) }
             var source: Progression.Source? = null
-            val s = if (own != null) Progression.suggest(slot, exercise, own.entry(slot.exerciseId), unit) else {
+            val s = if (own != null) Progression.suggest(slot, exercise, own.entry(slot.exerciseId), unit, strings) else {
                 val recent = recentSessions(snapshot, slot.exerciseId, Gzclp.RECENT_SESSIONS)
                 source = recent.firstOrNull()?.let { if (it.program == null) Progression.Source.FREE_SESSION else Progression.Source.DIFFERENT_SCHEME }
-                Progression.start(slot, exercise, recent.map { it.entry(slot.exerciseId) }, unit, source ?: Progression.Source.FREE_SESSION)
+                Progression.start(slot, exercise, recent.map { it.entry(slot.exerciseId) }, unit, source ?: Progression.Source.FREE_SESSION, strings)
             }
             val tier = Gzclp.tierOf(slot)
             val isometric = exercise.modality == Modality.ISOMETRIC

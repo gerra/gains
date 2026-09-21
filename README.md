@@ -156,6 +156,9 @@ device today.
   charting library.
 - **Local first.** Guest mode keeps everything on the device. Sign-in and sync light up only
   once a server exists.
+- **English and Russian.** The app follows the device's language (or the per-app language on
+  Android 13+ and iOS), down to the insight sentences, the progression hints, the built-in
+  programs and every exercise in the catalogue. See [Languages](#languages).
 
 ## Screenshots
 
@@ -445,6 +448,25 @@ the estimated 1RM, the warm-up steps, the default bar weight and increments, and
 
 **Changing the schema.** Edit the `.sq` file and add a `migrations/N.sqm` with the same DDL;
 `MigrationTest` upgrades a database from the previous version and compares it with a fresh one.
+
+### Languages
+
+Every sentence, label and unit the app shows is a member of the `Strings` interface in
+[`shared/src/commonMain/kotlin/app/gains/i18n/`](shared/src/commonMain/kotlin/app/gains/i18n),
+with one object per language: `English` (the reference) and `Russian`. The UI reads the current
+one from `LocalStrings`; the shared code that produces text (the insight engine, the progression
+hints, the day planner) takes it as a parameter and defaults to English, which is what the unit
+tests see. The language is the device's, read once at launch through `Strings.system()`, so a
+change of language takes a relaunch. The built-in exercises, programs, day names and slot notes
+stay in English in the database and are translated on the way to the screen by id, so imports
+and aliases are unaffected; custom exercises and programs are shown as typed.
+
+**Adding a language.** Add an `object Xx : Strings` next to `Russian` (the compiler lists every
+entry it must supply), a name table like `RussianNames` for the catalogues, register it in
+`Strings.all`, add the locale to `composeApp/src/androidMain/res/xml/locales_config.xml`, a
+`values-xx/strings.xml` for the Android notification, and to `CFBundleLocalizations` in
+`iosApp/iosApp/Info.plist`. `StringsTest` checks that every built-in exercise, program, day and
+slot note has a name in each language.
 
 ## Roadmap
 

@@ -19,6 +19,7 @@ import androidx.compose.ui.window.rememberWindowState
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.DesktopDriverFactory
 import app.gains.di.initKoin
+import app.gains.i18n.Strings
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.LiveSessionNotice
@@ -40,6 +41,7 @@ fun main(args: Array<String>) {
     IncomingFiles.offer(args.map(::File).filter { it.isFile }.map { PickedFile(it.name, it.readText()) })
     application {
         val windowState = rememberWindowState(width = 480.dp, height = 860.dp)
+        val strings = remember { Strings.system() }
         val notifier = remember { DesktopLiveSessionNotifier() }
         val running by notifier.notice.collectAsState()
         var frame by remember { mutableStateOf<AwtWindow?>(null) }
@@ -53,12 +55,12 @@ fun main(args: Array<String>) {
                 }
                 Tray(
                     icon = VoltDot,
-                    tooltip = if (notice.restEndsAtMs != null) "${notice.title} in progress, resting" else "${notice.title} in progress",
+                    tooltip = strings.trayInProgress(notice.title, resting = notice.restEndsAtMs != null),
                     onAction = resume,
                     menu = {
-                        Item("Resume ${notice.title}", onClick = resume)
+                        Item(strings.trayResume(notice.title), onClick = resume)
                         // Only while a rest counts down: the notice is re-sent without it once it is over.
-                        if (notice.restEndsAtMs != null) Item("Skip rest", onClick = { SkipRestRequests.request() })
+                        if (notice.restEndsAtMs != null) Item(strings.skipRest, onClick = { SkipRestRequests.request() })
                     },
                 )
             }
@@ -69,7 +71,7 @@ fun main(args: Array<String>) {
             state = windowState,
         ) {
             SideEffect { frame = window }
-            App(filePicker = DesktopFilePicker(), notifier = notifier)
+            App(filePicker = DesktopFilePicker(), notifier = notifier, strings = strings)
         }
     }
 }
@@ -91,7 +93,7 @@ private object VoltDot : Painter() {
 
 internal class DesktopFilePicker : CsvFilePicker {
     override fun pick(onResult: (List<PickedFile>) -> Unit) {
-        val dialog = FileDialog(null as Frame?, "Choose Liftoff CSV exports", FileDialog.LOAD)
+        val dialog = FileDialog(null as Frame?, Strings.system().chooseCsvExports, FileDialog.LOAD)
         dialog.setFilenameFilter { _, name -> name.endsWith(".csv", ignoreCase = true) }
         dialog.isMultipleMode = true
         dialog.isVisible = true

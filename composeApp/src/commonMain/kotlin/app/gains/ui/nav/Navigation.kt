@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import app.gains.domain.ProgramDayRef
+import app.gains.i18n.Strings
 import app.gains.ui.ScreenModel
 import kotlin.reflect.KClass
 
@@ -31,12 +32,20 @@ internal sealed interface Screen {
     data class EditSession(val sessionId: String?, val programDay: ProgramDayRef? = null, val live: Boolean = false) : Screen
 }
 
-internal enum class Tab(val label: String, val root: Screen) {
-    HOME("Home", Screen.Home),
-    HISTORY("History", Screen.History),
-    EXERCISES("Lifts", Screen.Exercises),
-    VOLUME("Volume", Screen.Volume),
-    BODY("Body", Screen.Body),
+internal enum class Tab(val root: Screen) {
+    HOME(Screen.Home),
+    HISTORY(Screen.History),
+    EXERCISES(Screen.Exercises),
+    VOLUME(Screen.Volume),
+    BODY(Screen.Body);
+
+    fun label(strings: Strings): String = when (this) {
+        HOME -> strings.tabHome
+        HISTORY -> strings.tabHistory
+        EXERCISES -> strings.tabLifts
+        VOLUME -> strings.tabVolume
+        BODY -> strings.tabBody
+    }
 }
 
 /**

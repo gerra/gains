@@ -66,6 +66,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Format
 import app.gains.domain.WeightUnit
+import app.gains.ui.i18n.strings
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
@@ -192,6 +193,7 @@ internal fun PickerSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    val strings = strings
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -210,7 +212,7 @@ internal fun PickerSheet(
             Spacer(Modifier.height(16.dp))
             content()
             Spacer(Modifier.height(20.dp))
-            PrimaryButton("Done", onClick = { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() } }, Modifier.fillMaxWidth())
+            PrimaryButton(strings.done, onClick = { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() } }, Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
         }
     }
@@ -234,7 +236,7 @@ internal fun ChooserRow(label: String, value: String, onClick: () -> Unit, modif
 /** A calendar, a month at a time; the picked day applies straight away. */
 @Composable
 internal fun DatePickerSheet(date: LocalDate, onPick: (LocalDate) -> Unit, onDismiss: () -> Unit) {
-    PickerSheet("Date", onDismiss = onDismiss) { CalendarPicker(date, onPick) }
+    PickerSheet(strings.date, onDismiss = onDismiss) { CalendarPicker(date, onPick) }
 }
 
 /**
@@ -246,6 +248,7 @@ internal fun DatePickerSheet(date: LocalDate, onPick: (LocalDate) -> Unit, onDis
 internal fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
     val palette = GainsColors.palette
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val strings = strings
     val today = Dates.today()
     var month by remember(selected.year, selected.month) { mutableStateOf(LocalDate(selected.year, selected.month, 1)) }
     val daysInMonth = month.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).day
@@ -253,15 +256,15 @@ internal fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, mo
     val leading = month.dayOfWeek.isoDayNumber - 1
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("${Dates.monthName(month)} ${month.year}", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous month") { month = month.minus(1, DateTimeUnit.MONTH) }
+            Text("${strings.monthName(month)} ${month.year}", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, strings.previousMonth) { month = month.minus(1, DateTimeUnit.MONTH) }
             Spacer(Modifier.width(6.dp))
-            MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next month") { month = month.plus(1, DateTimeUnit.MONTH) }
+            MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, strings.nextMonth) { month = month.plus(1, DateTimeUnit.MONTH) }
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth()) {
             for (day in DayOfWeek.entries) {
-                Text(Dates.dayLabel(day).take(2), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted, textAlign = TextAlign.Center)
+                Text(strings.dayShort(day).take(2), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted, textAlign = TextAlign.Center)
             }
         }
         Spacer(Modifier.height(4.dp))
@@ -275,7 +278,7 @@ internal fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, mo
                             val day = LocalDate(month.year, month.month, dayNumber)
                             val isSelected = day == selected
                             val isToday = day == today
-                            val description = "${Dates.dayLabel(day.dayOfWeek)} ${Dates.shortWithYear(day)}" + if (isSelected) ", chosen" else ""
+                            val description = "${strings.dayShort(day.dayOfWeek)} ${strings.dateShortWithYear(day)}" + if (isSelected) ", ${strings.chosen}" else ""
                             Box(
                                 Modifier.size(38.dp).clip(CircleShape)
                                     .background(if (isSelected) palette.volt else Color.Transparent)
@@ -316,7 +319,7 @@ private val MinuteLabels = List(60) { it.toString().padStart(2, '0') }
 /** Hours and minutes on two wheels, 24-hour. */
 @Composable
 internal fun TimePickerSheet(time: LocalTime, onPick: (LocalTime) -> Unit, onDismiss: () -> Unit) {
-    PickerSheet("Time", onDismiss = onDismiss) {
+    PickerSheet(strings.time, onDismiss = onDismiss) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             WheelBand(Modifier.width(200.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -339,13 +342,14 @@ private val DurationMinuteLabels = List(60) { it.toString() }
 internal fun DurationWheels(minutes: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier, fadeColor: Color = MaterialTheme.colorScheme.surfaceContainer) {
     val total = minutes.coerceIn(0, 24 * 60 - 1)
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val strings = strings
     Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         WheelBand(Modifier.width(240.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             WheelPicker(DurationHourLabels, total / 60, { onChange(it * 60 + total % 60) }, Modifier.width(64.dp), showBand = false, fadeColor = fadeColor)
-            Text("h", style = MaterialTheme.typography.titleMedium, color = muted, modifier = Modifier.padding(start = 4.dp, end = 28.dp))
+            Text(strings.hourAbbrev, style = MaterialTheme.typography.titleMedium, color = muted, modifier = Modifier.padding(start = 4.dp, end = 28.dp))
             WheelPicker(DurationMinuteLabels, total % 60, { onChange((total / 60) * 60 + it) }, Modifier.width(64.dp), showBand = false, fadeColor = fadeColor)
-            Text("min", style = MaterialTheme.typography.titleMedium, color = muted, modifier = Modifier.padding(start = 4.dp))
+            Text(strings.minuteAbbrev, style = MaterialTheme.typography.titleMedium, color = muted, modifier = Modifier.padding(start = 4.dp))
         }
     }
 }
@@ -353,7 +357,7 @@ internal fun DurationWheels(minutes: Int, onChange: (Int) -> Unit, modifier: Mod
 /** How long a workout took; zero means it was not timed and is stored as no duration. */
 @Composable
 internal fun DurationPickerSheet(minutes: Int?, onPick: (Int?) -> Unit, onDismiss: () -> Unit) {
-    PickerSheet("Duration", onDismiss = onDismiss, subtitle = "Leave at zero if you didn't time it.") {
+    PickerSheet(strings.duration, onDismiss = onDismiss, subtitle = strings.leaveAtZero) {
         DurationWheels(minutes ?: 0, onChange = { onPick(it.takeIf { m -> m > 0 }) })
     }
 }
@@ -410,15 +414,16 @@ internal fun WeightPickerSheet(
 ) {
     val palette = GainsColors.palette
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val strings = strings
     val weight = WheelWeight.parse(value)
     val max = WheelWeight.max(unit)
     val wholeLabels = remember(max) { List(max + 1) { it.toString() } }
     PickerSheet(
         title, onDismiss = onDismiss, subtitle = subtitle,
-        trailing = if (clearable) ({ TextButton(onClick = { onPick("") }) { Text("No weight", color = muted) } }) else null,
+        trailing = if (clearable) ({ TextButton(onClick = { onPick("") }) { Text(strings.noWeight, color = muted) } }) else null,
     ) {
         Text(
-            if (weight.value == 0.0) (if (clearable) "No weight" else "—") else Format.number(weight.value, 2) + " " + unit.label,
+            if (weight.value == 0.0) (if (clearable) strings.noWeight else "—") else Format.number(weight.value, 2) + " " + strings.unit(unit),
             style = MaterialTheme.typography.displaySmall, color = palette.volt, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(12.dp))
@@ -427,7 +432,7 @@ internal fun WeightPickerSheet(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 WheelPicker(wholeLabels, weight.whole, { onPick(WheelWeight(it, weight.quarters).text) }, Modifier.width(96.dp), showBand = false)
                 WheelPicker(QuarterLabels, weight.quarters, { onPick(WheelWeight(weight.whole, it).text) }, Modifier.width(80.dp), showBand = false)
-                Text(unit.label, style = MaterialTheme.typography.titleMedium, color = muted, modifier = Modifier.padding(start = 4.dp))
+                Text(strings.unit(unit), style = MaterialTheme.typography.titleMedium, color = muted, modifier = Modifier.padding(start = 4.dp))
             }
         }
         Spacer(Modifier.height(16.dp))

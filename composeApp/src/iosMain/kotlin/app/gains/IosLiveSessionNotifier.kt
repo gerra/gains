@@ -2,6 +2,7 @@ package app.gains
 
 import app.gains.platform.LiveSessionNotice
 import app.gains.platform.LiveSessionNotifier
+import app.gains.i18n.Strings
 import app.gains.platform.ResumeRequests
 import app.gains.ui.nowMs
 import platform.Foundation.NSDate
@@ -82,12 +83,13 @@ internal object IosLiveSessionNotifier : LiveSessionNotifier {
 
     private fun post(notice: LiveSessionNotice) {
         val now = nowMs()
+        val strings = Strings.system()
         val restEndsAt = notice.restEndsAtMs?.takeIf { it > now }
         val running = UNMutableNotificationContent().apply {
             setTitle(notice.title)
             setBody(buildString {
-                if (restEndsAt != null) append("Resting until ${clock(restEndsAt)}. ")
-                append("Started ${clock(notice.startedAtMs)}, ${elapsed(now - notice.startedAtMs)} so far. Tap to get back to your workout.")
+                if (restEndsAt != null) append(strings.restingUntil(clock(restEndsAt)))
+                append(strings.runningSince(clock(notice.startedAtMs), elapsed(now - notice.startedAtMs, strings)))
             })
             setInterruptionLevel(UNNotificationInterruptionLevel.UNNotificationInterruptionLevelPassive)
         }
@@ -96,8 +98,8 @@ internal object IosLiveSessionNotifier : LiveSessionNotifier {
         center.removePendingNotificationRequestsWithIdentifiers(listOf(REST_OVER))
         if (restEndsAt == null) return
         val over = UNMutableNotificationContent().apply {
-            setTitle("Rest over")
-            setBody("${notice.title}, ${elapsed(restEndsAt - notice.startedAtMs)} in. Tap to get back to your workout.")
+            setTitle(strings.restOver)
+            setBody(strings.restOverBody(notice.title, elapsed(restEndsAt - notice.startedAtMs, strings)))
             setInterruptionLevel(UNNotificationInterruptionLevel.UNNotificationInterruptionLevelActive)
         }
         val trigger = UNTimeIntervalNotificationTrigger.triggerWithTimeInterval(((restEndsAt - now) / 1000.0).coerceAtLeast(1.0), repeats = false)
@@ -111,14 +113,14 @@ internal object IosLiveSessionNotifier : LiveSessionNotifier {
     }.stringFromDate(NSDate.dateWithTimeIntervalSince1970(ms / 1000.0))
 
     /** "under a minute", "23 min", "1 h 05 min". */
-    private fun elapsed(ms: Long): String {
+    private fun elapsed(ms: Long, strings: Strings): String {
         val minutes = (ms / 60_000).coerceAtLeast(0)
         val h = minutes / 60
         val m = minutes % 60
         return when {
-            h > 0 -> "$h h ${m.toString().padStart(2, '0')} min"
-            m > 0 -> "$m min"
-            else -> "under a minute"
+            h > 0 -> "$h ${strings.hourAbbrev} ${m.toString().padStart(2, '0')} ${strings.minuteAbbrev}"
+            m > 0 -> "$m ${strings.minuteAbbrev}"
+            else -> strings.underAMinute
         }
     }
 

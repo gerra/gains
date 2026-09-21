@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.VolumeAnalyzer
 import app.gains.domain.MuscleGroup
+import app.gains.ui.i18n.strings
 import app.gains.ui.theme.GainsColors
 
 /** The two figures of the muscle map. */
@@ -154,7 +155,7 @@ internal fun BodyMap(
     Canvas(
         modifier
             .aspectRatio(BodyMapModel.TOTAL_WIDTH / BodyMapModel.TOTAL_HEIGHT)
-            .semantics { contentDescription = "Muscle map" }
+            .semantics { contentDescription = "Muscle map" } // A fixed handle for the tests, never shown.
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     val scale = size.width / BodyMapModel.TOTAL_WIDTH
@@ -209,7 +210,7 @@ internal fun BodyMapLegend(maxSets: Double = VolumeAnalyzer.JUNK_SETS, modifier:
             Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp))
                 .background(Brush.horizontalGradient(listOf(resting, lerp(resting, accent, 0.25f), accent))),
         )
-        Text("${maxSets.toInt()}+ sets", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(strings.legendMaxSets(maxSets.toInt()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(2.dp))
     }
 }

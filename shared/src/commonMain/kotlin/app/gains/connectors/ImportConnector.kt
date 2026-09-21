@@ -1,6 +1,7 @@
 package app.gains.connectors
 
 import app.gains.csv.CsvFormatException
+import app.gains.csv.CsvProblem
 import app.gains.csv.CsvReader
 import app.gains.csv.ParsedCsv
 import app.gains.domain.WeightUnit
@@ -37,8 +38,8 @@ object Connectors {
     /** Picks the connector that recognises the file's header best. */
     fun detect(text: String): ImportConnector {
         val header = CsvReader.parse(text.take(4000)).firstOrNull()?.fields?.map { it.trim() }
-            ?: throw CsvFormatException("The file is empty.")
+            ?: throw CsvFormatException(CsvProblem.Empty)
         return all.map { it to it.match(header) }.filter { it.second > 0 }.maxByOrNull { it.second }?.first
-            ?: throw CsvFormatException("Not a recognised workout export. Expected columns for date, exercise, weight and reps.")
+            ?: throw CsvFormatException(CsvProblem.Unrecognised)
     }
 }

@@ -53,6 +53,7 @@ import app.gains.ui.components.GainsCard
 import app.gains.ui.components.MetricTile
 import app.gains.ui.components.Pill
 import app.gains.ui.components.SectionHeader
+import app.gains.ui.i18n.strings
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -65,7 +66,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal enum class Window(val label: String, val days: Int?) { M3("3M", 90), M6("6M", 180), Y1("1Y", 365), ALL("All", null) }
+internal enum class Window(val days: Int?) { M3(90), M6(180), Y1(365), ALL(null) }
 
 internal data class ExerciseDetailState(
     val loading: Boolean = true,
@@ -122,9 +123,10 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
     val model = rememberScreenModel(exerciseId) { ExerciseDetailModel(exerciseId) }
     val state by model.state.collectAsState()
     val exercise = state.exercise
+    val strings = strings
     if (state.loading) return
     if (exercise == null) {
-        EmptyState("Unknown exercise", "This exercise no longer exists. It may have been merged into another one.", emoji = "?")
+        EmptyState(strings.unknownExercise, strings.unknownExerciseBody, emoji = "?")
         return
     }
     val today = Dates.today()
@@ -134,19 +136,19 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            Text(exercise.name, style = MaterialTheme.typography.headlineLarge)
+            Text(strings.exerciseName(exercise), style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Pill(exercise.modality.name.lowercase().replaceFirstChar { it.uppercase() }, palette.cyan)
-                if (exercise.isDumbbell) Pill("Per dumbbell", palette.amber)
+                Pill(strings.modality(exercise.modality), palette.cyan)
+                if (exercise.isDumbbell) Pill(strings.perDumbbell, palette.amber)
             }
             if (exercise.muscleGroups.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text(exercise.muscleGroups.joinToString(" · ") { it.group.displayName }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(exercise.muscleGroups.joinToString(" · ") { strings.muscleGroup(it.group) }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (state.allPoints.isEmpty()) {
-            item { EmptyState("No sessions", "This exercise has not been trained in any imported session.") }
+            item { EmptyState(strings.noSessions, strings.noSessionsForExercise) }
             return@LazyColumn
         }
         item {
@@ -156,18 +158,18 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
             val gap = summary?.gapFraction
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricTile(
-                    "Current best",
-                    current?.best?.describe(exercise.modality, unit) ?: "-",
+                    strings.currentBest,
+                    current?.best?.describe(exercise.modality, unit, strings) ?: "-",
                     Modifier.weight(1f),
-                    caption = current?.let { Dates.contextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
+                    caption = current?.let { strings.dateContextual(it.date, today) + metricCaption(it, exercise.modality, unit, strings) },
                     accent = if (gap != null && gap > 0.05) palette.regression else palette.volt,
                     onClick = current?.let { p -> { onOpenSession(p.sessionId) } },
                 )
                 MetricTile(
-                    "All-time best",
-                    allTime?.best?.describe(exercise.modality, unit) ?: "-",
+                    strings.allTimeBest,
+                    allTime?.best?.describe(exercise.modality, unit, strings) ?: "-",
                     Modifier.weight(1f),
-                    caption = allTime?.let { Dates.contextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
+                    caption = allTime?.let { strings.dateContextual(it.date, today) + metricCaption(it, exercise.modality, unit, strings) },
                     onClick = allTime?.let { p -> { onOpenSession(p.sessionId) } },
                 )
             }
@@ -175,69 +177,69 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 when {
                     gap == null -> {}
-                    gap <= 0.0 -> Pill("At your best", palette.volt, filled = true)
-                    else -> { DeltaBadge(-gap); Spacer(Modifier.padding(4.dp)); Text("from all-time best", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    gap <= 0.0 -> Pill(strings.atYourBest, palette.volt, filled = true)
+                    else -> { DeltaBadge(-gap); Spacer(Modifier.padding(4.dp)); Text(strings.fromAllTimeBest, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }
         item {
-            SectionHeader("Window")
-            ChipRow(Window.entries, state.window, { it.label }, { model.setWindow(it) })
+            SectionHeader(strings.window)
+            ChipRow(Window.entries, state.window, { strings.windowLabel(it.days) }, { model.setWindow(it) })
         }
         if (state.points.isEmpty()) {
-            item { EmptyState("Nothing in this window", "Pick a longer window to see the ${state.allPoints.size} sessions on record.") }
+            item { EmptyState(strings.nothingInWindow, strings.pickALongerWindow(state.allPoints.size)) }
             return@LazyColumn
         }
         if (state.points.size == 1) {
             item {
-                Text("One session in this window. Charts need at least two points to show a trend.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                Text(strings.oneSessionInWindow, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
             }
         }
         item {
             when (exercise.modality) {
                 Modality.WEIGHTED -> {
-                    SectionHeader("Estimated 1RM · Epley, working sets")
+                    SectionHeader(strings.e1rmSection)
                     val pts = state.points.mapNotNull { p -> p.bestE1rm?.let { ChartPoint(p.date.x(), Units.display(it.value, unit)) } }
                     ChartCard {
-                        if (pts.isEmpty()) Text("No weighted working sets in this window.", style = MaterialTheme.typography.bodySmall)
-                        else LineChart(listOf(LineSeries(pts, palette.volt, "e1RM", fill = true)), yLabel = { formatAxis(it) })
+                        if (pts.isEmpty()) Text(strings.noWeightedSetsInWindow, style = MaterialTheme.typography.bodySmall)
+                        else LineChart(listOf(LineSeries(pts, palette.volt, strings.e1rm, fill = true)), yLabel = { formatAxis(it) })
                     }
-                    SectionHeader("Top set weight")
+                    SectionHeader(strings.topSetWeight)
                     val top = state.points.mapNotNull { p -> p.topSetWeightKg?.let { ChartPoint(p.date.x(), Units.display(it, unit)) } }
-                    if (top.isNotEmpty()) ChartCard { LineChart(listOf(LineSeries(top, palette.cyan, "Top set", fill = true, smooth = false)), height = 160.dp, yLabel = { formatAxis(it) }) }
-                    SectionHeader("Volume per session · Σ weight × reps")
+                    if (top.isNotEmpty()) ChartCard { LineChart(listOf(LineSeries(top, palette.cyan, strings.topSet, fill = true, smooth = false)), height = 160.dp, yLabel = { formatAxis(it) }) }
+                    SectionHeader(strings.volumePerSession)
                     val vol = state.points.map { ChartPoint(it.date.x(), Units.display(it.totalVolumeKg, unit)) }
-                    ChartCard { LineChart(listOf(LineSeries(vol, palette.violet, "Total volume", showDots = false, fill = true)), height = 160.dp, yMinZero = true, yLabel = { Format.number(it, 0) }) }
+                    ChartCard { LineChart(listOf(LineSeries(vol, palette.violet, strings.totalVolume, showDots = false, fill = true)), height = 160.dp, yMinZero = true, yLabel = { Format.number(it, 0) }) }
                 }
                 else -> {
-                    SectionHeader("Best ${ExerciseAnalysis.metricLabel(exercise.modality)} per session")
+                    SectionHeader(strings.bestMetricPerSession(exercise.modality))
                     val pts = state.points.mapNotNull { p -> p.best?.let { ChartPoint(p.date.x(), it.value) } }
-                    if (pts.isNotEmpty()) ChartCard { LineChart(listOf(LineSeries(pts, palette.volt, ExerciseAnalysis.metricLabel(exercise.modality), fill = true)), yMinZero = true) }
+                    if (pts.isNotEmpty()) ChartCard { LineChart(listOf(LineSeries(pts, palette.volt, strings.metricLabel(exercise.modality), fill = true)), yMinZero = true) }
                 }
             }
         }
         if (exercise.modality == Modality.WEIGHTED) {
             item {
-                SectionHeader("Working-set rule")
+                SectionHeader(strings.workingSetRule)
                 GainsCard(Modifier.fillMaxWidth()) {
                     WorkingSetRuleEditor(state.workingSetRatio, state.hasOverride, onChange = { model.setWorkingSetRatio(it) })
                 }
             }
         }
-        item { SectionHeader("Sessions · tap to open") }
+        item { SectionHeader(strings.sessionsTapToOpen) }
         items(state.points.asReversed(), key = { it.sessionId }) { p ->
             GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = { onOpenSession(p.sessionId) }, contentPadding = Dp16.Tight) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(Dates.contextual(p.date, today), style = MaterialTheme.typography.titleSmall)
-                    Text(p.best?.describe(exercise.modality, unit) ?: "-", style = MaterialTheme.typography.titleSmall, color = palette.volt)
+                    Text(strings.dateContextual(p.date, today), style = MaterialTheme.typography.titleSmall)
+                    Text(p.best?.describe(exercise.modality, unit, strings) ?: "-", style = MaterialTheme.typography.titleSmall, color = palette.volt)
                 }
                 val details = buildList {
                     if (exercise.modality == Modality.WEIGHTED) {
-                        p.bestE1rm?.let { add("e1RM ${Format.weight(it.value, unit, 1)}") }
-                        p.bestSetVolumeKg?.let { add("best set volume ${Format.weight(it, unit, 0)}") }
-                        add("volume ${Format.weight(p.totalVolumeKg, unit, 0)}")
+                        p.bestE1rm?.let { add(strings.e1rmValue(strings.weight(it.value, unit, 1))) }
+                        p.bestSetVolumeKg?.let { add(strings.bestSetVolume(strings.weight(it, unit, 0))) }
+                        add(strings.volumeValue(strings.weight(p.totalVolumeKg, unit, 0)))
                     }
-                    add("${p.workingSetCount}/${p.setCount} working sets")
+                    add(strings.workingSetsOf(p.workingSetCount, p.setCount))
                 }
                 Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 p.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp)) }
@@ -251,18 +253,18 @@ internal fun ChartCard(content: @Composable () -> Unit) {
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) { content() }
 }
 
-private fun metricCaption(p: ExerciseSessionPoint, modality: Modality, unit: WeightUnit): String {
+private fun metricCaption(p: ExerciseSessionPoint, modality: Modality, unit: WeightUnit, strings: app.gains.i18n.Strings): String {
     val e1rm = p.bestE1rm ?: return ""
-    return if (modality == Modality.WEIGHTED) " · e1RM ${Format.weight(e1rm.value, unit, 1)}" else ""
+    return if (modality == Modality.WEIGHTED) " · " + strings.e1rmValue(strings.weight(e1rm.value, unit, 1)) else ""
 }
 
 @Composable
 private fun WorkingSetRuleEditor(ratio: Double, hasOverride: Boolean, onChange: (Double?) -> Unit) {
     var value by remember(ratio) { mutableStateOf(ratio.toFloat()) }
     val palette = GainsColors.palette
+    val strings = strings
     Text(
-        "Sets at or above ${Format.percent(value.toDouble())} of the session's top weight count as working sets." +
-            if (hasOverride) "" else " (default ${Format.percent(WorkingSets.DEFAULT_RATIO)})",
+        strings.workingSetRuleBlurb(Format.percent(value.toDouble()), if (hasOverride) null else Format.percent(WorkingSets.DEFAULT_RATIO)),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Slider(
@@ -273,5 +275,5 @@ private fun WorkingSetRuleEditor(ratio: Double, hasOverride: Boolean, onChange: 
         steps = 9,
         colors = SliderDefaults.colors(thumbColor = palette.volt, activeTrackColor = palette.volt, inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest),
     )
-    if (hasOverride) TextButton(onClick = { onChange(null) }) { Text("Reset to default") }
+    if (hasOverride) TextButton(onClick = { onChange(null) }) { Text(strings.resetToDefault) }
 }

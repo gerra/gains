@@ -10,6 +10,8 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
+import app.gains.i18n.English
+import app.gains.i18n.Strings
 
 object Dates {
     fun today(): LocalDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
@@ -34,17 +36,18 @@ object Dates {
         return result
     }
 
-    private val months = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-    private val fullMonths = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+    /*
+     * Month and weekday names belong to a language, so these are worded by a [Strings]: English
+     * unless told otherwise, so tests and shared callers read as before; the UI passes its own.
+     */
 
-    fun short(date: LocalDate): String = "${date.day} ${months[date.month.ordinal]}"
-    fun shortWithYear(date: LocalDate): String = "${date.day} ${months[date.month.ordinal]} ${date.year}"
-    fun monthName(date: LocalDate): String = fullMonths[date.month.ordinal]
-    fun monthShort(date: LocalDate): String = months[date.month.ordinal]
+    fun short(date: LocalDate, strings: Strings = English): String = strings.dateShort(date)
+    fun shortWithYear(date: LocalDate, strings: Strings = English): String = strings.dateShortWithYear(date)
+    fun monthName(date: LocalDate, strings: Strings = English): String = strings.monthName(date)
+    fun monthShort(date: LocalDate, strings: Strings = English): String = strings.monthShort(date)
 
     /** "12 Feb" when in the current year, otherwise "12 Feb 2025". */
-    fun contextual(date: LocalDate, today: LocalDate): String =
-        if (date.year == today.year) short(date) else shortWithYear(date)
+    fun contextual(date: LocalDate, today: LocalDate, strings: Strings = English): String = strings.dateContextual(date, today)
 
-    fun dayLabel(day: DayOfWeek): String = day.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+    fun dayLabel(day: DayOfWeek, strings: Strings = English): String = strings.dayShort(day)
 }

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Gains</string>
+    <!-- Уведомление о тренировке: подписи двух часов и действие, пока идёт отдых. -->
+    <string name="notification_total">Всего</string>
+    <string name="notification_rest">Отдых</string>
+    <string name="notification_skip_rest">Пропустить отдых</string>
+    <string name="notification_channel">Идёт тренировка</string>
+    <string name="notification_channel_description">Показывается, пока идёт тренировка, чтобы вернуться к ней откуда угодно.</string>
+    <string name="notification_running">Идёт тренировка. Нажмите, чтобы вернуться к ней.</string>
+    <string name="notification_resting">Отдых. Нажмите, чтобы вернуться к тренировке.</string>
+</resources>

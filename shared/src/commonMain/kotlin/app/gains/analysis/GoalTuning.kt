@@ -1,6 +1,8 @@
 package app.gains.analysis
 
 import app.gains.domain.Goal
+import app.gains.i18n.English
+import app.gains.i18n.Strings
 
 /** How the chosen goal changes what the insight engine flags and which insights lead. */
 object GoalTuning {
@@ -26,10 +28,5 @@ object GoalTuning {
     }
 
     /** Subtitle under "What's moving". */
-    fun headline(goal: Goal?): String? = when (goal) {
-        Goal.GET_STRONGER -> "Strength signals first"
-        Goal.BUILD_MUSCLE -> "Volume and neglected muscles first"
-        Goal.LOSE_FAT -> "Consistency first"
-        Goal.GENERAL_FITNESS, null -> null
-    }
+    fun headline(goal: Goal?, strings: Strings = English): String? = strings.goalHeadline(goal)
 }

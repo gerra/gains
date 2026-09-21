@@ -42,6 +42,7 @@ import app.gains.ui.components.GainsLogo
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.SecondaryButton
+import app.gains.ui.i18n.strings
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -100,6 +101,7 @@ internal class OnboardingModel(private val programs: ProgramRepository = inject(
 internal fun OnboardingScreen(onDone: () -> Unit) {
     val model = rememberScreenModel { OnboardingModel() }
     val palette = GainsColors.palette
+    val strings = strings
     if (model.done) { onDone(); return }
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp, vertical = 12.dp)) {
@@ -110,66 +112,60 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                 for (i in 0..3) Box(Modifier.size(8.dp).clip(CircleShape).background(if (i <= model.step) palette.volt else MaterialTheme.colorScheme.surfaceContainerHighest))
             }
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = { model.skip() }) { Text("Skip for now", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            TextButton(onClick = { model.skip() }) { Text(strings.skipForNow, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         Spacer(Modifier.height(16.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             when (model.step) {
                 0 -> {
-                    Text("What are you\ntraining for?", style = MaterialTheme.typography.displaySmall)
+                    Text(strings.onboardingGoalTitle, style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(6.dp))
-                    Text("This decides which programs are suggested and which signals lead on your home screen.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(strings.onboardingGoalBlurb, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(18.dp))
                     for (g in Goal.entries) {
-                        OptionCard(g.label, g.blurb, selected = model.goal == g) { model.goal = g }
+                        OptionCard(strings.goal(g), strings.goalBlurb(g), selected = model.goal == g) { model.goal = g }
                     }
                 }
                 1 -> {
-                    Text("How long have\nyou been lifting?", style = MaterialTheme.typography.displaySmall)
+                    Text(strings.onboardingExperienceTitle, style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(6.dp))
-                    Text("Beginners add weight every session; later on progress comes slower and programs change shape.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(strings.onboardingExperienceBlurb, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(18.dp))
                     for (e in Experience.entries) {
-                        OptionCard(e.label, e.blurb, selected = model.experience == e) { model.experience = e }
+                        OptionCard(strings.experience(e), strings.experienceBlurb(e), selected = model.experience == e) { model.experience = e }
                     }
                 }
                 2 -> {
-                    Text("How many days\na week?", style = MaterialTheme.typography.displaySmall)
+                    Text(strings.onboardingDaysTitle, style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(6.dp))
-                    Text("Pick what you can keep up, not what you hope for. Programs are matched to it.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(strings.onboardingDaysBlurb, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(18.dp))
                     ChipRow((GoalProfile.MIN_DAYS..GoalProfile.MAX_DAYS).toList(), model.days, { it.toString() }, { model.days = it }, Modifier.fillMaxWidth())
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        when (model.days) {
-                            2 -> "Two full-body sessions. Enough to get stronger; expect slower size gains."
-                            3 -> "The classic. Full body or a push/pull/legs cycle run once a week."
-                            4 -> "Upper/lower splits fit four days well."
-                            5 -> "Room for a body-part focus or an upper/lower plus one."
-                            else -> "Push/pull/legs twice a week. Recovery becomes the limit."
-                        },
+                        strings.onboardingDaysNote(model.days),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 else -> {
-                    Text("Programs that fit", style = MaterialTheme.typography.displaySmall)
+                    Text(strings.programsThatFit, style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(6.dp))
                     model.profile?.let {
-                        Text("${it.goal.label} · ${it.experience.label} · ${it.daysPerWeek} days a week", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(strings.profileSummary(it.goal, it.experience, it.daysPerWeek), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Spacer(Modifier.height(18.dp))
                     for ((index, program) in model.suggestions.withIndex()) {
                         GainsCard(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(program.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                                if (index == 0) Pill("Best match", palette.volt, filled = true)
+                                Text(strings.programName(program), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                                if (index == 0) Pill(strings.bestMatch, palette.volt, filled = true)
                             }
                             Spacer(Modifier.height(4.dp))
                             ProgramTags(program)
                             Spacer(Modifier.height(6.dp))
-                            Text(program.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(strings.programDescription(program), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(10.dp))
-                            SecondaryButton("Use this program", onClick = { model.finish(program.id) }, Modifier.fillMaxWidth())
+                            SecondaryButton(strings.useThisProgram, onClick = { model.finish(program.id) }, Modifier.fillMaxWidth())
                         }
                     }
                 }
@@ -177,10 +173,10 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (model.step > 0) SecondaryButton("Back", onClick = { model.back() }, Modifier.weight(1f))
+            if (model.step > 0) SecondaryButton(strings.back, onClick = { model.back() }, Modifier.weight(1f))
             when (model.step) {
-                3 -> PrimaryButton("Just save my goal", onClick = { model.finish(null) }, Modifier.weight(1f))
-                else -> PrimaryButton("Next", onClick = { model.next() }, Modifier.weight(1f), enabled = model.canContinue)
+                3 -> PrimaryButton(strings.justSaveMyGoal, onClick = { model.finish(null) }, Modifier.weight(1f))
+                else -> PrimaryButton(strings.next, onClick = { model.next() }, Modifier.weight(1f), enabled = model.canContinue)
             }
         }
     }
@@ -208,10 +204,11 @@ private fun OptionCard(title: String, blurb: String, selected: Boolean, onClick:
 @Composable
 internal fun ProgramTags(program: Program, active: Boolean = false) {
     val palette = GainsColors.palette
+    val strings = strings
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (active) Pill("Active", palette.volt, filled = true)
-        Pill("${program.daysPerWeek}d/wk", palette.cyan)
-        Pill(program.level.label, palette.violet)
-        for (g in program.goals.take(2)) Pill(g.label, palette.amber)
+        if (active) Pill(strings.active, palette.volt, filled = true)
+        Pill(strings.daysPerWeekTag(program.daysPerWeek), palette.cyan)
+        Pill(strings.experience(program.level), palette.violet)
+        for (g in program.goals.take(2)) Pill(strings.goal(g), palette.amber)
     }
 }

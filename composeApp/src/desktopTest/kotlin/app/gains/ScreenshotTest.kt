@@ -30,6 +30,7 @@ import app.gains.data.DatabaseDriverFactory
 import app.gains.data.DesktopDriverFactory
 import app.gains.data.ProgramRepository
 import app.gains.di.initKoin
+import app.gains.i18n.English
 import app.gains.domain.BodyweightEntry
 import app.gains.domain.Experience
 import app.gains.domain.Goal
@@ -78,7 +79,7 @@ class ScreenshotTest {
         // 480×860 dp at 2× density: the same layout as the desktop window, at retina resolution.
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(2f)) {
-                App(filePicker = CsvFilePicker { onResult -> onResult(emptyList()) })
+                App(filePicker = CsvFilePicker { onResult -> onResult(emptyList()) }, strings = English)
             }
         }
 

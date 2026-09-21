@@ -143,10 +143,10 @@ class GzclpTest {
 
     @Test
     fun restLabelsReadNaturally() {
-        assertEquals("3–5 min", Gzclp.Tier.T1.restLabel)
-        assertEquals("2–3 min", Gzclp.Tier.T2.restLabel)
-        assertEquals("60–90 s", Gzclp.Tier.T3.restLabel)
-        assertEquals("30–60 s or as needed", Gzclp.WARMUP_REST_LABEL)
+        assertEquals("3–5 min", Gzclp.Tier.T1.restLabel())
+        assertEquals("2–3 min", Gzclp.Tier.T2.restLabel())
+        assertEquals("60–90 s", Gzclp.Tier.T3.restLabel())
+        assertEquals("30–60 s or as needed", Gzclp.warmupRestLabel())
         assertEquals(180, Gzclp.Tier.T1.restTimerSeconds)
     }
 

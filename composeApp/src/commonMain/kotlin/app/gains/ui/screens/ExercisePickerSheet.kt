@@ -53,6 +53,7 @@ import app.gains.domain.MuscleGroup
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.RoundedIconBox
+import app.gains.ui.i18n.strings
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.launch
 
@@ -76,9 +77,11 @@ internal fun ExercisePickerSheet(
     /** Single-select: tapping a row adds it straight away. */
     single: Boolean = false,
     /** The sheet's heading: "Add exercises" to add, or what is being replaced. */
-    title: String = "Add exercises",
+    title: String? = null,
 ) {
     val palette = GainsColors.palette
+    val strings = strings
+    val heading = title ?: strings.addExercises
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
@@ -87,18 +90,21 @@ internal fun ExercisePickerSheet(
     var selected by remember { mutableStateOf(listOf<String>()) }
 
     val q = query.trim()
-    val filtered = remember(catalogue, q, group) {
+    // Shown, searched and sorted by the name in the screen's language; the catalogue's English name still matches a search.
+    val names = remember(catalogue, strings) { catalogue.associate { it.id to strings.exerciseName(it) } }
+    fun name(e: Exercise) = names[e.id] ?: e.name
+    val filtered = remember(catalogue, q, group, names) {
         catalogue.filter { e ->
             (group == null || e.muscleGroups.any { it.group == group }) &&
-                (q.isEmpty() || e.name.contains(q, ignoreCase = true))
+                (q.isEmpty() || name(e).contains(q, ignoreCase = true) || e.name.contains(q, ignoreCase = true))
         }
     }
-    val sections: List<Pair<String, List<Exercise>>> = remember(filtered) {
-        filtered.groupBy { e -> e.name.firstOrNull()?.uppercaseChar()?.takeIf { it.isLetter() }?.toString() ?: "#" }
-            .entries.sortedBy { it.key }.map { (letter, list) -> letter to list.sortedBy { it.name.lowercase() } }
+    val sections: List<Pair<String, List<Exercise>>> = remember(filtered, names) {
+        filtered.groupBy { e -> name(e).firstOrNull()?.uppercaseChar()?.takeIf { it.isLetter() }?.toString() ?: "#" }
+            .entries.sortedBy { it.key }.map { (letter, list) -> letter to list.sortedBy { name(it).lowercase() } }
     }
     val showRecent = q.isEmpty() && group == null && recent.isNotEmpty()
-    val canCreate = onCreate != null && q.isNotEmpty() && catalogue.none { it.name.equals(q, ignoreCase = true) }
+    val canCreate = onCreate != null && q.isNotEmpty() && catalogue.none { it.name.equals(q, ignoreCase = true) || name(it).equals(q, ignoreCase = true) }
     val byId = remember(catalogue) { catalogue.associateBy { it.id } }
 
     fun close(then: () -> Unit = {}) {
@@ -120,26 +126,26 @@ internal fun ExercisePickerSheet(
             // Header
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.headlineSmall)
+                    Text(heading, style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        if (selected.isEmpty()) "${catalogue.size} in your library" else "${selected.size} selected",
+                        if (selected.isEmpty()) strings.inYourLibrary(catalogue.size) else strings.nSelected(selected.size),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Box(
                     Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable { close() },
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Default.Close, "Close", modifier = Modifier.size(18.dp)) }
+                ) { Icon(Icons.Default.Close, strings.close, modifier = Modifier.size(18.dp)) }
             }
             Spacer(Modifier.height(12.dp))
 
             // Search
             OutlinedTextField(
                 value = query, onValueChange = { query = it },
-                placeholder = { Text("Search or type a new exercise") }, singleLine = true,
+                placeholder = { Text(strings.searchOrTypeNew) }, singleLine = true,
                 leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp)) },
                 trailingIcon = if (query.isEmpty()) null else ({
-                    Icon(Icons.Default.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp).clip(CircleShape).clickable { query = "" })
+                    Icon(Icons.Default.Close, strings.clear, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp).clip(CircleShape).clickable { query = "" })
                 }),
                 shape = CircleShape,
                 colors = OutlinedTextFieldDefaults.colors(
@@ -154,8 +160,8 @@ internal fun ExercisePickerSheet(
 
             // Muscle-group filter
             LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                item { FilterChip("All", group == null) { group = null } }
-                items(MuscleGroup.entries) { g -> FilterChip(g.displayName, group == g) { group = if (group == g) null else g } }
+                item { FilterChip(strings.all, group == null) { group = null } }
+                items(MuscleGroup.entries) { g -> FilterChip(strings.muscleGroup(g), group == g) { group = if (group == g) null else g } }
             }
             Spacer(Modifier.height(4.dp))
 
@@ -171,24 +177,24 @@ internal fun ExercisePickerSheet(
                     }
                 }
                 if (showRecent) {
-                    item(key = "h:recent") { SectionLabel("Recent") }
+                    item(key = "h:recent") { SectionLabel(strings.recent) }
                     items(recent, key = { "r:" + it.id }) { e ->
-                        PickerRow(e, selected = e.id in selected, added = e.id in alreadyAdded) { toggle(e.id) }
+                        PickerRow(e, name(e), selected = e.id in selected, added = e.id in alreadyAdded) { toggle(e.id) }
                     }
                 }
                 if (filtered.isEmpty() && !canCreate) {
                     item {
                         Text(
-                            if (group != null) "No exercises for ${group!!.displayName}${if (q.isNotEmpty()) " matching \"$q\"" else ""}." else "Nothing matches \"$q\".",
+                            if (group != null) strings.noExercisesFor(group!!, q) else strings.nothingMatches(q),
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 24.dp),
                         )
                     }
                 }
                 for ((letter, list) in sections) {
-                    item(key = "h:$letter") { SectionLabel(if (showRecent || sections.size > 1) letter else "Results") }
+                    item(key = "h:$letter") { SectionLabel(if (showRecent || sections.size > 1) letter else strings.results) }
                     items(list, key = { it.id }) { e ->
-                        PickerRow(e, selected = e.id in selected, added = e.id in alreadyAdded) { toggle(e.id) }
+                        PickerRow(e, name(e), selected = e.id in selected, added = e.id in alreadyAdded) { toggle(e.id) }
                     }
                 }
             }
@@ -196,7 +202,7 @@ internal fun ExercisePickerSheet(
             // Sticky action
             Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 20.dp, vertical = 12.dp).navigationBarsPadding()) {
                 PrimaryButton(
-                    if (selected.isEmpty()) "Select exercises" else "Add ${Format.plural(selected.size, "exercise")}",
+                    if (selected.isEmpty()) strings.selectExercises else strings.addNExercises(selected.size),
                     onClick = { val picked = selected.mapNotNull { byId[it] }; close { onAdd(picked) } },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = selected.isNotEmpty(),
@@ -237,6 +243,7 @@ private fun SectionLabel(text: String) {
 @Composable
 private fun CreateRow(name: String, onClick: () -> Unit) {
     val palette = GainsColors.palette
+    val strings = strings
     Row(
         Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable(onClick = onClick).padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -244,21 +251,22 @@ private fun CreateRow(name: String, onClick: () -> Unit) {
         RoundedIconBox(palette.volt) { Icon(Icons.Default.Add, null, tint = palette.volt, modifier = Modifier.size(20.dp)) }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text("Create \"$name\"", style = MaterialTheme.typography.titleMedium, color = palette.volt)
-            Text("Custom exercise · muscles guessed from the name", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(strings.createNamed(name), style = MaterialTheme.typography.titleMedium, color = palette.volt)
+            Text(strings.customExerciseGuessed, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun PickerRow(e: Exercise, selected: Boolean, added: Boolean, onToggle: () -> Unit) {
+private fun PickerRow(e: Exercise, name: String, selected: Boolean, added: Boolean, onToggle: () -> Unit) {
     val palette = GainsColors.palette
+    val strings = strings
     val primary = e.muscleGroups.maxByOrNull { it.weight }?.group
-    val muscles = e.muscleGroups.sortedByDescending { it.weight }.joinToString(" · ") { it.group.displayName }
+    val muscles = e.muscleGroups.sortedByDescending { it.weight }.joinToString(" · ") { strings.muscleGroup(it.group) }
     val subtitle = buildList {
         if (muscles.isNotEmpty()) add(muscles)
-        if (e.modality != Modality.WEIGHTED) add(e.modality.name.lowercase().replaceFirstChar { it.uppercase() })
-        if (e.isDumbbell) add("per dumbbell")
+        if (e.modality != Modality.WEIGHTED) add(strings.modality(e.modality))
+        if (e.isDumbbell) add(strings.perDumbbell.lowercase())
     }.joinToString(" · ")
     Row(
         Modifier
@@ -270,16 +278,16 @@ private fun PickerRow(e: Exercise, selected: Boolean, added: Boolean, onToggle: 
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RoundedIconBox(muscleColor(primary)) {
-            Text(muscleInitials(primary, e), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = muscleColor(primary))
+            Text(muscleInitials(primary, name), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = muscleColor(primary))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(e.name, style = MaterialTheme.typography.titleMedium, color = if (added) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+            Text(name, style = MaterialTheme.typography.titleMedium, color = if (added) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
             if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
         Spacer(Modifier.width(10.dp))
         if (added) {
-            Pill("Added", palette.muted)
+            Pill(strings.added, palette.muted)
         } else {
             Box(
                 Modifier
@@ -296,8 +304,8 @@ private fun PickerRow(e: Exercise, selected: Boolean, added: Boolean, onToggle: 
 }
 
 /** Two-letter tag for the icon box, e.g. "CH" for chest, "QU" for quads; falls back to the exercise initial. */
-private fun muscleInitials(group: MuscleGroup?, e: Exercise): String = when (group) {
-    null -> e.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+private fun muscleInitials(group: MuscleGroup?, name: String): String = when (group) {
+    null -> name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
     MuscleGroup.FRONT_DELTS -> "FD"
     MuscleGroup.SIDE_DELTS -> "SD"
     MuscleGroup.REAR_DELTS -> "RD"

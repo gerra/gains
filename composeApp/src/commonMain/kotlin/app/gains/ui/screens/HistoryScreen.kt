@@ -53,6 +53,8 @@ import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SectionHeader
+import app.gains.i18n.Strings
+import app.gains.ui.i18n.strings
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -98,14 +100,14 @@ internal data class HistoryState(
     val dayNames: Map<String, String> = emptyMap(),
 )
 
-internal class HistoryModel(trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
+internal class HistoryModel(strings: Strings, trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
     val state: StateFlow<HistoryState> = combine(trainingData.snapshot, programs.observePrograms()) { snapshot, programList ->
         withContext(Dispatchers.Default) {
             val today = Dates.today()
             val sessions = snapshot.sessions.sortedByDescending { it.timestamp }
             HistoryState(
                 loading = false,
-                dayNames = programList.flatMap { p -> p.days.map { it.id to it.name } }.toMap(),
+                dayNames = programList.flatMap { p -> p.days.map { it.id to strings.programDayName(it) } }.toMap(),
                 sessions = sessions,
                 years = groupByYearAndMonth(sessions),
                 exercisesById = snapshot.exercisesById,
@@ -125,7 +127,8 @@ internal class HistoryModel(trainingData: TrainingData = inject(), programs: Pro
  */
 @Composable
 internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
-    val model = rememberScreenModel { HistoryModel() }
+    val strings = strings
+    val model = rememberScreenModel(strings) { HistoryModel(strings) }
     val state by model.state.collectAsState()
     if (state.loading) return
     val today = Dates.today()
@@ -133,30 +136,30 @@ internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
     // A calendar day with more than one session: which of them to open is asked in a sheet.
     var pickedDay by remember { mutableStateOf<LocalDate?>(null) }
     if (state.sessions.isEmpty()) {
-        EmptyState("No sessions yet", "Log a workout here or import your history. Your calendar and sessions-per-week trend will build up as you go.", emoji = "▦", action = { PrimaryButton("Log a workout", onLog) })
+        EmptyState(strings.noSessionsYet, strings.noSessionsYetBody, emoji = "▦", action = { PrimaryButton(strings.logAWorkout, onLog) })
         return
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle("History", subtitle = "${Format.plural(state.sessions.size, "session")} on record", trailing = {
-                TextButton(onClick = onLog) { Text("+ Log", color = palette.volt) }
+            ScreenTitle(strings.historyTitle, subtitle = strings.onRecord(state.sessions.size), trailing = {
+                TextButton(onClick = onLog) { Text(strings.plusLog, color = palette.volt) }
             })
             val stats = state.stats
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricTile("Per week", stats?.let { Format.number(it.recentSessionsPerWeek, 1) } ?: "-", Modifier.weight(1f), caption = "last ${stats?.weeks ?: 4} weeks", accent = palette.volt)
+                MetricTile(strings.perWeek, stats?.let { Format.number(it.recentSessionsPerWeek, 1) } ?: "-", Modifier.weight(1f), caption = strings.lastNWeeks(stats?.weeks ?: 4), accent = palette.volt)
                 MetricTile(
-                    "Trend",
-                    when (stats?.trend) { Trend.UP -> "Up"; Trend.DOWN -> "Down"; else -> "Steady" },
+                    strings.trend,
+                    when (stats?.trend) { Trend.UP -> strings.trendUp; Trend.DOWN -> strings.trendDown; else -> strings.trendSteady },
                     Modifier.weight(1f),
-                    caption = stats?.previousSessionsPerWeek?.let { "was ${Format.number(it, 1)}/wk" },
+                    caption = stats?.previousSessionsPerWeek?.let { strings.wasPerWeek(Format.number(it, 1)) },
                     accent = when (stats?.trend) { Trend.UP -> palette.progress; Trend.DOWN -> palette.regression; else -> null },
                 )
-                MetricTile("Streak", state.streakWeeks.toString(), Modifier.weight(1f), caption = if (state.streakWeeks == 1) "week" else "weeks")
+                MetricTile(strings.streak, state.streakWeeks.toString(), Modifier.weight(1f), caption = strings.weekWord(state.streakWeeks))
             }
         }
         item {
-            SectionHeader("Last 26 weeks") {
-                Text("Tap a day to open it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SectionHeader(strings.last26Weeks) {
+                Text(strings.tapADayToOpen, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 CalendarHeatmap(state.perDay, today, weeks = 26, onDayClick = { day ->
@@ -171,10 +174,10 @@ internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
         }
         if (state.weeks.size >= 2) {
             item {
-                SectionHeader("Sessions per week")
+                SectionHeader(strings.sessionsPerWeek)
                 GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
-                    val rolling = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.rollingAverage) }, palette.volt, "4-week average", showDots = false, fill = true)
-                    val weekly = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.sessions.toDouble()) }, palette.muted, "Sessions", showDots = true, dashed = true, smooth = false)
+                    val rolling = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.rollingAverage) }, palette.volt, strings.fourWeekAverage, showDots = false, fill = true)
+                    val weekly = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.sessions.toDouble()) }, palette.muted, strings.sessionsLegend, showDots = true, dashed = true, smooth = false)
                     LineChart(listOf(rolling, weekly), height = 160.dp, yMinZero = true, yLabel = { Format.number(it, 0) })
                 }
             }
@@ -209,7 +212,8 @@ private fun DaySessionsSheet(
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    PickerSheet("${Dates.dayLabel(day.dayOfWeek)} ${Dates.contextual(day, today)}", subtitle = Format.plural(sessions.size, "session"), onDismiss = onDismiss) {
+    val strings = strings
+    PickerSheet(strings.dateWithWeekday(day, today), subtitle = strings.sessions(sessions.size), onDismiss = onDismiss) {
         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
             for (session in sessions) {
                 SessionRow(session, exercisesById, today, dayNames[session.program?.dayId], onClick = { onOpen(session.id) })
@@ -226,7 +230,7 @@ private fun YearDivider(year: YearGroup) {
         HorizontalDivider(Modifier.weight(1f), color = hairline)
         Column(Modifier.padding(horizontal = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(year.year.toString(), style = MaterialTheme.typography.titleLarge)
-            Text(Format.plural(year.sessionCount, "session"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(strings.sessions(year.sessionCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         HorizontalDivider(Modifier.weight(1f), color = hairline)
     }
@@ -235,19 +239,21 @@ private fun YearDivider(year: YearGroup) {
 /** "SEPTEMBER" on the left, "8 sessions" on the right. */
 @Composable
 private fun MonthHeader(month: MonthGroup) {
-    SectionHeader(Dates.monthName(month.sessions.first().date)) {
-        Text(Format.plural(month.sessions.size, "session"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val strings = strings
+    SectionHeader(strings.monthName(month.sessions.first().date)) {
+        Text(strings.sessions(month.sessions.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, today: LocalDate, dayName: String?, onClick: () -> Unit) {
     val palette = GainsColors.palette
+    val strings = strings
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = onClick, contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(Dates.contextual(session.date, today), style = MaterialTheme.typography.titleMedium)
+                    Text(strings.dateContextual(session.date, today), style = MaterialTheme.typography.titleMedium)
                     if (dayName != null) {
                         Spacer(Modifier.width(8.dp))
                         Pill(dayName, palette.cyan)
@@ -255,20 +261,20 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                     Spacer(Modifier.width(8.dp))
                     Text(
                         "${session.timestamp.hour.toString().padStart(2, '0')}:${session.timestamp.minute.toString().padStart(2, '0')}" +
-                            (session.durationMinutes?.let { " · $it min" } ?: ""),
+                            (session.durationMinutes?.let { strings.durationSuffix(it) } ?: ""),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    session.exercises.joinToString(" · ") { exercisesById[it.exerciseId]?.name ?: it.exerciseId },
+                    session.exercises.joinToString(" · ") { exercisesById[it.exerciseId]?.let(strings::exerciseName) ?: it.exerciseId },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
                 )
             }
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {
-                Text(Format.plural(session.workingSetCount, "set"), style = MaterialTheme.typography.titleSmall)
-                Pill(if (session.isManual) "logged" else session.source.replaceFirstChar { it.uppercase() }, if (session.isManual) palette.volt else palette.muted)
+                Text(strings.sets(session.workingSetCount), style = MaterialTheme.typography.titleSmall)
+                Pill(if (session.isManual) strings.logged else session.source.replaceFirstChar { it.uppercase() }, if (session.isManual) palette.volt else palette.muted)
             }
         }
     }
