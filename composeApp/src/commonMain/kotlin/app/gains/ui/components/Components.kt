@@ -118,7 +118,7 @@ internal fun Pill(text: String, color: Color, modifier: Modifier = Modifier, fil
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
-        Text(text, style = MaterialTheme.typography.labelSmall, color = if (filled) MaterialTheme.colorScheme.onPrimary else color)
+        Text(text, style = MaterialTheme.typography.labelSmall, color = if (filled) MaterialTheme.colorScheme.onPrimary else color, maxLines = 1, softWrap = false)
     }
 }
 
