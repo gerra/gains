@@ -190,6 +190,13 @@ internal data class EditorState(
     val error: Boolean = false,
     val saved: Boolean = false,
     /**
+     * The caption written on the summary screen, carried through the editor so that editing a
+     * workout does not drop it. Changed on the summary screen, never here.
+     */
+    val caption: String? = null,
+    /** The id an ended timed workout was stored under; the screen hands it to its summary. */
+    val endedId: String? = null,
+    /**
      * The program day this workout counts towards. Set when started from a program day, and editable:
      * a free workout tagged with a day drives that day's progression like one started from it.
      */
@@ -320,6 +327,8 @@ internal class SessionEditorModel(
     private var persistJob: Job? = null
     /** Set once the workout was stored or discarded, so nothing writes it back afterwards. */
     private var finished = false
+    /** Set once the duration was chosen here; the stored one then no longer flows in over it. */
+    private var durationTouched = false
     /** The answer to the unticked-sets question, carried through the long-session question to the store. */
     private var includeUntickedOnEnd = false
 
@@ -347,6 +356,7 @@ internal class SessionEditorModel(
                     },
                     unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
                     programDay = existing.program, title = ctx.titles.editWorkout, programDays = ctx.dayOptions,
+                    caption = existing.caption,
                 )
                 // Coming back to the running workout, whether from the resume bar, a relaunch or the same day's Start.
                 stored != null && (programDay == null || stored.program == programDay) -> restored(ctx, stored)
@@ -356,6 +366,25 @@ internal class SessionEditorModel(
                 else -> fresh(ctx).copy(title = ctx.titles.logWorkout)
             }.withPrevious(ctx)
             if (live) persistWhileRunning()
+            if (existing != null) followStoredSummary(existing.id)
+        }
+    }
+
+    /**
+     * The summary screen changes a stored workout's duration and caption while its editor waits
+     * underneath, so the editor follows them rather than saving what it read when it opened. A
+     * duration chosen here wins: that is an edit of its own, not yet saved.
+     */
+    private fun followStoredSummary(id: String) {
+        scope.launch {
+            sessions.observeRawSessions()
+                .map { list -> list.firstOrNull { it.id == id } }
+                .map { it?.let { s -> s.durationMinutes to s.caption } }
+                .distinctUntilChanged()
+                .collect { stored ->
+                    if (stored == null || finished) return@collect
+                    update { s -> s.copy(durationMinutes = if (durationTouched) s.durationMinutes else stored.first, caption = stored.second) }
+                }
         }
     }
 
@@ -432,7 +461,10 @@ internal class SessionEditorModel(
     private fun edit(f: (EditorState) -> EditorState) = update { s -> if (s.editable) f(s) else s }
     fun setDate(v: LocalDate) = update { it.copy(date = v) }
     fun setTime(v: LocalTime) = update { it.copy(time = v) }
-    fun setDuration(v: Int?) = update { it.copy(durationMinutes = v?.takeIf { m -> m > 0 }) }
+    fun setDuration(v: Int?) {
+        durationTouched = true
+        update { it.copy(durationMinutes = v?.takeIf { m -> m > 0 }) }
+    }
 
     /**
      * Starts the clock. A different workout still running is asked about first rather than silently
@@ -606,6 +638,7 @@ internal class SessionEditorModel(
             exercises = entries,
             source = Session.MANUAL,
             program = s.programDay,
+            caption = s.caption,
         )
         scope.launch {
             // Ids are minute-precision timestamps; two workouts saved in the same minute must not replace each other.
@@ -655,6 +688,7 @@ internal class SessionEditorModel(
                 val id = uniqueId(timestamp.toString(), sessions.ids())
                 sessions.upsert(Session(id, timestamp, minutes, entries, Session.MANUAL, s.programDay))
                 liveSessions.clear()
+                update { it.copy(endedId = id) }
             }
             update { it.copy(saved = true, error = false) }
         }
@@ -729,8 +763,19 @@ internal class SessionEditorModel(
     }
 }
 
+/**
+ * [onEnded] is called instead of [onDone] when a timed workout was ended and stored, with the id it
+ * was stored under, so the session can hand over to its summary rather than simply closing.
+ */
 @Composable
-internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, live: Boolean = false, onDone: () -> Unit) {
+internal fun SessionEditorScreen(
+    sessionId: String?,
+    programDay: ProgramDayRef? = null,
+    live: Boolean = false,
+    onDone: () -> Unit,
+    onEnded: (String) -> Unit = { onDone() },
+    onOpenSummary: (String) -> Unit = {},
+) {
     val texts = rememberTexts()
     val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live, texts) }
     val state by model.state.collectAsState()
@@ -749,7 +794,11 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
     /** The set whose weight chooser is open: exercise index to set index. */
     var weightTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     if (state.loading) return
-    if (state.saved) { onDone(); return }
+    if (state.saved) {
+        val ended = state.endedId
+        if (ended != null) onEnded(ended) else onDone()
+        return
+    }
     val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = palette.volt, unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant)
     val startedAt = state.startedAtMs
 
@@ -788,6 +837,7 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
                     else -> WhenCard(
                         state.date, state.time, state.durationMinutes,
                         onDate = { datePickerOpen = true }, onTime = { timePickerOpen = true }, onDuration = { durationPickerOpen = true },
+                        onSummary = state.id?.let { id -> { onOpenSummary(id) } },
                     )
                 }
                 SectionHeader(stringResource(Res.string.exercises_section), action = {
@@ -945,7 +995,16 @@ private fun dateLabel(date: LocalDate): String {
  * calendar for the date, wheels for the time and the duration. Nothing is typed.
  */
 @Composable
-private fun WhenCard(date: LocalDate?, time: LocalTime?, durationMinutes: Int?, onDate: () -> Unit, onTime: () -> Unit, onDuration: () -> Unit) {
+private fun WhenCard(
+    date: LocalDate?,
+    time: LocalTime?,
+    durationMinutes: Int?,
+    onDate: () -> Unit,
+    onTime: () -> Unit,
+    onDuration: () -> Unit,
+    /** Set for a workout that is already stored: its summary, with the muscles it trained and its photo. */
+    onSummary: (() -> Unit)? = null,
+) {
     val hairline = MaterialTheme.colorScheme.outlineVariant
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
         ChooserRow(stringResource(Res.string.date), date?.let { dateLabel(it) } ?: "", onClick = onDate)
@@ -953,6 +1012,10 @@ private fun WhenCard(date: LocalDate?, time: LocalTime?, durationMinutes: Int?, 
         ChooserRow(stringResource(Res.string.time), time?.let { clock(it.hour, it.minute) } ?: "", onClick = onTime)
         HorizontalDivider(color = hairline)
         ChooserRow(stringResource(Res.string.duration), durationMinutes?.let { minutesText(it) } ?: stringResource(Res.string.not_timed), onClick = onDuration, muted = durationMinutes == null)
+        if (onSummary != null) {
+            HorizontalDivider(color = hairline)
+            ChooserRow(stringResource(Res.string.summary), stringResource(Res.string.summary_row), onClick = onSummary, muted = true)
+        }
     }
 }
 

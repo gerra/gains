@@ -992,6 +992,24 @@
         <item quantity="one">Leave it out of the workout, or save it as done too?</item>
         <item quantity="other">Leave them out of the workout, or save them as done too?</item>
     </plurals>
+    <!-- Workout summary, shown as a session is ended. -->
+    <string name="workout_logged">WORKOUT LOGGED</string>
+    <string name="tap_to_change">Tap to change</string>
+    <string name="muscles_trained">Muscles trained</string>
+    <string name="no_muscles_trained">No working sets to credit to a muscle group.</string>
+    <string name="last_weight_on">Last entry %1$s on %2$s.</string>
+    <string name="no_bodyweight_yet">No body weight on record yet.</string>
+    <string name="weight_recorded">Weight recorded</string>
+    <string name="caption_and_photo">Caption and photo</string>
+    <string name="caption_placeholder">How did it go?</string>
+    <string name="workout_photo">Workout photo</string>
+    <string name="add_photo">Add photo</string>
+    <string name="change_photo">Change photo</string>
+    <string name="remove_photo">Remove</string>
+    <string name="adding_photo">Adding…</string>
+    <string name="summary_row">Summary, photo and caption</string>
+    <string name="choose_a_photo">Choose a photo</string>
+    <string name="photo_pill">Photo</string>
     <string-array name="months_short">
         <item>Jan</item>
         <item>Feb</item>

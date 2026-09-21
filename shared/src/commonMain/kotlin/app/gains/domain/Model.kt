@@ -96,6 +96,13 @@ data class Session(
     val source: String = IMPORTED,
     /** Set when the session was started from a program day. */
     val program: ProgramDayRef? = null,
+    /** A line about the workout, written on the summary screen when the session was ended. */
+    val caption: String? = null,
+    /**
+     * Whether a photo was attached on the summary screen. The bytes live in their own table and are
+     * read one session at a time, so that loading the whole history never carries them.
+     */
+    val hasPhoto: Boolean = false,
 ) {
     val isManual: Boolean get() = source == MANUAL
 

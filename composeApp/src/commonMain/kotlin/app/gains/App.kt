@@ -87,6 +87,7 @@ import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.LiveSessionNotice
 import app.gains.platform.LiveSessionNotifier
+import app.gains.platform.PhotoPicker
 import app.gains.platform.ResumeRequests
 import app.gains.platform.SkipRestRequests
 import app.gains.ui.components.GainsWordmark
@@ -103,6 +104,7 @@ import app.gains.ui.screens.BodyweightScreen
 import app.gains.ui.screens.HistoryScreen
 import app.gains.ui.screens.SessionEditorModel
 import app.gains.ui.screens.SessionEditorScreen
+import app.gains.ui.screens.SessionSummaryScreen
 import app.gains.ui.screens.ExerciseDetailScreen
 import app.gains.ui.screens.ExercisesScreen
 import app.gains.ui.screens.HomeScreen
@@ -127,6 +129,8 @@ import app.gains.ui.theme.GainsTheme
  * [notifier] is told about the workout in progress, so the platform can keep a way back to it in
  * its tray while the lifter is elsewhere; a tap there comes back through [ResumeRequests].
  *
+ * [photoPicker] opens the platform's photo library for the picture a workout's summary can carry.
+ *
  * Everything on screen is in the device's language, through the string resources: a change of
  * language takes a relaunch.
  */
@@ -135,6 +139,7 @@ internal fun App(
     filePicker: CsvFilePicker,
     systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> },
     notifier: LiveSessionNotifier = LiveSessionNotifier.None,
+    photoPicker: PhotoPicker = PhotoPicker.None,
 ) {
     // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
     // while the entry lives, so a screen comes back as it was left once the one covering it is popped.
@@ -225,7 +230,7 @@ internal fun App(
                     enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
                     onBack = { navigator.pop(animated = false) },
                     modifier = Modifier.weight(1f),
-                    previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, stateHolder) } },
+                    previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, photoPicker, stateHolder) } },
                 ) {
                     transition.AnimatedContent(
                         transitionSpec = {
@@ -239,7 +244,7 @@ internal fun App(
                                 enter togetherWith exit
                             }
                         },
-                    ) { entry -> ScreenContent(entry, navigator, filePicker, stateHolder) }
+                    ) { entry -> ScreenContent(entry, navigator, filePicker, photoPicker, stateHolder) }
                 }
                 live?.let { running ->
                     if (!(screen is Screen.EditSession && screen.live)) {
@@ -261,20 +266,20 @@ private data class UpNext(val ref: ProgramDayRef, val dayName: String)
  * saved UI state belong to [entry], not to this composition, so they outlive the screen being covered.
  */
 @Composable
-private fun ScreenContent(entry: NavEntry, navigator: Navigator, filePicker: CsvFilePicker, stateHolder: SaveableStateHolder) {
+private fun ScreenContent(entry: NavEntry, navigator: Navigator, filePicker: CsvFilePicker, photoPicker: PhotoPicker, stateHolder: SaveableStateHolder) {
     DisposableEffect(entry) {
         entry.attach()
         onDispose { entry.detach() }
     }
     CompositionLocalProvider(LocalNavEntry provides entry) {
         stateHolder.SaveableStateProvider(entry.id) {
-            ScreenBody(entry.screen, navigator, filePicker)
+            ScreenBody(entry.screen, navigator, filePicker, photoPicker)
         }
     }
 }
 
 @Composable
-private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFilePicker) {
+private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFilePicker, photoPicker: PhotoPicker) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (screen) {
             Screen.Home -> HomeScreen(
@@ -295,7 +300,14 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
                 onOpen = { navigator.push(Screen.EditSession(it)) },
                 onLog = { navigator.push(Screen.EditSession(null)) },
             )
-            is Screen.EditSession -> SessionEditorScreen(screen.sessionId, screen.programDay, screen.live, onDone = { navigator.pop() })
+            is Screen.EditSession -> SessionEditorScreen(
+                screen.sessionId, screen.programDay, screen.live,
+                onDone = { navigator.pop() },
+                // An ended workout hands over to its summary, which Back then leaves for whatever came before it.
+                onEnded = { navigator.replace(Screen.SessionSummary(it)) },
+                onOpenSummary = { navigator.push(Screen.SessionSummary(it)) },
+            )
+            is Screen.SessionSummary -> SessionSummaryScreen(screen.sessionId, photoPicker, onDone = { navigator.pop() })
             Screen.Settings -> SettingsScreen(
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenOnboarding = { navigator.push(Screen.Onboarding) },
@@ -332,7 +344,7 @@ private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
         }
         Spacer(Modifier.weight(1f))
         // "+" offers both ways of getting a session in; hidden on the screens that already are one of them.
-        if (screen != Screen.Import && screen !is Screen.EditSession) {
+        if (screen != Screen.Import && screen !is Screen.EditSession && screen !is Screen.SessionSummary) {
             var menuOpen by remember { mutableStateOf(false) }
             Box {
                 IconCircle(Icons.Default.Add, stringResource(Res.string.add_description)) { menuOpen = true }

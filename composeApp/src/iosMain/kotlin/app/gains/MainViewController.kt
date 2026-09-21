@@ -6,18 +6,29 @@ import app.gains.data.IosDriverFactory
 import app.gains.di.initKoin
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
+import app.gains.platform.PhotoPicker
 import app.gains.platform.PickedFile
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.dsl.module
+import platform.Foundation.NSData
+import platform.Foundation.NSError
+import platform.Foundation.NSItemProvider
 import platform.Foundation.NSString
 import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.stringWithContentsOfURL
+import platform.PhotosUI.PHPickerConfiguration
+import platform.PhotosUI.PHPickerFilter
+import platform.PhotosUI.PHPickerResult
+import platform.PhotosUI.PHPickerViewController
+import platform.PhotosUI.PHPickerViewControllerDelegateProtocol
 import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerViewController
@@ -35,7 +46,9 @@ fun MainViewController(): UIViewController {
         initKoin(module { single<DatabaseDriverFactory> { IosDriverFactory() } })
         koinStarted = true
     }
-    return ComposeUIViewController { App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier) }
+    return ComposeUIViewController {
+        App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier, photoPicker = IosPhotoPicker())
+    }
 }
 
 /**
@@ -65,6 +78,64 @@ private fun readCsv(url: NSURL): PickedFile? {
     }
 }
 
+/** Whatever is on top right now, so a sheet is presented from the visible screen. */
+private fun topViewController(): UIViewController? {
+    var vc = UIApplication.sharedApplication.keyWindow?.rootViewController
+    while (vc?.presentedViewController != null) vc = vc.presentedViewController
+    return vc
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun NSData.toByteArray(): ByteArray {
+    val size = length.toInt()
+    if (size == 0) return ByteArray(0)
+    return ByteArray(size).apply { usePinned { getBytes(it.addressOf(0), length) } }
+}
+
+/**
+ * The workout photo, from the system photo picker. It runs out of process and hands back only what
+ * was chosen, so the app needs no access to the library and no permission prompt.
+ */
+@OptIn(ExperimentalForeignApi::class)
+internal class IosPhotoPicker : PhotoPicker {
+    // Keep a strong reference: UIKit only holds the delegate weakly.
+    private var delegate: PhotoDelegate? = null
+
+    override fun pick(onResult: (ByteArray?) -> Unit) {
+        val configuration = PHPickerConfiguration().apply {
+            selectionLimit = 1L
+            filter = PHPickerFilter.imagesFilter
+        }
+        val picker = PHPickerViewController(configuration)
+        delegate = PhotoDelegate { bytes -> delegate = null; onResult(bytes) }
+        picker.delegate = delegate
+        topViewController()?.presentViewController(picker, animated = true, completion = null)
+    }
+
+    private class PhotoDelegate(private val onResult: (ByteArray?) -> Unit) : NSObject(), PHPickerViewControllerDelegateProtocol {
+        override fun picker(picker: PHPickerViewController, didFinishPicking: List<*>) {
+            picker.dismissViewControllerAnimated(true, null)
+            val provider = (didFinishPicking.firstOrNull() as? PHPickerResult)?.itemProvider
+            if (provider == null) { onResult(null); return }
+            load(provider) { bytes ->
+                fileReads.launch { withContext(Dispatchers.Main) { onResult(bytes) } }
+            }
+        }
+
+        /** The chosen image's bytes, whatever the library holds it as; null when it cannot be read. */
+        private fun load(provider: NSItemProvider, onLoaded: (ByteArray?) -> Unit) {
+            // The UTI rather than UTTypeImage: the constant is bound as nullable and this never is.
+            provider.loadDataRepresentationForTypeIdentifier(IMAGE_UTI) { data: NSData?, _: NSError? ->
+                onLoaded(data?.toByteArray())
+            }
+        }
+
+        private companion object {
+            const val IMAGE_UTI = "public.image"
+        }
+    }
+}
+
 @OptIn(ExperimentalForeignApi::class)
 internal class IosFilePicker : CsvFilePicker {
     // Keep a strong reference: UIKit only holds the delegate weakly.
@@ -76,13 +147,7 @@ internal class IosFilePicker : CsvFilePicker {
         delegate = PickerDelegate { file -> onResult(file); delegate = null }
         picker.delegate = delegate
         picker.allowsMultipleSelection = true
-        rootViewController()?.presentViewController(picker, animated = true, completion = null)
-    }
-
-    private fun rootViewController(): UIViewController? {
-        var vc = UIApplication.sharedApplication.keyWindow?.rootViewController
-        while (vc?.presentedViewController != null) vc = vc.presentedViewController
-        return vc
+        topViewController()?.presentViewController(picker, animated = true, completion = null)
     }
 
     private class PickerDelegate(private val onResult: (List<PickedFile>) -> Unit) : NSObject(), UIDocumentPickerDelegateProtocol {

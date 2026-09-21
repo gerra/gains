@@ -51,9 +51,12 @@ class SessionRepository(
         q.selectSessions().asFlow().mapToList(io),
         q.selectEntries().asFlow().mapToList(io),
         q.selectSets().asFlow().mapToList(io),
-    ) { sessions, entries, sets ->
+        // Only which sessions have a photo; the bytes are read one at a time by [photo].
+        q.selectPhotoIds().asFlow().mapToList(io),
+    ) { sessions, entries, sets, photoIds ->
         val setsByEntry = sets.groupBy { it.entry_id }
         val entriesBySession = entries.groupBy { it.session_id }
+        val withPhoto = photoIds.toSet()
         sessions.map { s ->
             Session(
                 id = s.id,
@@ -61,6 +64,8 @@ class SessionRepository(
                 durationMinutes = s.duration_minutes?.toInt(),
                 source = s.source,
                 program = programRef(s.program_id, s.program_day_id),
+                caption = s.caption?.takeIf { it.isNotBlank() },
+                hasPhoto = s.id in withPhoto,
                 exercises = (entriesBySession[s.id] ?: emptyList()).sortedBy { it.position }.map { e ->
                     ExerciseEntry(
                         exerciseId = e.exercise_id,
@@ -117,6 +122,7 @@ class SessionRepository(
                     source = session.source,
                     program_id = session.program?.programId,
                     program_day_id = session.program?.dayId,
+                    caption = session.caption?.takeIf { it.isNotBlank() },
                 )
                 session.exercises.forEachIndexed { position, entry ->
                     q.insertEntry(session.id, entry.exerciseId, position.toLong(), entry.note)
@@ -141,10 +147,24 @@ class SessionRepository(
 
     suspend fun upsert(session: Session) = upsertAll(listOf(session))
 
+    /** What the summary screen changes after a workout was stored, leaving its sets alone. */
+    suspend fun updateSummary(id: String, durationMinutes: Int?, caption: String?) = withContext(io) {
+        q.updateSessionSummary(durationMinutes?.takeIf { it > 0 }?.toLong(), caption?.takeIf { it.isNotBlank() }, id)
+    }
+
+    /** The session's photo, or null when it has none. Read on demand: the history never carries these. */
+    suspend fun photo(id: String): ByteArray? = withContext(io) { q.selectPhoto(id).executeAsOneOrNull() }
+
+    /** Attaches [photo] to the session, or removes the one it had when null. */
+    suspend fun setPhoto(id: String, photo: ByteArray?) = withContext(io) {
+        if (photo == null) q.deletePhoto(id) else q.upsertPhoto(id, photo)
+    }
+
     suspend fun deleteSession(id: String) = withContext(io) {
         db.transaction {
             q.deleteSetsForSession(id)
             q.deleteEntriesForSession(id)
+            q.deletePhoto(id)
             q.deleteSession(id)
         }
     }
@@ -153,6 +173,7 @@ class SessionRepository(
         db.transaction {
             q.deleteAllSets()
             q.deleteAllEntries()
+            q.deleteAllPhotos()
             q.deleteAllSessions()
         }
     }
