@@ -23,6 +23,7 @@
     <string name="none">Нет</string>
     <string name="start">Начать</string>
     <string name="not_set">Не задан</string>
+    <string name="not_timed">Не засечена</string>
     <string name="per_dumbbell">На гантель</string>
     <string name="per_dumbbell_suffix"> · на гантель</string>
     <string name="warm_up">Разминка</string>

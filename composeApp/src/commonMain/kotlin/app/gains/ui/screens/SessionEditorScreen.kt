@@ -942,7 +942,7 @@ private fun WhenCard(date: LocalDate?, time: LocalTime?, durationMinutes: Int?, 
         HorizontalDivider(color = hairline)
         ChooserRow(stringResource(Res.string.time), time?.let { clock(it.hour, it.minute) } ?: "", onClick = onTime)
         HorizontalDivider(color = hairline)
-        ChooserRow(stringResource(Res.string.duration), durationMinutes?.let { minutesText(it) } ?: stringResource(Res.string.not_set), onClick = onDuration, muted = durationMinutes == null)
+        ChooserRow(stringResource(Res.string.duration), durationMinutes?.let { minutesText(it) } ?: stringResource(Res.string.not_timed), onClick = onDuration, muted = durationMinutes == null)
     }
 }
 

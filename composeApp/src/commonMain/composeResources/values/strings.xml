@@ -23,6 +23,7 @@
     <string name="none">None</string>
     <string name="start">Start</string>
     <string name="not_set">Not set</string>
+    <string name="not_timed">Not timed</string>
     <string name="per_dumbbell">Per dumbbell</string>
     <string name="per_dumbbell_suffix"> · per dumbbell</string>
     <string name="warm_up">Warm-up</string>
