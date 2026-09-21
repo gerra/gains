@@ -20,19 +20,19 @@ data class Performance(
     val value: Double,
     val set: SetEntry,
 ) {
-    /** "60 kg × 8" / "12 reps" / "1:30 min" / "6.44 km". */
-    fun describe(modality: Modality, unit: WeightUnit): String = when (modality) {
-        Modality.WEIGHTED -> if (set.weightKg != null && set.reps != null) Format.set(set.weightKg, set.reps, unit) else describeAny(unit)
-        Modality.BODYWEIGHT -> if (set.weightKg != null && set.reps != null) "+" + Format.set(set.weightKg, set.reps, unit) else "${set.reps ?: 0} reps"
-        Modality.ISOMETRIC -> Format.seconds(set.seconds ?: 0)
-        Modality.CARDIO -> Format.km(set.distanceKm ?: 0.0)
+    /** "60 kg × 8" / "12 reps" / "1:30 min" / "6.44 km", with the unit words of [labels]. */
+    fun describe(modality: Modality, unit: WeightUnit, labels: UnitLabels): String = when (modality) {
+        Modality.WEIGHTED -> if (set.weightKg != null && set.reps != null) Format.set(set.weightKg, set.reps, unit, labels) else describeAny(unit, labels)
+        Modality.BODYWEIGHT -> if (set.weightKg != null && set.reps != null) "+" + Format.set(set.weightKg, set.reps, unit, labels) else "${set.reps ?: 0} ${labels.reps}"
+        Modality.ISOMETRIC -> Format.seconds(set.seconds ?: 0, labels)
+        Modality.CARDIO -> Format.km(set.distanceKm ?: 0.0, labels)
     }
 
-    private fun describeAny(unit: WeightUnit): String = when {
-        set.reps != null && set.weightKg != null -> Format.set(set.weightKg, set.reps, unit)
-        set.reps != null -> "${set.reps} reps"
-        set.seconds != null -> Format.seconds(set.seconds)
-        set.distanceKm != null -> Format.km(set.distanceKm)
+    private fun describeAny(unit: WeightUnit, labels: UnitLabels): String = when {
+        set.reps != null && set.weightKg != null -> Format.set(set.weightKg, set.reps, unit, labels)
+        set.reps != null -> "${set.reps} ${labels.reps}"
+        set.seconds != null -> Format.seconds(set.seconds, labels)
+        set.distanceKm != null -> Format.km(set.distanceKm, labels)
         else -> "-"
     }
 }
@@ -57,13 +57,6 @@ data class ExerciseSessionPoint(
 )
 
 object ExerciseAnalysis {
-    fun metricLabel(modality: Modality): String = when (modality) {
-        Modality.WEIGHTED -> "e1RM"
-        Modality.BODYWEIGHT -> "reps"
-        Modality.ISOMETRIC -> "hold"
-        Modality.CARDIO -> "distance"
-    }
-
     fun history(sessions: List<Session>, exercise: Exercise): List<ExerciseSessionPoint> =
         sessions.sortedBy { it.timestamp }.mapNotNull { session ->
             val entry = session.exercises.firstOrNull { it.exerciseId == exercise.id } ?: return@mapNotNull null
@@ -102,13 +95,6 @@ object ExerciseAnalysis {
         Modality.CARDIO -> sets.filter { it.distanceKm != null }.map { Performance(it.distanceKm!!, it) }.maxByOrNull { it.value }
     }
 
-    /** Value of a modality's metric for chart labelling. */
-    fun formatMetric(value: Double, modality: Modality, unit: WeightUnit): String = when (modality) {
-        Modality.WEIGHTED -> Format.weight(value, unit, 1)
-        Modality.BODYWEIGHT -> Format.number(value, 0) + " reps"
-        Modality.ISOMETRIC -> Format.seconds(value.toInt())
-        Modality.CARDIO -> Format.km(value)
-    }
 }
 
 /** Summary shown at the top of the exercise detail screen. */

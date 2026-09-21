@@ -84,6 +84,11 @@ sqldelight {
     }
 }
 
+// LocalizationResourcesTest reads the app's string resources to check the catalogues are covered.
+tasks.withType<Test>().configureEach {
+    systemProperty("gains.composeResourcesDir", rootProject.file("composeApp/src/commonMain/composeResources").absolutePath)
+}
+
 if (androidEnabled) {
     apply(from = "android.gradle")
 }

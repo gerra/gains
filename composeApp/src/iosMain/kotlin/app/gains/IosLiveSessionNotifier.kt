@@ -3,7 +3,12 @@ package app.gains
 import app.gains.platform.LiveSessionNotice
 import app.gains.platform.LiveSessionNotifier
 import app.gains.platform.ResumeRequests
+import app.gains.resources.Res
+import app.gains.resources.*
 import app.gains.ui.nowMs
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.getString
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateFormatter
 import platform.Foundation.NSDateFormatterNoStyle
@@ -86,8 +91,8 @@ internal object IosLiveSessionNotifier : LiveSessionNotifier {
         val running = UNMutableNotificationContent().apply {
             setTitle(notice.title)
             setBody(buildString {
-                if (restEndsAt != null) append("Resting until ${clock(restEndsAt)}. ")
-                append("Started ${clock(notice.startedAtMs)}, ${elapsed(now - notice.startedAtMs)} so far. Tap to get back to your workout.")
+                if (restEndsAt != null) append(str(Res.string.resting_until, clock(restEndsAt)))
+                append(str(Res.string.running_since, clock(notice.startedAtMs), elapsed(now - notice.startedAtMs)))
             })
             setInterruptionLevel(UNNotificationInterruptionLevel.UNNotificationInterruptionLevelPassive)
         }
@@ -96,8 +101,8 @@ internal object IosLiveSessionNotifier : LiveSessionNotifier {
         center.removePendingNotificationRequestsWithIdentifiers(listOf(REST_OVER))
         if (restEndsAt == null) return
         val over = UNMutableNotificationContent().apply {
-            setTitle("Rest over")
-            setBody("${notice.title}, ${elapsed(restEndsAt - notice.startedAtMs)} in. Tap to get back to your workout.")
+            setTitle(str(Res.string.rest_over))
+            setBody(str(Res.string.rest_over_body, notice.title, elapsed(restEndsAt - notice.startedAtMs)))
             setInterruptionLevel(UNNotificationInterruptionLevel.UNNotificationInterruptionLevelActive)
         }
         val trigger = UNTimeIntervalNotificationTrigger.triggerWithTimeInterval(((restEndsAt - now) / 1000.0).coerceAtLeast(1.0), repeats = false)
@@ -116,11 +121,14 @@ internal object IosLiveSessionNotifier : LiveSessionNotifier {
         val h = minutes / 60
         val m = minutes % 60
         return when {
-            h > 0 -> "$h h ${m.toString().padStart(2, '0')} min"
-            m > 0 -> "$m min"
-            else -> "under a minute"
+            h > 0 -> "$h ${str(Res.string.hour_abbrev)} ${m.toString().padStart(2, '0')} ${str(Res.string.minute_abbrev)}"
+            m > 0 -> "$m ${str(Res.string.minute_abbrev)}"
+            else -> str(Res.string.under_a_minute)
         }
     }
+
+    /** A string resource in the device's language, read outside the composition. */
+    private fun str(res: StringResource, vararg args: Any): String = runBlocking { getString(res, *args) }
 
     private class Delegate : NSObject(), UNUserNotificationCenterDelegateProtocol {
         /** Delivered while the app is open: into the list, with no banner over the workout. */

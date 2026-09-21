@@ -40,6 +40,11 @@ import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.ScreenTitle
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -54,6 +59,8 @@ import kotlinx.datetime.LocalDate
 
 internal data class ExerciseRow(
     val exercise: Exercise,
+    /** The exercise's name in the screen's language. */
+    val name: String,
     val sessions: Int,
     val lastTrained: LocalDate,
     val bestText: String,
@@ -65,9 +72,10 @@ internal data class ExerciseRow(
 
 internal data class ExercisesState(val loading: Boolean = true, val rows: List<ExerciseRow> = emptyList())
 
-internal class ExercisesModel(trainingData: TrainingData = inject(), settings: SettingsRepository = inject()) : ScreenModel() {
+internal class ExercisesModel(texts: Texts, trainingData: TrainingData = inject(), settings: SettingsRepository = inject()) : ScreenModel() {
     val state: StateFlow<ExercisesState> = combine(trainingData.snapshot, settings.observeUnit()) { s, u -> s to u }
         .mapLatest { (snapshot, unit) ->
+            val labels = resolvedUnitLabels(texts)
             withContext(Dispatchers.Default) {
                 val rows = snapshot.trainedExercises.map { exercise ->
                     val history = ExerciseAnalysis.history(snapshot.sessions, exercise)
@@ -75,9 +83,10 @@ internal class ExercisesModel(trainingData: TrainingData = inject(), settings: S
                     val trend = history.mapNotNull { it.best?.value }.takeLast(12)
                     ExerciseRow(
                         exercise = exercise,
+                        name = exercise.resolvedName(texts),
                         sessions = history.size,
                         lastTrained = history.last().date,
-                        bestText = best?.describe(exercise.modality, unit) ?: "-",
+                        bestText = best?.describe(exercise.modality, unit, labels) ?: "-",
                         trend = trend,
                         trendDelta = if (trend.size >= 2 && trend.first() > 0) (trend.last() - trend.first()) / trend.first() else null,
                     )
@@ -90,23 +99,24 @@ internal class ExercisesModel(trainingData: TrainingData = inject(), settings: S
 
 @Composable
 internal fun ExercisesScreen(onOpen: (String) -> Unit) {
-    val model = rememberScreenModel { ExercisesModel() }
+    val texts = rememberTexts()
+    val model = rememberScreenModel { ExercisesModel(texts) }
     val state by model.state.collectAsState()
     var query by remember { mutableStateOf("") }
     val today = Dates.today()
     val palette = GainsColors.palette
 
     if (!state.loading && state.rows.isEmpty()) {
-        EmptyState("No lifts yet", "Import a Liftoff export and every exercise you've logged will be listed here.", emoji = "≡")
+        EmptyState(stringResource(Res.string.no_lifts_yet), stringResource(Res.string.no_lifts_yet_body), emoji = "≡")
         return
     }
-    val filtered = state.rows.filter { query.isBlank() || it.exercise.name.contains(query, ignoreCase = true) }
+    val filtered = state.rows.filter { query.isBlank() || it.name.contains(query, ignoreCase = true) || it.exercise.name.contains(query, ignoreCase = true) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle("Lifts", subtitle = "${state.rows.size} exercises, most recent first")
+            ScreenTitle(stringResource(Res.string.lifts_title), subtitle = pluralStringResource(Res.plurals.lifts_subtitle, state.rows.size, state.rows.size))
             OutlinedTextField(
                 value = query, onValueChange = { query = it },
-                placeholder = { Text("Search lifts") }, singleLine = true,
+                placeholder = { Text(stringResource(Res.string.search_lifts)) }, singleLine = true,
                 shape = CircleShape,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = palette.volt,
@@ -127,11 +137,11 @@ internal fun ExercisesScreen(onOpen: (String) -> Unit) {
             GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = { onOpen(row.exercise.id) }, contentPadding = Dp16.Tight) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(row.exercise.name, style = MaterialTheme.typography.titleMedium)
+                        Text(row.name, style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            "${Format.plural(row.sessions, "session")} · ${Dates.contextual(row.lastTrained, today)}" +
-                                if (row.exercise.modality == Modality.WEIGHTED && row.exercise.isDumbbell) " · per dumbbell" else "",
+                            "${sessionsText(row.sessions)} · ${dateContextual(row.lastTrained, today)}" +
+                                if (row.exercise.modality == Modality.WEIGHTED && row.exercise.isDumbbell) stringResource(Res.string.per_dumbbell_suffix) else "",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

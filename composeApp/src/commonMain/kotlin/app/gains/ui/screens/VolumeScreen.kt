@@ -48,6 +48,11 @@ import app.gains.ui.components.MetricTile
 import app.gains.ui.components.Pill
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SectionHeader
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -101,18 +106,40 @@ internal fun VolumeStatus.color(): Color {
 }
 
 /** Which sets the body map shades. */
-internal enum class BodyMapWindow(val label: String, val suffix: String) {
-    THIS_WEEK("This week", "this week"),
-    LAST_WEEK("Last week", "last week"),
-    AVERAGE("Avg", "a week on average"),
+internal enum class BodyMapWindow {
+    THIS_WEEK, LAST_WEEK, AVERAGE;
+
+    @Composable
+    fun label(): String = when (this) {
+        THIS_WEEK -> stringResource(Res.string.body_map_this_week)
+        LAST_WEEK -> stringResource(Res.string.body_map_last_week)
+        AVERAGE -> stringResource(Res.string.body_map_avg)
+    }
+
+    /** "this week", "last week", "a week on average": the phrase that follows a count of sets. */
+    @Composable
+    fun suffix(): String = when (this) {
+        THIS_WEEK -> stringResource(Res.string.window_this_week)
+        LAST_WEEK -> stringResource(Res.string.window_last_week)
+        AVERAGE -> stringResource(Res.string.window_average)
+    }
+
+    /** "3.5 sets this week". */
+    @Composable
+    fun setsIn(sets: String): String = when (this) {
+        THIS_WEEK -> stringResource(Res.string.sets_in_window, sets, stringResource(Res.string.window_this_week))
+        LAST_WEEK -> stringResource(Res.string.sets_in_window, sets, stringResource(Res.string.window_last_week))
+        AVERAGE -> stringResource(Res.string.sets_in_window, sets, stringResource(Res.string.window_average))
+    }
 }
 
 /** The wording of a status pill in the volume list. */
+@Composable
 internal fun VolumeStatus.label(): String = when (this) {
-    VolumeStatus.NONE -> "none"
-    VolumeStatus.LOW -> "under ${VolumeAnalyzer.MAINTENANCE_SETS.toInt()}"
-    VolumeStatus.OK -> "on target"
-    VolumeStatus.HIGH -> "over ${VolumeAnalyzer.JUNK_SETS.toInt()}"
+    VolumeStatus.NONE -> stringResource(Res.string.status_none)
+    VolumeStatus.LOW -> stringResource(Res.string.status_under, VolumeAnalyzer.MAINTENANCE_SETS.toInt())
+    VolumeStatus.OK -> stringResource(Res.string.status_on_target)
+    VolumeStatus.HIGH -> stringResource(Res.string.status_over, VolumeAnalyzer.JUNK_SETS.toInt())
 }
 
 @Composable
@@ -121,7 +148,7 @@ internal fun VolumeScreen() {
     val state by model.state.collectAsState()
     if (state.loading) return
     if (!state.hasData) {
-        EmptyState("No volume yet", "Weekly working sets per muscle group appear here once you import sessions.", emoji = "▮")
+        EmptyState(stringResource(Res.string.no_volume_yet), stringResource(Res.string.no_volume_yet_body), emoji = "▮")
         return
     }
     val palette = GainsColors.palette
@@ -145,17 +172,17 @@ internal fun VolumeScreen() {
     val shownSets = windowSets.getValue(window)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle("Volume", subtitle = "Working sets per muscle group, per week")
+            ScreenTitle(stringResource(Res.string.volume_title), subtitle = stringResource(Res.string.volume_subtitle))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricTile("This week", Format.number(current?.total ?: 0.0, 0), Modifier.weight(1f), caption = "sets so far", accent = palette.volt)
-                MetricTile("Last week", Format.number(lastFull?.total ?: 0.0, 0), Modifier.weight(1f), caption = lastFull?.let { "w/c ${Dates.short(it.weekStart)}" })
-                MetricTile("Avg", Format.number(state.weeks.dropLast(1).map { it.total }.average().takeIf { !it.isNaN() } ?: 0.0, 0), Modifier.weight(1f), caption = "${state.span}-week")
+                MetricTile(stringResource(Res.string.this_week), Format.number(current?.total ?: 0.0, 0), Modifier.weight(1f), caption = stringResource(Res.string.sets_so_far), accent = palette.volt)
+                MetricTile(stringResource(Res.string.last_week), Format.number(lastFull?.total ?: 0.0, 0), Modifier.weight(1f), caption = lastFull?.let { stringResource(Res.string.week_commencing, dateShort(it.weekStart)) })
+                MetricTile(stringResource(Res.string.avg), Format.number(state.weeks.dropLast(1).map { it.total }.average().takeIf { !it.isNaN() } ?: 0.0, 0), Modifier.weight(1f), caption = pluralStringResource(Res.plurals.n_week_caption, state.span, state.span))
             }
         }
         item {
             SectionHeader(
-                "On the body",
-                action = { ChipRow(BodyMapWindow.entries, window, { if (it == BodyMapWindow.AVERAGE) "${state.span}w avg" else it.label }, { pickedWindow = it }) },
+                stringResource(Res.string.on_the_body),
+                action = { ChipRow(BodyMapWindow.entries, window, { if (it == BodyMapWindow.AVERAGE) stringResource(Res.string.n_week_avg, state.span) else it.label() }, { pickedWindow = it }) },
             )
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 BodyMap(
@@ -175,38 +202,37 @@ internal fun VolumeScreen() {
                     Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Dot(g.color())
                         Spacer(Modifier.width(10.dp))
-                        Text(g.displayName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                        Text("${Format.number(sets, 1)} sets ${window.suffix}", style = MaterialTheme.typography.bodyMedium)
+                        Text(g.label(), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                        Text(window.setsIn(Format.number(sets, 1)), style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.width(10.dp))
                         Pill(status.label(), status.color())
                     }
                 }
                 if (selected.isNotEmpty()) {
-                    Pill("Show all", palette.muted, Modifier.padding(top = 10.dp).align(Alignment.End), onClick = { selected = emptySet() })
+                    Pill(stringResource(Res.string.show_all), palette.muted, Modifier.padding(top = 10.dp).align(Alignment.End), onClick = { selected = emptySet() })
                 }
             }
             Text(
-                if (selected.isEmpty()) "Working sets ${window.suffix}, front and back. Tap a muscle to see its numbers and filter the list."
-                else "Tap the muscle again, or Show all, to see every group.",
+                if (selected.isEmpty()) stringResource(Res.string.body_map_blurb, window.suffix()) else stringResource(Res.string.body_map_blurb_selected),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
             )
         }
         item {
-            SectionHeader("Trend", action = { ChipRow(listOf(8, 12, 26, 52), state.span, { "${it}w" }, { model.setSpan(it) }) })
+            SectionHeader(stringResource(Res.string.trend), action = { ChipRow(listOf(8, 12, 26, 52), state.span, { stringResource(Res.string.n_weeks_chip, it) }, { model.setSpan(it) }) })
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 val bars = state.weeks.map { w ->
-                    StackedBar(Dates.short(w.weekStart), groupsUsed.map { g -> g.color() to (w.sets[g] ?: 0.0) })
+                    StackedBar(dateShort(w.weekStart), groupsUsed.map { g -> g.color() to (w.sets[g] ?: 0.0) })
                 }
                 StackedBarChart(bars, labelEvery = maxOf(1, bars.size / 5))
-                Legend(groupsUsed.map { it.displayName to it.color() })
+                Legend(groupsUsed.map { it.label() to it.color() })
             }
             Text(
-                "Each set counts fully for its primary muscles and half for secondary ones. Warm-ups and cardio don't count.",
+                stringResource(Res.string.volume_credit_blurb),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
             )
         }
         item {
-            SectionHeader("This week" + (current?.let { " · from ${Dates.short(it.weekStart)}" } ?: ""))
+            SectionHeader(current?.let { stringResource(Res.string.this_week_from, dateShort(it.weekStart)) } ?: stringResource(Res.string.this_week))
         }
         if (current != null) {
             items(MuscleGroup.entries.filter { selected.isEmpty() || it in selected }.sortedByDescending { current.sets[it] ?: 0.0 }) { g ->
@@ -216,7 +242,7 @@ internal fun VolumeScreen() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Dot(g.color())
                         Spacer(Modifier.width(10.dp))
-                        Text(g.displayName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                        Text(g.label(), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                         Text(Format.number(sets, 1), style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.width(10.dp))
                         Pill(status.label(), status.color())
@@ -227,7 +253,7 @@ internal fun VolumeScreen() {
             }
             item {
                 Text(
-                    "Bars run to ${VolumeAnalyzer.JUNK_SETS.toInt()} sets; the tick marks ${VolumeAnalyzer.MAINTENANCE_SETS.toInt()}. Under ${VolumeAnalyzer.MAINTENANCE_SETS.toInt()} sets/week is maintenance territory; over ${VolumeAnalyzer.JUNK_SETS.toInt()} is likely junk volume.",
+                    stringResource(Res.string.volume_bars_blurb, VolumeAnalyzer.JUNK_SETS.toInt(), VolumeAnalyzer.MAINTENANCE_SETS.toInt()),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp),
                 )
             }

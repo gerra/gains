@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.gains.analysis.InsightKind
 import app.gains.auth.AccountRepository
 import app.gains.auth.AuthConfig
 import app.gains.auth.AuthNotConfiguredException
@@ -54,6 +55,10 @@ import app.gains.ui.components.GainsCard
 import app.gains.ui.components.GainsLogo
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -65,17 +70,18 @@ internal class SignInModel(
     private val accounts: AccountRepository = inject(),
     val config: AuthConfig = inject(),
 ) : ScreenModel() {
-    var error by mutableStateOf<String?>(null)
+    /** The provider whose sign-in is not configured, after a tap on its button; the screen words it. */
+    var error by mutableStateOf<AuthNotConfiguredException?>(null)
         private set
 
     fun continueAsGuest() = scope.launch { accounts.continueAsGuest() }
 
     fun signInWithGoogle() = scope.launch {
-        try { accounts.signInWithGoogle() } catch (e: AuthNotConfiguredException) { error = e.message }
+        try { accounts.signInWithGoogle() } catch (e: AuthNotConfiguredException) { error = e }
     }
 
     fun signInWithApple() = scope.launch {
-        try { accounts.signInWithApple() } catch (e: AuthNotConfiguredException) { error = e.message }
+        try { accounts.signInWithApple() } catch (e: AuthNotConfiguredException) { error = e }
     }
 }
 
@@ -97,13 +103,13 @@ internal fun SignInScreen() {
             GainsLogo(size = if (compact) 52.dp else 64.dp)
             Spacer(Modifier.height(if (compact) 10.dp else 16.dp))
             Text(
-                "Know what's\nactually moving.",
+                stringResource(Res.string.sign_in_headline),
                 style = if (compact) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "Log workouts or import from Liftoff, Strong, Hevy or any CSV. Gains shows which lifts climb, stall or slip, with the numbers to prove it.",
+                stringResource(Res.string.sign_in_blurb),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -122,14 +128,10 @@ internal fun SignInScreen() {
                 ProviderButton("Apple", enabled = model.config.appleEnabled, Modifier.weight(1f)) { model.signInWithApple() }
             }
             Spacer(Modifier.height(10.dp))
-            PrimaryButton("Continue as guest", onClick = { model.continueAsGuest() }, modifier = Modifier.fillMaxWidth())
+            PrimaryButton(stringResource(Res.string.continue_as_guest), onClick = { model.continueAsGuest() }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
-            val note = if (model.config.googleEnabled && model.config.appleEnabled) {
-                "As a guest everything stays on this device. Sign in later to back it up and sync."
-            } else {
-                "Sign-in and cloud sync are coming soon. As a guest everything stays on this device."
-            }
-            Text(model.error ?: note, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+            val note = if (model.config.googleEnabled && model.config.appleEnabled) stringResource(Res.string.guest_note_with_sync) else stringResource(Res.string.guest_note_coming_soon)
+            Text(model.error?.let { stringResource(Res.string.sign_in_not_configured, it.provider.label()) } ?: note, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
                 color = if (model.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -162,13 +164,13 @@ private fun HeroPreview(chartHeight: Dp) {
     val progress by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Restart), label = "p")
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Normal) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Pill("Progress", palette.progress)
+            Pill(InsightKind.PROGRESS.label(), palette.progress)
             Spacer(Modifier.weight(1f))
             DeltaBadge(0.06)
         }
         Spacer(Modifier.height(8.dp))
-        Text("Bench Press", style = MaterialTheme.typography.titleMedium)
-        Text("62.5 kg × 8 on 20 Aug, up 6% on 60 kg × 8 from June.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(Res.string.hero_exercise), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(Res.string.hero_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         val values = listOf(72.0, 74.0, 73.5, 76.0, 76.0, 78.5, 80.0, 79.5, 82.0, 84.0)
         Canvas(Modifier.fillMaxWidth().height(chartHeight)) {
@@ -190,9 +192,9 @@ private fun HeroPreview(chartHeight: Dp) {
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Pill("Regression", palette.regression)
-            Pill("Stall", palette.stall)
-            Pill("Consistency", palette.consistency)
+            Pill(InsightKind.REGRESSION.label(), palette.regression)
+            Pill(InsightKind.STALL.label(), palette.stall)
+            Pill(InsightKind.CONSISTENCY.label(), palette.consistency)
         }
     }
 }
@@ -200,9 +202,9 @@ private fun HeroPreview(chartHeight: Dp) {
 @Composable
 private fun FeatureRow() {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Feature("Log", "Sets, reps, holds, cardio", Modifier.weight(1f))
-        Feature("Import", "Liftoff · Strong · Hevy · CSV", Modifier.weight(1f))
-        Feature("Analyse", "e1RM, volume, streaks", Modifier.weight(1f))
+        Feature(stringResource(Res.string.feature_log), stringResource(Res.string.feature_log_body), Modifier.weight(1f))
+        Feature(stringResource(Res.string.feature_import), stringResource(Res.string.feature_import_body), Modifier.weight(1f))
+        Feature(stringResource(Res.string.feature_analyse), stringResource(Res.string.feature_analyse_body), Modifier.weight(1f))
     }
 }
 

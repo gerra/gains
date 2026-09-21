@@ -49,6 +49,10 @@ import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -104,10 +108,10 @@ internal class ProgramDetailModel(
     fun activate() { scope.launch { programs.setActive(programId) } }
     fun deactivate() { scope.launch { programs.setActive(null) } }
 
-    /** Copies the program so it can be edited; the caller opens the editor on the new id. */
-    fun duplicate(source: Program) {
+    /** Copies the program as [newName] so it can be edited; the caller opens the editor on the new id. */
+    fun duplicate(source: Program, newName: String) {
         scope.launch {
-            val copy = programs.duplicate(source)
+            val copy = programs.duplicate(source, newName)
             programs.upsert(copy)
             navigateTo = copy.id
         }
@@ -130,29 +134,30 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            Text(program.name, style = MaterialTheme.typography.headlineLarge)
+            Text(program.displayName(), style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(8.dp))
             ProgramTags(program, state.isActive)
             Spacer(Modifier.height(10.dp))
-            Text(program.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(program.displayDescription(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (state.isActive) SecondaryButton("Deactivate", onClick = { model.deactivate() }, Modifier.weight(1f))
-                else PrimaryButton("Activate", onClick = { model.activate() }, Modifier.weight(1f))
-                if (program.isBuiltIn) SecondaryButton("Duplicate to edit", onClick = { model.duplicate(program) }, Modifier.weight(1f))
-                else SecondaryButton("Edit", onClick = { onEdit(program.id) }, Modifier.weight(1f))
+                if (state.isActive) SecondaryButton(stringResource(Res.string.deactivate), onClick = { model.deactivate() }, Modifier.weight(1f))
+                else PrimaryButton(stringResource(Res.string.activate), onClick = { model.activate() }, Modifier.weight(1f))
+                val copyName = stringResource(Res.string.copy_of, program.displayName())
+                if (program.isBuiltIn) SecondaryButton(stringResource(Res.string.duplicate_to_edit), onClick = { model.duplicate(program, copyName) }, Modifier.weight(1f))
+                else SecondaryButton(stringResource(Res.string.edit), onClick = { onEdit(program.id) }, Modifier.weight(1f))
             }
             if (state.cycle.isNotEmpty()) {
-                SectionHeader("Schedule", action = {
+                SectionHeader(stringResource(Res.string.schedule), action = {
                     Text(
-                        "${Format.plural(state.cycle.size, "week")} · ${program.daysPerWeek} days a week",
+                        stringResource(Res.string.weeks_and_days, weeksText(state.cycle.size), daysAWeekText(program.daysPerWeek)),
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 })
                 ScheduleCard(state.cycle, state.upNextDayId)
             }
-            SectionHeader("Days", action = {
-                Text("Tap any day to start it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SectionHeader(stringResource(Res.string.days), action = {
+                Text(stringResource(Res.string.tap_any_day_to_start), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             })
         }
         items(program.days, key = { it.id }) { day ->
@@ -161,13 +166,13 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
             }
         }
         item {
-            SectionHeader("How it progresses")
+            SectionHeader(stringResource(Res.string.how_it_progresses))
             ProgressionCard(program, state.exercisesById, state.unit)
         }
         if (!program.isBuiltIn) {
             item {
                 Spacer(Modifier.height(16.dp))
-                TextButton(onClick = { confirmDelete = true }) { Text("Delete program", color = palette.coral) }
+                TextButton(onClick = { confirmDelete = true }) { Text(stringResource(Res.string.delete_program), color = palette.coral) }
             }
         }
     }
@@ -175,10 +180,10 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             shape = MaterialTheme.shapes.large,
-            title = { Text("Delete ${program.name}?") },
-            text = { Text("Workouts you logged from it are kept; they just lose the day label.") },
-            confirmButton = { PrimaryButton("Delete", onClick = { model.delete(); confirmDelete = false }) },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            title = { Text(stringResource(Res.string.delete_named, program.displayName())) },
+            text = { Text(stringResource(Res.string.delete_program_body)) },
+            confirmButton = { PrimaryButton(stringResource(Res.string.delete), onClick = { model.delete(); confirmDelete = false }) },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(Res.string.cancel)) } },
         )
     }
 }
@@ -190,23 +195,23 @@ private fun DayCard(day: ProgramDay, program: Program, upNext: Boolean, last: Lo
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(day.name, style = MaterialTheme.typography.titleMedium)
+                    Text(day.displayName(), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.width(8.dp))
-                    if (upNext) Pill("Up next", palette.volt, filled = true)
+                    if (upNext) Pill(stringResource(Res.string.up_next_pill), palette.volt, filled = true)
                 }
                 Spacer(Modifier.height(4.dp))
                 for (slot in day.slots) {
                     Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(exercisesById[slot.exerciseId]?.name ?: slot.exerciseId, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Text(exercisesById[slot.exerciseId]?.displayName() ?: slot.exerciseId, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                         Text(slot.targetLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {
-                Text(Format.plural(day.slots.size, "exercise"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(exercisesText(day.slots.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
-                Text(last?.let { "Last ${Dates.contextual(it, today)}" } ?: "Not done yet", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(last?.let { stringResource(Res.string.last_done, dateContextual(it, today)) } ?: stringResource(Res.string.not_done_yet), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -224,18 +229,18 @@ private fun ScheduleCard(cycle: List<List<ProgramDay>>, upNextDayId: String?) {
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
         cycle.forEachIndexed { week, days ->
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Week ${week + 1}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(52.dp))
+                Text(stringResource(Res.string.week_n, week + 1), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(52.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     days.forEachIndexed { i, day ->
                         val next = week == 0 && i == 0 && day.id == upNextDayId
-                        Pill(day.name, if (next) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant, filled = next)
+                        Pill(day.displayName(), if (next) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant, filled = next)
                     }
                 }
             }
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "Days come in this order as you finish them, whatever the weekday. Start a different day and the rest follow on from it.",
+            stringResource(Res.string.rotation_note),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -250,27 +255,27 @@ private fun ProgressionCard(program: Program, exercisesById: Map<String, Exercis
     val schemes = LinkedHashMap<Scheme, MutableList<String>>()
     for (day in program.days) for (slot in day.slots) {
         if (slot.note == null && slot.progression == ProgressionRule.None) continue
-        val name = exercisesById[slot.exerciseId]?.name ?: slot.exerciseId
+        val name = exercisesById[slot.exerciseId]?.displayName() ?: slot.exerciseId
         val names = schemes.getOrPut(Scheme(slot.note, slot.progression)) { mutableListOf() }
         if (name !in names) names += name
     }
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
         if (schemes.isEmpty()) {
             Text(
-                "No automatic rule. Each day pre-fills the weights and reps from your last session of the exercise.",
+                stringResource(Res.string.no_automatic_rule),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         schemes.entries.forEachIndexed { i, (scheme, names) ->
             if (i > 0) Spacer(Modifier.height(12.dp))
             Text(names.joinToString(", "), style = MaterialTheme.typography.titleSmall)
-            scheme.note?.let { Spacer(Modifier.height(2.dp)); Text(it, style = MaterialTheme.typography.bodySmall) }
-            Progression.describe(scheme.rule, unit)?.let {
+            scheme.note?.let { Spacer(Modifier.height(2.dp)); Text(slotNoteText(it), style = MaterialTheme.typography.bodySmall) }
+            progressionDescription(scheme.rule, unit)?.let {
                 Spacer(Modifier.height(2.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Gzclp.tierOf(scheme.rule)?.let {
-                Text("Rest ${it.restLabel} between sets.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.rest_between_sets, restRangeText(it.restSeconds)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

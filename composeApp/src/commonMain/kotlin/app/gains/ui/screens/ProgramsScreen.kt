@@ -29,6 +29,10 @@ import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SectionHeader
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -69,21 +73,21 @@ internal fun ProgramsScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
             ScreenTitle(
-                "Programs",
-                subtitle = state.profile?.let { "${it.goal.label} · ${it.experience.label} · ${it.daysPerWeek} days a week" } ?: "Set a goal in Settings to sort these by fit",
-                trailing = { TextButton(onClick = onNew) { Text("+ New", color = palette.volt) } },
+                stringResource(Res.string.programs_title),
+                subtitle = state.profile?.let { stringResource(Res.string.profile_summary, it.goal.label(), it.experience.label(), daysAWeekText(it.daysPerWeek)) } ?: stringResource(Res.string.set_a_goal_to_sort),
+                trailing = { TextButton(onClick = onNew) { Text(stringResource(Res.string.plus_new), color = palette.volt) } },
             )
         }
         if (state.custom.isNotEmpty()) {
-            item { SectionHeader("Your programs") }
+            item { SectionHeader(stringResource(Res.string.your_programs)) }
             items(state.custom, key = { it.id }) { ProgramRow(it, it.id == state.activeId, onClick = { onOpen(it.id) }) }
         }
-        item { SectionHeader(if (state.profile != null) "Built-in, best fit first" else "Built-in") }
+        item { SectionHeader(if (state.profile != null) stringResource(Res.string.built_in_best_fit) else stringResource(Res.string.built_in)) }
         items(state.builtIn, key = { it.id }) { ProgramRow(it, it.id == state.activeId, onClick = { onOpen(it.id) }) }
         item {
             Spacer(Modifier.height(12.dp))
             Text(
-                "Built-in programs follow the r/Fitness and r/bodyweightfitness wiki routines. Open one and duplicate it to change exercises or sets.",
+                stringResource(Res.string.built_in_note),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -95,12 +99,12 @@ private fun ProgramRow(program: Program, active: Boolean, onClick: () -> Unit) {
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = onClick, contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(program.name, style = MaterialTheme.typography.titleMedium)
+                Text(program.displayName(), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
                 ProgramTags(program, active)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    program.days.joinToString(" · ") { it.name },
+                    program.days.map { it.displayName() }.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }

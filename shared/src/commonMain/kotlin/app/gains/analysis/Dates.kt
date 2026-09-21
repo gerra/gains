@@ -1,7 +1,6 @@
 package app.gains.analysis
 
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
@@ -34,17 +33,4 @@ object Dates {
         return result
     }
 
-    private val months = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-    private val fullMonths = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
-
-    fun short(date: LocalDate): String = "${date.day} ${months[date.month.ordinal]}"
-    fun shortWithYear(date: LocalDate): String = "${date.day} ${months[date.month.ordinal]} ${date.year}"
-    fun monthName(date: LocalDate): String = fullMonths[date.month.ordinal]
-    fun monthShort(date: LocalDate): String = months[date.month.ordinal]
-
-    /** "12 Feb" when in the current year, otherwise "12 Feb 2025". */
-    fun contextual(date: LocalDate, today: LocalDate): String =
-        if (date.year == today.year) short(date) else shortWithYear(date)
-
-    fun dayLabel(day: DayOfWeek): String = day.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
 }

@@ -39,11 +39,11 @@ object PreviousSets {
      * one, "30 s" or "1:30" for a hold (with its load in front when there is one), "5 km · 12:00" for
      * cardio. Null when the set recorded nothing worth showing.
      */
-    fun label(set: SetEntry, modality: Modality, unit: WeightUnit): String? {
+    fun label(set: SetEntry, modality: Modality, unit: WeightUnit, labels: UnitLabels): String? {
         val weight = set.weightKg?.takeIf { it > 0 }?.let { Format.weightValue(it, unit) }
         val reps = set.reps?.takeIf { it > 0 }
-        val seconds = set.seconds?.takeIf { it > 0 }?.let { Format.seconds(it) }
-        val km = set.distanceKm?.takeIf { it > 0 }?.let { Format.km(it) }
+        val seconds = set.seconds?.takeIf { it > 0 }?.let { Format.seconds(it, labels) }
+        val km = set.distanceKm?.takeIf { it > 0 }?.let { Format.km(it, labels) }
         return when (modality) {
             Modality.CARDIO -> listOfNotNull(km, seconds).takeIf { it.isNotEmpty() }?.joinToString(" · ")
                 ?: repsLabel(weight, reps)

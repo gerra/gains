@@ -31,7 +31,7 @@ class ExerciseArrangementTest {
         loading = false,
         exercises = listOf(ExerciseDraft(squat, squatSets, note = "belt on"), ExerciseDraft(bench, listOf(SetDraft("80", "5")))),
         targets = mapOf("squat" to "5 × 3+", "bench" to "3 × 10"),
-        hints = mapOf("squat" to "Last: 100 kg × 5,5 → try 102.5 kg"),
+        hints = mapOf("squat" to Progression.Hint.Try(Progression.LastTime(100.0, listOf(5, 5)), 102.5)),
         notes = mapOf("squat" to "Sit back"),
         tiers = mapOf("squat" to Gzclp.Tier.T1),
         seeded = setOf("squat"),

@@ -36,9 +36,6 @@ object Gzclp {
         T2("T2", 0.65, 120..180, listOf(WarmupStep(0.6, 5))),
         T3("T3", 0.525, 60..90, emptyList());
 
-        /** "3–5 min" / "60–90 s". */
-        val restLabel: String get() = restLabel(restSeconds)
-
         /** What the rest timer counts down from: the short end of the range. */
         val restTimerSeconds: Int get() = restSeconds.first
     }
@@ -67,7 +64,6 @@ object Gzclp {
 
     /** Rest after a warm-up set. */
     val WARMUP_REST: IntRange = 30..60
-    val WARMUP_REST_LABEL: String = restLabel(WARMUP_REST) + " or as needed"
 
     fun tierOf(slot: ExerciseSlot): Tier? = tierOf(slot.progression)
 
@@ -146,11 +142,6 @@ object Gzclp {
         }
         return out
     }
-
-    /** "3–5 min" when the range sits on whole minutes, else "60–90 s". */
-    fun restLabel(range: IntRange): String =
-        if (range.first % 60 == 0 && range.last % 60 == 0 && range.first >= 60) "${range.first / 60}–${range.last / 60} min"
-        else "${range.first}–${range.last} s"
 
     /** Round down to a multiple of [step], tolerating floating-point noise just under a boundary. */
     fun roundDown(value: Double, step: Double): Double = floor(value / step + 1e-9) * step

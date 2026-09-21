@@ -1,6 +1,7 @@
 package app.gains.program
 
-import app.gains.analysis.Format
+import app.gains.program.Progression.Hint
+import app.gains.program.Progression.LastTime
 import app.gains.analysis.TestData
 import app.gains.analysis.TrainingSnapshot
 import app.gains.catalogue.ProgramCatalogue
@@ -36,7 +37,7 @@ class ProgressionTest {
         val slot = ExerciseSlot("bench_press", 3, RepTarget.Amrap(5), progression = ProgressionRule.Linear(2.5))
         val s = Progression.suggest(slot, bench, entry(60.0, 5, 5, 6), kg)
         assertEquals(62.5, s.weightKg)
-        assertEquals("Last: ${Format.weight(60.0, kg)} × 5,5,6 → try ${Format.weight(62.5, kg)}", s.hint)
+        assertEquals(Hint.Try(LastTime(60.0, listOf(5, 5, 6)), 62.5), s.hint)
     }
 
     @Test
@@ -44,7 +45,7 @@ class ProgressionTest {
         val slot = ExerciseSlot("bench_press", 3, RepTarget.Fixed(5), progression = ProgressionRule.Linear(2.5))
         val s = Progression.suggest(slot, bench, entry(60.0, 5, 5, 4), kg)
         assertEquals(60.0, s.weightKg)
-        assertEquals("Last: ${Format.weight(60.0, kg)} × 5,5,4 → repeat ${Format.weight(60.0, kg)}", s.hint)
+        assertEquals(Hint.Repeat(LastTime(60.0, listOf(5, 5, 4)), 60.0), s.hint)
     }
 
     @Test
@@ -81,7 +82,7 @@ class ProgressionTest {
         val sets = (0..2).map { SetEntry(it, SetType.BODYWEIGHT, reps = 8) }
         val s = Progression.suggest(slot, pullUp, ExerciseEntry(pullUp.id, sets), kg)
         assertNull(s.weightKg)
-        assertEquals("Last: 8,8,8 → all sets at 8: move to the next progression", s.hint)
+        assertEquals(Hint.MoveOn(LastTime(null, listOf(8, 8, 8)), 8), s.hint)
     }
 
     private val t1 = ProgressionRule.StageLadder(listOf(SetsReps(5, RepTarget.Amrap(3)), SetsReps(6, RepTarget.Amrap(2)), SetsReps(10, RepTarget.Amrap(1))), 5.0)
@@ -102,7 +103,7 @@ class ProgressionTest {
         assertEquals(6, s.sets)
         assertEquals(2, s.reps)
         assertEquals(SetsReps(6, RepTarget.Amrap(2)), s.target)
-        assertEquals("Last: ${Format.weight(60.0, kg)} × 3,3,3,2,2 → missed reps: 6×2+ at ${Format.weight(60.0, kg)}", s.hint)
+        assertEquals(Hint.Missed(LastTime(60.0, listOf(3, 3, 3, 2, 2)), SetsReps(6, RepTarget.Amrap(2)), 60.0), s.hint)
     }
 
     private val gzclp = ProgramCatalogue.byId("gzclp")!!
@@ -133,7 +134,12 @@ class ProgressionTest {
         assertEquals(3, squat.workSets.first().reps)
         assertEquals(85.0, squat.workSets.first().weightKg)
         assertEquals("5 × 3+", squat.targetLabel)
-        assertEquals("Last: ${Format.weight(80.0, kg)} × 8,8,8 → est. 1RM ~101 kg → T1 start ${Format.weight(85.0, kg)}", squat.hint)
+        val hint = squat.hint as Hint.Estimate
+        assertEquals(LastTime(80.0, listOf(8, 8, 8)), hint.last)
+        assertEquals(101.0, hint.e1rmKg, 0.5)
+        assertEquals(Gzclp.Tier.T1, hint.tier)
+        assertEquals(85.0, hint.startKg)
+        assertNull(hint.cappedBelowKg)
         assertTrue(squat.seeded)
         assertEquals(Progression.Source.FREE_SESSION, squat.source)
         assertEquals(Gzclp.Tier.T1, squat.tier)
@@ -147,7 +153,11 @@ class ProgressionTest {
         val b = plan.exercises.first { it.exercise.id == "bench_press" }
         assertEquals(40.0, b.workSets.first().weightKg)
         assertEquals(10, b.workSets.first().reps)
-        assertEquals("Last: ${Format.weight(50.0, kg)} × 6,8,9 → est. 1RM ~65 kg → T2 start ${Format.weight(40.0, kg)}", b.hint)
+        val hint = b.hint as Hint.Estimate
+        assertEquals(LastTime(50.0, listOf(6, 8, 9)), hint.last)
+        assertEquals(65.0, hint.e1rmKg, 0.5)
+        assertEquals(Gzclp.Tier.T2, hint.tier)
+        assertEquals(40.0, hint.startKg)
         assertTrue(b.workSets.all { it.weightKg!! < 50.0 })
     }
 
@@ -221,7 +231,10 @@ class ProgressionTest {
         val squat = planSquat(squats(LocalDate(2026, 3, 5), 70.0, 10, 10, 10, day = "A2"))
         assertEquals(75.0, squat.workSets.first().weightKg)
         assertEquals("5 × 3+", squat.targetLabel)
-        assertEquals("Last: ${Format.weight(70.0, kg)} × 10,10,10 → est. 1RM ~93 kg → T1 start ${Format.weight(75.0, kg)}", squat.hint)
+        val hint = squat.hint as Hint.Estimate
+        assertEquals(LastTime(70.0, listOf(10, 10, 10)), hint.last)
+        assertEquals(93.0, hint.e1rmKg, 0.5)
+        assertEquals(75.0, hint.startKg)
         assertTrue(squat.seeded)
         assertEquals(Progression.Source.DIFFERENT_SCHEME, squat.source)
     }
@@ -285,31 +298,5 @@ class ProgressionTest {
         val plank = plan.exercises.first { it.exercise.id == "plank" }
         assertEquals(45, plank.sets.first().seconds)
         assertNull(plank.sets.first().reps)
-    }
-
-    @Test
-    fun describesEveryRuleInTheDisplayUnit() {
-        assertNull(Progression.describe(ProgressionRule.None, kg))
-        assertEquals(
-            "Add 2.5 kg every session you hit every set. Miss the reps and the weight repeats.",
-            Progression.describe(ProgressionRule.Linear(2.5), kg),
-        )
-        assertEquals(
-            "Add 5 lbs every session you hit every set. Miss the reps and the weight repeats.",
-            Progression.describe(ProgressionRule.Linear(2.5), WeightUnit.LBS),
-        )
-        assertEquals(
-            "Reps climb from 15 to 25 at one weight. Once every set reaches 25, add 2.5 kg and drop back to 15.",
-            Progression.describe(ProgressionRule.DoubleProgression(15, 25, 2.5), kg),
-        )
-        assertEquals(
-            "Reps climb from 5 to 8 at one weight. Once every set reaches 8, move on to the harder variation.",
-            Progression.describe(ProgressionRule.DoubleProgression(5, 8, 0.0), kg),
-        )
-        val ladder = ProgressionRule.StageLadder(listOf(SetsReps(5, RepTarget.Amrap(3)), SetsReps(6, RepTarget.Amrap(2)), SetsReps(10, RepTarget.Amrap(1))), 5.0)
-        assertEquals(
-            "Stages: 5×3+ → 6×2+ → 10×1+. Hit the reps: add 5 kg and stay on the stage. Miss: next stage at the same weight. Miss the last stage: drop about 10% and start over at 5×3+.",
-            Progression.describe(ladder, kg),
-        )
     }
 }

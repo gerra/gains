@@ -58,6 +58,11 @@ import app.gains.ui.components.RoundedIconBox
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -110,7 +115,7 @@ internal class HomeModel(
                     lastSessionId = snapshot.sessions.maxByOrNull { it.timestamp }?.id,
                     thisWeekSessions = snapshot.sessions.count { it.date >= weekStart },
                     streakWeeks = ConsistencyAnalyzer.currentStreakWeeks(snapshot.sessions, today),
-                    insights = GoalTuning.rank(InsightEngine(GoalTuning.thresholds(goal), unit).generate(snapshot.sessions, snapshot.exercises, today), goal),
+                    insights = GoalTuning.rank(InsightEngine(GoalTuning.thresholds(goal)).generate(snapshot.sessions, snapshot.exercises, today), goal),
                     unit = unit,
                     profile = programState.profile,
                     activeProgram = active,
@@ -149,14 +154,14 @@ internal fun HomeScreen(
                 Spacer(Modifier.height(8.dp))
                 ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram, onStartDay)
                 EmptyState(
-                    title = "No workouts yet",
-                    body = "Log your first session, or bring your history in from Liftoff, Strong, Hevy or any workout CSV.",
+                    title = stringResource(Res.string.no_workouts_yet),
+                    body = stringResource(Res.string.no_workouts_yet_body),
                     emoji = "↑",
                     action = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            PrimaryButton("Log a workout", onLog)
+                            PrimaryButton(stringResource(Res.string.log_a_workout), onLog)
                             Spacer(Modifier.height(10.dp))
-                            SecondaryButton("Import history", onImport)
+                            SecondaryButton(stringResource(Res.string.import_history), onImport)
                         }
                     },
                 )
@@ -165,22 +170,21 @@ internal fun HomeScreen(
         else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {
                 ScreenTitle(
-                    "Progress",
-                    subtitle = state.lastSession?.let { "Last session ${Dates.contextual(it, Dates.today())}" },
-                    trailing = { TextButton(onClick = onLog) { Text("+ Log", color = palette.volt) } },
+                    stringResource(Res.string.home_title),
+                    subtitle = state.lastSession?.let { stringResource(Res.string.last_session, dateContextual(it, Dates.today())) },
+                    trailing = { TextButton(onClick = onLog) { Text(stringResource(Res.string.plus_log), color = palette.volt) } },
                     onSubtitleClick = state.lastSessionId?.let { id -> { onOpenSession(id) } },
                 )
                 ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram, onStartDay)
                 HeroCard(state)
             }
             item {
-                SectionHeader("What's moving", action = {
-                    GoalTuning.headline(state.profile?.goal)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                SectionHeader(stringResource(Res.string.whats_moving), action = {
+                    goalHeadline(state.profile?.goal)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 })
                 if (state.insights.isEmpty()) {
                     Text(
-                        if (state.sessionCount == 1) "One session imported. Insights need a few weeks of history to compare against."
-                        else "Nothing to flag yet. Keep importing and the trends will show up here.",
+                        if (state.sessionCount == 1) stringResource(Res.string.one_session_imported) else stringResource(Res.string.nothing_to_flag),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -189,6 +193,7 @@ internal fun HomeScreen(
             items(state.insights) { insight ->
                 InsightCard(
                     insight,
+                    state.unit,
                     onClick = {
                         when {
                             insight.exerciseId != null -> onOpenExercise(insight.exerciseId!!)
@@ -227,16 +232,16 @@ private fun ProgramCard(
             program != null && day != null -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("UP NEXT · ${program.name.uppercase()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Text(stringResource(Res.string.up_next, program.displayName().uppercase()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         Spacer(Modifier.height(4.dp))
-                        Text(day.name, style = MaterialTheme.typography.headlineSmall)
+                        Text(day.displayName(), style = MaterialTheme.typography.headlineSmall)
                         Text(
-                            "${Format.plural(day.slots.size, "exercise")} · ${state.programSessionsThisWeek} of ${program.daysPerWeek} this week",
+                            stringResource(Res.string.exercises_and_week_count, exercisesText(day.slots.size), state.programSessionsThisWeek, program.daysPerWeek),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Spacer(Modifier.width(12.dp))
-                    PrimaryButton("Start", onClick = { onStartDay(ProgramDayRef(program.id, day.id)) })
+                    PrimaryButton(stringResource(Res.string.start), onClick = { onStartDay(ProgramDayRef(program.id, day.id)) })
                 }
                 Spacer(Modifier.height(10.dp))
                 // The whole rotation with today's day picked out, and a visible way into the full program.
@@ -244,32 +249,33 @@ private fun ProgramCard(
                     val order = buildAnnotatedString {
                         program.days.forEachIndexed { i, d ->
                             if (i > 0) append(" · ")
-                            if (d.id == day.id) withStyle(SpanStyle(color = palette.volt, fontWeight = FontWeight.SemiBold)) { append(d.name) } else append(d.name)
+                            val name = d.displayName()
+                            if (d.id == day.id) withStyle(SpanStyle(color = palette.volt, fontWeight = FontWeight.SemiBold)) { append(name) } else append(name)
                         }
                     }
                     Text(order, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.width(12.dp))
-                    Text("Whole program ›", style = MaterialTheme.typography.labelSmall, color = palette.volt)
+                    Text(stringResource(Res.string.whole_program), style = MaterialTheme.typography.labelSmall, color = palette.volt)
                 }
             }
             state.profile != null -> {
                 val profile = state.profile
-                Text("PICK A PROGRAM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.pick_a_program), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
-                Text("${profile.goal.label} · ${profile.experience.label} · ${profile.daysPerWeek} days a week", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.profile_summary, profile.goal.label(), profile.experience.label(), daysAWeekText(profile.daysPerWeek)), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
-                Text("Choose a routine and each day becomes a pre-filled workout with your last weights.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.choose_routine_blurb), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
-                Row { Pill("Choose a program ›", palette.volt, filled = true, onClick = onOpenPrograms) }
+                Row { Pill(stringResource(Res.string.choose_a_program), palette.volt, filled = true, onClick = onOpenPrograms) }
             }
             else -> {
-                Text("SET YOUR GOAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.set_your_goal), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
-                Text("What are you training for?", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.what_are_you_training_for), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
-                Text("Three quick questions, then a program that fits your week and turns each day into a ready-made workout.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.three_quick_questions), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
-                Row { Pill("Get started ›", palette.volt, filled = true, onClick = onOpenOnboarding) }
+                Row { Pill(stringResource(Res.string.get_started), palette.volt, filled = true, onClick = onOpenOnboarding) }
             }
         }
     }
@@ -283,22 +289,22 @@ private fun HeroCard(state: HomeState) {
     GainsCard(Modifier.fillMaxWidth(), brush = palette.heroBrush(), contentPadding = Dp16.Loose) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text("THIS WEEK", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.this_week).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(state.thisWeekSessions.toString(), style = MaterialTheme.typography.displayLarge, color = palette.volt)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (state.thisWeekSessions == 1) "session" else "sessions", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(pluralStringResource(Res.plurals.session_word, state.thisWeekSessions, state.thisWeekSessions), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Pill("${Format.plural(state.streakWeeks, "wk")} streak", palette.volt, filled = true)
+            Pill(pluralStringResource(Res.plurals.week_streak, state.streakWeeks, state.streakWeeks), palette.volt, filled = true)
         }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            HeroStat("Sessions", state.sessionCount.toString())
-            HeroStat("Lifts", state.exerciseCount.toString())
-            HeroStat("Up", progress.toString(), palette.progress)
-            HeroStat("Down", regressions.toString(), if (regressions > 0) palette.regression else null)
+            HeroStat(stringResource(Res.string.hero_sessions), state.sessionCount.toString())
+            HeroStat(stringResource(Res.string.hero_lifts), state.exerciseCount.toString())
+            HeroStat(stringResource(Res.string.hero_up), progress.toString(), palette.progress)
+            HeroStat(stringResource(Res.string.hero_down), regressions.toString(), if (regressions > 0) palette.regression else null)
         }
     }
 }
@@ -334,7 +340,7 @@ private fun InsightKind.glyph(): String = when (this) {
 /** Tapping the card opens the exercise (or volume); each session the text mentions gets its own link below it. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun InsightCard(insight: Insight, onClick: () -> Unit, onOpenSession: (String) -> Unit = {}) {
+internal fun InsightCard(insight: Insight, unit: WeightUnit, onClick: () -> Unit, onOpenSession: (String) -> Unit = {}) {
     val color = insight.kind.color()
     val palette = GainsColors.palette
     val today = Dates.today()
@@ -344,19 +350,19 @@ internal fun InsightCard(insight: Insight, onClick: () -> Unit, onOpenSession: (
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Pill(insight.kind.label, color)
+                    Pill(insight.kind.label(), color)
                     Spacer(Modifier.weight(1f))
                     insight.delta?.let { DeltaBadge(it) }
                 }
                 Spacer(Modifier.height(8.dp))
-                Text(insight.title, style = MaterialTheme.typography.titleMedium)
+                Text(insightTitle(insight), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(2.dp))
-                Text(insight.detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(insightDetail(insight, unit, today), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (insight.sessions.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (ref in insight.sessions.distinctBy { it.id }) {
-                            Pill("Session ${Dates.contextual(ref.date, today)} ›", palette.volt, onClick = { onOpenSession(ref.id) })
+                            Pill(stringResource(Res.string.session_link, dateContextual(ref.date, today)), palette.volt, onClick = { onOpenSession(ref.id) })
                         }
                     }
                 }

@@ -19,7 +19,7 @@ data class PlannedExercise(
     val sets: List<PlannedSet>,
     /** "5 × 3+", or "6 × 2+" once a stage ladder has moved on: always the stage the sets were built for. */
     val targetLabel: String,
-    val hint: String?,
+    val hint: Progression.Hint?,
     /**
      * The weights were borrowed from a session that did not attempt this slot's scheme (a free
      * workout, or another slot of the program) rather than produced by the progression rule. The

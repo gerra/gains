@@ -62,6 +62,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Format
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.stringResource
 import app.gains.auth.AccountRepository
 import app.gains.data.ExerciseRepository
 import app.gains.data.LiveSessionRepository
@@ -122,6 +126,9 @@ import app.gains.ui.theme.GainsTheme
  *
  * [notifier] is told about the workout in progress, so the platform can keep a way back to it in
  * its tray while the lifter is elsewhere; a tap there comes back through [ResumeRequests].
+ *
+ * Everything on screen is in the device's language, through the string resources: a change of
+ * language takes a relaunch.
  */
 @Composable
 internal fun App(
@@ -150,9 +157,10 @@ internal fun App(
     // null = not read yet; false = the goal questions have never been answered or skipped.
     val onboardingDone by programs.observeOnboardingDone().collectAsState(initial = null)
     // The active program's next day, for the "+" menu.
-    val upNext by remember {
+    val texts = rememberTexts()
+    val upNext by remember(texts) {
         combine(programs.observeState(), sessions.observeProgramLinks()) { state, links ->
-            state.active?.let { p -> Rotation.nextDay(p, links)?.let { UpNext(ProgramDayRef(p.id, it.id), it.name) } }
+            state.active?.let { p -> Rotation.nextDay(p, links)?.let { UpNext(ProgramDayRef(p.id, it.id), it.resolvedName(texts)) } }
         }
     }.collectAsState(initial = null)
     // The workout in progress, if any: shown as a resume bar on every screen but its own.
@@ -317,7 +325,7 @@ private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (navigator.canGoBack) {
-            IconCircle(Icons.AutoMirrored.Filled.ArrowBack, "Back") { navigator.pop() }
+            IconCircle(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.back)) { navigator.pop() }
             Spacer(Modifier.size(8.dp))
         } else {
             GainsWordmark(Modifier.padding(start = 4.dp))
@@ -327,33 +335,33 @@ private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
         if (screen != Screen.Import && screen !is Screen.EditSession) {
             var menuOpen by remember { mutableStateOf(false) }
             Box {
-                IconCircle(Icons.Default.Add, "Add") { menuOpen = true }
+                IconCircle(Icons.Default.Add, stringResource(Res.string.add_description)) { menuOpen = true }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, shape = MaterialTheme.shapes.medium) {
                     if (upNext != null) {
                         DropdownMenuItem(
-                            text = { Text("Start ${upNext.dayName}") },
+                            text = { Text(stringResource(Res.string.menu_start_day, upNext.dayName)) },
                             leadingIcon = { Icon(Icons.Default.Star, null, modifier = Modifier.size(18.dp)) },
                             onClick = { menuOpen = false; navigator.push(Screen.EditSession(null, upNext.ref, live = true)) },
                         )
                     }
                     DropdownMenuItem(
-                        text = { Text("Start workout") },
+                        text = { Text(stringResource(Res.string.menu_start_workout)) },
                         leadingIcon = { Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp)) },
                         onClick = { menuOpen = false; navigator.push(Screen.EditSession(null, live = true)) },
                     )
                     DropdownMenuItem(
-                        text = { Text("Log past workout") },
+                        text = { Text(stringResource(Res.string.menu_log_past_workout)) },
                         leadingIcon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp)) },
                         onClick = { menuOpen = false; navigator.push(Screen.EditSession(null)) },
                     )
                     DropdownMenuItem(
-                        text = { Text("Import CSV") },
+                        text = { Text(stringResource(Res.string.menu_import_csv)) },
                         leadingIcon = { Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp)) },
                         onClick = { menuOpen = false; navigator.push(Screen.Import) },
                     )
                     if (screen != Screen.Programs) {
                         DropdownMenuItem(
-                            text = { Text("Programs") },
+                            text = { Text(stringResource(Res.string.menu_programs)) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, null, modifier = Modifier.size(18.dp)) },
                             onClick = { menuOpen = false; navigator.push(Screen.Programs) },
                         )
@@ -362,7 +370,7 @@ private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
             }
         }
         Spacer(Modifier.size(8.dp))
-        if (screen != Screen.Settings) IconCircle(Icons.Default.Settings, "Settings") { navigator.push(Screen.Settings) }
+        if (screen != Screen.Settings) IconCircle(Icons.Default.Settings, stringResource(Res.string.settings_description)) { navigator.push(Screen.Settings) }
     }
 }
 
@@ -404,14 +412,15 @@ private fun BottomNav(navigator: Navigator) {
                         .padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    val label = tab.label()
                     Icon(
-                        tab.icon(), tab.label,
+                        tab.icon(), label,
                         tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp),
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        tab.label,
+                        label,
                         style = MaterialTheme.typography.labelSmall,
                         color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -446,10 +455,10 @@ private fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
         Text(Format.clock(live.elapsedMs(now) / 1000), style = MaterialTheme.typography.titleSmall, color = onAccent)
         if (remaining != null && remaining > 0) {
             Spacer(Modifier.size(10.dp))
-            Text("Rest ${Format.clock(remaining.toLong())}", style = MaterialTheme.typography.bodySmall, color = onAccent)
+            Text(stringResource(Res.string.rest_countdown, Format.clock(remaining.toLong())), style = MaterialTheme.typography.bodySmall, color = onAccent)
         }
         Spacer(Modifier.size(10.dp))
-        Text("Resume ›", style = MaterialTheme.typography.labelSmall, color = onAccent)
+        Text(stringResource(Res.string.resume_chevron), style = MaterialTheme.typography.labelSmall, color = onAccent)
     }
 }
 

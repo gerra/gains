@@ -24,12 +24,4 @@ object GoalTuning {
         if (bonus.isEmpty()) return insights
         return insights.sortedByDescending { it.severity + (bonus[it.kind] ?: 0.0) }
     }
-
-    /** Subtitle under "What's moving". */
-    fun headline(goal: Goal?): String? = when (goal) {
-        Goal.GET_STRONGER -> "Strength signals first"
-        Goal.BUILD_MUSCLE -> "Volume and neglected muscles first"
-        Goal.LOSE_FAT -> "Consistency first"
-        Goal.GENERAL_FITNESS, null -> null
-    }
 }

@@ -5,7 +5,6 @@ import app.gains.domain.Exercise
 import app.gains.domain.Modality
 import app.gains.domain.MuscleGroup
 import app.gains.domain.Session
-import app.gains.domain.WeightUnit
 import kotlinx.datetime.LocalDate
 
 /**
@@ -49,12 +48,35 @@ enum class InsightKind(val label: String) {
     PROGRESS("Progress"),
 }
 
+/** What an insight is about: the card's title. */
+sealed interface InsightSubject {
+    data class Lift(val exercise: Exercise) : InsightSubject
+    data class Muscle(val group: MuscleGroup) : InsightSubject
+    data class Frequency(val trend: Trend) : InsightSubject
+}
+
+/**
+ * The numbers behind an insight, for the UI to word in its language. Performances are described
+ * against the lift's modality, which the [InsightSubject.Lift] carries.
+ */
+sealed interface InsightDetail {
+    /** [current] now, [best] on [bestDate], down by [drop] (a fraction). */
+    data class Regression(val current: Performance, val best: Performance, val bestDate: LocalDate, val drop: Double) : InsightDetail
+    /** Stuck at [topWeightKg] (a weighted lift) or at [best] (anything else) since [since]. */
+    data class Stall(val topWeightKg: Double?, val best: Performance, val since: LocalDate, val sessions: Int, val weeks: Int) : InsightDetail
+    data class NeglectedExercise(val lastDate: LocalDate, val weeksAgo: Int, val priorSessions: Int, val lookbackWeeks: Int) : InsightDetail
+    data class NeglectedMuscle(val recentSetsPerWeek: Double, val recentWeeks: Int, val baselineSetsPerWeek: Double, val baselineWeeks: Int) : InsightDetail
+    data class Consistency(val recentPerWeek: Double, val previousPerWeek: Double?, val trend: Trend, val weeks: Int) : InsightDetail
+    /** [current] on [currentDate], up by [gain] (a fraction) on [previous] from [previousDate]. */
+    data class Progress(val current: Performance, val currentDate: LocalDate, val gain: Double, val previous: Performance, val previousDate: LocalDate) : InsightDetail
+}
+
 data class Insight(
     val kind: InsightKind,
     /** Higher sorts first. */
     val severity: Double,
-    val title: String,
-    val detail: String,
+    val subject: InsightSubject,
+    val detail: InsightDetail,
     val exerciseId: String? = null,
     val muscleGroup: MuscleGroup? = null,
     /** Signed change behind the insight (−0.18 for an 18% regression, +0.13 for progress), when there is one. */
@@ -77,11 +99,8 @@ data class ConsistencyStats(
     val weeks: Int,
 )
 
-/** Pure functions: sessions + exercises in, ordered insights out. No I/O, no clocks. */
-class InsightEngine(
-    private val thresholds: InsightThresholds = InsightThresholds(),
-    private val unit: WeightUnit = WeightUnit.KG,
-) {
+/** Pure functions: sessions + exercises in, ordered insights out. No I/O, no clocks, no words: the UI words each [InsightDetail]. */
+class InsightEngine(private val thresholds: InsightThresholds = InsightThresholds()) {
     fun generate(sessions: List<Session>, exercises: List<Exercise>, today: LocalDate): List<Insight> {
         if (sessions.isEmpty()) return emptyList()
         val byId = exercises.associateBy { it.id }
@@ -126,13 +145,11 @@ class InsightEngine(
         if (best <= 0) return null
         val drop = (best - current.best!!.value) / best
         if (drop < thresholds.regressionMinDropFraction) return null
-        val detail = "${current.best.describe(exercise.modality, unit)} now, " +
-            "${allTime.best.describe(exercise.modality, unit)} on ${Dates.contextual(allTime.date, today)} — down ${Format.percent(drop)}."
         return Insight(
             kind = InsightKind.REGRESSION,
             severity = 100 + drop * 100,
-            title = exercise.name,
-            detail = detail,
+            subject = InsightSubject.Lift(exercise),
+            detail = InsightDetail.Regression(current.best, allTime.best, allTime.date, drop),
             exerciseId = exercise.id,
             delta = -drop,
             sessions = listOf(current.ref(), allTime.ref()),
@@ -154,16 +171,11 @@ class InsightEngine(
         val sessionsSince = points.count { it.date >= firstAtTop.date }
         if (sessionsSince < thresholds.stallMinSessions) return null
         val weeks = stalledDays / 7
-        val value = when (exercise.modality) {
-            Modality.WEIGHTED -> Format.weight(top, unit)
-            else -> firstAtTop.best!!.describe(exercise.modality, unit)
-        }
-        val detail = "$value since ${Dates.contextual(firstAtTop.date, today)}. ${Format.plural(sessionsSince, "session")}, no change in $weeks weeks."
         return Insight(
             kind = InsightKind.STALL,
             severity = 40.0 + weeks,
-            title = exercise.name,
-            detail = detail,
+            subject = InsightSubject.Lift(exercise),
+            detail = InsightDetail.Stall(top.takeIf { exercise.modality == Modality.WEIGHTED }, firstAtTop.best!!, firstAtTop.date, sessionsSince, weeks),
             exerciseId = exercise.id,
             sessions = listOf(firstAtTop.ref()),
         )
@@ -185,12 +197,11 @@ class InsightEngine(
         val prior = history.count { it.date >= lookbackStart && it.date < absentSince }
         if (prior < thresholds.neglectExerciseMinPriorSessions) return null
         val weeksAgo = Dates.daysBetween(last.date, today) / 7
-        val detail = "Last trained ${Dates.contextual(last.date, today)}, $weeksAgo weeks ago, after ${Format.plural(prior, "session")} in the ${thresholds.neglectExerciseLookbackWeeks} weeks before that."
         return Insight(
             kind = InsightKind.NEGLECT,
             severity = 60.0 + weeksAgo,
-            title = exercise.name,
-            detail = detail,
+            subject = InsightSubject.Lift(exercise),
+            detail = InsightDetail.NeglectedExercise(last.date, weeksAgo, prior, thresholds.neglectExerciseLookbackWeeks),
             exerciseId = exercise.id,
             sessions = listOf(last.ref()),
         )
@@ -209,8 +220,8 @@ class InsightEngine(
             val recentAvg = recent.sumOf { it.sets[group] ?: 0.0 } / thresholds.neglectMuscleRecentWeeks
             val baselineAvg = baseline.sumOf { it.sets[group] ?: 0.0 } / thresholds.neglectMuscleBaselineWeeks
             if (baselineAvg >= thresholds.neglectMuscleBaselineWeeklySets && recentAvg < thresholds.neglectMuscleMinWeeklySets) {
-                val detail = "${Format.number(recentAvg, 1)} sets/week over the last ${thresholds.neglectMuscleRecentWeeks} weeks, down from ${Format.number(baselineAvg, 1)}/week over the ${thresholds.neglectMuscleBaselineWeeks} weeks before."
-                result.add(Insight(InsightKind.NEGLECT, 60.0 + (baselineAvg - recentAvg), group.displayName, detail, muscleGroup = group, delta = if (baselineAvg > 0) -(baselineAvg - recentAvg) / baselineAvg else null))
+                val detail = InsightDetail.NeglectedMuscle(recentAvg, thresholds.neglectMuscleRecentWeeks, baselineAvg, thresholds.neglectMuscleBaselineWeeks)
+                result.add(Insight(InsightKind.NEGLECT, 60.0 + (baselineAvg - recentAvg), InsightSubject.Muscle(group), detail, muscleGroup = group, delta = if (baselineAvg > 0) -(baselineAvg - recentAvg) / baselineAvg else null))
             }
         }
         return result
@@ -239,25 +250,14 @@ class InsightEngine(
 
     fun consistency(sessions: List<Session>, today: LocalDate): Insight? {
         val stats = consistencyStats(sessions, today) ?: return null
-        val recentText = "${Format.number(stats.recentSessionsPerWeek, 1)} sessions/week over the last ${stats.weeks} weeks"
-        val detail = when {
-            stats.previousSessionsPerWeek == null -> "$recentText."
-            stats.trend == Trend.UP -> "$recentText, up from ${Format.number(stats.previousSessionsPerWeek, 1)} the ${stats.weeks} weeks before."
-            stats.trend == Trend.DOWN -> "$recentText, down from ${Format.number(stats.previousSessionsPerWeek, 1)} the ${stats.weeks} weeks before."
-            else -> "$recentText, steady against ${Format.number(stats.previousSessionsPerWeek, 1)} the ${stats.weeks} weeks before."
-        }
         val severity = when (stats.trend) {
             Trend.DOWN -> 50.0
             Trend.FLAT -> 20.0
             Trend.UP -> 15.0
         }
-        val title = when (stats.trend) {
-            Trend.DOWN -> "Training less often"
-            Trend.UP -> "Training more often"
-            Trend.FLAT -> "Steady frequency"
-        }
         val delta = stats.previousSessionsPerWeek?.takeIf { it > 0 }?.let { (stats.recentSessionsPerWeek - it) / it }
-        return Insight(InsightKind.CONSISTENCY, severity, title, detail, delta = delta)
+        val detail = InsightDetail.Consistency(stats.recentSessionsPerWeek, stats.previousSessionsPerWeek, stats.trend, stats.weeks)
+        return Insight(InsightKind.CONSISTENCY, severity, InsightSubject.Frequency(stats.trend), detail, delta = delta)
     }
 
     // ---- Progress ---------------------------------------------------------------------------
@@ -276,8 +276,7 @@ class InsightEngine(
         if (base <= 0) return null
         val gain = (current.best!!.value - base) / base
         if (gain < thresholds.progressMinGainFraction) return null
-        val detail = "${current.best.describe(exercise.modality, unit)} on ${Dates.contextual(current.date, today)}, " +
-            "up ${Format.percent(gain)} on ${previousBest.best.describe(exercise.modality, unit)} from ${Dates.contextual(previousBest.date, today)}."
-        return Insight(InsightKind.PROGRESS, 10.0 + gain * 100, exercise.name, detail, exerciseId = exercise.id, delta = gain, sessions = listOf(current.ref(), previousBest.ref()))
+        val detail = InsightDetail.Progress(current.best, current.date, gain, previousBest.best, previousBest.date)
+        return Insight(InsightKind.PROGRESS, 10.0 + gain * 100, InsightSubject.Lift(exercise), detail, exerciseId = exercise.id, delta = gain, sessions = listOf(current.ref(), previousBest.ref()))
     }
 }

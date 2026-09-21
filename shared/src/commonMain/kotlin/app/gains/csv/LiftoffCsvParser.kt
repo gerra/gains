@@ -58,7 +58,26 @@ data class ParsedCsv(
     val corruptDurationCount: Int get() = sessions.count { it.durationDiscarded }
 }
 
-class CsvFormatException(message: String) : Exception(message)
+/** Why a file could not be read, so the screen can say so in its own language. */
+sealed interface CsvProblem {
+    data object Empty : CsvProblem
+    data object Unrecognised : CsvProblem
+    data class MissingColumns(val columns: List<String>) : CsvProblem
+    data class NotLiftoff(val columns: List<String>) : CsvProblem
+    data object NoneReadable : CsvProblem
+
+    /** The English wording, for logs and tests; the screen words [CsvProblem] from its resources. */
+    val message: String get() = when (this) {
+        Empty -> "The file is empty."
+        Unrecognised -> "Not a recognised workout export. Expected columns for date, exercise, weight and reps."
+        is MissingColumns -> "Missing column(s): ${columns.joinToString()}."
+        is NotLiftoff -> "Not a Liftoff export: missing column(s) ${columns.joinToString()}."
+        NoneReadable -> "None of the files could be read."
+    }
+}
+
+/** A file the connectors cannot read. The message is the English wording of [problem]. */
+class CsvFormatException(val problem: CsvProblem) : Exception(problem.message)
 
 /** Liftoff's export layout. Thin wrapper over the shared [WorkoutCsvParser]; see [LiftoffConnector]. */
 class LiftoffCsvParser(
@@ -68,10 +87,10 @@ class LiftoffCsvParser(
     private val options = ImportOptions(weightUnit, maxPlausibleDurationMinutes)
 
     fun parse(text: String): ParsedCsv {
-        val header = CsvReader.parse(text.take(4000)).firstOrNull()?.fields?.map { it.trim() } ?: throw CsvFormatException("The file is empty.")
+        val header = CsvReader.parse(text.take(4000)).firstOrNull()?.fields?.map { it.trim() } ?: throw CsvFormatException(CsvProblem.Empty)
         if (LiftoffConnector.match(header) == 0) {
             val missing = LiftoffConnector.spec.required.map { it.first() }.filter { it !in header }
-            throw CsvFormatException("Not a Liftoff export: missing column(s) ${missing.ifEmpty { listOf("Duration") }.joinToString()}.")
+            throw CsvFormatException(CsvProblem.NotLiftoff(missing.ifEmpty { listOf("Duration") }))
         }
         return LiftoffConnector.parse(text, options)
     }

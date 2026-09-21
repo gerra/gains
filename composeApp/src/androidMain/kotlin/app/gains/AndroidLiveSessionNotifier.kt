@@ -56,8 +56,8 @@ internal class AndroidLiveSessionNotifier(private val context: Context, private 
         context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
     private fun post(notice: LiveSessionNotice) {
-        val channel = NotificationChannel(CHANNEL_ID, "Workout in progress", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "Shown while a workout is running, so you can get back to it from anywhere."
+        val channel = NotificationChannel(CHANNEL_ID, context.getString(R.string.notification_channel), NotificationManager.IMPORTANCE_LOW).apply {
+            description = context.getString(R.string.notification_channel_description)
             setShowBadge(false)
         }
         manager.createNotificationChannel(channel)
@@ -71,7 +71,7 @@ internal class AndroidLiveSessionNotifier(private val context: Context, private 
             .setColor(context.getColor(R.color.notification_accent))
             // The template's own lines are replaced by the clocks below; these remain for screen readers and watches.
             .setContentTitle(notice.title)
-            .setContentText(if (resting) "Resting. Tap to get back to your workout." else "Workout in progress. Tap to get back to it.")
+            .setContentText(context.getString(if (resting) R.string.notification_resting else R.string.notification_running))
             // The system's header and action row around our own content, themed to the tray's light or dark background.
             .setStyle(Notification.DecoratedCustomViewStyle())
             .setCustomContentView(clocks(notice))

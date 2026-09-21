@@ -69,6 +69,8 @@ data class ImportedFile(
     val sessionCount: Int,
     /** Set when the file could not be parsed; the others still import. */
     val error: String? = null,
+    /** Why, when the connectors could not read it: the screen words it in its own language. */
+    val problem: app.gains.csv.CsvProblem? = null,
     /** Display name of the connector that recognised the file. */
     val connector: String? = null,
 )

@@ -53,6 +53,11 @@ import app.gains.ui.components.GainsCard
 import app.gains.ui.components.MetricTile
 import app.gains.ui.components.Pill
 import app.gains.ui.components.SectionHeader
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -65,7 +70,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal enum class Window(val label: String, val days: Int?) { M3("3M", 90), M6("6M", 180), Y1("1Y", 365), ALL("All", null) }
+internal enum class Window(val days: Int?) { M3(90), M6(180), Y1(365), ALL(null) }
 
 internal data class ExerciseDetailState(
     val loading: Boolean = true,
@@ -124,29 +129,30 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
     val exercise = state.exercise
     if (state.loading) return
     if (exercise == null) {
-        EmptyState("Unknown exercise", "This exercise no longer exists. It may have been merged into another one.", emoji = "?")
+        EmptyState(stringResource(Res.string.unknown_exercise), stringResource(Res.string.unknown_exercise_body), emoji = "?")
         return
     }
     val today = Dates.today()
     val unit = state.unit
+    val labels = unitLabels()
     val summary = state.summary
     val palette = GainsColors.palette
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            Text(exercise.name, style = MaterialTheme.typography.headlineLarge)
+            Text(exercise.displayName(), style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Pill(exercise.modality.name.lowercase().replaceFirstChar { it.uppercase() }, palette.cyan)
-                if (exercise.isDumbbell) Pill("Per dumbbell", palette.amber)
+                Pill(exercise.modality.label(), palette.cyan)
+                if (exercise.isDumbbell) Pill(stringResource(Res.string.per_dumbbell), palette.amber)
             }
             if (exercise.muscleGroups.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text(exercise.muscleGroups.joinToString(" · ") { it.group.displayName }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(exercise.muscleGroups.map { it.group.label() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (state.allPoints.isEmpty()) {
-            item { EmptyState("No sessions", "This exercise has not been trained in any imported session.") }
+            item { EmptyState(stringResource(Res.string.no_sessions), stringResource(Res.string.no_sessions_for_exercise)) }
             return@LazyColumn
         }
         item {
@@ -156,18 +162,18 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
             val gap = summary?.gapFraction
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricTile(
-                    "Current best",
-                    current?.best?.describe(exercise.modality, unit) ?: "-",
+                    stringResource(Res.string.current_best),
+                    current?.best?.describe(exercise.modality, unit, labels) ?: "-",
                     Modifier.weight(1f),
-                    caption = current?.let { Dates.contextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
+                    caption = current?.let { dateContextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
                     accent = if (gap != null && gap > 0.05) palette.regression else palette.volt,
                     onClick = current?.let { p -> { onOpenSession(p.sessionId) } },
                 )
                 MetricTile(
-                    "All-time best",
-                    allTime?.best?.describe(exercise.modality, unit) ?: "-",
+                    stringResource(Res.string.all_time_best),
+                    allTime?.best?.describe(exercise.modality, unit, labels) ?: "-",
                     Modifier.weight(1f),
-                    caption = allTime?.let { Dates.contextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
+                    caption = allTime?.let { dateContextual(it.date, today) + metricCaption(it, exercise.modality, unit) },
                     onClick = allTime?.let { p -> { onOpenSession(p.sessionId) } },
                 )
             }
@@ -175,69 +181,69 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 when {
                     gap == null -> {}
-                    gap <= 0.0 -> Pill("At your best", palette.volt, filled = true)
-                    else -> { DeltaBadge(-gap); Spacer(Modifier.padding(4.dp)); Text("from all-time best", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    gap <= 0.0 -> Pill(stringResource(Res.string.at_your_best), palette.volt, filled = true)
+                    else -> { DeltaBadge(-gap); Spacer(Modifier.padding(4.dp)); Text(stringResource(Res.string.from_all_time_best), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }
         item {
-            SectionHeader("Window")
-            ChipRow(Window.entries, state.window, { it.label }, { model.setWindow(it) })
+            SectionHeader(stringResource(Res.string.window))
+            ChipRow(Window.entries, state.window, { windowLabel(it.days) }, { model.setWindow(it) })
         }
         if (state.points.isEmpty()) {
-            item { EmptyState("Nothing in this window", "Pick a longer window to see the ${state.allPoints.size} sessions on record.") }
+            item { EmptyState(stringResource(Res.string.nothing_in_window), pluralStringResource(Res.plurals.pick_a_longer_window, state.allPoints.size, state.allPoints.size)) }
             return@LazyColumn
         }
         if (state.points.size == 1) {
             item {
-                Text("One session in this window. Charts need at least two points to show a trend.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(Res.string.one_session_in_window), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
             }
         }
         item {
             when (exercise.modality) {
                 Modality.WEIGHTED -> {
-                    SectionHeader("Estimated 1RM · Epley, working sets")
+                    SectionHeader(stringResource(Res.string.e1rm_section))
                     val pts = state.points.mapNotNull { p -> p.bestE1rm?.let { ChartPoint(p.date.x(), Units.display(it.value, unit)) } }
                     ChartCard {
-                        if (pts.isEmpty()) Text("No weighted working sets in this window.", style = MaterialTheme.typography.bodySmall)
-                        else LineChart(listOf(LineSeries(pts, palette.volt, "e1RM", fill = true)), yLabel = { formatAxis(it) })
+                        if (pts.isEmpty()) Text(stringResource(Res.string.no_weighted_sets_in_window), style = MaterialTheme.typography.bodySmall)
+                        else LineChart(listOf(LineSeries(pts, palette.volt, stringResource(Res.string.e1rm), fill = true)), yLabel = { formatAxis(it) })
                     }
-                    SectionHeader("Top set weight")
+                    SectionHeader(stringResource(Res.string.top_set_weight))
                     val top = state.points.mapNotNull { p -> p.topSetWeightKg?.let { ChartPoint(p.date.x(), Units.display(it, unit)) } }
-                    if (top.isNotEmpty()) ChartCard { LineChart(listOf(LineSeries(top, palette.cyan, "Top set", fill = true, smooth = false)), height = 160.dp, yLabel = { formatAxis(it) }) }
-                    SectionHeader("Volume per session · Σ weight × reps")
+                    if (top.isNotEmpty()) ChartCard { LineChart(listOf(LineSeries(top, palette.cyan, stringResource(Res.string.top_set), fill = true, smooth = false)), height = 160.dp, yLabel = { formatAxis(it) }) }
+                    SectionHeader(stringResource(Res.string.volume_per_session))
                     val vol = state.points.map { ChartPoint(it.date.x(), Units.display(it.totalVolumeKg, unit)) }
-                    ChartCard { LineChart(listOf(LineSeries(vol, palette.violet, "Total volume", showDots = false, fill = true)), height = 160.dp, yMinZero = true, yLabel = { Format.number(it, 0) }) }
+                    ChartCard { LineChart(listOf(LineSeries(vol, palette.violet, stringResource(Res.string.total_volume), showDots = false, fill = true)), height = 160.dp, yMinZero = true, yLabel = { Format.number(it, 0) }) }
                 }
                 else -> {
-                    SectionHeader("Best ${ExerciseAnalysis.metricLabel(exercise.modality)} per session")
+                    SectionHeader(exercise.modality.bestMetricHeading())
                     val pts = state.points.mapNotNull { p -> p.best?.let { ChartPoint(p.date.x(), it.value) } }
-                    if (pts.isNotEmpty()) ChartCard { LineChart(listOf(LineSeries(pts, palette.volt, ExerciseAnalysis.metricLabel(exercise.modality), fill = true)), yMinZero = true) }
+                    if (pts.isNotEmpty()) ChartCard { LineChart(listOf(LineSeries(pts, palette.volt, exercise.modality.metricLabel(), fill = true)), yMinZero = true) }
                 }
             }
         }
         if (exercise.modality == Modality.WEIGHTED) {
             item {
-                SectionHeader("Working-set rule")
+                SectionHeader(stringResource(Res.string.working_set_rule))
                 GainsCard(Modifier.fillMaxWidth()) {
                     WorkingSetRuleEditor(state.workingSetRatio, state.hasOverride, onChange = { model.setWorkingSetRatio(it) })
                 }
             }
         }
-        item { SectionHeader("Sessions · tap to open") }
+        item { SectionHeader(stringResource(Res.string.sessions_tap_to_open)) }
         items(state.points.asReversed(), key = { it.sessionId }) { p ->
             GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = { onOpenSession(p.sessionId) }, contentPadding = Dp16.Tight) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(Dates.contextual(p.date, today), style = MaterialTheme.typography.titleSmall)
-                    Text(p.best?.describe(exercise.modality, unit) ?: "-", style = MaterialTheme.typography.titleSmall, color = palette.volt)
+                    Text(dateContextual(p.date, today), style = MaterialTheme.typography.titleSmall)
+                    Text(p.best?.describe(exercise.modality, unit, labels) ?: "-", style = MaterialTheme.typography.titleSmall, color = palette.volt)
                 }
                 val details = buildList {
                     if (exercise.modality == Modality.WEIGHTED) {
-                        p.bestE1rm?.let { add("e1RM ${Format.weight(it.value, unit, 1)}") }
-                        p.bestSetVolumeKg?.let { add("best set volume ${Format.weight(it, unit, 0)}") }
-                        add("volume ${Format.weight(p.totalVolumeKg, unit, 0)}")
+                        p.bestE1rm?.let { add(stringResource(Res.string.e1rm_value, weightText(it.value, unit, 1))) }
+                        p.bestSetVolumeKg?.let { add(stringResource(Res.string.best_set_volume, weightText(it, unit, 0))) }
+                        add(stringResource(Res.string.volume_value, weightText(p.totalVolumeKg, unit, 0)))
                     }
-                    add("${p.workingSetCount}/${p.setCount} working sets")
+                    add(stringResource(Res.string.working_sets_of, p.workingSetCount, p.setCount))
                 }
                 Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 p.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp)) }
@@ -251,9 +257,10 @@ internal fun ChartCard(content: @Composable () -> Unit) {
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) { content() }
 }
 
+@Composable
 private fun metricCaption(p: ExerciseSessionPoint, modality: Modality, unit: WeightUnit): String {
     val e1rm = p.bestE1rm ?: return ""
-    return if (modality == Modality.WEIGHTED) " · e1RM ${Format.weight(e1rm.value, unit, 1)}" else ""
+    return if (modality == Modality.WEIGHTED) " · " + stringResource(Res.string.e1rm_value, weightText(e1rm.value, unit, 1)) else ""
 }
 
 @Composable
@@ -261,8 +268,7 @@ private fun WorkingSetRuleEditor(ratio: Double, hasOverride: Boolean, onChange: 
     var value by remember(ratio) { mutableStateOf(ratio.toFloat()) }
     val palette = GainsColors.palette
     Text(
-        "Sets at or above ${Format.percent(value.toDouble())} of the session's top weight count as working sets." +
-            if (hasOverride) "" else " (default ${Format.percent(WorkingSets.DEFAULT_RATIO)})",
+        workingSetRuleBlurb(Format.percent(value.toDouble()), if (hasOverride) null else Format.percent(WorkingSets.DEFAULT_RATIO)),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Slider(
@@ -273,5 +279,5 @@ private fun WorkingSetRuleEditor(ratio: Double, hasOverride: Boolean, onChange: 
         steps = 9,
         colors = SliderDefaults.colors(thumbColor = palette.volt, activeTrackColor = palette.volt, inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest),
     )
-    if (hasOverride) TextButton(onClick = { onChange(null) }) { Text("Reset to default") }
+    if (hasOverride) TextButton(onClick = { onChange(null) }) { Text(stringResource(Res.string.reset_to_default)) }
 }

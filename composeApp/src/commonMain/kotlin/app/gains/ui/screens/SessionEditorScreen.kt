@@ -72,6 +72,7 @@ import app.gains.analysis.Format
 import app.gains.analysis.PreviousSets
 import app.gains.analysis.TrainingData
 import app.gains.analysis.TrainingSnapshot
+import app.gains.analysis.UnitLabels
 import app.gains.data.ExerciseRepository
 import app.gains.data.LiveSessionRepository
 import app.gains.data.ProgramRepository
@@ -83,6 +84,7 @@ import app.gains.domain.LiveExercise
 import app.gains.domain.LiveSession
 import app.gains.domain.Modality
 import app.gains.domain.Program
+import app.gains.domain.ProgramDay
 import app.gains.domain.ProgramDayRef
 import app.gains.domain.RestTimer
 import app.gains.domain.Session
@@ -106,6 +108,11 @@ import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
 import app.gains.ui.components.TimePickerSheet
 import app.gains.ui.components.WeightPickerSheet
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.nowMs
 import app.gains.ui.rememberScreenModel
@@ -149,12 +156,12 @@ internal data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraf
      * What each row was last time, in row order: the same-numbered warm-up or work set of [previous]
      * as "60×5", or null where last time had no such set. All null without a previous session.
      */
-    fun previousLabels(previous: ExerciseEntry?, unit: WeightUnit): List<String?> {
+    fun previousLabels(previous: ExerciseEntry?, unit: WeightUnit, labels: UnitLabels): List<String?> {
         var warmup = 0
         var work = 0
         return sets.map { set ->
             val ordinal = if (set.isWarmup) ++warmup else ++work
-            PreviousSets.matching(previous, set.isWarmup, ordinal)?.let { PreviousSets.label(it, exercise.modality, unit) }
+            PreviousSets.matching(previous, set.isWarmup, ordinal)?.let { PreviousSets.label(it, exercise.modality, unit, labels) }
         }
     }
 }
@@ -177,20 +184,21 @@ internal data class EditorState(
     val catalogue: List<Exercise> = emptyList(),
     /** Most recently trained first; the picker shows these on top. */
     val recent: List<Exercise> = emptyList(),
-    val error: String? = null,
+    /** Set when a save found nothing to store: the screen says so. */
+    val error: Boolean = false,
     val saved: Boolean = false,
     /**
      * The program day this workout counts towards. Set when started from a program day, and editable:
      * a free workout tagged with a day drives that day's progression like one started from it.
      */
     val programDay: ProgramDayRef? = null,
-    val title: String = "Log workout",
+    val title: String = "",
     /** Every day of every program, for the tag picker. */
     val programDays: List<ProgramDayOption> = emptyList(),
     /** exercise id -> "5 × 3+" */
     val targets: Map<String, String> = emptyMap(),
-    /** exercise id -> "Last: 60 kg × 5,5,5 → try 62.5 kg" */
-    val hints: Map<String, String> = emptyMap(),
+    /** exercise id -> the progression hint ("Last: 60 kg × 5,5,5 → try 62.5 kg"), worded on screen. */
+    val hints: Map<String, Progression.Hint> = emptyMap(),
     /** exercise id -> the exercise's most recent session before this one, for the PREV column of its set table. */
     val previous: Map<String, ExerciseEntry> = emptyMap(),
     /** exercise id -> program note */
@@ -276,6 +284,8 @@ internal class SessionEditorModel(
     private val programDay: ProgramDayRef? = null,
     /** Open a timed workout, ready to start (or resume the one running), rather than log a past one. */
     private val live: Boolean = false,
+    /** The titles and day tags the model makes. */
+    private val texts: Texts,
     private val sessions: SessionRepository = inject(),
     private val exercises: ExerciseRepository = inject(),
     private val liveSessions: LiveSessionRepository = inject(),
@@ -287,11 +297,19 @@ internal class SessionEditorModel(
     val state: StateFlow<EditorState> = _state
 
     /** What the planner and the restore need, kept for a resume after the conflict dialog. */
+    /** The editor's fixed titles, read from the resources once when the model starts. */
+    private class Titles(val logWorkout: String, val editWorkout: String, val workout: String)
+
     private class Context(
         val snapshot: TrainingSnapshot, val unit: WeightUnit, val planOptions: PlanOptions, val programs: List<Program>, val dayOptions: List<ProgramDayOption>,
+        val titles: Titles,
+        /** program day id -> its name on screen, for the title of a planned workout. */
+        private val dayNames: Map<String, String>,
         /** The workout being edited, when it is a logged one: its own sets are not "previous", nor are any logged after it. */
         val editing: Session? = null,
     ) {
+        fun dayName(day: ProgramDay): String = dayNames[day.id] ?: day.name
+
         /** The exercise's last session before this workout, for the PREV column; null when it has never been trained. */
         fun previousFor(exerciseId: String): ExerciseEntry? =
             PreviousSets.lastEntry(snapshot, exerciseId, before = editing?.timestamp, excludeSessionId = editing?.id)
@@ -312,7 +330,9 @@ internal class SessionEditorModel(
             // which must not be frozen into the row on save.
             val existing = sessionId?.let { id -> sessions.observeRawSessions().first().firstOrNull { it.id == id } }
             val programList = programs.observePrograms().first()
-            val ctx = Context(snapshot, unit, planOptions, programList, programList.flatMap { p -> p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), p.name, it.name) } }, editing = existing)
+            val dayOptions = programList.flatMap { p -> val programName = p.resolvedName(texts); p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), programName, it.resolvedName(texts)) } }
+            val titles = Titles(texts.get(Res.string.log_workout), texts.get(Res.string.edit_workout), texts.get(Res.string.workout))
+            val ctx = Context(snapshot, unit, planOptions, programList, dayOptions, titles, dayOptions.associate { it.ref.dayId to it.dayName }, editing = existing)
             context = ctx
             val stored = if (live && existing == null) liveSessions.load() else null
             _state.value = when {
@@ -324,14 +344,14 @@ internal class SessionEditorModel(
                         snapshot.exercisesById[entry.exerciseId]?.let { ex -> ExerciseDraft(ex, entry.sets.map { SetDraft.from(it, unit) }, entry.note ?: "") }
                     },
                     unit = unit, catalogue = snapshot.exercises.sortedBy { it.name }, recent = snapshot.trainedExercises.take(12),
-                    programDay = existing.program, title = "Edit workout", programDays = ctx.dayOptions,
+                    programDay = existing.program, title = ctx.titles.editWorkout, programDays = ctx.dayOptions,
                 )
                 // Coming back to the running workout, whether from the resume bar, a relaunch or the same day's Start.
                 stored != null && (programDay == null || stored.program == programDay) -> restored(ctx, stored)
                 // Any other day opens ready to start; a different workout still running is asked about at Start.
                 programDay != null -> planned(ctx, programDay).copy(timed = live)
-                live -> fresh(ctx).copy(title = "Workout", timed = true)
-                else -> fresh(ctx)
+                live -> fresh(ctx).copy(title = ctx.titles.workout, timed = true)
+                else -> fresh(ctx).copy(title = ctx.titles.logWorkout)
             }.withPrevious(ctx)
             if (live) persistWhileRunning()
         }
@@ -342,7 +362,7 @@ internal class SessionEditorModel(
         return EditorState(
             loading = false, isNew = true, date = now.date, time = LocalTime(now.hour, now.minute),
             unit = ctx.unit, catalogue = ctx.snapshot.exercises.sortedBy { it.name }, recent = ctx.snapshot.trainedExercises.take(12),
-            programDays = ctx.dayOptions,
+            programDays = ctx.dayOptions, title = ctx.titles.logWorkout,
         )
     }
 
@@ -354,7 +374,7 @@ internal class SessionEditorModel(
         val day = program?.day(ref.dayId) ?: return base
         val plan = DayPlanner.plan(program, day, ctx.snapshot, ctx.unit, ctx.planOptions)
         return base.copy(
-            programDay = ref, title = day.name,
+            programDay = ref, title = ctx.dayName(day),
             exercises = plan.exercises.map { pe ->
                 ExerciseDraft(pe.exercise, pe.sets.map { ps ->
                     SetDraft(
@@ -422,7 +442,7 @@ internal class SessionEditorModel(
         scope.launch {
             val running = liveSessions.load()
             if (running != null) update { it.copy(conflict = running) }
-            else update { it.copy(startedAtMs = nowMs(), error = null) }
+            else update { it.copy(startedAtMs = nowMs(), error = false) }
         }
     }
 
@@ -546,7 +566,7 @@ internal class SessionEditorModel(
                 .mapIndexedNotNull { i, d -> d.toSet(i, s.unit) }.mapIndexed { i, set -> set.copy(order = i) }
             if (sets.isEmpty()) null else ExerciseEntry(draft.exercise.id, sets, draft.note.ifBlank { null })
         }
-        if (entries.isEmpty()) { update { it.copy(error = "Add at least one exercise with a set.") }; return null }
+        if (entries.isEmpty()) { update { it.copy(error = true) }; return null }
         return entries
     }
 
@@ -589,7 +609,7 @@ internal class SessionEditorModel(
             // Ids are minute-precision timestamps; two workouts saved in the same minute must not replace each other.
             val id = s.id ?: uniqueId(timestamp.toString(), sessions.ids())
             sessions.upsert(session.copy(id = id))
-            update { it.copy(saved = true, error = null) }
+            update { it.copy(saved = true, error = false) }
         }
     }
 
@@ -607,7 +627,7 @@ internal class SessionEditorModel(
         if (entries == null) return
         includeUntickedOnEnd = includeUnticked
         val minutes = LiveSession.durationMinutes(nowMs() - started)
-        if (LiveSession.isLong(nowMs() - started)) update { it.copy(longSessionMinutes = minutes, error = null) }
+        if (LiveSession.isLong(nowMs() - started)) update { it.copy(longSessionMinutes = minutes, error = false) }
         else finish(minutes)
     }
 
@@ -634,7 +654,7 @@ internal class SessionEditorModel(
                 sessions.upsert(Session(id, timestamp, minutes, entries, Session.MANUAL, s.programDay))
                 liveSessions.clear()
             }
-            update { it.copy(saved = true, error = null) }
+            update { it.copy(saved = true, error = false) }
         }
     }
 
@@ -709,7 +729,8 @@ internal class SessionEditorModel(
 
 @Composable
 internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? = null, live: Boolean = false, onDone: () -> Unit) {
-    val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live) }
+    val texts = rememberTexts()
+    val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live, texts) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerOpen by remember { mutableStateOf(false) }
@@ -742,22 +763,22 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
                         if (state.programDays.isNotEmpty()) {
                             Spacer(Modifier.height(6.dp))
                             val tag = state.programDayOption
-                            Pill(tag?.label ?: "Not part of a program", if (tag != null) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant, onClick = { dayPickerOpen = true })
+                            Pill(tag?.label ?: stringResource(Res.string.not_part_of_a_program), if (tag != null) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant, onClick = { dayPickerOpen = true })
                         }
                     }
-                    if (!state.isNew) TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = palette.coral) }
+                    if (!state.isNew) TextButton(onClick = { confirmDelete = true }) { Text(stringResource(Res.string.delete), color = palette.coral) }
                 }
                 Spacer(Modifier.height(12.dp))
                 when {
                     startedAt != null -> {
                         val started = Instant.fromEpochMilliseconds(startedAt).toLocalDateTime(TimeZone.currentSystemDefault())
                         Text(
-                            "Started ${clock(started.hour, started.minute)}. Tick a set off when it is done to start the rest timer.",
+                            stringResource(Res.string.started_at, clock(started.hour, started.minute)),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     state.timed -> Text(
-                        "Look over the plan, then press Start. The clock runs from then, the sets open up to change and tick off, and ticking a set off starts the rest timer.",
+                        stringResource(Res.string.look_over_the_plan),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     else -> WhenCard(
@@ -765,11 +786,11 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
                         onDate = { datePickerOpen = true }, onTime = { timePickerOpen = true }, onDuration = { durationPickerOpen = true },
                     )
                 }
-                SectionHeader("Exercises", action = {
-                    TextButton(onClick = { pickerOpen = true }, enabled = state.editable) { Text("+ Add exercise", color = if (state.editable) palette.volt else disabledColor()) }
+                SectionHeader(stringResource(Res.string.exercises_section), action = {
+                    TextButton(onClick = { pickerOpen = true }, enabled = state.editable) { Text(stringResource(Res.string.plus_add_exercise), color = if (state.editable) palette.volt else disabledColor()) }
                 })
                 if (state.exercises.isEmpty()) {
-                    Text("Add an exercise to start logging sets. Weights are in ${state.unit.label}; leave weight empty for bodyweight, use seconds for holds and km for cardio. Tick a set off when it's done to start the rest timer.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(Res.string.add_an_exercise_note, state.unit.label()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             itemsIndexed(state.exercises, key = { _, e -> e.exercise.id }) { exerciseIndex, draft ->
@@ -790,18 +811,18 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
                 )
             }
             item {
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp)) }
+                if (state.error) Text(stringResource(Res.string.add_at_least_one_exercise), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
                 Spacer(Modifier.height(12.dp))
                 when {
                     startedAt != null -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SecondaryButton("Discard", { confirmDiscard = true }, Modifier.weight(1f))
-                        PrimaryButton("End session", { model.endSession() }, Modifier.weight(1f))
+                        SecondaryButton(stringResource(Res.string.discard), { confirmDiscard = true }, Modifier.weight(1f))
+                        PrimaryButton(stringResource(Res.string.end_session), { model.endSession() }, Modifier.weight(1f))
                     }
                     // Not started: Start stays pinned above the list, so nothing is needed down here.
                     state.timed -> {}
                     else -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SecondaryButton("Cancel", onDone, Modifier.weight(1f))
-                        PrimaryButton(if (state.isNew) "Save workout" else "Save changes", { model.save() }, Modifier.weight(1f))
+                        SecondaryButton(stringResource(Res.string.cancel), onDone, Modifier.weight(1f))
+                        PrimaryButton(if (state.isNew) stringResource(Res.string.save_workout) else stringResource(Res.string.save_changes), { model.save() }, Modifier.weight(1f))
                     }
                 }
             }
@@ -828,7 +849,7 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
             onCreate = model::createExercise,
             onDismiss = { replaceTarget = null },
             single = true,
-            title = "Replace ${current.exercise.name}",
+            title = stringResource(Res.string.replace_named, current.exercise.displayName()),
         )
     }
     if (dayPickerOpen) ProgramDayDialog(
@@ -844,8 +865,8 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
         val draft = state.exercises.getOrNull(exerciseIndex)
         val set = draft?.sets?.getOrNull(setIndex)
         if (draft != null && set != null) WeightPickerSheet(
-            value = set.weight, unit = state.unit, title = draft.exercise.name,
-            subtitle = (if (set.isWarmup) "Warm-up " else "Set ") + draft.labels[setIndex].trimStart('W') + if (draft.exercise.isDumbbell) " · per dumbbell" else "",
+            value = set.weight, unit = state.unit, title = draft.exercise.displayName(),
+            subtitle = (if (set.isWarmup) stringResource(Res.string.warm_up_n, draft.labels[setIndex].trimStart('W')) else stringResource(Res.string.set_n, draft.labels[setIndex])) + if (draft.exercise.isDumbbell) stringResource(Res.string.per_dumbbell_suffix) else "",
             onPick = { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) },
             onDismiss = { weightTarget = null },
         )
@@ -854,20 +875,20 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             shape = MaterialTheme.shapes.large,
-            title = { Text("Delete this workout?") },
-            text = { Text("It will be removed from history and every analysis.") },
-            confirmButton = { PrimaryButton("Delete", onClick = { model.delete(); confirmDelete = false }) },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            title = { Text(stringResource(Res.string.delete_this_workout)) },
+            text = { Text(stringResource(Res.string.delete_this_workout_body)) },
+            confirmButton = { PrimaryButton(stringResource(Res.string.delete), onClick = { model.delete(); confirmDelete = false }) },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(Res.string.cancel)) } },
         )
     }
     if (confirmDiscard) {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
             shape = MaterialTheme.shapes.large,
-            title = { Text("Discard this workout?") },
-            text = { Text("Nothing from it will be saved. Leaving with Back keeps it running instead.") },
-            confirmButton = { PrimaryButton("Discard", onClick = { model.discardLive(); confirmDiscard = false }) },
-            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Keep going") } },
+            title = { Text(stringResource(Res.string.discard_this_workout)) },
+            text = { Text(stringResource(Res.string.discard_this_workout_body)) },
+            confirmButton = { PrimaryButton(stringResource(Res.string.discard), onClick = { model.discardLive(); confirmDiscard = false }) },
+            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(Res.string.keep_going)) } },
         )
     }
     state.untickedOnSave?.let { count ->
@@ -875,10 +896,10 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
         AlertDialog(
             onDismissRequest = model::dismissSavePrompt,
             shape = MaterialTheme.shapes.large,
-            title = { Text(if (count == 1) "1 set isn't ticked off" else "$count sets aren't ticked off") },
-            text = { Text("Leave ${if (count == 1) "it" else "them"} out of the workout, or save ${if (count == 1) "it" else "them"} as done too?") },
-            confirmButton = { PrimaryButton("Leave out", onClick = { model.save(includeUnticked = false) }) },
-            dismissButton = { TextButton(onClick = { model.save(includeUnticked = true) }) { Text("Save all", color = palette.volt) } },
+            title = { Text(pluralStringResource(Res.plurals.sets_not_ticked, count, count)) },
+            text = { Text(pluralStringResource(Res.plurals.leave_out_or_save, count, count)) },
+            confirmButton = { PrimaryButton(stringResource(Res.string.leave_out), onClick = { model.save(includeUnticked = false) }) },
+            dismissButton = { TextButton(onClick = { model.save(includeUnticked = true) }) { Text(stringResource(Res.string.save_all), color = palette.volt) } },
         )
     }
     state.conflict?.let { running ->
@@ -886,10 +907,10 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
         AlertDialog(
             onDismissRequest = model::dismissConflict,
             shape = MaterialTheme.shapes.large,
-            title = { Text("Workout in progress") },
-            text = { Text("${running.title} was started ${Format.minutes(elapsed)} ago and has not been ended. Resume it, or discard it and start ${state.title}?") },
-            confirmButton = { PrimaryButton("Resume ${running.title}", onClick = model::resumeStored) },
-            dismissButton = { TextButton(onClick = model::discardStoredAndStart) { Text("Discard and start ${state.title}", color = palette.coral) } },
+            title = { Text(stringResource(Res.string.workout_in_progress)) },
+            text = { Text(stringResource(Res.string.conflict_body, running.title, minutesText(elapsed), state.title)) },
+            confirmButton = { PrimaryButton(stringResource(Res.string.resume_named, running.title), onClick = model::resumeStored) },
+            dismissButton = { TextButton(onClick = model::discardStoredAndStart) { Text(stringResource(Res.string.discard_and_start, state.title), color = palette.coral) } },
         )
     }
     state.longSessionMinutes?.let { timed -> LongSessionDialog(timed, onConfirm = model::confirmEnd, onCancel = model::cancelEnd) }
@@ -899,12 +920,13 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
 private fun clock(hour: Int, minute: Int) = "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
 
 /** "Today", "Yesterday", otherwise "Wed 17 Sep", with the year once it is not this one. */
+@Composable
 private fun dateLabel(date: LocalDate): String {
     val today = Dates.today()
     return when (Dates.daysBetween(date, today)) {
-        0 -> "Today"
-        1 -> "Yesterday"
-        else -> "${Dates.dayLabel(date.dayOfWeek)} ${Dates.contextual(date, today)}"
+        0 -> stringResource(Res.string.today)
+        1 -> stringResource(Res.string.yesterday)
+        else -> dateWithWeekday(date, today)
     }
 }
 
@@ -916,11 +938,11 @@ private fun dateLabel(date: LocalDate): String {
 private fun WhenCard(date: LocalDate?, time: LocalTime?, durationMinutes: Int?, onDate: () -> Unit, onTime: () -> Unit, onDuration: () -> Unit) {
     val hairline = MaterialTheme.colorScheme.outlineVariant
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
-        ChooserRow("Date", date?.let(::dateLabel) ?: "", onClick = onDate)
+        ChooserRow(stringResource(Res.string.date), date?.let { dateLabel(it) } ?: "", onClick = onDate)
         HorizontalDivider(color = hairline)
-        ChooserRow("Time", time?.let { clock(it.hour, it.minute) } ?: "", onClick = onTime)
+        ChooserRow(stringResource(Res.string.time), time?.let { clock(it.hour, it.minute) } ?: "", onClick = onTime)
         HorizontalDivider(color = hairline)
-        ChooserRow("Duration", durationMinutes?.let(Format::minutes) ?: "Not timed", onClick = onDuration, muted = durationMinutes == null)
+        ChooserRow(stringResource(Res.string.duration), durationMinutes?.let { minutesText(it) } ?: stringResource(Res.string.not_timed), onClick = onDuration, muted = durationMinutes == null)
     }
 }
 
@@ -934,26 +956,26 @@ private fun LongSessionDialog(timedMinutes: Int, onConfirm: (Int) -> Unit, onCan
     AlertDialog(
         onDismissRequest = onCancel,
         shape = MaterialTheme.shapes.large,
-        title = { Text("Long session") },
+        title = { Text(stringResource(Res.string.long_session)) },
         text = {
             Column {
-                Text("The timer ran for ${Format.minutes(timedMinutes)}. Was that how long you trained? Change the duration below if not.")
+                Text(stringResource(Res.string.long_session_body, minutesText(timedMinutes)))
                 Spacer(Modifier.height(12.dp))
                 // The dialog's own surface, so the wheel's ends fade into it.
                 DurationWheels(minutes, onChange = { minutes = it }, fadeColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                 Spacer(Modifier.height(8.dp))
                 Text(
                     when {
-                        minutes <= 0 -> "Turn the wheels to the time you trained."
-                        minutes == timedMinutes -> "Kept as timed."
-                        else -> "Stored as ${Format.minutes(minutes)}."
+                        minutes <= 0 -> stringResource(Res.string.turn_the_wheels)
+                        minutes == timedMinutes -> stringResource(Res.string.kept_as_timed)
+                        else -> stringResource(Res.string.stored_as, minutesText(minutes))
                     },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
-        confirmButton = { PrimaryButton("Save session", onClick = { onConfirm(minutes) }, enabled = minutes > 0) },
-        dismissButton = { TextButton(onClick = onCancel) { Text("Back to workout") } },
+        confirmButton = { PrimaryButton(stringResource(Res.string.save_session), onClick = { onConfirm(minutes) }, enabled = minutes > 0) },
+        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(Res.string.back_to_workout)) } },
     )
 }
 
@@ -968,17 +990,18 @@ private fun ReadyCard(exercises: List<ExerciseDraft>, onStart: () -> Unit) {
     GainsCard(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 8.dp), contentPadding = Dp16.Tight) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("READY", style = MaterialTheme.typography.labelSmall, color = muted)
+                Text(stringResource(Res.string.ready), style = MaterialTheme.typography.labelSmall, color = muted)
                 Text(
-                    if (exercises.isEmpty()) "Nothing planned yet" else "${Format.plural(exercises.size, "exercise")} · ${Format.plural(workSets, "set")}",
+                    if (exercises.isEmpty()) stringResource(Res.string.nothing_planned_yet) else stringResource(Res.string.exercises_and_sets, exercisesText(exercises.size), setsText(workSets)),
                     style = MaterialTheme.typography.headlineSmall,
                 )
             }
+            val startDescription = stringResource(Res.string.start_workout)
             Button(
                 onClick = onStart, shape = CircleShape, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-                modifier = Modifier.semantics { contentDescription = "Start workout" },
-            ) { Text("Start", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+                modifier = Modifier.semantics { contentDescription = startDescription },
+            ) { Text(stringResource(Res.string.start), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -997,28 +1020,28 @@ private fun SessionClock(startedAtMs: Long, rest: RestTimer?, onSkipRest: () -> 
     GainsCard(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 8.dp), contentPadding = Dp16.Tight) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("TOTAL", style = MaterialTheme.typography.labelSmall, color = muted)
+                Text(stringResource(Res.string.total), style = MaterialTheme.typography.labelSmall, color = muted)
                 Text(Format.clock((now - startedAtMs) / 1000), style = MaterialTheme.typography.headlineSmall, color = palette.volt)
             }
             Column(Modifier.weight(1f)) {
-                Text("REST", style = MaterialTheme.typography.labelSmall, color = muted)
+                Text(stringResource(Res.string.rest), style = MaterialTheme.typography.labelSmall, color = muted)
                 Text(
                     when {
                         remaining == null -> "–"
                         remaining > 0 -> Format.clock(remaining.toLong())
-                        else -> "Done"
+                        else -> stringResource(Res.string.done)
                     },
                     style = MaterialTheme.typography.headlineSmall,
                     color = when { remaining == null -> muted; remaining > 0 -> palette.cyan; else -> palette.volt },
                 )
             }
             if (remaining != null) {
-                TextButton(onClick = onSkipRest) { Text(if (remaining > 0) "Skip" else "OK", color = muted) }
+                TextButton(onClick = onSkipRest) { Text(if (remaining > 0) stringResource(Res.string.skip) else stringResource(Res.string.ok), color = muted) }
             }
             Button(
                 onClick = onEnd, shape = CircleShape, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-            ) { Text("End", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+            ) { Text(stringResource(Res.string.end), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -1033,15 +1056,15 @@ private fun ProgramDayDialog(options: List<ProgramDayOption>, selected: ProgramD
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.large,
-        title = { Text("Program day") },
+        title = { Text(stringResource(Res.string.program_day)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    "A workout tagged with a day counts towards that day's progression. Leave it untagged for free training.",
+                    stringResource(Res.string.program_day_note),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
-                DayChoice("None (free workout)", selected == null, palette.volt) { onSelect(null) }
+                DayChoice(stringResource(Res.string.none_free_workout), selected == null, palette.volt) { onSelect(null) }
                 for ((programName, days) in options.groupBy { it.programName }) {
                     Spacer(Modifier.height(8.dp))
                     Text(programName.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1049,7 +1072,7 @@ private fun ProgramDayDialog(options: List<ProgramDayOption>, selected: ProgramD
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.close)) } },
     )
 }
 
@@ -1064,7 +1087,7 @@ private fun DayChoice(label: String, selected: Boolean, accent: Color, onClick: 
 @Composable
 private fun ExerciseCard(
     exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
-    target: String? = null, hint: String? = null, programNote: String? = null, seeded: Boolean = false,
+    target: String? = null, hint: Progression.Hint? = null, programNote: String? = null, seeded: Boolean = false,
     source: Progression.Source? = null, tier: Gzclp.Tier? = null, warmupsCollapsed: Boolean = false,
     /** The exercise's last session, whose sets fill the PREV column row by row. */
     previous: ExerciseEntry? = null,
@@ -1081,19 +1104,20 @@ private fun ExerciseCard(
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val warmups = draft.warmups
     val labels = draft.labels
-    val previousLabels = draft.previousLabels(previous, unit)
+    val previousLabels = draft.previousLabels(previous, unit, unitLabels())
+    val name = draft.exercise.displayName()
     GainsCard(modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(draft.exercise.name, style = MaterialTheme.typography.titleMedium)
+                Text(name, style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (target != null) Pill(target, palette.volt)
-                    Pill(modality.name.lowercase().replaceFirstChar { it.uppercase() }, palette.cyan)
-                    if (draft.exercise.isDumbbell) Pill("Per dumbbell", palette.amber)
+                    Pill(modality.label(), palette.cyan)
+                    if (draft.exercise.isDumbbell) Pill(stringResource(Res.string.per_dumbbell), palette.amber)
                 }
             }
             ExerciseMenu(
-                name = draft.exercise.name, enabled = editable,
+                name = name, enabled = editable,
                 canMoveUp = exerciseIndex > 0, canMoveDown = exerciseIndex < count - 1,
                 onChange = onChangeExercise,
                 onMoveUp = { model.moveExercise(exerciseIndex, -1) },
@@ -1103,39 +1127,39 @@ private fun ExerciseCard(
         }
         if (hint != null) {
             Spacer(Modifier.height(4.dp))
-            Text(hint, style = MaterialTheme.typography.bodySmall, color = palette.volt)
+            Text(hintText(hint, unit), style = MaterialTheme.typography.bodySmall, color = palette.volt)
         }
         if (seeded) {
             // The weights came from a session that never attempted this scheme: one tap declines them.
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     when (source) {
-                        Progression.Source.DIFFERENT_SCHEME -> "Weights estimated from another scheme of this program."
-                        else -> "Weights estimated from your free sessions."
+                        Progression.Source.DIFFERENT_SCHEME -> stringResource(Res.string.weights_from_other_scheme)
+                        else -> stringResource(Res.string.weights_from_free_sessions)
                     },
                     Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = muted,
                 )
-                TextButton(onClick = { model.startBlank(exerciseIndex) }, enabled = editable) { Text("Start blank", color = if (editable) palette.volt else disabledColor()) }
+                TextButton(onClick = { model.startBlank(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.start_blank), color = if (editable) palette.volt else disabledColor()) }
             }
         }
         if (programNote != null) {
             Spacer(Modifier.height(2.dp))
-            Text(programNote, style = MaterialTheme.typography.bodySmall, color = muted)
+            Text(slotNoteText(programNote), style = MaterialTheme.typography.bodySmall, color = muted)
         }
         if (tier != null) {
             Text(
-                "Rest ${tier.restLabel} between sets" + (if (warmups.isNotEmpty()) " · warm-ups ${Gzclp.WARMUP_REST_LABEL}" else "") + ".",
+                restLineText(restRangeText(tier.restSeconds), if (warmups.isNotEmpty()) warmupRestText() else null),
                 style = MaterialTheme.typography.bodySmall, color = muted,
             )
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth().padding(bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
-            Text("SET", Modifier.width(LABEL_WIDTH), style = MaterialTheme.typography.labelSmall, color = muted)
-            Header("PREV", Modifier.width(PREVIOUS_WIDTH))
+            Text(stringResource(Res.string.column_set), Modifier.width(LABEL_WIDTH), style = MaterialTheme.typography.labelSmall, color = muted)
+            Header(stringResource(Res.string.column_prev), Modifier.width(PREVIOUS_WIDTH))
             when (modality) {
-                Modality.WEIGHTED, Modality.BODYWEIGHT -> { Header(unit.label.uppercase()); Header("REPS") }
-                Modality.ISOMETRIC -> { Header("SECONDS"); Header(unit.label.uppercase()) }
-                Modality.CARDIO -> { Header("KM"); Header("SECONDS") }
+                Modality.WEIGHTED, Modality.BODYWEIGHT -> { Header(unit.label().uppercase()); Header(stringResource(Res.string.column_reps)) }
+                Modality.ISOMETRIC -> { Header(stringResource(Res.string.column_seconds)); Header(unit.label().uppercase()) }
+                Modality.CARDIO -> { Header(stringResource(Res.string.column_km)); Header(stringResource(Res.string.column_seconds)) }
             }
             // Room for the check and the remove control on each row, so the column heads sit over the cells.
             Spacer(Modifier.width(CHECK_HIT + REMOVE_HIT))
@@ -1143,11 +1167,11 @@ private fun ExerciseCard(
         if (warmups.isNotEmpty()) {
             // Warm-ups are numbered W1, W2… and drawn muted, so the work sets stay 1–5 and read as the workout.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Pill("Warm-up", muted)
+                Pill(stringResource(Res.string.warm_up), muted)
                 Spacer(Modifier.width(8.dp))
-                Text(if (warmupsCollapsed) "${warmups.size} hidden" else "${warmups.size} sets", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted)
-                TextButton(onClick = { model.toggleWarmups(exerciseIndex) }) { Text(if (warmupsCollapsed) "Show" else "Hide", color = muted) }
-                TextButton(onClick = { model.removeWarmups(exerciseIndex) }, enabled = editable) { Text("Remove", color = if (editable) muted else disabledColor()) }
+                Text(if (warmupsCollapsed) stringResource(Res.string.n_hidden, warmups.size) else setsText(warmups.size), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted)
+                TextButton(onClick = { model.toggleWarmups(exerciseIndex) }) { Text(if (warmupsCollapsed) stringResource(Res.string.show) else stringResource(Res.string.hide), color = muted) }
+                TextButton(onClick = { model.removeWarmups(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.remove), color = if (editable) muted else disabledColor()) }
             }
         }
         for ((setIndex, set) in draft.sets.withIndex()) {
@@ -1180,16 +1204,16 @@ private fun ExerciseCard(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     DoneCheck(
-                        done = done, enabled = editable && (done || set.hasValues), label = "Set $label",
+                        done = done, enabled = editable && (done || set.hasValues), label = label,
                         onClick = { model.toggleDone(exerciseIndex, setIndex) },
                     )
                     RemoveSetButton(label, editable) { model.removeSet(exerciseIndex, setIndex) }
                 }
             }
         }
-        TextButton(onClick = { model.addSet(exerciseIndex) }, enabled = editable) { Text("+ Add set", color = if (editable) palette.volt else disabledColor()) }
+        TextButton(onClick = { model.addSet(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.plus_add_set), color = if (editable) palette.volt else disabledColor()) }
         OutlinedTextField(
-            draft.note, { model.setNote(exerciseIndex, it) }, placeholder = { Text("Note") }, singleLine = true, enabled = editable,
+            draft.note, { model.setNote(exerciseIndex, it) }, placeholder = { Text(stringResource(Res.string.note)) }, singleLine = true, enabled = editable,
             modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium,
         )
     }
@@ -1208,30 +1232,31 @@ private fun ExerciseMenu(
     val palette = GainsColors.palette
     var open by remember { mutableStateOf(false) }
     val tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else disabledColor()
+    val optionsDescription = stringResource(Res.string.options_for, name)
     Box {
         Box(
             Modifier.size(CHECK_HIT, CELL_HEIGHT).clip(CellShape).clickable(enabled = enabled) { open = true }
-                .semantics { role = Role.Button; contentDescription = "Options for $name" },
+                .semantics { role = Role.Button; contentDescription = optionsDescription },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Default.MoreVert, null, tint = tint, modifier = Modifier.size(20.dp)) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = MaterialTheme.shapes.medium) {
             DropdownMenuItem(
-                text = { Text("Change exercise") },
+                text = { Text(stringResource(Res.string.change_exercise)) },
                 leadingIcon = { Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp)) },
                 onClick = { open = false; onChange() },
             )
             DropdownMenuItem(
-                text = { Text("Move up") }, enabled = canMoveUp,
+                text = { Text(stringResource(Res.string.move_up)) }, enabled = canMoveUp,
                 leadingIcon = { Icon(Icons.Default.KeyboardArrowUp, null, modifier = Modifier.size(18.dp)) },
                 onClick = { open = false; onMoveUp() },
             )
             DropdownMenuItem(
-                text = { Text("Move down") }, enabled = canMoveDown,
+                text = { Text(stringResource(Res.string.move_down)) }, enabled = canMoveDown,
                 leadingIcon = { Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(18.dp)) },
                 onClick = { open = false; onMoveDown() },
             )
             DropdownMenuItem(
-                text = { Text("Remove", color = palette.coral) },
+                text = { Text(stringResource(Res.string.remove), color = palette.coral) },
                 leadingIcon = { Icon(Icons.Default.Delete, null, tint = palette.coral, modifier = Modifier.size(18.dp)) },
                 onClick = { open = false; onRemove() },
             )
@@ -1307,7 +1332,7 @@ private fun SetCell(
 /** The weight cell: the same box as a typed cell, but tapping it opens the weight chooser. Disabled, it is faded and inert. */
 @Composable
 private fun WeightCell(value: String, done: Boolean, muted: Boolean, enabled: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) {
-    val description = if (value.isEmpty()) "Weight for set $setLabel, none" else "Weight for set $setLabel, $value"
+    val description = weightForSetText(setLabel, value.ifEmpty { null })
     Box(
         modifier.height(CELL_HEIGHT).clip(CellShape).background(cellFill(done, enabled)).clickable(enabled = enabled, onClick = onClick)
             .semantics { role = Role.Button; contentDescription = description }
@@ -1325,7 +1350,7 @@ private fun WeightCell(value: String, done: Boolean, muted: Boolean, enabled: Bo
  */
 @Composable
 private fun PreviousCell(label: String?, setLabel: String) {
-    val description = if (label == null) "Previous set $setLabel, none" else "Previous set $setLabel, $label"
+    val description = previousSetText(setLabel, label)
     Box(
         Modifier.width(PREVIOUS_WIDTH).height(CELL_HEIGHT).semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
@@ -1352,7 +1377,7 @@ private fun CellPlaceholder(enabled: Boolean = true) {
 private fun DoneCheck(done: Boolean, enabled: Boolean, label: String, onClick: () -> Unit) {
     val palette = GainsColors.palette
     val outline = MaterialTheme.colorScheme.outline
-    val description = if (done) "$label done" else "$label not done"
+    val description = setDoneText(label, done)
     Box(
         Modifier.size(CHECK_HIT, CELL_HEIGHT).clip(CellShape).clickable(enabled = enabled, onClick = onClick)
             .semantics { contentDescription = description },
@@ -1372,9 +1397,10 @@ private fun DoneCheck(done: Boolean, enabled: Boolean, label: String, onClick: (
 /** A quiet × that removes the row, the same height as the check so the two sit on one line; faded and inert while disabled. */
 @Composable
 private fun RemoveSetButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    val description = stringResource(Res.string.remove_set, label)
     Box(
         Modifier.size(REMOVE_HIT, CELL_HEIGHT).clip(CellShape).clickable(enabled = enabled, onClick = onClick)
-            .semantics { contentDescription = "Remove set $label" },
+            .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.7f else DISABLED_ALPHA), modifier = Modifier.size(16.dp))

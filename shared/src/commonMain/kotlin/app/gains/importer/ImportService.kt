@@ -5,6 +5,7 @@ import app.gains.connectors.Connectors
 import app.gains.connectors.ImportConnector
 import app.gains.connectors.ImportOptions
 import app.gains.csv.CsvFormatException
+import app.gains.csv.CsvProblem
 import app.gains.data.ExerciseRepository
 import app.gains.data.SessionRepository
 import app.gains.domain.WeightUnit
@@ -55,7 +56,7 @@ class ImportService(
             val failures = parsed.filter { it.second.isFailure }
             if (failures.size == files.size) {
                 throw failures.first().second.exceptionOrNull() as? CsvFormatException
-                    ?: CsvFormatException("None of the files could be read.")
+                    ?: CsvFormatException(CsvProblem.NoneReadable)
             }
             val summaries = parsed.map { (file, result) ->
                 val csv = result.getOrNull()?.second
@@ -64,6 +65,7 @@ class ImportService(
                     rowCount = csv?.rowCount ?: 0,
                     sessionCount = csv?.sessions?.size ?: 0,
                     error = result.exceptionOrNull()?.message,
+                    problem = (result.exceptionOrNull() as? CsvFormatException)?.problem,
                     connector = result.getOrNull()?.first?.displayName,
                 )
             }

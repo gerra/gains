@@ -57,13 +57,13 @@ class PreviousSetsTest {
 
     @Test
     fun labelsAreShort() {
-        assertEquals("62.5×5", PreviousSets.label(TestData.weighted(62.5, 5), Modality.WEIGHTED, kg))
-        assertEquals("×8", PreviousSets.label(SetEntry(0, SetType.BODYWEIGHT, reps = 8), Modality.BODYWEIGHT, kg))
-        assertEquals("10×8", PreviousSets.label(SetEntry(0, SetType.WEIGHTED, weightKg = 10.0, reps = 8), Modality.BODYWEIGHT, kg))
-        assertEquals("45 s", PreviousSets.label(SetEntry(0, SetType.ISOMETRIC, seconds = 45), Modality.ISOMETRIC, kg))
-        assertEquals("10×1:30", PreviousSets.label(SetEntry(0, SetType.ISOMETRIC, weightKg = 10.0, seconds = 90), Modality.ISOMETRIC, kg))
-        assertEquals("5 km · 25:00", PreviousSets.label(SetEntry(0, SetType.CARDIO, distanceKm = 5.0, seconds = 1500), Modality.CARDIO, kg))
-        assertEquals("135×5", PreviousSets.label(TestData.weighted(app.gains.domain.Units.lbsToKg(135.0), 5), Modality.WEIGHTED, WeightUnit.LBS))
-        assertNull(PreviousSets.label(SetEntry(0, SetType.WEIGHTED), Modality.WEIGHTED, kg))
+        assertEquals("62.5×5", PreviousSets.label(TestData.weighted(62.5, 5), Modality.WEIGHTED, kg, app.gains.englishLabels))
+        assertEquals("×8", PreviousSets.label(SetEntry(0, SetType.BODYWEIGHT, reps = 8), Modality.BODYWEIGHT, kg, app.gains.englishLabels))
+        assertEquals("10×8", PreviousSets.label(SetEntry(0, SetType.WEIGHTED, weightKg = 10.0, reps = 8), Modality.BODYWEIGHT, kg, app.gains.englishLabels))
+        assertEquals("45 s", PreviousSets.label(SetEntry(0, SetType.ISOMETRIC, seconds = 45), Modality.ISOMETRIC, kg, app.gains.englishLabels))
+        assertEquals("10×1:30", PreviousSets.label(SetEntry(0, SetType.ISOMETRIC, weightKg = 10.0, seconds = 90), Modality.ISOMETRIC, kg, app.gains.englishLabels))
+        assertEquals("5 km · 25:00", PreviousSets.label(SetEntry(0, SetType.CARDIO, distanceKm = 5.0, seconds = 1500), Modality.CARDIO, kg, app.gains.englishLabels))
+        assertEquals("135×5", PreviousSets.label(TestData.weighted(app.gains.domain.Units.lbsToKg(135.0), 5), Modality.WEIGHTED, WeightUnit.LBS, app.gains.englishLabels))
+        assertNull(PreviousSets.label(SetEntry(0, SetType.WEIGHTED), Modality.WEIGHTED, kg, app.gains.englishLabels))
     }
 }

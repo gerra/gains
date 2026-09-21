@@ -134,11 +134,13 @@ class AnalyzersTest {
 
     @Test
     fun formatHelpers() {
-        assertEquals("60 kg", Format.weight(60.0, app.gains.domain.WeightUnit.KG))
-        assertEquals("62.5 kg", Format.weight(62.5, app.gains.domain.WeightUnit.KG))
-        assertEquals("132.3 lbs", Format.weight(60.0, app.gains.domain.WeightUnit.LBS))
+        val labels = app.gains.englishLabels
+        assertEquals("60 kg", Format.weight(60.0, app.gains.domain.WeightUnit.KG, labels))
+        assertEquals("62.5 kg", Format.weight(62.5, app.gains.domain.WeightUnit.KG, labels))
+        assertEquals("132.3 lbs", Format.weight(60.0, app.gains.domain.WeightUnit.LBS, labels))
         assertEquals("18%", Format.percent(0.184))
-        assertEquals("1:30", Format.seconds(90))
+        assertEquals("1:30", Format.seconds(90, labels))
+        assertEquals("45 s", Format.seconds(45, labels))
         assertEquals("2.5", Format.number(2.49, 1))
     }
 }

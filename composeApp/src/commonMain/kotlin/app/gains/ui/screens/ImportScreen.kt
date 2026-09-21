@@ -45,6 +45,12 @@ import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
+import app.gains.csv.CsvProblem
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -59,7 +65,8 @@ internal sealed interface ImportState {
     data class Preview(val preview: ImportPreview, val confirmedOutliers: Set<String>, val unit: WeightUnit) : ImportState
     data object Committing : ImportState
     data class Done(val result: ImportResult) : ImportState
-    data class Error(val message: String) : ImportState
+    /** [problem] when the connectors could not read the file, else [cause]: what went wrong while importing or saving. */
+    data class Error(val problem: CsvProblem? = null, val cause: String? = null, val whileSaving: Boolean = false) : ImportState
 }
 
 internal class ImportModel(private val importService: ImportService = inject()) : ScreenModel() {
@@ -78,9 +85,9 @@ internal class ImportModel(private val importService: ImportService = inject()) 
                 val shownUnit = unit ?: csvFiles.firstNotNullOfOrNull { importService.detect(it)?.defaultWeightUnit } ?: WeightUnit.KG
                 _state.value = ImportState.Preview(preview, emptySet(), shownUnit)
             } catch (e: CsvFormatException) {
-                _state.value = ImportState.Error(e.message ?: "Could not read the file.")
+                _state.value = ImportState.Error(problem = e.problem)
             } catch (e: Exception) {
-                _state.value = ImportState.Error("Import failed: ${e.message ?: e::class.simpleName}")
+                _state.value = ImportState.Error(cause = e.message ?: e::class.simpleName)
             }
         }
     }
@@ -108,7 +115,7 @@ internal class ImportModel(private val importService: ImportService = inject()) 
             try {
                 _state.value = ImportState.Done(importService.commit(s.preview, s.confirmedOutliers))
             } catch (e: Exception) {
-                _state.value = ImportState.Error("Saving failed: ${e.message ?: e::class.simpleName}")
+                _state.value = ImportState.Error(cause = e.message ?: e::class.simpleName, whileSaving = true)
             }
         }
     }
@@ -129,29 +136,32 @@ internal fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
 
     when (val s = state) {
         ImportState.Idle -> EmptyState(
-            title = "Import your history",
-            body = "Liftoff, Strong and Hevy exports are recognised automatically, and any CSV with date, exercise, weight and reps columns works too. Pick one or more files; you'll see a summary before anything is saved, and a session is only ever stored once.",
+            title = stringResource(Res.string.import_your_history),
+            body = stringResource(Res.string.import_blurb),
             emoji = "↑",
-            action = { PrimaryButton("Choose CSV files", pick) },
+            action = { PrimaryButton(stringResource(Res.string.choose_csv_files), pick) },
         )
-        is ImportState.Parsing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text(if (s.fileCount == 1) "Reading the file…" else "Reading ${s.fileCount} files…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        ImportState.Committing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text("Saving…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        is ImportState.Error -> EmptyState("Couldn't import", s.message, emoji = "!", action = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("Back", onClick = { model.reset() })
-                PrimaryButton("Choose another file", pick)
+        is ImportState.Parsing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text(if (s.fileCount == 1) pluralStringResource(Res.plurals.reading_files, 1, 1) else pluralStringResource(Res.plurals.reading_files, s.fileCount, s.fileCount), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        ImportState.Committing -> Centered { CircularProgressIndicator(color = palette.volt); Spacer(Modifier.height(12.dp)); Text(stringResource(Res.string.saving), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        is ImportState.Error -> {
+            val message = when {
+                s.problem != null -> csvProblemText(s.problem)
+                s.whileSaving -> stringResource(Res.string.saving_failed, s.cause ?: "")
+                s.cause != null -> stringResource(Res.string.import_failed, s.cause)
+                else -> stringResource(Res.string.could_not_read_the_file)
             }
-        })
+            EmptyState(stringResource(Res.string.could_not_import), message, emoji = "!", action = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SecondaryButton(stringResource(Res.string.back), onClick = { model.reset() })
+                    PrimaryButton(stringResource(Res.string.choose_another_file), pick)
+                }
+            })
+        }
         is ImportState.Done -> EmptyState(
-            title = "Imported",
+            title = stringResource(Res.string.imported),
             emoji = "✓",
-            body = buildString {
-                append(Format.plural(s.result.sessionsWritten, "session")).append(" saved")
-                if (s.result.exercisesCreated > 0) append(", ").append(Format.plural(s.result.exercisesCreated, "new exercise")).append(" created")
-                if (s.result.outliersDiscarded > 0) append(", ").append(Format.plural(s.result.outliersDiscarded, "outlier hold")).append(" discarded")
-                append(".")
-            },
-            action = { PrimaryButton("Done", onDone) },
+            body = importedSummary(s.result.sessionsWritten, s.result.exercisesCreated, s.result.outliersDiscarded),
+            action = { PrimaryButton(stringResource(Res.string.done), onDone) },
         )
         is ImportState.Preview -> PreviewContent(s, model, onCancel = { model.reset() })
     }
@@ -168,7 +178,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
     val palette = GainsColors.palette
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle("Import", subtitle = "${Format.plural(p.files.size, "file")} · ${Format.plural(p.rowCount, "row")}")
+            ScreenTitle(stringResource(Res.string.import_title), subtitle = "${pluralStringResource(Res.plurals.files, p.files.size, p.files.size)} · ${pluralStringResource(Res.plurals.rows, p.rowCount, p.rowCount)}")
             run {
                 GainsCard(Modifier.fillMaxWidth(), contentPadding = app.gains.ui.components.Dp16.Tight) {
                     for (f in p.files) {
@@ -176,7 +186,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                             Column(Modifier.weight(1f)) {
                                 Text(f.name, style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    f.error ?: "${f.connector ?: "CSV"} · ${Format.plural(f.rowCount, "row")} · ${Format.plural(f.sessionCount, "session")}",
+                                    f.problem?.let { csvProblemText(it) } ?: f.error ?: "${f.connector ?: stringResource(Res.string.csv)} · ${pluralStringResource(Res.plurals.rows, f.rowCount, f.rowCount)} · ${sessionsText(f.sessionCount)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (f.error != null) palette.coral else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -185,61 +195,61 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                     }
                     if (p.sessionsInSeveralFiles > 0) {
                         Text(
-                            "${Format.plural(p.sessionsInSeveralFiles, "session")} appeared in more than one file and will be stored once.",
+                            stringResource(Res.string.appeared_in_several_files, sessionsText(p.sessionsInSeveralFiles)),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
                         )
                     }
                 }
             }
-            SectionHeader("Weights in the file are in")
-            ChipRow(WeightUnit.entries, s.unit, { it.label }, { model.setUnit(it) })
+            SectionHeader(stringResource(Res.string.weights_in_file_are_in))
+            ChipRow(WeightUnit.entries, s.unit, { it.label() }, { model.setUnit(it) })
             Spacer(Modifier.height(6.dp))
-            Text("Used for files that don't state their unit (Liftoff exports lbs even when you log in kg). Weights are stored in kg, rounded to 0.25 kg.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.unit_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
-            SectionHeader("Summary")
+            SectionHeader(stringResource(Res.string.summary))
             GainsCard(Modifier.fillMaxWidth()) {
                 val range = p.dateRange
-                KeyValueRow("Sessions found", p.candidates.size.toString())
-                KeyValueRow("Date range", if (range == null) "-" else "${Dates.shortWithYear(range.start)} – ${Dates.shortWithYear(range.endInclusive)}")
-                KeyValueRow("New sessions", p.newCount.toString(), valueColor = if (p.newCount > 0) palette.volt else null)
-                if (p.changedCount > 0) KeyValueRow("Changed since last import", p.changedCount.toString(), valueColor = palette.cyan)
-                if (p.unchangedCount > 0) KeyValueRow("Already imported (skipped)", p.unchangedCount.toString())
-                if (p.sessionsInSeveralFiles > 0) KeyValueRow("In more than one file (merged)", p.sessionsInSeveralFiles.toString())
-                if (p.duplicates.isNotEmpty()) KeyValueRow("Duplicate sessions (skipped)", p.duplicates.size.toString(), valueColor = palette.amber)
-                if (p.corruptDurationCount > 0) KeyValueRow("Durations discarded (>4 h)", p.corruptDurationCount.toString(), valueColor = palette.amber)
-                if (p.newExercises.isNotEmpty()) KeyValueRow("New exercises", p.newExercises.size.toString())
-                for ((reason, count) in p.skippedByReason) KeyValueRow(if (reason == app.gains.csv.SkipReason.EMPTY_ROW) "Empty rows skipped" else "${reason.label} rows skipped", count.toString(), valueColor = palette.muted)
+                KeyValueRow(stringResource(Res.string.sessions_found), p.candidates.size.toString())
+                KeyValueRow(stringResource(Res.string.date_range), if (range == null) "-" else "${dateShortWithYear(range.start)} – ${dateShortWithYear(range.endInclusive)}")
+                KeyValueRow(stringResource(Res.string.new_sessions), p.newCount.toString(), valueColor = if (p.newCount > 0) palette.volt else null)
+                if (p.changedCount > 0) KeyValueRow(stringResource(Res.string.changed_since_last_import), p.changedCount.toString(), valueColor = palette.cyan)
+                if (p.unchangedCount > 0) KeyValueRow(stringResource(Res.string.already_imported), p.unchangedCount.toString())
+                if (p.sessionsInSeveralFiles > 0) KeyValueRow(stringResource(Res.string.in_more_than_one_file), p.sessionsInSeveralFiles.toString())
+                if (p.duplicates.isNotEmpty()) KeyValueRow(stringResource(Res.string.duplicate_sessions), p.duplicates.size.toString(), valueColor = palette.amber)
+                if (p.corruptDurationCount > 0) KeyValueRow(stringResource(Res.string.durations_discarded), p.corruptDurationCount.toString(), valueColor = palette.amber)
+                if (p.newExercises.isNotEmpty()) KeyValueRow(stringResource(Res.string.new_exercises_label), p.newExercises.size.toString())
+                for ((reason, count) in p.skippedByReason) KeyValueRow(if (reason == app.gains.csv.SkipReason.EMPTY_ROW) stringResource(Res.string.empty_rows_skipped) else stringResource(Res.string.rows_skipped, reason.label()), count.toString(), valueColor = palette.muted)
             }
         }
         if (p.newExercises.isNotEmpty()) {
             item {
-                SectionHeader("Exercises not in the catalogue")
-                Text("These will be created as custom exercises. You can merge them into a catalogue exercise later in Settings.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                SectionHeader(stringResource(Res.string.exercises_not_in_catalogue))
+                Text(stringResource(Res.string.exercises_not_in_catalogue_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
             }
             items(p.newExercises) { e ->
                 GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = app.gains.ui.components.Dp16.Tight) {
                     Text(e.name, style = MaterialTheme.typography.titleSmall)
-                    if (e.muscleGroups.isNotEmpty()) Text(e.muscleGroups.joinToString { it.group.displayName }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (e.muscleGroups.isNotEmpty()) Text(e.muscleGroups.map { it.group.label() }.joinToString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         if (p.duplicates.isNotEmpty()) {
-            item { SectionHeader("Duplicates detected") }
+            item { SectionHeader(stringResource(Res.string.duplicates_detected)) }
             items(p.duplicates) { d ->
                 GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = app.gains.ui.components.Dp16.Tight) {
-                    Text("${Dates.shortWithYear(d.date)} · logged twice" + if (d.keptIsAlreadyStored) " (already stored)" else "", style = MaterialTheme.typography.titleSmall)
+                    Text(loggedTwiceText(dateShortWithYear(d.date), d.keptIsAlreadyStored), style = MaterialTheme.typography.titleSmall)
                     Text(d.exerciseNames.joinToString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         if (p.outliers.isNotEmpty()) {
             item {
-                SectionHeader("Suspicious holds", action = {
-                    TextButton(onClick = { model.setAllOutliers(true) }) { Text("Keep all") }
-                    TextButton(onClick = { model.setAllOutliers(false) }) { Text("Discard all") }
+                SectionHeader(stringResource(Res.string.suspicious_holds), action = {
+                    TextButton(onClick = { model.setAllOutliers(true) }) { Text(stringResource(Res.string.keep_all)) }
+                    TextButton(onClick = { model.setAllOutliers(false) }) { Text(stringResource(Res.string.discard_all)) }
                 })
-                Text("These isometric durations are more than 5× the usual hold for the exercise. Unticked holds are discarded.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                Text(stringResource(Res.string.suspicious_holds_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
             }
             items(p.outliers.groupBy { "${it.date}|${it.exerciseId}" }.values.toList()) { group ->
                 val o = group.first()
@@ -254,8 +264,8 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                         )
                         Spacer(Modifier.width(4.dp))
                         Column {
-                            Text("${o.exerciseName} — ${Dates.shortWithYear(o.date)}", style = MaterialTheme.typography.titleSmall)
-                            Text("${group.size} sets at ${Format.seconds(o.seconds)} (usual ${Format.seconds(o.medianSeconds)}) · these look like timer defaults", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${o.exerciseName} — ${dateShortWithYear(o.date)}", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(Res.string.hold_outlier, setsText(group.size), secondsText(o.seconds), secondsText(o.medianSeconds)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -265,8 +275,8 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
             Spacer(Modifier.height(16.dp))
             val toWrite = p.commitCount(s.confirmedOutliers)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SecondaryButton("Cancel", onCancel, Modifier.weight(1f))
-                PrimaryButton(if (toWrite == 0) "Nothing new" else "Import $toWrite", { model.commit() }, Modifier.weight(1f), enabled = toWrite > 0)
+                SecondaryButton(stringResource(Res.string.cancel), onCancel, Modifier.weight(1f))
+                PrimaryButton(if (toWrite == 0) stringResource(Res.string.nothing_new) else stringResource(Res.string.import_n, toWrite), { model.commit() }, Modifier.weight(1f), enabled = toWrite > 0)
             }
         }
     }

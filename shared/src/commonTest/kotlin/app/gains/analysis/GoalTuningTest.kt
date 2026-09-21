@@ -6,8 +6,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertSame
 
 class GoalTuningTest {
-    private val regression = Insight(InsightKind.REGRESSION, 105.0, "Bench Press", "down 5%")
-    private val consistency = Insight(InsightKind.CONSISTENCY, 90.0, "Consistency", "steady")
+    private val regression = Insight(
+        InsightKind.REGRESSION, 105.0, InsightSubject.Lift(TestData.bench),
+        InsightDetail.Regression(Performance(60.0, TestData.weighted(60.0, 8)), Performance(63.0, TestData.weighted(63.0, 8)), kotlinx.datetime.LocalDate(2026, 1, 1), 0.05),
+    )
+    private val consistency = Insight(InsightKind.CONSISTENCY, 90.0, InsightSubject.Frequency(Trend.FLAT), InsightDetail.Consistency(3.0, 3.0, Trend.FLAT, 4))
 
     @Test
     fun fatLossRanksConsistencyFirst() {

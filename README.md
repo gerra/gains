@@ -156,6 +156,9 @@ device today.
   charting library.
 - **Local first.** Guest mode keeps everything on the device. Sign-in and sync light up only
   once a server exists.
+- **English and Russian.** The app follows the device's language (or the per-app language on
+  Android 13+ and iOS), down to the insight sentences, the progression hints, the built-in
+  programs and every exercise in the catalogue. See [Languages](#languages).
 
 ## Screenshots
 
@@ -445,6 +448,30 @@ the estimated 1RM, the warm-up steps, the default bar weight and increments, and
 
 **Changing the schema.** Edit the `.sq` file and add a `migrations/N.sqm` with the same DDL;
 `MigrationTest` upgrades a database from the previous version and compares it with a fresh one.
+
+### Languages
+
+Every sentence, label and unit the app shows is a string resource:
+[`composeApp/src/commonMain/composeResources/values/strings.xml`](composeApp/src/commonMain/composeResources/values/strings.xml)
+is the English reference and `values-ru/strings.xml` the Russian, with plurals (`<plurals>`)
+and month and day names (`<string-array>`) alongside the plain strings. Screens read them
+with `stringResource`; screen models, which live outside the composition, through `Texts`,
+which carries the composition's resource environment to them. The shared module knows no language: the insight engine, the progression hints,
+the day planner and the CSV parser return structured values (`InsightDetail`,
+`Progression.Hint`, `CsvProblem`) and the UI words them in
+[`composeApp/src/commonMain/kotlin/app/gains/ui/i18n/`](composeApp/src/commonMain/kotlin/app/gains/ui/i18n).
+The language is the device's, so a change takes a relaunch. The built-in exercises, programs,
+day names and slot notes stay in English in the database and are looked up on the way to the
+screen by a key derived from their id (`exercise_bench_press`, `program_gzclp`,
+`day_workout_a`), so imports and aliases are unaffected; custom exercises and programs are shown
+as typed.
+
+**Adding a language.** Add a `values-xx/strings.xml` with every key of the English file
+(`LocalizationResourcesTest` checks the two match and that every built-in exercise, program,
+day and slot note is covered), the locale to
+`composeApp/src/androidMain/res/xml/locales_config.xml`, a `values-xx/strings.xml` under
+`composeApp/src/androidMain/res` for the Android notification, and to `CFBundleLocalizations`
+in `iosApp/iosApp/Info.plist`.
 
 ## Roadmap
 

@@ -5,4 +5,9 @@
     <string name="notification_total">Total</string>
     <string name="notification_rest">Rest</string>
     <string name="notification_skip_rest">Skip rest</string>
+    <!-- The channel the notification is posted on, and its lines for screen readers and watches. -->
+    <string name="notification_channel">Workout in progress</string>
+    <string name="notification_channel_description">Shown while a workout is running, so you can get back to it from anywhere.</string>
+    <string name="notification_running">Workout in progress. Tap to get back to it.</string>
+    <string name="notification_resting">Resting. Tap to get back to your workout.</string>
 </resources>

@@ -53,6 +53,11 @@ import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SectionHeader
+import app.gains.resources.Res
+import app.gains.resources.*
+import app.gains.ui.i18n.*
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -98,14 +103,14 @@ internal data class HistoryState(
     val dayNames: Map<String, String> = emptyMap(),
 )
 
-internal class HistoryModel(trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
+internal class HistoryModel(texts: Texts, trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
     val state: StateFlow<HistoryState> = combine(trainingData.snapshot, programs.observePrograms()) { snapshot, programList ->
         withContext(Dispatchers.Default) {
             val today = Dates.today()
             val sessions = snapshot.sessions.sortedByDescending { it.timestamp }
             HistoryState(
                 loading = false,
-                dayNames = programList.flatMap { p -> p.days.map { it.id to it.name } }.toMap(),
+                dayNames = programList.flatMap { p -> p.days.map { it.id to it.resolvedName(texts) } }.toMap(),
                 sessions = sessions,
                 years = groupByYearAndMonth(sessions),
                 exercisesById = snapshot.exercisesById,
@@ -125,7 +130,8 @@ internal class HistoryModel(trainingData: TrainingData = inject(), programs: Pro
  */
 @Composable
 internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
-    val model = rememberScreenModel { HistoryModel() }
+    val texts = rememberTexts()
+    val model = rememberScreenModel { HistoryModel(texts) }
     val state by model.state.collectAsState()
     if (state.loading) return
     val today = Dates.today()
@@ -133,30 +139,30 @@ internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
     // A calendar day with more than one session: which of them to open is asked in a sheet.
     var pickedDay by remember { mutableStateOf<LocalDate?>(null) }
     if (state.sessions.isEmpty()) {
-        EmptyState("No sessions yet", "Log a workout here or import your history. Your calendar and sessions-per-week trend will build up as you go.", emoji = "▦", action = { PrimaryButton("Log a workout", onLog) })
+        EmptyState(stringResource(Res.string.no_sessions_yet), stringResource(Res.string.no_sessions_yet_body), emoji = "▦", action = { PrimaryButton(stringResource(Res.string.log_a_workout), onLog) })
         return
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
-            ScreenTitle("History", subtitle = "${Format.plural(state.sessions.size, "session")} on record", trailing = {
-                TextButton(onClick = onLog) { Text("+ Log", color = palette.volt) }
+            ScreenTitle(stringResource(Res.string.history_title), subtitle = stringResource(Res.string.on_record, sessionsText(state.sessions.size)), trailing = {
+                TextButton(onClick = onLog) { Text(stringResource(Res.string.plus_log), color = palette.volt) }
             })
             val stats = state.stats
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricTile("Per week", stats?.let { Format.number(it.recentSessionsPerWeek, 1) } ?: "-", Modifier.weight(1f), caption = "last ${stats?.weeks ?: 4} weeks", accent = palette.volt)
+                MetricTile(stringResource(Res.string.per_week), stats?.let { Format.number(it.recentSessionsPerWeek, 1) } ?: "-", Modifier.weight(1f), caption = pluralStringResource(Res.plurals.last_n_weeks, stats?.weeks ?: 4, stats?.weeks ?: 4), accent = palette.volt)
                 MetricTile(
-                    "Trend",
-                    when (stats?.trend) { Trend.UP -> "Up"; Trend.DOWN -> "Down"; else -> "Steady" },
+                    stringResource(Res.string.trend),
+                    when (stats?.trend) { Trend.UP -> stringResource(Res.string.trend_up); Trend.DOWN -> stringResource(Res.string.trend_down); else -> stringResource(Res.string.trend_steady) },
                     Modifier.weight(1f),
-                    caption = stats?.previousSessionsPerWeek?.let { "was ${Format.number(it, 1)}/wk" },
+                    caption = stats?.previousSessionsPerWeek?.let { stringResource(Res.string.was_per_week, Format.number(it, 1)) },
                     accent = when (stats?.trend) { Trend.UP -> palette.progress; Trend.DOWN -> palette.regression; else -> null },
                 )
-                MetricTile("Streak", state.streakWeeks.toString(), Modifier.weight(1f), caption = if (state.streakWeeks == 1) "week" else "weeks")
+                MetricTile(stringResource(Res.string.streak), state.streakWeeks.toString(), Modifier.weight(1f), caption = pluralStringResource(Res.plurals.week_word, state.streakWeeks, state.streakWeeks))
             }
         }
         item {
-            SectionHeader("Last 26 weeks") {
-                Text("Tap a day to open it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SectionHeader(stringResource(Res.string.last26_weeks)) {
+                Text(stringResource(Res.string.tap_a_day_to_open), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 CalendarHeatmap(state.perDay, today, weeks = 26, onDayClick = { day ->
@@ -171,10 +177,10 @@ internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
         }
         if (state.weeks.size >= 2) {
             item {
-                SectionHeader("Sessions per week")
+                SectionHeader(stringResource(Res.string.sessions_per_week))
                 GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
-                    val rolling = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.rollingAverage) }, palette.volt, "4-week average", showDots = false, fill = true)
-                    val weekly = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.sessions.toDouble()) }, palette.muted, "Sessions", showDots = true, dashed = true, smooth = false)
+                    val rolling = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.rollingAverage) }, palette.volt, stringResource(Res.string.four_week_average), showDots = false, fill = true)
+                    val weekly = LineSeries(state.weeks.map { ChartPoint(it.weekStart.x(), it.sessions.toDouble()) }, palette.muted, stringResource(Res.string.sessions_legend), showDots = true, dashed = true, smooth = false)
                     LineChart(listOf(rolling, weekly), height = 160.dp, yMinZero = true, yLabel = { Format.number(it, 0) })
                 }
             }
@@ -209,7 +215,7 @@ private fun DaySessionsSheet(
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    PickerSheet("${Dates.dayLabel(day.dayOfWeek)} ${Dates.contextual(day, today)}", subtitle = Format.plural(sessions.size, "session"), onDismiss = onDismiss) {
+    PickerSheet(dateWithWeekday(day, today), subtitle = sessionsText(sessions.size), onDismiss = onDismiss) {
         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
             for (session in sessions) {
                 SessionRow(session, exercisesById, today, dayNames[session.program?.dayId], onClick = { onOpen(session.id) })
@@ -226,7 +232,7 @@ private fun YearDivider(year: YearGroup) {
         HorizontalDivider(Modifier.weight(1f), color = hairline)
         Column(Modifier.padding(horizontal = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(year.year.toString(), style = MaterialTheme.typography.titleLarge)
-            Text(Format.plural(year.sessionCount, "session"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(sessionsText(year.sessionCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         HorizontalDivider(Modifier.weight(1f), color = hairline)
     }
@@ -235,8 +241,8 @@ private fun YearDivider(year: YearGroup) {
 /** "SEPTEMBER" on the left, "8 sessions" on the right. */
 @Composable
 private fun MonthHeader(month: MonthGroup) {
-    SectionHeader(Dates.monthName(month.sessions.first().date)) {
-        Text(Format.plural(month.sessions.size, "session"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    SectionHeader(monthName(month.sessions.first().date)) {
+        Text(sessionsText(month.sessions.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -247,7 +253,7 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(Dates.contextual(session.date, today), style = MaterialTheme.typography.titleMedium)
+                    Text(dateContextual(session.date, today), style = MaterialTheme.typography.titleMedium)
                     if (dayName != null) {
                         Spacer(Modifier.width(8.dp))
                         Pill(dayName, palette.cyan)
@@ -255,20 +261,20 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                     Spacer(Modifier.width(8.dp))
                     Text(
                         "${session.timestamp.hour.toString().padStart(2, '0')}:${session.timestamp.minute.toString().padStart(2, '0')}" +
-                            (session.durationMinutes?.let { " · $it min" } ?: ""),
+                            (session.durationMinutes?.let { stringResource(Res.string.duration_suffix, it) } ?: ""),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    session.exercises.joinToString(" · ") { exercisesById[it.exerciseId]?.name ?: it.exerciseId },
+                    session.exercises.map { exercisesById[it.exerciseId]?.displayName() ?: it.exerciseId }.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
                 )
             }
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {
-                Text(Format.plural(session.workingSetCount, "set"), style = MaterialTheme.typography.titleSmall)
-                Pill(if (session.isManual) "logged" else session.source.replaceFirstChar { it.uppercase() }, if (session.isManual) palette.volt else palette.muted)
+                Text(setsText(session.workingSetCount), style = MaterialTheme.typography.titleSmall)
+                Pill(if (session.isManual) stringResource(Res.string.logged) else session.source.replaceFirstChar { it.uppercase() }, if (session.isManual) palette.volt else palette.muted)
             }
         }
     }
