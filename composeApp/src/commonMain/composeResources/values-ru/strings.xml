@@ -130,6 +130,14 @@
     <string name="working_set_rule">Правило рабочих подходов</string>
     <string name="sessions_tap_to_open">Тренировки · нажми, чтобы открыть</string>
     <string name="reset_to_default">Вернуть по умолчанию</string>
+    <string name="how_to_do_it">Как выполнять</string>
+    <string name="demo_start_end">Начальное и конечное положение, фотографии из free-exercise-db (общественное достояние).</string>
+    <string name="demo_none">Для этого упражнения пока нет фотографий.</string>
+    <string name="watch_video">Смотреть видео</string>
+    <string name="watch_video_note">Откроет в браузере поиск упражнения на YouTube.</string>
+    <string name="demo_frame_start">Начало</string>
+    <string name="demo_frame_end">Конец</string>
+    <string name="demo_of">Как выполнять: %1$s</string>
     <string name="add_exercises">Добавить упражнения</string>
     <string name="search_or_type_new">Поиск или новое упражнение</string>
     <string name="clear">Очистить</string>

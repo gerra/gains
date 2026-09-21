@@ -53,6 +53,7 @@ import app.gains.ui.components.GainsCard
 import app.gains.ui.components.MetricTile
 import app.gains.ui.components.Pill
 import app.gains.ui.components.SectionHeader
+import app.gains.ui.demo.ExerciseDemoCard
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.i18n.*
@@ -150,6 +151,10 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
                 Spacer(Modifier.height(6.dp))
                 Text(exercise.muscleGroups.map { it.group.label() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+        item {
+            SectionHeader(stringResource(Res.string.how_to_do_it))
+            ExerciseDemoCard(exercise)
         }
         if (state.allPoints.isEmpty()) {
             item { EmptyState(stringResource(Res.string.no_sessions), stringResource(Res.string.no_sessions_for_exercise)) }

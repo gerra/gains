@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -108,6 +109,7 @@ import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
 import app.gains.ui.components.TimePickerSheet
 import app.gains.ui.components.WeightPickerSheet
+import app.gains.ui.demo.ExerciseDemoSheet
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.i18n.*
@@ -736,6 +738,8 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
     var pickerOpen by remember { mutableStateOf(false) }
     /** The exercise whose "Change exercise" picker is open: its index in the workout. */
     var replaceTarget by remember { mutableStateOf<Int?>(null) }
+    /** Index of the exercise whose demo sheet is open. */
+    var demoTarget by remember { mutableStateOf<Int?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var dayPickerOpen by remember { mutableStateOf(false) }
@@ -806,6 +810,7 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
                     count = state.exercises.size,
                     onPickWeight = { setIndex -> weightTarget = exerciseIndex to setIndex },
                     onChangeExercise = { replaceTarget = exerciseIndex },
+                    onShowDemo = { demoTarget = exerciseIndex },
                     // A moved card slides to its new place rather than jumping, so the eye can follow it.
                     modifier = Modifier.animateItem(),
                 )
@@ -851,6 +856,11 @@ internal fun SessionEditorScreen(sessionId: String?, programDay: ProgramDayRef? 
             single = true,
             title = stringResource(Res.string.replace_named, current.exercise.displayName()),
         )
+    }
+    demoTarget?.let { index ->
+        val draft = state.exercises.getOrNull(index)
+        if (draft == null) demoTarget = null
+        else ExerciseDemoSheet(draft.exercise, onDismiss = { demoTarget = null })
     }
     if (dayPickerOpen) ProgramDayDialog(
         options = state.programDays,
@@ -1097,6 +1107,7 @@ private fun ExerciseCard(
     count: Int = exerciseIndex + 1,
     onPickWeight: (setIndex: Int) -> Unit,
     onChangeExercise: () -> Unit = {},
+    onShowDemo: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val palette = GainsColors.palette
@@ -1119,6 +1130,7 @@ private fun ExerciseCard(
             ExerciseMenu(
                 name = name, enabled = editable,
                 canMoveUp = exerciseIndex > 0, canMoveDown = exerciseIndex < count - 1,
+                onDemo = onShowDemo,
                 onChange = onChangeExercise,
                 onMoveUp = { model.moveExercise(exerciseIndex, -1) },
                 onMoveDown = { model.moveExercise(exerciseIndex, 1) },
@@ -1222,42 +1234,48 @@ private fun ExerciseCard(
 /**
  * The ⋯ at the top right of an exercise card, Hevy-style: everything that changes the card rather than
  * a set. "Change exercise" swaps the lift and keeps every set typed so far, the arrows move the card
- * through the workout, and Remove drops it. Inert while the plan waits for Start.
+ * through the workout, and Remove drops it. "How to do it" opens the exercise's demo. While the plan
+ * waits for Start the menu still opens, for the demo, but everything that edits the card is inert.
  */
 @Composable
 private fun ExerciseMenu(
     name: String, enabled: Boolean, canMoveUp: Boolean, canMoveDown: Boolean,
-    onChange: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit,
+    onDemo: () -> Unit, onChange: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit,
 ) {
     val palette = GainsColors.palette
     var open by remember { mutableStateOf(false) }
-    val tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else disabledColor()
+    val tint = MaterialTheme.colorScheme.onSurfaceVariant
     val optionsDescription = stringResource(Res.string.options_for, name)
     Box {
         Box(
-            Modifier.size(CHECK_HIT, CELL_HEIGHT).clip(CellShape).clickable(enabled = enabled) { open = true }
+            Modifier.size(CHECK_HIT, CELL_HEIGHT).clip(CellShape).clickable { open = true }
                 .semantics { role = Role.Button; contentDescription = optionsDescription },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Default.MoreVert, null, tint = tint, modifier = Modifier.size(20.dp)) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = MaterialTheme.shapes.medium) {
             DropdownMenuItem(
-                text = { Text(stringResource(Res.string.change_exercise)) },
+                text = { Text(stringResource(Res.string.how_to_do_it)) },
+                leadingIcon = { Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp)) },
+                onClick = { open = false; onDemo() },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.change_exercise)) }, enabled = enabled,
                 leadingIcon = { Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp)) },
                 onClick = { open = false; onChange() },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(Res.string.move_up)) }, enabled = canMoveUp,
+                text = { Text(stringResource(Res.string.move_up)) }, enabled = enabled && canMoveUp,
                 leadingIcon = { Icon(Icons.Default.KeyboardArrowUp, null, modifier = Modifier.size(18.dp)) },
                 onClick = { open = false; onMoveUp() },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(Res.string.move_down)) }, enabled = canMoveDown,
+                text = { Text(stringResource(Res.string.move_down)) }, enabled = enabled && canMoveDown,
                 leadingIcon = { Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(18.dp)) },
                 onClick = { open = false; onMoveDown() },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(Res.string.remove), color = palette.coral) },
-                leadingIcon = { Icon(Icons.Default.Delete, null, tint = palette.coral, modifier = Modifier.size(18.dp)) },
+                text = { Text(stringResource(Res.string.remove), color = if (enabled) palette.coral else disabledColor()) }, enabled = enabled,
+                leadingIcon = { Icon(Icons.Default.Delete, null, tint = if (enabled) palette.coral else disabledColor(), modifier = Modifier.size(18.dp)) },
                 onClick = { open = false; onRemove() },
             )
         }
