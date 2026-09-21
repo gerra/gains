@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -202,11 +204,16 @@ private fun OptionCard(title: String, blurb: String, selected: Boolean, onClick:
     }
 }
 
-/** "3d/wk · Beginner · Get stronger" as pills. */
+/**
+ * "3d/wk · Beginner · Get stronger" as pills. A FlowRow rather than a Row: when the tags do not
+ * fit on one line the last pill wraps whole onto a second line instead of being squeezed until
+ * its label breaks across two lines.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ProgramTags(program: Program, active: Boolean = false) {
     val palette = GainsColors.palette
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (active) Pill(stringResource(Res.string.active), palette.volt, filled = true)
         Pill(stringResource(Res.string.days_per_week_tag, program.daysPerWeek), palette.cyan)
         Pill(program.level.label(), palette.violet)
