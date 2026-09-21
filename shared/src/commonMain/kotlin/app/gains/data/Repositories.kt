@@ -303,6 +303,13 @@ class SettingsRepository(
 
     suspend fun setThemeMode(mode: ThemeMode) = withContext(io) { q.upsert(KEY_THEME, mode.name) }
 
+    /** The language the app is shown in. Unset follows the device. */
+    fun observeLanguage(): Flow<AppLanguage> = q.selectValue(KEY_LANGUAGE).asFlow().map { query ->
+        query.executeAsOneOrNull()?.let { runCatching { AppLanguage.valueOf(it) }.getOrNull() } ?: AppLanguage.SYSTEM
+    }.flowOn(io)
+
+    suspend fun setLanguage(language: AppLanguage) = withContext(io) { q.upsert(KEY_LANGUAGE, language.name) }
+
     /** The empty bar, for the first warm-up set. Stored in kg like every weight. */
     fun observeBarWeightKg(): Flow<Double> = q.selectValue(KEY_BAR_WEIGHT).asFlow().map { query ->
         query.executeAsOneOrNull()?.toDoubleOrNull()?.takeIf { it > 0.0 } ?: Gzclp.DEFAULT_BAR_KG
@@ -320,6 +327,7 @@ class SettingsRepository(
     companion object {
         const val KEY_UNIT = "weight_unit"
         const val KEY_THEME = "theme_mode"
+        const val KEY_LANGUAGE = "app_language"
         const val KEY_BAR_WEIGHT = "bar_weight_kg"
         const val KEY_AUTO_WARMUPS = "auto_warmups"
     }
@@ -327,3 +335,10 @@ class SettingsRepository(
 
 /** Appearance preference. Dark is the default look. */
 enum class ThemeMode(val label: String) { DARK("Dark"), LIGHT("Light"), SYSTEM("System") }
+
+/**
+ * The language the app is shown in: [tag] is the IETF language tag of the strings to use, null the
+ * device's own language. Every language the app is translated into belongs here; the UI shows each
+ * one's name in that language, so the list reads the same whichever one is in force.
+ */
+enum class AppLanguage(val tag: String?) { SYSTEM(null), ENGLISH("en"), RUSSIAN("ru") }

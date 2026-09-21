@@ -3,6 +3,7 @@ package app.gains.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import app.gains.ui.i18n.LocalAppLanguage
 import app.gains.ui.nav.LocalNavEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,8 +29,11 @@ internal abstract class ScreenModel {
 @Composable
 internal inline fun <reified T : ScreenModel> rememberScreenModel(vararg keys: Any?, noinline factory: () -> T): T {
     val entry = LocalNavEntry.current
-    if (entry != null) return remember(entry, *keys) { entry.model(T::class, keys.toList(), factory) }
-    val model = remember(*keys) { factory() }
+    // A model is worded in the language of the composition that made it (it holds Texts), and its
+    // screen outlives that composition on the back stack, so the language is one of its keys too.
+    val language = LocalAppLanguage.current
+    if (entry != null) return remember(entry, language, *keys) { entry.model(T::class, keys.toList() + language, factory) }
+    val model = remember(language, *keys) { factory() }
     DisposableEffect(model) { onDispose { model.onCleared() } }
     return model
 }
