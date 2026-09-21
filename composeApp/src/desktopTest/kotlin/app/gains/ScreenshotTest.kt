@@ -16,6 +16,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -363,22 +364,31 @@ class ScreenshotTest {
         require(text("Leave at zero"))
         settle(1_000)
         shot("17b-summary-duration")
-        onAllNodes(hasText("Done") and hasClickAction()).onFirst().performClick()
+        // The sheet is a root of its own, added after the screen's, so its Done is the last one.
+        onAllNodes(hasText("Done") and hasClickAction()).onLast().performClick()
         settle(1_500)
         // The last body weight is filled in, ready to be recorded against the day that was trained.
+        // A row is paged to before it is scrolled into view: the list composes a little past its
+        // viewport, so a row that exists may still be under the tab bar, where a tap never reaches it.
         scrollUntil(text("Muscles trained"), text("Save entry"))
+        scrollIntoView(text("Save entry") and hasClickAction())
         onNode(text("Save entry") and hasClickAction()).performClick()
         require(text("Weight recorded"))
         // A caption and a photo to remember the session by.
         scrollUntil(text("Weight recorded"), hasContentDescription("Add photo"))
+        scrollIntoView(hasContentDescription("Add photo"))
         onNode(hasContentDescription("Add photo") and hasClickAction()).performClick()
         require(hasContentDescription("Workout photo"))
+        settle(1_000)
+        scrollIntoView(hasSetTextAction())
+        onNode(hasSetTextAction()).performClick()
         onNode(hasSetTextAction()).performTextInput("Squats moved well, bench felt heavy.")
         settle(1_500)
         scrollIntoView(hasContentDescription("Workout photo"))
         settle(1_000)
         shot("17c-summary-photo")
         scrollUntil(hasContentDescription("Workout photo"), hasText("Done") and hasClickAction())
+        scrollIntoView(hasText("Done") and hasClickAction())
         onNode(hasText("Done") and hasClickAction()).performClick()
 
         require(text("What's moving"), 60_000)
