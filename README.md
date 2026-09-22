@@ -16,7 +16,7 @@
   <img alt="Kotlin 2.3" src="https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white">
   <img alt="Compose Multiplatform 1.7" src="https://img.shields.io/badge/Compose_Multiplatform-1.7-4285F4?logo=jetpackcompose&logoColor=white">
   <img alt="Platforms: iOS, Android, Desktop" src="https://img.shields.io/badge/platforms-iOS_%C2%B7_Android_%C2%B7_Desktop-0B0D12">
-  <img alt="Data stays on device" src="https://img.shields.io/badge/data-stays_on_device-C8FF4D?labelColor=0B0D12">
+  <img alt="Data: on device, sync optional" src="https://img.shields.io/badge/data-on_device_%C2%B7_sync_optional-C8FF4D?labelColor=0B0D12">
 </p>
 
 <p align="center">
@@ -50,9 +50,8 @@ month. Every statement comes with the numbers and the chart behind it.
 It is a [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html) app with a
 [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/) UI. iOS is the primary
 target; Android and a desktop (JVM) build share the same code. Everything lives in a local
-SQLite database on the device. Signing in will add a self-hosted sync server that carries your
-data between devices; until the sign-in sheets ship, and always as a guest, nothing leaves your
-device.
+SQLite database on the device. Signing in (Sign in with Apple on iOS today) adds a self-hosted
+sync server that carries it between your devices; as a guest, nothing leaves the device.
 
 <details>
 <summary><strong>Table of contents</strong></summary>
@@ -181,9 +180,9 @@ device.
   listed with a reason.
 - **Dark and light themes**, a floating pill navigation and animated Canvas charts with no
   charting library.
-- **Local first.** Guest mode keeps everything on the device. The sync server is running at
-  `api.gains.gerra.sh`; sign-in and sync light up once the native sign-in sheets land
-  ([docs/auth-plan.md](docs/auth-plan.md)).
+- **Local first, sync optional.** Guest mode keeps everything on the device. Sign in with Apple on
+  iOS syncs it through the self-hosted server at `api.gains.gerra.sh`; Google and the other
+  platforms follow ([docs/auth-plan.md](docs/auth-plan.md)).
 - **English and Russian.** Settings → Language switches between them where you stand, with no
   relaunch, and follows the device while it is left on System. Down to the insight sentences, the
   progression hints, the built-in programs and every exercise in the catalogue. See
@@ -316,7 +315,8 @@ one-time App Store Connect setup, the workflow secrets and troubleshooting are i
 3. Tap **Accept**, then **Install**. TestFlight offers each build added to the public beta as
    an update, and a build expires 90 days after it was uploaded.
 
-The beta is the same local-only app as the source here: nothing leaves the device. Report
+The beta is the same app as the source here. As a guest nothing leaves the device; Sign in with
+Apple syncs your data to the Gains server so it follows you to another device. Report
 problems with **Send Beta Feedback** in TestFlight (a screenshot from the app opens it) or in
 the [issue tracker](https://github.com/gerra/gains/issues).
 
@@ -343,7 +343,9 @@ JDK the Kotlin build needs and keeps the Gradle and Kotlin/Native caches between
 
 Either way the build shows up under **TestFlight** in App Store Connect after a few minutes of
 processing, ready to be added to a tester group. Export compliance, the privacy manifest and an
-alpha-free app icon are already handled in the project, so an upload needs no extra answers.
+alpha-free app icon are already handled in the project, so an upload needs no extra answers. The
+privacy manifest and the App Privacy answers still describe a local-only app, though, and need
+updating now that signed-in data leaves the device (item 7 in [docs/auth-plan.md](docs/auth-plan.md)).
 
 ## Importing your history
 
@@ -522,16 +524,17 @@ streak reminder stay put. Signing in on a device that already holds guest data m
 the account. Settings shows the current account and lets you return to the sign-in screen; local
 data is kept.
 
-The server is live at `api.gains.gerra.sh`, but the app still ships with an empty `AuthConfig` and
-no native sign-in sheet, so the provider buttons are disabled and every install runs as a guest.
-[docs/auth-plan.md](docs/auth-plan.md) is the queue of work that turns them on, iOS first.
+Today that is **Sign in with Apple on iOS**, against the server at `api.gains.gerra.sh`: the iOS
+app reads the server from `GAINS_SERVER_URL` in `Config.xcconfig` and the sign-in screen shows
+only the providers that are wired up. Google on iOS is next; Android and the desktop still run as
+guests. [docs/auth-plan.md](docs/auth-plan.md) is the queue of what is left.
 
 What is synced is a set of small JSON documents, one per workout or program, kept in their
 latest state on the server with last-writer-wins per document and a change log kept by SQLite
 triggers on the device. [docs/sync.md](docs/sync.md) is the whole design: the protocol, the
-server, why photos travel outside the feed, and how it is deployed. The provider buttons light up
+server, why photos travel outside the feed, and how it is deployed. A provider's button appears
 once `AuthConfig` in [`Account.kt`](shared/src/commonMain/kotlin/app/gains/auth/Account.kt) carries
-the client ids and the server's URL, and each platform registers its native sign-in sheet as an
+its client id and the server's URL, and the platform registers its native sign-in sheet as an
 `IdentityProvider`.
 
 ## Development
@@ -644,7 +647,9 @@ in `iosApp/iosApp/Info.plist`.
 ## Roadmap
 
 - [x] Self-hosted sync server and the client that speaks to it ([docs/sync.md](docs/sync.md))
-- [ ] The native sign-in sheets: Sign in with Apple on iOS, Google through Credential Manager on Android and the Google Sign-In SDK on iOS, behind the `IdentityProvider` interface, plus the client ids and the server URL in `AuthConfig` (iOS first, [docs/auth-plan.md](docs/auth-plan.md))
+- [x] Sign in with Apple on iOS, syncing through `api.gains.gerra.sh`
+- [ ] Sign in with Google on iOS, then linking a guest account, deleting an account and sync status in Settings ([docs/auth-plan.md](docs/auth-plan.md))
+- [ ] Sign-in on Android (Google through Credential Manager)
 - [ ] Keep the sync token in the Keychain and the Android Keystore rather than the app database
 - [ ] More connectors: a `ColumnSpec` and a `match` function each, contributions welcome
 
@@ -655,8 +660,8 @@ in `iosApp/iosApp/Info.plist`.
 - The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request,
   but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
   hosted macOS runner for this).
-- The sync server is deployed, but the sign-in buttons stay disabled until the native sign-in
-  sheets and `AuthConfig` land, so every install is a guest for now.
+- Only Sign in with Apple on iOS is wired up so far; Android and the desktop run as guests, so
+  their data stays on the device.
 
 ## Contributing
 

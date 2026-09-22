@@ -227,6 +227,11 @@ def pick(args):
             f"{' '.join(shipped.split())}; nothing to upload."
         )
         gha.output(upload="false")
+        # A build shipped before releases were published, or whose release step failed, gets
+        # its release now, so the README's badge always has the newest build to show.
+        newest = newest_build(shipped.split())
+        if newest:
+            publish_release(version, newest, sha)
         return
 
     print(f"Releasing {branch} at {sha[:7]} as Gains {version}")
@@ -277,6 +282,13 @@ def release_notes(version, build, sha, previous, changes=None):
     if previous and changes:
         lines += ["", f"## Changes since Gains {previous}", "", changes]
     return "\n".join(lines) + "\n"
+
+
+def newest_build(tags):
+    """The highest build number among testflight/<version>/<build> tags, or None."""
+    builds = [tag.rsplit("/", 1)[-1] for tag in tags if tag.startswith("testflight/")]
+    builds = [int(build) for build in builds if build.isdigit()]
+    return str(max(builds)) if builds else None
 
 
 def publish_release(version, build, sha):
