@@ -1,6 +1,8 @@
 package app.gains
 
 import androidx.compose.ui.window.ComposeUIViewController
+import app.gains.auth.AuthConfig
+import app.gains.auth.IdentityProvider
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.IosDriverFactory
 import app.gains.di.initKoin
@@ -17,6 +19,7 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.dsl.module
+import platform.Foundation.NSBundle
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSItemProvider
@@ -44,12 +47,31 @@ private var koinStarted = false
 /** Entry point used by the SwiftUI wrapper in iosApp. */
 fun MainViewController(): UIViewController {
     if (!koinStarted) {
-        initKoin(module { single<DatabaseDriverFactory> { IosDriverFactory() } })
+        initKoin(
+            module {
+                single<DatabaseDriverFactory> { IosDriverFactory() }
+                // Loaded after the shared module, so these replace its guest-only defaults.
+                single { iosAuthConfig() }
+                single<IdentityProvider> { IosIdentityProvider() }
+            },
+        )
         koinStarted = true
     }
     return ComposeUIViewController {
         App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier, photoPicker = IosPhotoPicker(), nudges = IosNudgeScheduler)
     }
+}
+
+/**
+ * The server comes from Info.plist (`GainsServerURL`, set from Config.xcconfig) so it is changed
+ * without touching code; the Apple audience is the bundle id, which the native flow signs for.
+ */
+private fun iosAuthConfig(): AuthConfig {
+    val bundle = NSBundle.mainBundle
+    return AuthConfig(
+        serverBaseUrl = (bundle.objectForInfoDictionaryKey("GainsServerURL") as? String)?.trim()?.trimEnd('/')?.ifBlank { null },
+        appleServiceId = bundle.bundleIdentifier,
+    )
 }
 
 /**
@@ -87,7 +109,7 @@ private fun topViewController(): UIViewController? {
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private fun NSData.toByteArray(): ByteArray {
+internal fun NSData.toByteArray(): ByteArray {
     val size = length.toInt()
     if (size <= 0) return ByteArray(0)
     return ByteArray(size).apply {

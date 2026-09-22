@@ -16,3 +16,7 @@ MARKETING_VERSION=1.4
 // TestFlight workflows override it with their GitHub run number;
 // `xcodebuild ... CURRENT_PROJECT_VERSION=42` does the same by hand.
 CURRENT_PROJECT_VERSION=1
+
+// The sync server (docs/sync.md), read by the app through GainsServerURL in Info.plist. The
+// empty $() is there because xcconfig treats // as the start of a comment, even inside a value.
+GAINS_SERVER_URL = https:/$()/api.gains.gerra.sh

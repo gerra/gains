@@ -23,6 +23,11 @@ data class Account(
  */
 data class AuthConfig(
     val googleClientId: String? = null,
+    /**
+     * The audience Apple puts in the identity token, which the server checks against
+     * `APPLE_CLIENT_IDS`. On iOS it is the app's bundle id, because the native flow signs tokens
+     * for the app itself; a web or Android flow would use a Services ID instead.
+     */
     val appleServiceId: String? = null,
     /** Base URL of the sync server (see docs/sync.md), without a trailing slash. */
     val serverBaseUrl: String? = null,
@@ -35,6 +40,12 @@ data class AuthConfig(
 class AuthNotConfiguredException(val provider: AccountKind) :
     IllegalStateException("${provider.label} sign-in is not configured yet.")
 
+/**
+ * The person closed the provider's sheet without signing in. It is a choice rather than a failure,
+ * so the sign-in screens say nothing about it.
+ */
+class SignInCancelledException : Exception("Sign-in was cancelled.")
+
 /** What a platform's sign-in sheet hands back: the provider's identity token and, when it was given, the person's name. */
 data class IdentityAssertion(val token: String, val name: String? = null)
 
@@ -44,7 +55,10 @@ data class IdentityAssertion(val token: String, val name: String? = null)
  * its own in Koin; the shared module's default offers nothing.
  */
 interface IdentityProvider {
-    /** Shows the provider's sheet and returns its token. Throws [AuthNotConfiguredException] when the platform has no such sheet. */
+    /**
+     * Shows the provider's sheet and returns its token. Throws [AuthNotConfiguredException] when
+     * the platform has no such sheet, and [SignInCancelledException] when the person closes it.
+     */
     suspend fun signIn(kind: AccountKind): IdentityAssertion
 }
 

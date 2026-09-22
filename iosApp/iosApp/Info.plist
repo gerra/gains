@@ -25,6 +25,10 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!-- The sync server, from GAINS_SERVER_URL in Configuration/Config.xcconfig. Read by
+	     iosAuthConfig() in MainViewController.kt; empty keeps the app a guest. -->
+	<key>GainsServerURL</key>
+	<string>$(GAINS_SERVER_URL)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<!-- Export compliance: the app makes no network calls and uses no encryption beyond what

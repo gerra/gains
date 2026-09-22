@@ -260,6 +260,8 @@ three taxes uses.
 - **End-to-end encryption.** Because the payload is opaque to the server, sealing it on the
   device is a client-side change with the same routes, the way fintrack's E2E note describes it.
 - **Multi-user features.** One user sees one user's documents. Nothing is shared.
-- **Native sign-in buttons.** The interfaces (`IdentityProvider`) and the server side are in
-  place; the Apple and Google SDK calls, the Sign in with Apple entitlement and the client ids are
-  the next step, once the App ID has the capability and the Google Cloud project exists.
+- **Native sign-in buttons beyond Apple on iOS.** Sign in with Apple works on iOS
+  (`IosIdentityProvider`, the `com.apple.developer.applesignin` entitlement, and the server URL
+  from `GAINS_SERVER_URL` in `Config.xcconfig`); the audience is the bundle id. Google on iOS is
+  next, then Android. Until a provider is wired up its button stays hidden, or disabled when
+  neither is, and Android and desktop keep `NoIdentityProvider`.

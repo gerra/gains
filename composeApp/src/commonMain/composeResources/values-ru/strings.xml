@@ -41,6 +41,8 @@
     <string name="resume_chevron">Вернуться ›</string>
     <string name="sign_in_headline">Знай, что\nреально растёт.</string>
     <string name="sign_in_blurb">Записывай тренировки или импортируй из Liftoff, Strong, Hevy и любого CSV. Gains покажет, какие упражнения растут, стоят на месте или проседают, — с цифрами.</string>
+    <string name="sign_in_with_apple">Вход с Apple</string>
+    <string name="sign_in_with_google">Войти с аккаунтом Google</string>
     <string name="continue_as_guest">Продолжить как гость</string>
     <string name="guest_note_with_sync">В режиме гостя всё хранится на этом устройстве. Войдите позже, чтобы сделать резервную копию и синхронизацию.</string>
     <string name="guest_note_coming_soon">Вход и облачная синхронизация появятся позже. В режиме гостя всё хранится на этом устройстве.</string>
