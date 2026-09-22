@@ -124,11 +124,11 @@ device today.
   notification that iOS delivers when the countdown ends. The desktop has a tray icon with the
   same **Skip rest** in its menu. Each is cleared when the session is ended or discarded.
   **Log past workout** still logs a session by date, time and duration.
-- **A summary when you finish.** Ending a session opens what it came to: the muscle groups it
-  trained shaded onto the body with their set counts, the duration on the wheels in case the clock
-  was wrong, your last body weight filled in ready to be recorded against the day, and a caption and
-  a photo to remember it by. Everything there edits the workout already stored, so leaving at any
-  point keeps it. The photo is shrunk to a long side of 1280 px and kept in the database beside the
+- **A summary when you finish.** Ending a session opens what it came to: how long it took, on the
+  wheels in case the clock was wrong; your last body weight filled in, ready to be recorded against
+  the day; a caption with a photo beside it to remember it by; and then the muscle groups it trained,
+  shaded onto the body with their set counts. What there is to fill in comes first, what the workout
+  came to after. Everything there edits the workout already stored, so leaving at any point keeps it. The photo is shrunk to a long side of 1280 px and kept in the database beside the
   session, on the device like everything else; the caption and a photo marker show on the workout in
   History, and the summary reopens from the workout's editor.
 - **Nothing to type but reps.** Weights are picked on a wheel (whole units and quarters, with
@@ -196,14 +196,14 @@ tab, so the pictures cannot drift from the code.
   <tr>
     <td align="center"><img src="docs/screenshots/08-body.png" alt="Bodyweight" width="230"><br><sub>Bodyweight</sub></td>
     <td align="center"><img src="docs/screenshots/09-settings.png" alt="Settings" width="230"><br><sub>Settings</sub></td>
-    <td align="center"><img src="docs/screenshots/17-summary.png" alt="Workout summary" width="230"><br><sub>Summary: what it trained</sub></td>
+    <td align="center"><img src="docs/screenshots/17-summary.png" alt="Workout summary" width="230"><br><sub>Summary when you finish</sub></td>
     <td align="center"><img src="docs/screenshots/17c-summary-photo.png" alt="Summary with a caption and a photo" width="230"><br><sub>Body weight, caption, photo</sub></td>
   </tr>
   <tr>
+    <td align="center"><img src="docs/screenshots/17d-summary-muscles.png" alt="Muscles the workout trained" width="230"><br><sub>What it trained</sub></td>
+    <td align="center"><img src="docs/screenshots/17b-summary-duration.png" alt="Changing the duration on the summary" width="230"><br><sub>Duration on the wheels</sub></td>
     <td align="center"><img src="docs/screenshots/10-home-light.png" alt="Home, light theme" width="230"><br><sub>Light theme</sub></td>
     <td align="center"><img src="docs/screenshots/11-lift-detail-light.png" alt="Lift detail, light theme" width="230"><br><sub>Lift detail, light</sub></td>
-    <td align="center"><img src="docs/screenshots/17b-summary-duration.png" alt="Changing the duration on the summary" width="230"><br><sub>Duration on the wheels</sub></td>
-    <td></td>
   </tr>
 </table>
 

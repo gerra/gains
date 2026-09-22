@@ -354,9 +354,10 @@ class ScreenshotTest {
         require(text("aren't ticked off"))
         onNode(text("Save all") and hasClickAction()).performClick()
 
-        // 9b. The ended workout hands over to its summary: what it trained, the day's body weight,
-        // the duration, and a caption with a photo. Everything here edits the session already stored.
-        require(text("Muscles trained"), 60_000)
+        // 9b. The ended workout hands over to its summary: how long it took, the day's body weight
+        // and a caption with a photo to fill in, then what it trained. Everything here edits the
+        // session already stored.
+        require(text("Workout logged"), 60_000)
         settle(1_500)
         shot("17-summary")
         // The duration is the clock's, and a tap puts it on the wheels.
@@ -370,7 +371,7 @@ class ScreenshotTest {
         // The last body weight is filled in, ready to be recorded against the day that was trained.
         // A row is paged to before it is scrolled into view: the list composes a little past its
         // viewport, so a row that exists may still be under the tab bar, where a tap never reaches it.
-        scrollUntil(text("Muscles trained"), hasText("Save") and hasClickAction())
+        scrollUntil(text("Workout logged"), hasText("Save") and hasClickAction())
         scrollIntoView(hasText("Save") and hasClickAction())
         onNode(hasText("Save") and hasClickAction()).performClick()
         require(hasText("Saved"))
@@ -387,7 +388,12 @@ class ScreenshotTest {
         scrollIntoView(hasContentDescription("Workout photo"))
         settle(1_000)
         shot("17c-summary-photo")
-        scrollUntil(hasContentDescription("Workout photo"), hasText("Done") and hasClickAction())
+        // The body it trained sits below what there is to fill in.
+        scrollUntil(hasContentDescription("Workout photo"), hasContentDescription("Muscle map"))
+        scrollIntoView(hasContentDescription("Muscle map"))
+        settle(1_500)
+        shot("17d-summary-muscles")
+        scrollUntil(hasContentDescription("Muscle map"), hasText("Done") and hasClickAction())
         scrollIntoView(hasText("Done") and hasClickAction())
         onNode(hasText("Done") and hasClickAction()).performClick()
 

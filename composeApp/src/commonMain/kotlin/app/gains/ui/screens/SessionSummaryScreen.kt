@@ -306,28 +306,6 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
             }
         }
         item {
-            SectionHeader(stringResource(Res.string.muscles_trained))
-            GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
-                if (state.muscles.isEmpty()) {
-                    Text(stringResource(Res.string.no_muscles_trained), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    BodyMap(state.muscles, Modifier.fillMaxWidth(), maxSets = state.maxSets)
-                    BodyMapLegend(state.maxSets)
-                    Spacer(Modifier.height(10.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Spacer(Modifier.height(6.dp))
-                    for ((group, sets) in state.trained) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(group.label(), Modifier.width(110.dp), style = MaterialTheme.typography.bodyMedium)
-                            Meter((sets / state.maxSets).toFloat(), palette.volt, Modifier.weight(1f))
-                            Spacer(Modifier.width(10.dp))
-                            Text(Format.number(sets, 1), style = MaterialTheme.typography.titleSmall)
-                        }
-                    }
-                }
-            }
-        }
-        item {
             SectionHeader(stringResource(Res.string.bodyweight_title))
             // One number and one word to put it on record: the wheel on the left, Save beside it.
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
@@ -380,6 +358,28 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                         textStyle = MaterialTheme.typography.bodyMedium,
                         maxLines = 3,
                     )
+                }
+            }
+        }
+        item {
+            SectionHeader(stringResource(Res.string.muscles_trained))
+            GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+                if (state.muscles.isEmpty()) {
+                    Text(stringResource(Res.string.no_muscles_trained), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    BodyMap(state.muscles, Modifier.fillMaxWidth(), maxSets = state.maxSets)
+                    BodyMapLegend(state.maxSets)
+                    Spacer(Modifier.height(10.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(Modifier.height(6.dp))
+                    for ((group, sets) in state.trained) {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(group.label(), Modifier.width(110.dp), style = MaterialTheme.typography.bodyMedium)
+                            Meter((sets / state.maxSets).toFloat(), palette.volt, Modifier.weight(1f))
+                            Spacer(Modifier.width(10.dp))
+                            Text(Format.number(sets, 1), style = MaterialTheme.typography.titleSmall)
+                        }
+                    }
                 }
             }
         }
