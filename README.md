@@ -559,9 +559,10 @@ checks that what the repositories write is what the triggers record.
 **The sync server.** Lives in [`server/`](server) and is deployed by the
 [Deploy server workflow](.github/workflows/deploy.yml) on a push to `main` that touches it:
 tests, `installDist`, rsync to the Hetzner box, the systemd unit from `deploy/`, a smoke test.
-The nginx block is pushed with `scripts/push-conf.sh`, the secrets with
-`scripts/deploy_secrets.sh` ([secrets/README.md](secrets/README.md) lists them). A server-only
-change cuts no release branch. Design and routes: [docs/sync.md](docs/sync.md).
+The steps are [`tools/deploy_server.py`](tools/deploy_server.py), which also runs on the
+box for the install itself; from a laptop, `python3 tools/deploy_server.py nginx` pushes the
+nginx block and `python3 tools/deploy_server.py secrets` the secrets
+([secrets/README.md](secrets/README.md) lists them). A server-only change cuts no release branch. Design and routes: [docs/sync.md](docs/sync.md).
 
 **Exercise photos.** `python3 tools/exercise_demos.py` (needs Pillow) matches every catalogue
 exercise to a [free-exercise-db](https://github.com/yuhonas/free-exercise-db) entry by its

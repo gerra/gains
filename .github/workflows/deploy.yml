@@ -5,8 +5,10 @@ name: Deploy server
 # repository, restart, smoke test. Runs only for changes that reach the server: the module,
 # the shared code it is built from, the unit and this file. UI-only changes leave it alone.
 #
-# Needs the repository secrets DEPLOY_HOST, DEPLOY_USER and DEPLOY_KEY (the same three taxes
-# uses). Secrets for the server itself go through scripts/deploy_secrets.sh, never through here.
+# The steps are tools/deploy_server.py, not shell; the same file runs on the box for the
+# install itself. Needs the repository secrets DEPLOY_HOST, DEPLOY_USER and DEPLOY_KEY (the
+# same three taxes uses), passed through the environment. Secrets for the server itself go
+# through `python3 tools/deploy_server.py secrets` from a laptop, never through here.
 on:
   push:
     branches: [main]
@@ -18,12 +20,18 @@ on:
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "deploy/gains-server.service"
+      - "tools/deploy_server.py"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 concurrency:
   group: deploy-server
   cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+  DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+  DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
 
 jobs:
   deploy:
@@ -41,15 +49,12 @@ jobs:
       - name: Test and build the server
         run: ./gradlew :server:test :server:installDist -Pgains.android=false --no-daemon
 
+      - name: Make sure the target directories exist on the box
+        run: python3 tools/deploy_server.py prepare
+
       # The install directory is self-contained: bin/gains-server plus every jar under lib/.
       # `--delete` keeps stale jars from piling up; data and secrets live outside `current/`.
-      - name: Make sure the target directory exists
-        run: |
-          echo "${{ secrets.DEPLOY_KEY }}" > /tmp/deploy_key
-          chmod 600 /tmp/deploy_key
-          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "mkdir -p /root/Projects/gains-server/current /root/Projects/gains-server/secrets"
-      - name: Rsync the build to the server
+      - name: Rsync the build to the box
         uses: burnett01/rsync-deployments@6.0.0
         with:
           switches: -avz --delete
@@ -61,41 +66,11 @@ jobs:
 
       - name: Install the unit, restart, smoke test
         id: remote_deploy
-        run: |
-          echo "${{ secrets.DEPLOY_KEY }}" > /tmp/deploy_key
-          chmod 600 /tmp/deploy_key
-          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes \
-            deploy/gains-server.service ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/root/Projects/gains-server/gains-server.service
-          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "
-              set -eo pipefail
-              trap 'rc=\$?; echo \"--- deploy failed, recent journal: ---\"; journalctl -u gains-server -n 150 --no-pager || true; systemctl status gains-server --no-pager || true; exit \$rc' ERR
-              cd /root/Projects/gains-server
-              if ! command -v java >/dev/null 2>&1; then
-                echo '--- DEPLOY: installing a JDK'
-                apt-get update -qq && apt-get install -y -qq openjdk-17-jre-headless
-              fi
-              java -version 2>&1 | head -1
-              [ -f secrets/.env ] || echo 'WARNING: secrets/.env is missing; run scripts/deploy_secrets.sh (the service will not start without JWT_SECRET)'
-              mkdir -p /var/lib/gains
-              install -m 644 gains-server.service /etc/systemd/system/gains-server.service
-              systemctl daemon-reload
-              systemctl enable gains-server >/dev/null 2>&1 || true
-              systemctl restart gains-server
-              sleep 4
-              systemctl is-active --quiet gains-server
-              HTTP_CODE=\$(curl -sS -o /tmp/gains_smoke.out -w '%{http_code}' http://127.0.0.1:5003/health || echo '000')
-              echo \"smoke test: HTTP \$HTTP_CODE\"
-              cat /tmp/gains_smoke.out; echo
-              [ \"\$HTTP_CODE\" = '200' ]
-            "
+        run: python3 tools/deploy_server.py install
 
-      - name: Collect service logs on failure
+      - name: Collect the journal on failure
         if: failure() && steps.remote_deploy.conclusion == 'failure'
-        run: |
-          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            "journalctl -u gains-server -n 500 --no-pager" > gains-server-journal.log || true
+        run: python3 tools/deploy_server.py logs --into gains-server-journal.log
 
       - name: Upload failure logs
         if: failure()

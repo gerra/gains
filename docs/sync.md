@@ -52,8 +52,9 @@ The server is a Gradle module in this repository rather than a repository of its
 | [`shared/src/commonMain/kotlin/app/gains/sync/`](../shared/src/commonMain/kotlin/app/gains/sync) | The wire format (`Protocol.kt`, `Documents.kt`), the client engine (`SyncEngine.kt`, `SyncApi.kt`) and the change log it reads (`SyncStore.kt`). Compiled into the app and into the server. |
 | [`shared/src/commonMain/sqldelight/app/gains/db/Sync.sq`](../shared/src/commonMain/sqldelight/app/gains/db/Sync.sq) | The `sync_change` and `sync_state` tables and the triggers that fill the first. |
 | [`server/`](../server) | The Ktor server: sign-in, the document feed, photo blobs, its own SQLDelight schema. Depends on `:shared`'s JVM target, so the two ends serialize with the same classes. |
-| [`deploy/`](../deploy) | The systemd unit and the nginx server block, installed by the deploy workflow and `scripts/push-conf.sh`. |
-| [`secrets/`](../secrets) | `.env.example` and what each variable is; the real `.env` is never committed and reaches the server only through `scripts/deploy_secrets.sh`. |
+| [`deploy/`](../deploy) | The systemd unit and the nginx server block, installed by the deploy workflow and `tools/deploy_server.py nginx`. |
+| [`tools/deploy_server.py`](../tools/deploy_server.py) | Every deploy step as Python, like the release tooling: what the workflow runs, what runs on the box, and the two laptop commands (`secrets`, `nginx`). |
+| [`secrets/`](../secrets) | `.env.example` and what each variable is; the real `.env` is never committed and reaches the server only through `tools/deploy_server.py secrets`. |
 
 One pull request changes the app, the server and the format between them, and one CI run checks
 all three. The server module also runs inside a desktop test, so
@@ -62,8 +63,8 @@ real client databases through the real routes without a network.
 
 Two things the layout has to respect because of how releases are cut. The
 [release branch workflow](../.github/workflows/release-branch.yml) cuts a branch only when
-`main` carries a change that reaches the iOS app, so `server/`, `deploy/`, `secrets/` and
-`scripts/` are on the ignore list in [`tools/release.py`](../tools/release.py): a server change
+`main` carries a change that reaches the iOS app, so `server/`, `deploy/` and `secrets/`
+are on the ignore list in [`tools/release.py`](../tools/release.py): a server change
 alone ships no app build. And the deploy workflow watches only the paths the server is built from,
 so a UI change does not restart the server.
 
@@ -234,11 +235,15 @@ The same playbook as taxes and www, on the same Hetzner box:
 
 - Push to `main` touching `server/`, `shared/src/commonMain/`, `deploy/` or the workflow runs
   [`deploy.yml`](../.github/workflows/deploy.yml): `:server:test`, `:server:installDist`, rsync
-  of the install directory to `/root/Projects/gains-server/current/`, JDK 17 installed if the box
-  lacks it, `deploy/gains-server.service` installed, restart, smoke test of `/health`.
+  of the install directory to `/root/Projects/gains-server/current/`, then
+  `tools/deploy_server.py install`, which copies the unit and itself to the box and runs there:
+  JDK 17 if the box lacks one, the unit installed, restart, smoke test of `/health`. No shell
+  anywhere in it, the same way the release workflows run `tools/release.py`.
 - nginx: `deploy/nginx/gains.gerra.sh.conf` proxies to `127.0.0.1:5003`; push it with
-  `scripts/push-conf.sh` after the certificate exists (`certbot certonly --nginx -d gains.gerra.sh`).
-- Secrets: `scripts/deploy_secrets.sh` copies `secrets/.env` to the box and restarts the unit.
+  `python3 tools/deploy_server.py nginx` after the certificate exists
+  (`certbot certonly --nginx -d gains.gerra.sh`).
+- Secrets: `python3 tools/deploy_server.py secrets` copies `secrets/.env` to the box and
+  restarts the unit.
 - Data: `/var/lib/gains/gains-server.db`, outside the synced tree; back it up by copying the file.
 - Logs: `journalctl -u gains-server`, also on gerra.sh/status.
 

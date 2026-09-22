@@ -48,7 +48,6 @@ IGNORED = [
     "server",
     "deploy",
     "secrets",
-    "scripts",
     "composeApp/src/androidMain",
     "composeApp/src/desktopMain",
     "shared/src/androidMain",
