@@ -423,7 +423,8 @@ private fun PhotoThumbnail(photo: ImageBitmap?, busy: Boolean, onPick: () -> Uni
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("＋", style = MaterialTheme.typography.titleLarge, color = palette.volt)
+                    // A plain plus: the bundled font has no fullwidth one and draws it as a box.
+                    Text("+", style = MaterialTheme.typography.titleLarge, color = palette.volt)
                     Text(
                         if (busy) stringResource(Res.string.adding_photo) else stringResource(Res.string.photo_pill),
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
