@@ -440,20 +440,17 @@ class ScreenshotTest {
     }
 
     /**
-     * The streak card in every state it has, side by side: what the nudge looks like on the two days
-     * it fires, what it says instead when a rest week would cover the miss, and what a safe, a full
-     * and an empty week look like. The end-to-end run above can only ever show one of these, because
-     * it can only show the week it happens to run in.
+     * The streak card in three of its states, side by side: at risk on a day the nudge fires, safe,
+     * and a full week. The end-to-end run above can only ever show one of these, because it can only
+     * show the week it happens to run in.
      */
     @Test
-    fun captureTheStreakCardInEveryState() = runDesktopComposeUiTest(width = 960, height = 5200) {
+    fun captureTheStreakCardInEveryState() = runDesktopComposeUiTest(width = 960, height = 1800) {
         mainClock.autoAdvance = false
-        // Saturday and Sunday of a week with nothing in it: the ring around today is breathing.
+        // Saturday of a week with nothing in it: the ring around today is breathing.
         val atRisk = Streak(weeks = 12, best = 12, sessionsThisWeek = 0, goalPerWeek = 3, daysLeftInWeek = 2, status = StreakStatus.AT_RISK, nextMilestone = 26)
-        val covered = atRisk.copy(daysLeftInWeek = 1, status = StreakStatus.LAST_CHANCE, restWeeksInHand = 2)
         val states = listOf(
             "At risk — Saturday, nothing logged" to atRisk,
-            "Last day, and a rest week would cover it" to covered,
             "Safe, one short of the week's goal" to Streak(
                 weeks = 13, best = 13, sessionsThisWeek = 2, goalPerWeek = 3, daysLeftInWeek = 3,
                 status = StreakStatus.SAFE, thisWeekSessions = listOf(1, 0, 1, 0, 0, 0, 0), restWeeksInHand = 1, nextMilestone = 26,
@@ -462,11 +459,6 @@ class ScreenshotTest {
                 weeks = 26, best = 26, sessionsThisWeek = 4, goalPerWeek = 4, daysLeftInWeek = 2,
                 status = StreakStatus.SAFE, thisWeekSessions = listOf(1, 0, 1, 0, 2, 0, 0), atMilestone = true, nextMilestone = 52,
             ),
-            "A rest week carried last week" to Streak(
-                weeks = 9, best = 14, sessionsThisWeek = 1, goalPerWeek = 3, daysLeftInWeek = 4,
-                status = StreakStatus.SAFE, thisWeekSessions = listOf(0, 0, 0, 1, 0, 0, 0), heldLastWeek = true, nextMilestone = 12,
-            ),
-            "Nothing to protect yet" to Streak(goalPerWeek = 3, daysLeftInWeek = 5),
         )
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(2f)) {
@@ -476,11 +468,6 @@ class ScreenshotTest {
                             for ((caption, streak) in states) {
                                 Text(caption.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 StreakCard(streak, Modifier.fillMaxWidth())
-                            }
-                            // The same card in the light theme, to show it is not a dark-only design.
-                            Text("THE SAME CARD, LIGHT THEME", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            GainsTheme(darkTheme = false) {
-                                Surface(color = MaterialTheme.colorScheme.background) { StreakCard(atRisk, Modifier.fillMaxWidth()) }
                             }
                         }
                     }

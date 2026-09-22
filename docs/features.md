@@ -150,10 +150,9 @@ tab, so the pictures cannot drift from the code.
   </tr>
 </table>
 
-The streak card has more states than a walk through the app can show, so it is rendered on its own
-as well — at risk on the two days the nudge fires, what it says instead when a rest week would cover
-the miss, a safe week, a full one, a week a rest week carried, and an empty slate.
+The streak card changes with the week, so three of its states are rendered on their own: at risk
+on a day the nudge fires, safe, and a full week.
 
 <p align="center">
-  <img src="screenshots/18-streak-states.png" alt="The streak card in each of its states" width="46%">
+  <img src="screenshots/18-streak-states.png" alt="The streak card at risk, safe and full" width="46%">
 </p>
