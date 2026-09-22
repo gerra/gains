@@ -329,6 +329,7 @@ Steps:
 ## 7. Info.plist and privacy manifest now that data leaves the device
 
 - [x] Done
+  Done in #69
 
 **Depends on:** nothing.
 
