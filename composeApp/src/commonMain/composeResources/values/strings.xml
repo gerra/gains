@@ -225,6 +225,8 @@
     <string name="redo_setup">Redo setup</string>
     <string name="no_goal_set_note">No goal set yet. Pick one and the program list sorts by fit; the home screen leads with the signals that matter for it.</string>
     <string name="appearance">Appearance</string>
+    <string name="language">Language</string>
+    <string name="language_note">Built-in exercises, programs and days are shown in the app's language; names you have typed yourself stay as you typed them.</string>
     <string name="display_units">Display units</string>
     <string name="units_note">Weights are stored in kg (rounded to 0.25 kg) whatever you display. Dumbbell exercises show the per-dumbbell weight.</string>
     <string name="warm_ups">Warm-ups</string>
@@ -500,6 +502,9 @@
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
     <string name="theme_system">System</string>
+    <string name="language_system">System</string>
+    <string name="language_english">English</string>
+    <string name="language_russian">Русский</string>
     <string name="account_guest">Guest</string>
     <string name="account_google">Google</string>
     <string name="account_apple">Apple</string>

@@ -173,9 +173,10 @@ device today.
   charting library.
 - **Local first.** Guest mode keeps everything on the device. Sign-in and sync light up only
   once a server exists.
-- **English and Russian.** The app follows the device's language (or the per-app language on
-  Android 13+ and iOS), down to the insight sentences, the progression hints, the built-in
-  programs and every exercise in the catalogue. See [Languages](#languages).
+- **English and Russian.** Settings → Language switches between them where you stand, with no
+  relaunch, and follows the device while it is left on System. Down to the insight sentences, the
+  progression hints, the built-in programs and every exercise in the catalogue. See
+  [Languages](#languages).
 
 ## Screenshots
 
@@ -409,12 +410,14 @@ the system's permission prompt, at a moment the lifter chose. After that:
   what is true. The wording never claims the run is about to end when it is not; there is a test
   that says so.
 
-The words are worked out when the plan is made, by the shared code that knows both the streak and
-the device's language, and handed to the platform finished: by the time one is shown the app may be
-asleep, killed, or on a device that has rebooted since. iOS holds them as scheduled
-`UNNotificationRequest`s, Android as inexact `AlarmManager` alarms restored after a reboot, and the
-desktop has nowhere to put one. Every plan replaces the last one whole, so saving a workout on
-Saturday morning takes the evening's reminder down before it is ever shown.
+The words are worked out when the plan is made, by the code that knows both the streak and the
+[chosen language](#languages), and handed to the platform finished: by the time one is shown the app
+may be asleep, killed, or on a device that has rebooted since. The plan is made under `InLanguage`,
+so switching language re-words the reminders still to come rather than leaving them in the old one.
+iOS holds them as scheduled `UNNotificationRequest`s, Android as inexact `AlarmManager` alarms
+restored after a reboot, and the desktop has nowhere to put one. Every plan replaces the last one
+whole, so saving a workout on Saturday morning takes the evening's reminder down before it is ever
+shown.
 
 ## Architecture
 
@@ -530,7 +533,16 @@ which carries the composition's resource environment to them. The shared module 
 the day planner and the CSV parser return structured values (`InsightDetail`,
 `Progression.Hint`, `CsvProblem`) and the UI words them in
 [`composeApp/src/commonMain/kotlin/app/gains/ui/i18n/`](composeApp/src/commonMain/kotlin/app/gains/ui/i18n).
-The language is the device's, so a change takes a relaunch. The built-in exercises, programs,
+**Settings → Language** picks one, or leaves it to the device. The choice is a preference like
+any other (`AppLanguage`, read back through `SettingsRepository`), and `InLanguage` — around the
+whole UI — puts it in force as the platform's current locale, which is where the string resources
+take theirs from, and then composes everything below it afresh. The app is therefore in the new
+language as the chip is tapped, and the back stack and the scroll positions are where they were;
+screen models are made anew along with it, since each holds the words it was made with. On Android
+13 and up the choice is handed to the system's own per-app language as well, so the workout
+notification, whose strings are Android resources rather than Compose ones, follows too; on older
+Android that one notification stays in the device's language.
+The built-in exercises, programs,
 day names and slot notes stay in English in the database and are looked up on the way to the
 screen by a key derived from their id (`exercise_bench_press`, `program_gzclp`,
 `day_workout_a`), so imports and aliases are unaffected; custom exercises and programs are shown
@@ -538,7 +550,8 @@ as typed.
 
 **Adding a language.** Add a `values-xx/strings.xml` with every key of the English file
 (`LocalizationResourcesTest` checks the two match and that every built-in exercise, program,
-day and slot note is covered), the locale to
+day and slot note is covered), an entry to `AppLanguage` with its tag, a `language_xx` string
+naming it in its own words (the same text in every file: each language names itself), the locale to
 `composeApp/src/androidMain/res/xml/locales_config.xml`, a `values-xx/strings.xml` under
 `composeApp/src/androidMain/res` for the Android notification, and to `CFBundleLocalizations`
 in `iosApp/iosApp/Info.plist`.

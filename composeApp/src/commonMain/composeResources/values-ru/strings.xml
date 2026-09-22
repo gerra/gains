@@ -225,6 +225,8 @@
     <string name="redo_setup">Пройти настройку заново</string>
     <string name="no_goal_set_note">Цель не задана. Выбери её — и программы отсортируются по соответствию, а главный экран начнёт с важных для неё сигналов.</string>
     <string name="appearance">Оформление</string>
+    <string name="language">Язык</string>
+    <string name="language_note">Встроенные упражнения, программы и дни показываются на языке приложения; названия, введённые вручную, остаются как есть.</string>
     <string name="display_units">Единицы</string>
     <string name="units_note">Веса хранятся в кг (с округлением до 0.25 кг), в чём бы они ни показывались. Для упражнений с гантелями показан вес одной гантели.</string>
     <string name="warm_ups">Разминка</string>
@@ -500,6 +502,9 @@
     <string name="theme_dark">Тёмная</string>
     <string name="theme_light">Светлая</string>
     <string name="theme_system">Системная</string>
+    <string name="language_system">Системный</string>
+    <string name="language_english">English</string>
+    <string name="language_russian">Русский</string>
     <string name="account_guest">Гость</string>
     <string name="account_google">Google</string>
     <string name="account_apple">Apple</string>

@@ -125,7 +125,8 @@ import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.GainsTheme
 
 /**
- * Root of the shared UI. [filePicker] is supplied by each platform entry point.
+ * Root of the shared UI: the look it is drawn in, the language it is worded in, and [AppBody] with
+ * everything else. [filePicker] is supplied by each platform entry point.
  *
  * [systemBack] lets a platform hook its own back affordance (Android's button and predictive back
  * gesture) into the navigator: it is composed with whether the app can go back and what to do then.
@@ -137,9 +138,6 @@ import app.gains.ui.theme.GainsTheme
  * [nudges] holds the streak reminders the platform is to deliver while the app is not running. The
  * whole plan is handed over again every time the streak changes, so it can never fall behind what
  * has actually been logged.
- *
- * Everything on screen is in the device's language, through the string resources: a change of
- * language takes a relaunch.
  */
 @Composable
 internal fun App(
@@ -148,10 +146,48 @@ internal fun App(
     notifier: LiveSessionNotifier = LiveSessionNotifier.None,
     nudges: NudgeScheduler = NudgeScheduler.None,
 ) {
+    val settings = remember { inject<SettingsRepository>() }
     // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
     // while the entry lives, so a screen comes back as it was left once the one covering it is popped.
+    // The stack and that state sit above the language, so a change of it leaves the lifter where they were.
     val stateHolder = rememberSaveableStateHolder()
     val navigator = remember { Navigator(onReleased = { stateHolder.removeState(it.id) }) }
+    val themeMode by settings.observeThemeMode().collectAsState(ThemeMode.DARK)
+    val dark = when (themeMode) {
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+    GainsTheme(darkTheme = dark) {
+        // Surface sets the content colour for every Text below it and paints the background.
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
+            // Everything below is worded in the chosen language, or in the device's where none has
+            // been chosen. Nothing is drawn until that preference has been read — a moment, at
+            // launch — so the app is never shown in one language and then another.
+            val language = settings.observeLanguage().collectAsState(initial = null).value ?: return@Surface
+            InLanguage(language) { AppBody(navigator, stateHolder, filePicker, systemBack, notifier, nudges) }
+        }
+    }
+}
+
+/**
+ * Everything under the look and the language: the screens on [navigator]'s back stack, the workout
+ * in progress, and the way between them. Composed afresh whenever the language changes, which is
+ * what puts every word on screen into the new one; the stack and [stateHolder] outlive that.
+ *
+ * The streak reminders are planned here too, so that a change of language re-words the ones still
+ * to come: their text is settled when the plan is made, not when the platform shows them.
+ */
+@Composable
+private fun AppBody(
+    navigator: Navigator,
+    stateHolder: SaveableStateHolder,
+    filePicker: CsvFilePicker,
+    systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit,
+    notifier: LiveSessionNotifier,
+    nudges: NudgeScheduler,
+) {
+    val settings = remember { inject<SettingsRepository>() }
     val exercises = remember { inject<ExerciseRepository>() }
     LaunchedEffect(Unit) { exercises.seedCatalogue() }
 
@@ -163,7 +199,6 @@ internal fun App(
     val accountState by accounts.observeAccount().collectAsState(initial = AccountLoading)
     systemBack(navigator.canGoBack) { navigator.pop() }
 
-    val settings = remember { inject<SettingsRepository>() }
     val programs = remember { inject<ProgramRepository>() }
     val sessions = remember { inject<SessionRepository>() }
     // null = not read yet; false = the goal questions have never been answered or skipped.
@@ -234,53 +269,42 @@ internal fun App(
         val editors = navigator.stack.mapNotNull { it.peek(SessionEditorModel::class) }
         if (editors.none { it.skipRest() }) liveSessions.clearRest()
     }
-    val themeMode by settings.observeThemeMode().collectAsState(ThemeMode.DARK)
-    val dark = when (themeMode) {
-        ThemeMode.DARK -> true
-        ThemeMode.LIGHT -> false
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-    }
-    GainsTheme(darkTheme = dark) {
-        val screen = navigator.current
-        // Surface sets the content colour for every Text below it and paints the background.
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
-            if (accountState === AccountLoading) return@Surface
-            if (accountState == null) { SignInScreen(); return@Surface }
-            if (onboardingDone == null) return@Surface
-            if (onboardingDone == false) { OnboardingScreen(onDone = {}); return@Surface }
-            // Tapping outside a text field anywhere in the app puts the keyboard away.
-            Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
-                TopBar(navigator, screen, upNext)
-                val transition = updateTransition(navigator.currentEntry, label = "screen")
-                SwipeBack(
-                    // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
-                    enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
-                    onBack = { navigator.pop(animated = false) },
-                    modifier = Modifier.weight(1f),
-                    previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, stateHolder) } },
-                ) {
-                    transition.AnimatedContent(
-                        transitionSpec = {
-                            if (navigator.skipTransition) {
-                                // The swipe-back gesture has already slid the old screen away.
-                                EnterTransition.None togetherWith ExitTransition.None
-                            } else {
-                                val forward = navigator.stack.size > 1 && targetState.screen !is Screen.Home
-                                val enter = fadeIn(tween(220)) + slideInHorizontally(tween(260)) { if (forward) it / 12 else -it / 12 }
-                                val exit = fadeOut(tween(160)) + slideOutHorizontally(tween(220)) { if (forward) -it / 16 else it / 16 }
-                                enter togetherWith exit
-                            }
-                        },
-                    ) { entry -> ScreenContent(entry, navigator, filePicker, stateHolder) }
-                }
-                live?.let { running ->
-                    if (!(screen is Screen.EditSession && screen.live)) {
-                        LiveSessionBar(running, onResume = { navigator.push(Screen.EditSession(null, running.program, live = true)) })
+    val screen = navigator.current
+    if (accountState === AccountLoading) return
+    if (accountState == null) { SignInScreen(); return }
+    if (onboardingDone == null) return
+    if (onboardingDone == false) { OnboardingScreen(onDone = {}); return }
+    // Tapping outside a text field anywhere in the app puts the keyboard away.
+    Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
+        TopBar(navigator, screen, upNext)
+        val transition = updateTransition(navigator.currentEntry, label = "screen")
+        SwipeBack(
+            // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
+            enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
+            onBack = { navigator.pop(animated = false) },
+            modifier = Modifier.weight(1f),
+            previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, stateHolder) } },
+        ) {
+            transition.AnimatedContent(
+                transitionSpec = {
+                    if (navigator.skipTransition) {
+                        // The swipe-back gesture has already slid the old screen away.
+                        EnterTransition.None togetherWith ExitTransition.None
+                    } else {
+                        val forward = navigator.stack.size > 1 && targetState.screen !is Screen.Home
+                        val enter = fadeIn(tween(220)) + slideInHorizontally(tween(260)) { if (forward) it / 12 else -it / 12 }
+                        val exit = fadeOut(tween(160)) + slideOutHorizontally(tween(220)) { if (forward) -it / 16 else it / 16 }
+                        enter togetherWith exit
                     }
-                }
-                BottomNav(navigator)
+                },
+            ) { entry -> ScreenContent(entry, navigator, filePicker, stateHolder) }
+        }
+        live?.let { running ->
+            if (!(screen is Screen.EditSession && screen.live)) {
+                LiveSessionBar(running, onResume = { navigator.push(Screen.EditSession(null, running.program, live = true)) })
             }
         }
+        BottomNav(navigator)
     }
 }
 

@@ -32,6 +32,7 @@ import app.gains.analysis.TrainingData
 import app.gains.auth.Account
 import app.gains.auth.AccountRepository
 import app.gains.auth.AuthConfig
+import app.gains.data.AppLanguage
 import app.gains.data.ExerciseRepository
 import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
@@ -71,6 +72,7 @@ internal data class SettingsState(
     val account: Account? = null,
     val unit: WeightUnit = WeightUnit.KG,
     val theme: ThemeMode = ThemeMode.DARK,
+    val language: AppLanguage = AppLanguage.SYSTEM,
     val customExercises: List<Exercise> = emptyList(),
     val catalogue: List<Exercise> = emptyList(),
     val aliases: Map<String, String> = emptyMap(),
@@ -87,8 +89,8 @@ internal data class SettingsState(
     val reminderHour: Int = StreakEngine.REMINDER_HOURS.first,
 )
 
-/** The plain preferences, combined first because combine takes five flows at most. */
-private data class Prefs(val unit: WeightUnit, val theme: ThemeMode, val account: Account?, val autoWarmups: Boolean, val barWeightKg: Double)
+/** The plain preferences, combined first — and two of them paired — because combine takes five flows at most. */
+private data class Prefs(val unit: WeightUnit, val theme: ThemeMode, val language: AppLanguage, val account: Account?, val autoWarmups: Boolean, val barWeightKg: Double)
 
 internal class SettingsModel(
     texts: Texts,
@@ -101,7 +103,13 @@ internal class SettingsModel(
     trainingData: TrainingData = inject(),
 ) : ScreenModel() {
     val state: StateFlow<SettingsState> = combine(
-        combine(settings.observeUnit(), settings.observeThemeMode(), accounts.observeAccount(), settings.observeAutoWarmups(), settings.observeBarWeightKg()) { u, t, a, w, b -> Prefs(u, t, a, w, b) },
+        combine(
+            settings.observeUnit(),
+            combine(settings.observeThemeMode(), settings.observeLanguage()) { theme, language -> theme to language },
+            accounts.observeAccount(),
+            settings.observeAutoWarmups(),
+            settings.observeBarWeightKg(),
+        ) { u, (t, l), a, w, b -> Prefs(u, t, l, a, w, b) },
         combine(trainingData.snapshot, settings.observeStreakReminder()) { snapshot, reminder -> snapshot to reminder },
         exercises.observeAliases(), exercises.observeWorkingSetRatios(), programs.observeState(),
     ) { prefs, (snapshot, reminder), aliases, overrides, programState ->
@@ -113,6 +121,7 @@ internal class SettingsModel(
             account = prefs.account,
             unit = prefs.unit,
             theme = prefs.theme,
+            language = prefs.language,
             autoWarmups = prefs.autoWarmups,
             barWeightKg = prefs.barWeightKg,
             customExercises = snapshot.exercises.filter { !it.isBuiltIn }.sortedBy { it.name },
@@ -125,6 +134,7 @@ internal class SettingsModel(
 
     fun setUnit(unit: WeightUnit) { scope.launch { settings.setUnit(unit) } }
     fun setTheme(mode: ThemeMode) { scope.launch { settings.setThemeMode(mode) } }
+    fun setLanguage(language: AppLanguage) { scope.launch { settings.setLanguage(language) } }
     fun setAutoWarmups(on: Boolean) { scope.launch { settings.setAutoWarmups(on) } }
     fun setStreakReminder(on: Boolean) { scope.launch { settings.setStreakReminder(on) } }
     fun setBarWeightKg(kg: Double) { scope.launch { settings.setBarWeightKg(kg) } }
@@ -206,6 +216,12 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
             SectionHeader(stringResource(Res.string.appearance))
             GainsCard(Modifier.fillMaxWidth()) {
                 ChipRow(ThemeMode.entries, state.theme, { it.label() }, { model.setTheme(it) })
+            }
+            SectionHeader(stringResource(Res.string.language))
+            GainsCard(Modifier.fillMaxWidth()) {
+                ChipRow(AppLanguage.entries, state.language, { it.label() }, { model.setLanguage(it) })
+                Spacer(Modifier.height(10.dp))
+                Text(stringResource(Res.string.language_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             SectionHeader(stringResource(Res.string.display_units))
             GainsCard(Modifier.fillMaxWidth()) {

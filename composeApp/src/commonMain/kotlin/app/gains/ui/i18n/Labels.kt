@@ -8,6 +8,7 @@ import app.gains.analysis.UnitLabels
 import app.gains.auth.AccountKind
 import app.gains.csv.CsvProblem
 import app.gains.csv.SkipReason
+import app.gains.data.AppLanguage
 import app.gains.data.ThemeMode
 import app.gains.domain.Equipment
 import app.gains.domain.Experience
@@ -128,6 +129,13 @@ internal val MuscleGroup.res: StringResource get() = when (this) {
     ThemeMode.DARK -> Res.string.theme_dark
     ThemeMode.LIGHT -> Res.string.theme_light
     ThemeMode.SYSTEM -> Res.string.theme_system
+})
+
+/** Each language names itself in its own words, so the list reads the same whichever is in force. */
+@Composable internal fun AppLanguage.label(): String = stringResource(when (this) {
+    AppLanguage.SYSTEM -> Res.string.language_system
+    AppLanguage.ENGLISH -> Res.string.language_english
+    AppLanguage.RUSSIAN -> Res.string.language_russian
 })
 
 @Composable internal fun AccountKind.label(): String = stringResource(when (this) {
