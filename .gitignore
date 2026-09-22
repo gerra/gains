@@ -31,5 +31,7 @@ __pycache__/
 /secrets/.env
 /secrets/.env.*
 !/secrets/.env.example
+# Google's plist file for Google OAuth
+/secrets/*.plist
 /server/data/
 /data/
