@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -44,11 +45,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.InsightKind
+import app.gains.auth.AccountKind
 import app.gains.auth.AccountRepository
 import app.gains.auth.AuthConfig
 import app.gains.auth.AuthNotConfiguredException
+import app.gains.auth.SignInCancelledException
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.ChartMath
+import app.gains.ui.components.AppleLogo
 import app.gains.ui.components.DeltaBadge
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
@@ -74,7 +78,7 @@ internal class SignInModel(
     /** The provider whose sign-in is not configured, after a tap on its button; the screen words it. */
     var error by mutableStateOf<AuthNotConfiguredException?>(null)
         private set
-    /** A sign-in that was configured but did not go through: the sheet was dismissed, or the server could not be reached. */
+    /** A sign-in that was configured but did not go through: the provider or the server refused, or could not be reached. */
     var failed by mutableStateOf(false)
         private set
 
@@ -91,12 +95,24 @@ internal class SignInModel(
             block()
         } catch (e: AuthNotConfiguredException) {
             error = e
+        } catch (e: SignInCancelledException) {
+            // Closing the sheet is a choice, not a failure: the screen stays as it was.
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             failed = true
         }
     }
+}
+
+/**
+ * The sign-in buttons to offer, Apple first as its guidelines ask. Only the enabled providers are
+ * shown, so an iOS build with Apple alone has no dead Google button; empty when neither is enabled,
+ * and the screen then shows both disabled as a sign of what is coming.
+ */
+internal fun signInButtons(config: AuthConfig): List<AccountKind> = buildList {
+    if (config.appleEnabled) add(AccountKind.APPLE)
+    if (config.googleEnabled) add(AccountKind.GOOGLE)
 }
 
 /**
@@ -137,14 +153,25 @@ internal fun SignInScreen() {
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(12.dp))
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ProviderButton("Google", enabled = model.config.googleEnabled, Modifier.weight(1f)) { model.signInWithGoogle() }
-                ProviderButton("Apple", enabled = model.config.appleEnabled, Modifier.weight(1f)) { model.signInWithApple() }
+            val buttons = signInButtons(model.config)
+            if (buttons.isEmpty()) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ProviderButton("Google", enabled = false, Modifier.weight(1f)) {}
+                    ProviderButton("Apple", enabled = false, Modifier.weight(1f)) {}
+                }
+                Spacer(Modifier.height(10.dp))
             }
-            Spacer(Modifier.height(10.dp))
+            for (kind in buttons) {
+                when (kind) {
+                    AccountKind.APPLE -> AppleSignInButton(Modifier.fillMaxWidth()) { model.signInWithApple() }
+                    AccountKind.GOOGLE -> ProviderButton(stringResource(Res.string.sign_in_with_google), enabled = true, Modifier.fillMaxWidth()) { model.signInWithGoogle() }
+                    AccountKind.GUEST -> Unit
+                }
+                Spacer(Modifier.height(10.dp))
+            }
             PrimaryButton(stringResource(Res.string.continue_as_guest), onClick = { model.continueAsGuest() }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
-            val note = if (model.config.googleEnabled && model.config.appleEnabled) stringResource(Res.string.guest_note_with_sync) else stringResource(Res.string.guest_note_coming_soon)
+            val note = if (buttons.isNotEmpty()) stringResource(Res.string.guest_note_with_sync) else stringResource(Res.string.guest_note_coming_soon)
             val message = model.error?.let { stringResource(Res.string.sign_in_not_configured, it.provider.label()) }
                 ?: if (model.failed) stringResource(Res.string.sign_in_failed) else note
             Text(message, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
@@ -250,5 +277,27 @@ private fun ProviderButton(provider: String, enabled: Boolean, modifier: Modifie
         ),
     ) {
         Text(provider, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+/**
+ * Sign in with Apple as Apple's Human Interface Guidelines draw it: the logo and "Sign in with
+ * Apple", black on a light theme and white on a dark one. App Review checks this, so it keeps
+ * the brand colours rather than the app's palette.
+ */
+@Composable
+private fun AppleSignInButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val dark = GainsColors.palette.isDark
+    val container = if (dark) Color.White else Color.Black
+    val content = if (dark) Color.Black else Color.White
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(50.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = content),
+    ) {
+        AppleLogo(Modifier.size(18.dp), color = content)
+        Spacer(Modifier.width(8.dp))
+        Text(stringResource(Res.string.sign_in_with_apple), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }

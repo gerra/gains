@@ -78,7 +78,7 @@ These are console work. Agents should assume they're done or in progress and mus
 
 ## 1. iOS: configuration and Sign in with Apple
 
-- [ ] Done
+- [x] Done
 
 **Depends on:** nothing.
 
