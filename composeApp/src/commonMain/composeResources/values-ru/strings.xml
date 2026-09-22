@@ -1041,6 +1041,24 @@
         <item quantity="many">Не включать их в тренировку или сохранить как выполненные?</item>
         <item quantity="other">Не включать их в тренировку или сохранить как выполненные?</item>
     </plurals>
+    <!-- Итоги тренировки после завершения сессии. -->
+    <string name="workout_logged">ТРЕНИРОВКА ЗАПИСАНА</string>
+    <string name="tap_to_change">Нажми, чтобы изменить</string>
+    <string name="muscles_trained">Какие мышцы работали</string>
+    <string name="no_muscles_trained">Нет рабочих подходов, которые засчитались бы мышцам.</string>
+    <string name="last_weight_on">Последняя запись — %1$s, %2$s.</string>
+    <string name="no_bodyweight_yet">Вес тела ещё не записан.</string>
+    <string name="caption_and_photo">Подпись и фото</string>
+    <string name="caption_placeholder">Как прошло?</string>
+    <string name="workout_photo">Фото тренировки</string>
+    <string name="add_photo">Добавить фото</string>
+    <string name="remove_photo">Убрать</string>
+    <string name="adding_photo">Добавляем…</string>
+    <string name="summary_row">Итоги, фото и подпись</string>
+    <string name="choose_a_photo">Выбери фото</string>
+    <string name="photo_pill">Фото</string>
+    <string name="save">Сохранить</string>
+    <string name="saved">Записано</string>
     <string-array name="months_short">
         <item>янв</item>
         <item>фев</item>

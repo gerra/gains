@@ -12,12 +12,15 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
@@ -38,6 +41,7 @@ import app.gains.importer.CsvFile
 import app.gains.importer.ImportService
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
+import app.gains.platform.PhotoPicker
 import app.gains.platform.PickedFile
 import app.gains.ui.charts.BodyMapModel
 import app.gains.ui.components.GainsLogo
@@ -47,6 +51,10 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.minus
 import org.koin.core.context.stopKoin
 import org.koin.dsl.module
+import java.awt.Color as AwtColor
+import java.awt.GradientPaint
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.math.sin
@@ -78,7 +86,11 @@ class ScreenshotTest {
         // 480×860 dp at 2× density: the same layout as the desktop window, at retina resolution.
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(2f)) {
-                App(filePicker = CsvFilePicker { onResult -> onResult(emptyList()) })
+                App(
+                    filePicker = CsvFilePicker { onResult -> onResult(emptyList()) },
+                    // No photo library on a headless runner: the summary's picker gets a drawn stand-in.
+                    photoPicker = PhotoPicker { onResult -> onResult(standInPhoto()) },
+                )
             }
         }
 
@@ -253,7 +265,8 @@ class ScreenshotTest {
         val bodyweight = inject<BodyweightRepository>()
         val today = Dates.today()
         runBlocking {
-            for (daysAgo in 0 until 90 step 2) {
+            // From yesterday back: today is left open, so the summary after a workout has one to record.
+            for (daysAgo in 1 until 90 step 2) {
                 val kg = 82.0 - (90 - daysAgo) * 0.03 + sin(daysAgo / 3.0) * 0.4
                 bodyweight.upsert(BodyweightEntry(today.minus(daysAgo, DateTimeUnit.DAY), (kg * 10).toInt() / 10.0))
             }
@@ -340,6 +353,50 @@ class ScreenshotTest {
         // Only one set was ticked, so ending asks about the rest; keep them all.
         require(text("aren't ticked off"))
         onNode(text("Save all") and hasClickAction()).performClick()
+
+        // 9b. The ended workout hands over to its summary: how long it took, the day's body weight
+        // and a caption with a photo to fill in, then what it trained. Everything here edits the
+        // session already stored.
+        require(text("Workout logged"), 60_000)
+        settle(1_500)
+        shot("17-summary")
+        // The duration is the clock's, and a tap puts it on the wheels.
+        onAllNodes(text("Tap to change")).onFirst().performTouchInput { click() }
+        require(text("Leave at zero"))
+        settle(1_000)
+        shot("17b-summary-duration")
+        // The sheet is a root of its own, added after the screen's, so its Done is the last one.
+        onAllNodes(hasText("Done") and hasClickAction()).onLast().performClick()
+        settle(1_500)
+        // The last body weight is filled in, ready to be recorded against the day that was trained.
+        // A row is paged to before it is scrolled into view: the list composes a little past its
+        // viewport, so a row that exists may still be under the tab bar, where a tap never reaches it.
+        scrollUntil(text("Workout logged"), hasText("Save") and hasClickAction())
+        scrollIntoView(hasText("Save") and hasClickAction())
+        onNode(hasText("Save") and hasClickAction()).performClick()
+        require(hasText("Saved"))
+        // A caption and a photo to remember the session by.
+        scrollUntil(hasText("Saved"), hasContentDescription("Add photo"))
+        scrollIntoView(hasContentDescription("Add photo"))
+        onNode(hasContentDescription("Add photo") and hasClickAction()).performClick()
+        require(hasContentDescription("Workout photo"))
+        settle(1_000)
+        scrollIntoView(hasSetTextAction())
+        onNode(hasSetTextAction()).performClick()
+        onNode(hasSetTextAction()).performTextInput("Squats moved well, bench felt heavy.")
+        settle(1_500)
+        scrollIntoView(hasContentDescription("Workout photo"))
+        settle(1_000)
+        shot("17c-summary-photo")
+        // The body it trained sits below what there is to fill in.
+        scrollUntil(hasContentDescription("Workout photo"), hasContentDescription("Muscle map"))
+        scrollIntoView(hasContentDescription("Muscle map"))
+        settle(1_500)
+        shot("17d-summary-muscles")
+        scrollUntil(hasContentDescription("Muscle map"), hasText("Done") and hasClickAction())
+        scrollIntoView(hasText("Done") and hasClickAction())
+        onNode(hasText("Done") and hasClickAction()).performClick()
+
         require(text("What's moving"), 60_000)
         settle(1_000)
         check(!exists(text("Resume"))) { "The resume bar is still showing after the session was ended" }
@@ -363,6 +420,22 @@ class ScreenshotTest {
         settle(1_500)
         shot("11-lift-detail-light")
         watchdog.interrupt()
+    }
+
+    /**
+     * A picture for the summary's photo slot: there is no library on a headless runner, and a drawn
+     * one keeps the screenshots the same from run to run.
+     */
+    private fun standInPhoto(): ByteArray {
+        val image = BufferedImage(1200, 900, BufferedImage.TYPE_INT_RGB)
+        val g = image.createGraphics()
+        g.paint = GradientPaint(0f, 0f, AwtColor(0x1B, 0x20, 0x2C), 1200f, 900f, AwtColor(0x3A, 0x4A, 0x20))
+        g.fillRect(0, 0, 1200, 900)
+        g.color = AwtColor(0xC8, 0xFF, 0x4D)
+        g.fillRoundRect(120, 380, 960, 60, 30, 30)
+        for (x in intArrayOf(60, 1020)) g.fillRoundRect(x, 300, 120, 220, 24, 24)
+        g.dispose()
+        return ByteArrayOutputStream().also { ImageIO.write(image, "jpg", it) }.toByteArray()
     }
 
     @Test

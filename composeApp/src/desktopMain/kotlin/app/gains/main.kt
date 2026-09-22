@@ -23,6 +23,7 @@ import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.LiveSessionNotice
 import app.gains.platform.LiveSessionNotifier
+import app.gains.platform.PhotoPicker
 import app.gains.platform.PickedFile
 import app.gains.platform.ResumeRequests
 import app.gains.platform.SkipRestRequests
@@ -77,7 +78,8 @@ fun main(args: Array<String>) {
             SideEffect { frame = window }
             val texts = rememberTexts()
             val filePicker = remember(texts) { DesktopFilePicker(texts) }
-            App(filePicker = filePicker, notifier = notifier)
+            val photoPicker = remember(texts) { DesktopPhotoPicker(texts) }
+            App(filePicker = filePicker, notifier = notifier, photoPicker = photoPicker)
         }
     }
 }
@@ -94,6 +96,20 @@ private object VoltDot : Painter() {
     override val intrinsicSize: Size get() = Size(16f, 16f)
     override fun DrawScope.onDraw() {
         drawCircle(Color(0xFFC8FF4D))
+    }
+}
+
+/** The workout photo, from the same AWT dialog the CSV picker uses, narrowed to image files. */
+internal class DesktopPhotoPicker(private val texts: Texts) : PhotoPicker {
+    override fun pick(onResult: (ByteArray?) -> Unit) {
+        val dialog = FileDialog(null as Frame?, runBlocking { texts.get(Res.string.choose_a_photo) }, FileDialog.LOAD)
+        dialog.setFilenameFilter { _, name -> IMAGE_SUFFIXES.any { name.endsWith(it, ignoreCase = true) } }
+        dialog.isVisible = true
+        onResult(dialog.files.firstOrNull { it.isFile }?.readBytes())
+    }
+
+    private companion object {
+        val IMAGE_SUFFIXES = listOf(".jpg", ".jpeg", ".png", ".webp", ".heic", ".gif", ".bmp")
     }
 }
 
