@@ -67,6 +67,8 @@ import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
@@ -75,32 +77,58 @@ internal class SignInModel(
     private val accounts: AccountRepository = inject(),
     val config: AuthConfig = inject(),
 ) : ScreenModel() {
+    private val attempt = SignInAttempt(scope, accounts)
+
     /** The provider whose sign-in is not configured, after a tap on its button; the screen words it. */
-    var error by mutableStateOf<AuthNotConfiguredException?>(null)
-        private set
+    val error: AuthNotConfiguredException? get() = attempt.error
     /** A sign-in that was configured but did not go through: the provider or the server refused, or could not be reached. */
-    var failed by mutableStateOf(false)
-        private set
+    val failed: Boolean get() = attempt.failed
 
     fun continueAsGuest() = scope.launch { accounts.continueAsGuest() }
 
-    fun signInWithGoogle() = signIn { accounts.signInWithGoogle() }
+    fun signInWithGoogle() = attempt.google()
 
-    fun signInWithApple() = signIn { accounts.signInWithApple() }
+    fun signInWithApple() = attempt.apple()
+}
 
-    private fun signIn(block: suspend () -> Unit) = scope.launch {
+/**
+ * One sign-in through a provider's sheet, shared by the welcome screen and Settings so both treat
+ * its endings alike: closing the sheet says nothing, a provider this build lacks says it is not
+ * configured, and anything else says the sign-in failed. The account changes only when a sign-in
+ * goes through, so a guest who gives up in Settings is still a guest with everything in place.
+ */
+internal class SignInAttempt(private val scope: CoroutineScope, private val accounts: AccountRepository) {
+    var error by mutableStateOf<AuthNotConfiguredException?>(null)
+        private set
+    var failed by mutableStateOf(false)
+        private set
+    /** A sheet is up or its token is on the way to the server; a second tap waits for it rather than opening another. */
+    var running by mutableStateOf(false)
+        private set
+
+    fun google(): Job = run { accounts.signInWithGoogle() }
+
+    fun apple(): Job = run { accounts.signInWithApple() }
+
+    private fun run(block: suspend () -> Unit): Job {
+        if (running) return Job().apply { complete() }
+        running = true
         error = null
         failed = false
-        try {
-            block()
-        } catch (e: AuthNotConfiguredException) {
-            error = e
-        } catch (e: SignInCancelledException) {
-            // Closing the sheet is a choice, not a failure: the screen stays as it was.
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            failed = true
+        return scope.launch {
+            try {
+                block()
+            } catch (e: AuthNotConfiguredException) {
+                error = e
+            } catch (e: SignInCancelledException) {
+                // Closing the sheet is a choice, not a failure: the screen stays as it was.
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failed = true
+            } finally {
+                running = false
+            }
         }
     }
 }
@@ -262,12 +290,13 @@ private fun Feature(title: String, body: String, modifier: Modifier = Modifier) 
     }
 }
 
+/** A provider's pill: Google's, and both while neither is configured. Settings uses a lower one. */
 @Composable
-private fun ProviderButton(provider: String, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun ProviderButton(provider: String, enabled: Boolean, modifier: Modifier = Modifier, height: Dp = 50.dp, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(50.dp),
+        modifier = modifier.height(height),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -283,21 +312,34 @@ private fun ProviderButton(provider: String, enabled: Boolean, modifier: Modifie
 /**
  * Sign in with Apple as Apple's Human Interface Guidelines draw it: the logo and "Sign in with
  * Apple", black on a light theme and white on a dark one. App Review checks this, so it keeps
- * the brand colours rather than the app's palette.
+ * the brand colours rather than the app's palette. [label] must stay one of the titles the
+ * guidelines allow ("Sign in with", "Sign up with" or "Continue with Apple").
  */
 @Composable
-private fun AppleSignInButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun AppleSignInButton(
+    modifier: Modifier = Modifier,
+    label: String = stringResource(Res.string.sign_in_with_apple),
+    height: Dp = 50.dp,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
     val dark = GainsColors.palette.isDark
     val container = if (dark) Color.White else Color.Black
     val content = if (dark) Color.Black else Color.White
     Button(
         onClick = onClick,
-        modifier = modifier.height(50.dp),
+        enabled = enabled,
+        modifier = modifier.height(height),
         shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = content),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = container,
+            contentColor = content,
+            disabledContainerColor = container.copy(alpha = 0.5f),
+            disabledContentColor = content,
+        ),
     ) {
-        AppleLogo(Modifier.size(18.dp), color = content)
+        AppleLogo(Modifier.size(height * 0.36f), color = content)
         Spacer(Modifier.width(8.dp))
-        Text(stringResource(Res.string.sign_in_with_apple), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }

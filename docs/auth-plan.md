@@ -196,7 +196,7 @@ Steps:
 
 ## 3. Settings: link Google / Apple from a guest account
 
-- [ ] Done
+- [x] Done
 
 **Depends on:** 1. Item 2 isn't required, since each button follows its provider's `*Enabled`
 flag.

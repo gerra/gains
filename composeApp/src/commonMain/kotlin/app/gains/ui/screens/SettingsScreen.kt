@@ -30,6 +30,7 @@ import app.gains.analysis.Format
 import app.gains.analysis.StreakEngine
 import app.gains.analysis.TrainingData
 import app.gains.auth.Account
+import app.gains.auth.AccountKind
 import app.gains.auth.AccountRepository
 import app.gains.auth.AuthConfig
 import app.gains.data.AppLanguage
@@ -139,6 +140,17 @@ internal class SettingsModel(
     fun setStreakReminder(on: Boolean) { scope.launch { settings.setStreakReminder(on) } }
     fun setBarWeightKg(kg: Double) { scope.launch { settings.setBarWeightKg(kg) } }
     fun signOut() { scope.launch { accounts.signOut() } }
+
+    /**
+     * Signs a guest in where they stand, without the sign-out that would drop them on the welcome
+     * screen: the account turns into the provider's when the server answers, the sync controller
+     * starts the first sync because of it, and that sync uploads everything on the device.
+     */
+    val link = SignInAttempt(scope, accounts)
+    /** A link is in flight; the buttons wait for it. */
+    val linking: Boolean get() = link.running
+    fun linkGoogle() = link.google()
+    fun linkApple() = link.apple()
     fun merge(custom: Exercise, into: Exercise) { scope.launch { exercises.merge(custom.id, into.id, custom.name) } }
     fun removeAlias(raw: String) { scope.launch { exercises.removeAlias(raw) } }
     fun clearOverride(exerciseId: String) { scope.launch { exercises.setWorkingSetRatio(exerciseId, null) } }
@@ -180,7 +192,31 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    TextButton(onClick = { model.signOut() }) { Text(if (account?.isGuest == true) stringResource(Res.string.sign_in) else stringResource(Res.string.sign_out), color = palette.volt) }
+                    if (account?.isGuest != true) {
+                        TextButton(onClick = { model.signOut() }) { Text(stringResource(Res.string.sign_out), color = palette.volt) }
+                    }
+                }
+                val providers = signInButtons(model.authConfig)
+                if (account?.isGuest == true && providers.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    for (kind in providers) {
+                        when (kind) {
+                            AccountKind.APPLE -> AppleSignInButton(Modifier.fillMaxWidth(), label = stringResource(Res.string.link_with_apple), height = 40.dp, enabled = !model.linking) { model.linkApple() }
+                            AccountKind.GOOGLE -> ProviderButton(stringResource(Res.string.link_with_google), enabled = !model.linking, Modifier.fillMaxWidth(), height = 40.dp) { model.linkGoogle() }
+                            AccountKind.GUEST -> Unit
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    val error = model.link.error
+                    Text(
+                        when {
+                            error != null -> stringResource(Res.string.sign_in_not_configured, error.provider.label())
+                            model.link.failed -> stringResource(Res.string.sign_in_failed)
+                            else -> stringResource(Res.string.link_note)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (error != null || model.link.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 if (!model.authConfig.googleEnabled && !model.authConfig.appleEnabled) {
                     Spacer(Modifier.height(6.dp))
