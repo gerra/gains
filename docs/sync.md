@@ -33,7 +33,7 @@ flowchart LR
   subgraph laptop["Laptop (SQLite)"]
     E2[SyncEngine]
   end
-  subgraph server["gains.gerra.sh (Ktor, SQLite)"]
+  subgraph server["api.gains.gerra.sh (Ktor, SQLite)"]
     D[(document<br/>user · kind · id · seq · payload)]
     B[(blob<br/>photo bytes)]
   end
@@ -239,12 +239,15 @@ The same playbook as taxes and www, on the same Hetzner box:
   `tools/deploy_server.py install`, which copies the unit and itself to the box and runs there:
   JDK 17 if the box lacks one, the unit installed, restart, smoke test of `/health`. No shell
   anywhere in it, the same way the release workflows run `tools/release.py`.
-- nginx: `deploy/nginx/gains.gerra.sh.conf` proxies to `127.0.0.1:5003`; push it with
+- nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`; push it with
   `python3 tools/deploy_server.py nginx` after the certificate exists
-  (`certbot certonly --nginx -d gains.gerra.sh`).
+  (`certbot certonly --nginx -d api.gains.gerra.sh`).
 - Secrets: `python3 tools/deploy_server.py secrets` copies `secrets/.env` to the box and
   restarts the unit.
 - Data: `/var/lib/gains/gains-server.db`, outside the synced tree; back it up by copying the file.
+- The host is `api.gains.gerra.sh` rather than `gains.gerra.sh` on purpose: the bare name is kept
+  for the app's own page, which App Store Connect needs for the privacy policy and support
+  links, and the API stays on an origin of its own.
 - Logs: `journalctl -u gains-server`, also on gerra.sh/status.
 
 The workflow needs the repository secrets `DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_KEY`, the same

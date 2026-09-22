@@ -16,7 +16,7 @@ On the box itself, run by `install` over ssh:
 From a laptop, against the host alias in REMOTE (hetzner_gb by default):
 
   secrets   Push secrets/.env (never in git, never in the rsync) and restart the unit.
-  nginx     Push deploy/nginx/gains.gerra.sh.conf and reload nginx, if the certificate exists.
+  nginx     Push deploy/nginx/api.gains.gerra.sh.conf and reload nginx, if the certificate exists.
 
 Nothing here goes through a shell: every command is a list of arguments, so paths and secrets
 are never re-parsed. The remote side is this same file, run with the box's python3.
@@ -42,7 +42,7 @@ UNIT = "gains-server"
 UNIT_FILE = ROOT / "deploy" / f"{UNIT}.service"
 DATA_DIR = pathlib.Path("/var/lib/gains")
 HEALTH = "http://127.0.0.1:5003/health"
-VHOST = "gains.gerra.sh"
+VHOST = "api.gains.gerra.sh"
 VHOST_FILE = ROOT / "deploy" / "nginx" / f"{VHOST}.conf"
 
 

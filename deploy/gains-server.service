@@ -1,4 +1,4 @@
-# systemd unit for gains.gerra.sh — installed by the deploy workflow on every deploy
+# systemd unit for api.gains.gerra.sh — installed by the deploy workflow on every deploy
 # (taxes / www pattern: `install -m 644 deploy/gains-server.service /etc/systemd/system/`).
 #
 # Env vars come from secrets/.env under the working directory, read by the server itself
@@ -7,7 +7,7 @@
 # `current/` is what `./gradlew :server:installDist` produces, rsynced by the workflow.
 
 [Unit]
-Description=gains.gerra.sh sync server (Ktor)
+Description=api.gains.gerra.sh sync server (Ktor)
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=0

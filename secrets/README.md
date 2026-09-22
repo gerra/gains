@@ -12,7 +12,7 @@ environment wins over the file.
 | `GOOGLE_CLIENT_IDS` | static | Comma-separated OAuth client ids whose ID tokens are accepted. Google Cloud console → APIs & Services → Credentials: one **Web application** client (its id is what Android's Credential Manager asks for as `serverClientId`, and the audience of the tokens it returns) and one **iOS** client for the Google Sign-In SDK. Empty disables Google sign-in (the route answers 503). |
 | `APPLE_CLIENT_IDS` | static | Comma-separated audiences of Apple identity tokens: the iOS bundle id `app.gains.Gains` for Sign in with Apple on the phone, plus the **Services ID** (developer.apple.com → Identifiers → Services IDs) when the web flow is offered on Android or the desktop. Empty disables Apple sign-in. |
 | `GAINS_DATA_DIR` | env-specific | Where `gains-server.db` lives. `/var/lib/gains` in prod (created on first start), `./data` in dev. |
-| `PORT` | optional | `5003`; nginx proxies `gains.gerra.sh` to it (`deploy/nginx/gains.gerra.sh.conf`). |
+| `PORT` | optional | `5003`; nginx proxies `api.gains.gerra.sh` to it (`deploy/nginx/api.gains.gerra.sh.conf`). |
 
 Nothing else is secret. The Apple `.p8` key is not needed: the server only *verifies* Apple's
 tokens against its public keys, it never asks Apple for anything.
