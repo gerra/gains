@@ -256,7 +256,7 @@
     <string name="aliases">Aliases</string>
     <string name="working_set_overrides">Working-set overrides</string>
     <string name="data">Data</string>
-    <string name="data_note">Imported workouts and bodyweight entries live in a local database on this device. Nothing leaves the device until sync exists and you sign in.</string>
+    <string name="data_note">Imported workouts and bodyweight entries live in a local database on this device. As a guest nothing leaves the device. Once you sign in, your workouts, body weight and photos sync to the Gains server.</string>
     <string name="delete_all_sessions">Delete all imported sessions</string>
     <string name="delete_all_sessions_title">Delete all sessions?</string>
     <string name="delete_all_sessions_body">Imported workouts will be removed. Bodyweight entries, aliases and overrides are kept. You can re-import the CSV at any time.</string>
