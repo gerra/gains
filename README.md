@@ -312,10 +312,9 @@ one-time App Store Connect setup, the workflow secrets and troubleshooting are i
 
 1. Install [TestFlight](https://apps.apple.com/app/testflight/id899247664) from the App Store
    (iOS 16 or later).
-2. Open the invite link on that device: **https://testflight.apple.com/join/XXXXXXXX**
-   <!-- Replace XXXXXXXX with the public link from App Store Connect > TestFlight > the external group. -->
-3. Tap **Accept**, then **Install**. TestFlight offers each new build as an update, and a build
-   expires 90 days after it was uploaded.
+2. Open the invite link on that device: **https://testflight.apple.com/join/T4dqvPW7**
+3. Tap **Accept**, then **Install**. TestFlight offers each build added to the public beta as
+   an update, and a build expires 90 days after it was uploaded.
 
 The beta is the same local-only app as the source here: nothing leaves the device. Report
 problems with **Send Beta Feedback** in TestFlight (a screenshot from the app opens it) or in
