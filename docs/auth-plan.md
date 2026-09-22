@@ -260,7 +260,8 @@ Steps:
 
 ## 5. Settings: sync status and "Sync now"
 
-- [ ] Done
+- [x] Done
+  Done in #67
 
 **Depends on:** nothing, but it's only visible when `AuthConfig.syncEnabled` and signed in.
 

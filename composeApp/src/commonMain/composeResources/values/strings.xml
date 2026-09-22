@@ -221,6 +221,13 @@
     <string name="not_signed_in">Not signed in</string>
     <string name="guest_data_note">Data is saved on this device only. Sign in later to back it up and sync.</string>
     <string name="synced_to_server">Synced to your server</string>
+    <string name="syncing">Syncing…</string>
+    <string name="synced_ago">Synced %1$s ago</string>
+    <string name="synced_just_now">Synced just now</string>
+    <string name="not_synced_yet">Not synced yet</string>
+    <string name="sync_failed">Couldn't sync. Tap Sync now to retry.</string>
+    <string name="sync_signed_out">Signed out on the server. Sign in again.</string>
+    <string name="sync_now">Sync now</string>
     <string name="sign_out">Sign out</string>
     <string name="delete_account">Delete account</string>
     <string name="delete_account_title">Delete your account?</string>
@@ -986,6 +993,10 @@
     <plurals name="week_streak_label">
         <item quantity="one">week streak</item>
         <item quantity="other">week streak</item>
+    </plurals>
+    <plurals name="changes_waiting">
+        <item quantity="one">%1$d change waiting</item>
+        <item quantity="other">%1$d changes waiting</item>
     </plurals>
     <plurals name="days">
         <item quantity="one">%1$d day</item>

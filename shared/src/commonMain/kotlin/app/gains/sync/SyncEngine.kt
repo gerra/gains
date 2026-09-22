@@ -33,7 +33,10 @@ class SyncEngine(
         try {
             val (pushed, rejected) = push()
             val pulled = pull()
-            SyncOutcome(pushed, pulled, rejected).also { _status.value = SyncStatus.Done(SyncStore.now(), it) }
+            val at = SyncStore.now()
+            // Stored as well, so "Synced 5 min ago" survives a restart; the status itself is in memory.
+            store.setLastSyncedAt(at)
+            SyncOutcome(pushed, pulled, rejected).also { _status.value = SyncStatus.Done(at, it) }
         } catch (e: Exception) {
             _status.value = SyncStatus.Failed(SyncStore.now(), e.message ?: e.toString(), (e as? SyncException)?.unauthorized == true)
             throw e

@@ -21,6 +21,7 @@ import app.gains.domain.SetType
 import app.gains.domain.WeightUnit
 import app.gains.sync.SyncApi
 import app.gains.sync.SyncEngine
+import app.gains.sync.SyncStatus
 import app.gains.sync.SyncStore
 import io.ktor.client.HttpClient
 import io.ktor.server.testing.testApplication
@@ -80,9 +81,12 @@ class SyncRoundTripTest {
         phone.sessions.setPhoto("2026-09-20T10:00", byteArrayOf(1, 2, 3, 4))
         phone.bodyweight.upsert(BodyweightEntry(LocalDate(2026, 9, 20), 82.4))
         phone.settings.setUnit(WeightUnit.LBS)
+        assertNull(phone.store.observeLastSyncedAt().first())
         val up = phone.engine.sync()
         assertEquals(4, up.pushed)
         assertEquals(0, up.rejected)
+        // Stored for Settings' "Synced 5 min ago", the same moment the status reports.
+        assertEquals((phone.engine.status.value as SyncStatus.Done).at, phone.store.observeLastSyncedAt().first())
         val down = laptop.engine.sync()
         assertEquals(4, down.pulled)
         val onLaptop = laptop.sessions.observeRawSessions().first().single()

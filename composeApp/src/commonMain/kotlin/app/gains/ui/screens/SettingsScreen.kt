@@ -46,6 +46,9 @@ import app.gains.domain.GoalProfile
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
 import app.gains.program.Gzclp
+import app.gains.sync.SyncController
+import app.gains.sync.SyncEngine
+import app.gains.sync.SyncStore
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
 import app.gains.ui.components.Dp16
@@ -105,6 +108,9 @@ internal class SettingsModel(
     private val sessions: SessionRepository = inject(),
     private val programs: ProgramRepository = inject(),
     trainingData: TrainingData = inject(),
+    syncEngine: SyncEngine = inject(),
+    syncStore: SyncStore = inject(),
+    private val syncController: SyncController = inject(),
 ) : ScreenModel() {
     val state: StateFlow<SettingsState> = combine(
         combine(
@@ -136,6 +142,15 @@ internal class SettingsModel(
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), SettingsState())
 
+    /** The account card's sync line; see [syncUi]. */
+    val sync: StateFlow<SyncUi> = combine(
+        accounts.observeAccount(), syncEngine.status, syncStore.observePendingCount(), syncStore.observeLastSyncedAt(),
+    ) { account, status, pending, last -> syncUi(authConfig.syncEnabled, account, status, pending, last) }
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), SyncUi.Hidden)
+
+    /** "Sync now": the controller runs it after its usual short wait, never alongside another run. */
+    fun syncNow() = syncController.requestSync()
+
     fun setUnit(unit: WeightUnit) { scope.launch { settings.setUnit(unit) } }
     fun setTheme(mode: ThemeMode) { scope.launch { settings.setThemeMode(mode) } }
     fun setLanguage(language: AppLanguage) { scope.launch { settings.setLanguage(language) } }
@@ -154,6 +169,14 @@ internal class SettingsModel(
     val linking: Boolean get() = link.running
     fun linkGoogle() = link.google()
     fun linkApple() = link.apple()
+
+    /**
+     * Signing back in after the server answered 401, with the same buttons. The account row
+     * usually doesn't change (same person, same provider), so the controller sees no new sign-in;
+     * the sync is asked for here instead, which also clears the "signed out" line once it passes.
+     */
+    fun relinkGoogle() { link.google().invokeOnCompletion { syncNow() } }
+    fun relinkApple() { link.apple().invokeOnCompletion { syncNow() } }
 
     /** Deletes the account on the server; see [AccountDeletion]. */
     val deletion = AccountDeletion(scope, accounts)
@@ -210,6 +233,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
     val texts = rememberTexts()
     val model = rememberScreenModel { SettingsModel(texts) }
     val state by model.state.collectAsState()
+    val sync by model.sync.collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmDeleteAccount by remember { mutableStateOf(false) }
     val palette = GainsColors.palette
@@ -236,6 +260,20 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                         TextButton(onClick = { model.signOut() }, enabled = !model.deletion.running) { Text(stringResource(Res.string.sign_out), color = palette.volt) }
                     }
                 }
+                if (sync != SyncUi.Hidden) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) { SyncStatusText(sync) }
+                        TextButton(onClick = { model.syncNow() }, enabled = sync != SyncUi.Running && !model.deletion.running) {
+                            Text(stringResource(Res.string.sync_now), color = palette.volt)
+                        }
+                    }
+                }
+                val providers = signInButtons(model.authConfig)
+                if (sync == SyncUi.SignedOut && providers.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    LinkButtons(providers, model, onApple = { model.relinkApple() }, onGoogle = { model.relinkGoogle() }, note = false)
+                }
                 if (account != null && !account.isGuest) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { confirmDeleteAccount = true }, enabled = !model.deletion.running) {
@@ -246,27 +284,9 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                         Text(stringResource(Res.string.delete_account_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     }
                 }
-                val providers = signInButtons(model.authConfig)
                 if (account?.isGuest == true && providers.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
-                    for (kind in providers) {
-                        when (kind) {
-                            AccountKind.APPLE -> AppleSignInButton(Modifier.fillMaxWidth(), label = stringResource(Res.string.link_with_apple), height = 40.dp, enabled = !model.linking) { model.linkApple() }
-                            AccountKind.GOOGLE -> ProviderButton(stringResource(Res.string.link_with_google), enabled = !model.linking, Modifier.fillMaxWidth(), height = 40.dp) { model.linkGoogle() }
-                            AccountKind.GUEST -> Unit
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-                    val error = model.link.error
-                    Text(
-                        when {
-                            error != null -> stringResource(Res.string.sign_in_not_configured, error.provider.label())
-                            model.link.failed -> stringResource(Res.string.sign_in_failed)
-                            else -> stringResource(Res.string.link_note)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (error != null || model.link.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    LinkButtons(providers, model, onApple = { model.linkApple() }, onGoogle = { model.linkGoogle() }, note = true)
                 }
                 if (!model.authConfig.googleEnabled && !model.authConfig.appleEnabled) {
                     Spacer(Modifier.height(6.dp))
@@ -414,6 +434,37 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                 }
             },
             dismissButton = { TextButton(onClick = { confirmDeleteAccount = false }) { Text(stringResource(Res.string.cancel)) } },
+        )
+    }
+}
+
+/**
+ * The enabled providers' buttons in the account card, and under them what the last attempt came to.
+ * A guest links with them ([note] explains the upload); a signed-in account whose token the server
+ * turned down signs in again with the same ones, where the sync line above already says why.
+ */
+@Composable
+private fun LinkButtons(providers: List<AccountKind>, model: SettingsModel, onApple: () -> Unit, onGoogle: () -> Unit, note: Boolean) {
+    for (kind in providers) {
+        when (kind) {
+            AccountKind.APPLE -> AppleSignInButton(Modifier.fillMaxWidth(), label = stringResource(Res.string.link_with_apple), height = 40.dp, enabled = !model.linking, onClick = onApple)
+            AccountKind.GOOGLE -> ProviderButton(stringResource(Res.string.link_with_google), enabled = !model.linking, Modifier.fillMaxWidth(), height = 40.dp, onClick = onGoogle)
+            AccountKind.GUEST -> Unit
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+    val error = model.link.error
+    val message = when {
+        error != null -> stringResource(Res.string.sign_in_not_configured, error.provider.label())
+        model.link.failed -> stringResource(Res.string.sign_in_failed)
+        note -> stringResource(Res.string.link_note)
+        else -> null
+    }
+    if (message != null) {
+        Text(
+            message,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (error != null || model.link.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

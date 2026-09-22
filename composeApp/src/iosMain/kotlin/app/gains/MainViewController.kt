@@ -10,6 +10,7 @@ import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.PhotoPicker
 import app.gains.platform.PickedFile
+import app.gains.sync.SyncController
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
@@ -19,10 +20,13 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.dsl.module
+import org.koin.mp.KoinPlatform
 import platform.Foundation.NSBundle
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSItemProvider
+import platform.Foundation.NSNotificationCenter
+import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSString
 import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
@@ -33,6 +37,7 @@ import platform.PhotosUI.PHPickerResult
 import platform.PhotosUI.PHPickerViewController
 import platform.PhotosUI.PHPickerViewControllerDelegateProtocol
 import platform.UIKit.UIApplication
+import platform.UIKit.UIApplicationWillEnterForegroundNotification
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UIViewController
@@ -56,9 +61,23 @@ fun MainViewController(): UIViewController {
             },
         )
         koinStarted = true
+        requestSyncOnForeground()
     }
     return ComposeUIViewController {
         App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier, photoPicker = IosPhotoPicker(), nudges = IosNudgeScheduler)
+    }
+}
+
+/**
+ * A sync each time the app comes back to the front, as docs/sync.md promises. Observed here with
+ * UIKit's notification, since Compose's lifecycle isn't among the app's dependencies; the
+ * observer lives as long as the process, like the Koin graph it reads from. The controller does
+ * nothing for a guest or without a server.
+ */
+private fun requestSyncOnForeground() {
+    val sync = KoinPlatform.getKoin().get<SyncController>()
+    NSNotificationCenter.defaultCenter.addObserverForName(UIApplicationWillEnterForegroundNotification, null, NSOperationQueue.mainQueue) { _ ->
+        sync.requestSync()
     }
 }
 

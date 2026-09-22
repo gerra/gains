@@ -212,6 +212,27 @@ class SyncStoreTest {
     }
 
     @Test
+    fun theLastSyncIsKeptUntilTheFeedChangesHands() = runTest {
+        val d = Device()
+        assertNull(d.store.observeLastSyncedAt().first())
+        d.store.startFeed(userId = 7)
+        d.store.setLastSyncedAt("2026-09-22T10:00:00.000Z")
+        assertEquals("2026-09-22T10:00:00.000Z", d.store.observeLastSyncedAt().first())
+
+        // Signing back in to the same account resumes the feed, and its last sync with it.
+        d.store.startFeed(userId = 7)
+        assertEquals("2026-09-22T10:00:00.000Z", d.store.observeLastSyncedAt().first())
+
+        // Another account has not synced on this device yet.
+        d.store.startFeed(userId = 8)
+        assertNull(d.store.observeLastSyncedAt().first())
+
+        d.store.setLastSyncedAt("2026-09-22T11:00:00.000Z")
+        d.store.forgetFeed()
+        assertNull(d.store.observeLastSyncedAt().first())
+    }
+
+    @Test
     fun theClockReadsLikeTheTriggersWrite() = runTest {
         val d = Device()
         d.bodyweight.upsert(BodyweightEntry(LocalDate(2026, 9, 20), 82.4))
