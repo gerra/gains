@@ -6,7 +6,8 @@ Three commands, one per step that used to be inline shell:
   cut     Branch release/<major>.<minor> off main and commit the new version on it.
           Used by .github/workflows/release-branch.yml, every even hour 08:00-22:00 UTC.
   pick    Choose the release branch to upload and the commit to upload it from.
-  finish  Tag the commit that shipped and open the branch's pull request back to main.
+  finish  Tag the commit that shipped, open the branch's pull request back to main and
+          publish the build as the latest GitHub release.
           Both used by .github/workflows/release.yml, every odd hour 09:00-23:00 UTC.
 
 How the pieces fit together: docs/testflight.md#releases-through-the-day
@@ -232,7 +233,7 @@ def pick(args):
     gha.output(upload="true", branch=branch, version=version, sha=sha)
 
 
-# --- finish: tag the build and open the pull request ------------------------
+# --- finish: tag the build, open the pull request, publish the release ----
 
 
 def tag_shipped_commit(version, build, sha):
@@ -248,6 +249,15 @@ def tag_shipped_commit(version, build, sha):
     gha.run("git", "push", "origin", tag)
 
 
+def changes_since(previous, sha):
+    """The subjects of the commits on the way from release/<previous> to `sha`, as a list."""
+    return gha.stdout(
+        "git", "log", "-n", "100", "--no-merges", "--format=- %s",
+        f"origin/release/{previous}..{sha}",
+        "--", ".", ":(exclude)iosApp/Configuration/Config.xcconfig",
+    )
+
+
 def pull_request_body(version, build, sha, branch, previous):
     """What the Release <version> pull request says, including the list of changes."""
     lines = [
@@ -257,13 +267,33 @@ def pull_request_body(version, build, sha, branch, previous):
         "back to `main`.",
     ]
     if previous:
-        changes = gha.stdout(
-            "git", "log", "-n", "100", "--no-merges", "--format=- %s",
-            f"origin/release/{previous}..{sha}",
-            "--", ".", ":(exclude)iosApp/Configuration/Config.xcconfig",
-        )
-        lines += ["", f"## Changes since release/{previous}", "", changes]
+        lines += ["", f"## Changes since release/{previous}", "", changes_since(previous, sha)]
     return "\n".join(lines) + "\n"
+
+
+def release_notes(version, build, sha, previous, changes=None):
+    """What the GitHub release for a build says. `changes` is the list since `previous`."""
+    lines = [f"Gains **{version}** (build {build}) went to TestFlight from {sha[:7]}."]
+    if previous and changes:
+        lines += ["", f"## Changes since Gains {previous}", "", changes]
+    return "\n".join(lines) + "\n"
+
+
+def publish_release(version, build, sha):
+    """Publishes the build's tag as the latest GitHub release, which the README links to."""
+    tag = f"testflight/{version}/{build}"
+    known = gha.run("gh", "release", "view", tag, check=False, capture=True)
+    if known.returncode == 0:
+        print(f"Release {tag} already exists (re-run)")
+        return
+    previous = previous_version(release_versions(), version)
+    changes = changes_since(previous, sha) if previous else None
+    notes = gha.temp("release-notes.md")
+    notes.write_text(release_notes(version, build, sha, previous, changes))
+    gha.run(
+        "gh", "release", "create", tag, "--verify-tag", "--latest",
+        "--title", f"Gains {version} ({build})", "--notes-file", str(notes),
+    )
 
 
 def open_pull_request(version, build, sha, branch):
@@ -308,6 +338,7 @@ def open_pull_request(version, build, sha, branch):
 def finish(args):
     tag_shipped_commit(args.version, args.build, args.sha)
     open_pull_request(args.version, args.build, args.sha, args.branch)
+    publish_release(args.version, args.build, args.sha)
 
 
 # --- entry point ------------------------------------------------------------
@@ -343,7 +374,9 @@ def main(argv=None):
     )
     pick_parser.set_defaults(handler=pick)
 
-    finish_parser = commands.add_parser("finish", help="tag the build and open the pull request")
+    finish_parser = commands.add_parser(
+        "finish", help="tag the build, open the pull request and publish the release"
+    )
     for name in ("branch", "version", "sha", "build"):
         finish_parser.add_argument(
             f"--{name}", default=env(name.upper()), required=not env(name.upper())

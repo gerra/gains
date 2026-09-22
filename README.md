@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/gerra/gains/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/gerra/gains/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/gerra/gains/actions/workflows/testflight.yml"><img alt="TestFlight" src="https://github.com/gerra/gains/actions/workflows/testflight.yml/badge.svg"></a>
+  <a href="https://github.com/gerra/gains/releases/latest"><img alt="Latest TestFlight build" src="https://img.shields.io/github/v/release/gerra/gains?display_name=release&label=TestFlight&logo=apple&color=0D96F6"></a>
   <img alt="Kotlin 2.3" src="https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white">
   <img alt="Compose Multiplatform 1.7" src="https://img.shields.io/badge/Compose_Multiplatform-1.7-4285F4?logo=jetpackcompose&logoColor=white">
   <img alt="Platforms: iOS, Android, Desktop" src="https://img.shields.io/badge/platforms-iOS_%C2%B7_Android_%C2%B7_Desktop-0B0D12">
@@ -50,8 +50,9 @@ month. Every statement comes with the numbers and the chart behind it.
 It is a [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html) app with a
 [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/) UI. iOS is the primary
 target; Android and a desktop (JVM) build share the same code. Everything lives in a local
-SQLite database on the device. Signing in adds a self-hosted sync server that carries your
-documents between devices and never reads them; as a guest, nothing leaves your device.
+SQLite database on the device. Signing in will add a self-hosted sync server that carries your
+data between devices; until the sign-in sheets ship, and always as a guest, nothing leaves your
+device.
 
 <details>
 <summary><strong>Table of contents</strong></summary>
@@ -72,7 +73,9 @@ documents between devices and never reads them; as a guest, nothing leaves your 
 - [Insights](#insights)
 - [Streaks and the nudge](#streaks-and-the-nudge)
 - [Architecture](#architecture)
+  - [Accounts and sync](#accounts-and-sync)
 - [Development](#development)
+  - [Languages](#languages)
 - [Roadmap](#roadmap)
 - [Known limitations](#known-limitations)
 - [Contributing](#contributing)
@@ -178,8 +181,9 @@ documents between devices and never reads them; as a guest, nothing leaves your 
   listed with a reason.
 - **Dark and light themes**, a floating pill navigation and animated Canvas charts with no
   charting library.
-- **Local first.** Guest mode keeps everything on the device. Sign-in and sync light up only
-  once a server exists.
+- **Local first.** Guest mode keeps everything on the device. The sync server is running at
+  `api.gains.gerra.sh`; sign-in and sync light up once the native sign-in sheets land
+  ([docs/auth-plan.md](docs/auth-plan.md)).
 - **English and Russian.** Settings → Language switches between them where you stand, with no
   relaunch, and follows the device while it is left on System. Down to the insight sentences, the
   progression hints, the built-in programs and every exercise in the catalogue. See
@@ -203,6 +207,18 @@ tab, so the pictures cannot drift from the code.
     <td align="center"><img src="docs/screenshots/06-lift-detail.png" alt="Lift detail" width="230"><br><sub>Lift detail</sub></td>
     <td align="center"><img src="docs/screenshots/07-volume.png" alt="Volume" width="230"><br><sub>Weekly volume on the body</sub></td>
     <td align="center"><img src="docs/screenshots/07b-volume-muscle.png" alt="Volume with a muscle selected" width="230"><br><sub>Tap a muscle to filter</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/01b-onboarding.png" alt="Goal onboarding" width="230"><br><sub>Goal onboarding</sub></td>
+    <td align="center"><img src="docs/screenshots/12-programs.png" alt="Programs" width="230"><br><sub>Programs ranked by fit</sub></td>
+    <td align="center"><img src="docs/screenshots/13-program-detail.png" alt="Program detail" width="230"><br><sub>A program, week by week</sub></td>
+    <td align="center"><img src="docs/screenshots/14-program-day-ready.png" alt="A program day, ready to start" width="230"><br><sub>A day, ready to start</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/14-program-day.png" alt="A timed session with the rest countdown" width="230"><br><sub>Timed session and rest</sub></td>
+    <td align="center"><img src="docs/screenshots/14b-weight-picker.png" alt="Weight picker" width="230"><br><sub>Weights on a wheel</sub></td>
+    <td align="center"><img src="docs/screenshots/15-home-program.png" alt="Home with the next program day" width="230"><br><sub>Up next, and resume</sub></td>
+    <td align="center"><img src="docs/screenshots/16-log-workout.png" alt="Log a past workout" width="230"><br><sub>Log a past workout</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/08-body.png" alt="Bodyweight" width="230"><br><sub>Bodyweight</sub></td>
@@ -229,7 +245,8 @@ the miss, a safe week, a full one, a week a rest week carried, and an empty slat
 ## Getting started
 
 Requirements: JDK 17 or newer. Android additionally needs Android Studio with SDK 35, iOS needs
-Xcode 15 or newer on a Mac.
+Xcode on a Mac (Xcode 26 to upload to App Store Connect, which only takes builds made with the
+current iOS SDK).
 
 ```bash
 git clone https://github.com/gerra/gains.git
@@ -283,8 +300,11 @@ To put a build on a phone without a Mac and a cable, see [TestFlight](#testfligh
 ## TestFlight
 
 Gains reaches iPhones and iPads through [TestFlight](https://developer.apple.com/testflight/).
-Builds are signed by the team in `iosApp/Configuration/Config.xcconfig` and uploaded from Xcode
-or by the [TestFlight workflow](.github/workflows/testflight.yml). The full checklist, the
+The newest build is the [latest release](https://github.com/gerra/gains/releases/latest), with
+what changed since the one before; every build is listed under
+[Releases](https://github.com/gerra/gains/releases). Builds are signed by the team in
+`iosApp/Configuration/Config.xcconfig` and uploaded from Xcode or by the
+[TestFlight workflow](.github/workflows/testflight.yml). The full checklist, the
 one-time App Store Connect setup, the workflow secrets and troubleshooting are in
 [docs/testflight.md](docs/testflight.md).
 
@@ -311,8 +331,9 @@ the [issue tracker](https://github.com/gerra/gains/issues).
 (distribution certificate, App Store profile, App Store Connect API key). Then, every two
 hours through the day, a release branch `release/<major>.<minor>` is cut from `main` with the
 minor bumped — on the even hours from 08:00 to 22:00 UTC — uploaded to TestFlight an hour
-later, and offered back to `main` as a pull request. Commits merged in between ride the next
-branch; a quiet couple of hours ships nothing. A `v*` tag or **Run workflow** in the Actions
+later, published as a [GitHub release](https://github.com/gerra/gains/releases) and offered
+back to `main` as a pull request. Commits merged in between ride the next branch; a quiet
+couple of hours ships nothing. A `v*` tag or **Run workflow** in the Actions
 tab uploads by hand. The run number becomes the build number.
 Details in [docs/testflight.md](docs/testflight.md#releases-through-the-day).
 
@@ -470,14 +491,17 @@ flowchart LR
   UI -->|schedule reminders| N[Local notifications]
   UI -->|log / edit| DB
   UI --- iOS & Android & Desktop
+  DB <-->|sync worker<br/>once signed in| SV[(Sync server<br/>Ktor · SQLite)]
 ```
 
 | Module | Contents |
 |--------|----------|
-| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence (including the workout in progress), insight engine, streak engine, program rotation and progression logic. Pure Kotlin, no UI, 100+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
+| [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence (including the workout in progress), insight engine, streak engine, program rotation and progression logic. Pure Kotlin, no UI, 180+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
 | [`composeApp/`](composeApp) | Compose Multiplatform UI (goal onboarding, home insights with the next program day, programs and a program editor, history with a workout editor, the end-of-session summary, import preview, lifts, volume, bodyweight, settings), Canvas charts and the Android, iOS and desktop entry points. |
-| [`iosApp/`](iosApp) | Xcode project wrapping the `ComposeApp` framework in SwiftUI. |
+| [`iosApp/`](iosApp) | Xcode project wrapping the `ComposeApp` framework in SwiftUI, plus the Xcode Cloud script. |
 | [`server/`](server) | The sync server: Ktor on a SQLite file, sign-in with Google or Apple identity tokens, a per-user document feed and photo blobs. Built on `shared`'s JVM target so both ends share the wire format; tested by syncing two real client databases through the real routes. |
+| [`deploy/`](deploy) | The server's systemd unit and nginx block. |
+| [`tools/`](tools) | Python for the release process, the TestFlight upload, the server deploy, branch pruning and the exercise photos, with their tests. |
 | [`samples/`](samples) | A generated eight-month Liftoff export used by the screenshots and handy for trying the app. |
 
 Dependencies are wired with [Koin](https://insert-koin.io/); each platform supplies a
@@ -499,6 +523,10 @@ streak reminder stay put. Signing in on a device that already holds guest data m
 the account. Settings shows the current account and lets you return to the sign-in screen; local
 data is kept.
 
+The server is live at `api.gains.gerra.sh`, but the app still ships with an empty `AuthConfig` and
+no native sign-in sheet, so the provider buttons are disabled and every install runs as a guest.
+[docs/auth-plan.md](docs/auth-plan.md) is the queue of work that turns them on, iOS first.
+
 What is synced is a set of small JSON documents, one per workout or program, kept in their
 latest state on the server with last-writer-wins per document and a change log kept by SQLite
 triggers on the device. [docs/sync.md](docs/sync.md) is the whole design: the protocol, the
@@ -515,6 +543,8 @@ the client ids and the server's URL, and each platform registers its native sign
 ./gradlew :composeApp:run -Pgains.android=false                # desktop app
 ./gradlew :server:test -Pgains.android=false                   # the sync server's routes and a two-device round trip
 ./gradlew :server:run -Pgains.android=false                    # the sync server on :5003 (needs JWT_SECRET, see secrets/README.md)
+./gradlew :shared:compileKotlinIosArm64 :composeApp:compileKotlinIosArm64 -Pgains.android=false  # the iOS compile CI runs on Linux
+python3 -m unittest discover -s tools -p 'test_*.py'            # the release, deploy and pruning scripts
 ```
 
 `-Pgains.android=false` configures the build without the Android Gradle Plugin, which is what
@@ -528,7 +558,8 @@ after a UI change.
 [Cut release branch](.github/workflows/release-branch.yml) branches
 `release/<major>.<minor>` off `main` and [Release](.github/workflows/release.yml) uploads it
 through the [TestFlight workflow](.github/workflows/testflight.yml), which archives the iOS app
-on a macOS runner and sends it to App Store Connect, then opens the pull request back to `main`.
+on a macOS runner and sends it to App Store Connect, then tags the build, publishes it as a
+GitHub release and opens the pull request back to `main`.
 [docs/testflight.md](docs/testflight.md#releases-through-the-day) covers the schedule, the secrets and
 the manual route through Xcode.
 
@@ -563,6 +594,10 @@ The steps are [`tools/deploy_server.py`](tools/deploy_server.py), which also run
 box for the install itself; from a laptop, `python3 tools/deploy_server.py nginx` pushes the
 nginx block and `python3 tools/deploy_server.py secrets` the secrets
 ([secrets/README.md](secrets/README.md) lists them). A server-only change cuts no release branch. Design and routes: [docs/sync.md](docs/sync.md).
+
+**Pruning branches.** `python3 tools/prune_branches.py list` shows the branches on origin whose
+work is already on `main`, and `prune` deletes them. `release/*` branches are always kept: the
+next version number is worked out from them.
 
 **Exercise photos.** `python3 tools/exercise_demos.py` (needs Pillow) matches every catalogue
 exercise to a [free-exercise-db](https://github.com/yuhonas/free-exercise-db) entry by its
@@ -610,7 +645,7 @@ in `iosApp/iosApp/Info.plist`.
 ## Roadmap
 
 - [x] Self-hosted sync server and the client that speaks to it ([docs/sync.md](docs/sync.md))
-- [ ] The native sign-in sheets: Sign in with Apple on iOS, Google through Credential Manager on Android and the Google Sign-In SDK on iOS, behind the `IdentityProvider` interface, plus the client ids and the server URL in `AuthConfig`
+- [ ] The native sign-in sheets: Sign in with Apple on iOS, Google through Credential Manager on Android and the Google Sign-In SDK on iOS, behind the `IdentityProvider` interface, plus the client ids and the server URL in `AuthConfig` (iOS first, [docs/auth-plan.md](docs/auth-plan.md))
 - [ ] Keep the sync token in the Keychain and the Android Keystore rather than the app database
 - [ ] More connectors: a `ColumnSpec` and a `match` function each, contributions welcome
 
@@ -618,15 +653,18 @@ in `iosApp/iosApp/Info.plist`.
 
 - The Android source set is written against the standard APIs but is not compiled in CI, which
   runs without an Android SDK. Open the project in Android Studio to build it.
-- The iOS app compiles to Kotlin/Native klibs on any host, but linking, running and archiving
-  it needs Xcode on a Mac (the TestFlight workflow uses a hosted macOS runner for this).
-- Sign-in buttons are placeholders until the sync server exists.
+- The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request,
+  but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
+  hosted macOS runner for this).
+- The sync server is deployed, but the sign-in buttons stay disabled until the native sign-in
+  sheets and `AuthConfig` land, so every install is a guest for now.
 
 ## Contributing
 
 Issues and pull requests are welcome. Keep the shared module free of platform code, add a test
-for anything the parser or an insight rule should handle, and run the desktop tests before
-opening a PR.
+for anything the parser or an insight rule should handle, and run what CI runs before opening a
+PR: `./gradlew :shared:desktopTest :composeApp:desktopTest :server:test -Pgains.android=false`,
+plus the iOS compile and the `tools/` tests listed under [Development](#development).
 
 ## Acknowledgements
 
