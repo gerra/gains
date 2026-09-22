@@ -21,6 +21,8 @@ data class GoalProfile(val goal: Goal, val experience: Experience, val daysPerWe
     companion object {
         const val MIN_DAYS = 2
         const val MAX_DAYS = 6
+        /** Days a week assumed of someone who has not answered the goal questions. */
+        const val DEFAULT_DAYS = 3
 
         /** Null for a blank or unparseable value, so a corrupt setting behaves like "not set". */
         fun decode(raw: String?): GoalProfile? {
@@ -156,4 +158,7 @@ data class ProgramState(
     val activeProgramId: String? = null,
 ) {
     val active: Program? get() = programs.firstOrNull { it.id == activeProgramId }
+
+    /** Sessions a week the lifter is aiming for: the active program's, else the goal answer's, else the default. */
+    val weeklyGoal: Int get() = active?.daysPerWeek ?: profile?.daysPerWeek ?: GoalProfile.DEFAULT_DAYS
 }

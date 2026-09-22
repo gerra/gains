@@ -48,7 +48,10 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         notifier.onPermissionResult(granted)
     }
-    private val notifier = AndroidLiveSessionNotifier(this) { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+    private val askToNotify = { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+    private val notifier = AndroidLiveSessionNotifier(this, askToNotify)
+    // The streak reminders, held by the system as alarms while the app is not running.
+    private val nudges = AndroidNudgeScheduler(this, askToNotify)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +64,7 @@ class MainActivity : ComponentActivity() {
                 systemBack = { enabled, onBack -> BackHandler(enabled, onBack) },
                 notifier = notifier,
                 photoPicker = photoPicker,
+                nudges = nudges,
             )
         }
     }

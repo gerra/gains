@@ -374,8 +374,10 @@ internal fun StackedBarChart(
 /**
  * One column per week and one row per weekday, Monday at the top, the newest week on the right.
  * Days with sessions are filled, today is ringed, and with [onDayClick] every day that has a
- * session is a button. Cells never shrink below [minCell]: when [weeks] do not fit at that size
- * the grid scrolls sideways and starts at today, so the recent weeks are the ones in view.
+ * session is a button. A week in [restWeeks] — one a rest week carried the streak through — is
+ * washed in the rest colour rather than left blank, so a gap that was covered does not read like
+ * one that was not. Cells never shrink below [minCell]: when [weeks] do not fit at that size the
+ * grid scrolls sideways and starts at today, so the recent weeks are the ones in view.
  */
 @Composable
 internal fun CalendarHeatmap(
@@ -384,12 +386,14 @@ internal fun CalendarHeatmap(
     weeks: Int,
     modifier: Modifier = Modifier,
     minCell: Dp = 30.dp,
+    restWeeks: Set<LocalDate> = emptySet(),
     onDayClick: ((LocalDate) -> Unit)? = null,
 ) {
     val palette = GainsColors.palette
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val empty = MaterialTheme.colorScheme.surfaceContainerHighest
     val filled = palette.volt
+    val rest = palette.cyan.copy(alpha = 0.22f)
     val end = Dates.weekStart(today)
     val start = Dates.run { end.minusDays((weeks - 1) * 7) }
     val leftPad = 34.dp
@@ -417,6 +421,7 @@ internal fun CalendarHeatmap(
                         lastMonth = weekStart.month.ordinal
                         labelled = w == 0 || weekStart.day <= 7
                     }
+                    val rested = weekStart in restWeeks
                     Column(Modifier.width(cell)) {
                         Box(Modifier.height(topPad).wrapContentWidth(Alignment.Start, unbounded = true)) {
                             if (labelled) Text(monthShort(weekStart), style = labelStyle, maxLines = 1, softWrap = false)
@@ -428,7 +433,7 @@ internal fun CalendarHeatmap(
                                 continue
                             }
                             val n = counts[date] ?: 0
-                            val description = heatmapDayText(date, n)
+                            val description = heatmapDayText(date, n, rested)
                             Box(
                                 Modifier.size(cell)
                                     .clip(shape)
@@ -438,7 +443,7 @@ internal fun CalendarHeatmap(
                                     .clip(shape)
                                     .background(
                                         when {
-                                            n == 0 -> empty
+                                            n == 0 -> if (rested) rest else empty
                                             n >= 2 -> filled
                                             else -> filled.copy(alpha = 0.72f)
                                         },

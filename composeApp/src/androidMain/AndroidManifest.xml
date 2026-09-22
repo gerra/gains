@@ -3,6 +3,8 @@
 
     <!-- Android 13+: the workout-in-progress notification, asked for when the first workout starts. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- A reboot clears alarms; this lets the streak reminders be put back. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".GainsApplication"
@@ -46,5 +48,17 @@
         <receiver
             android:name=".SkipRestReceiver"
             android:exported="false" />
+        <!-- A streak reminder going off; only the app's own alarms reach it. -->
+        <receiver
+            android:name=".NudgeReceiver"
+            android:exported="false" />
+        <!-- A reboot clears alarms, so the reminders still to come are set again. -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

@@ -2,8 +2,10 @@ package app.gains.ui.i18n
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import org.jetbrains.compose.resources.PluralStringResource
 import org.jetbrains.compose.resources.ResourceEnvironment
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.getPluralString
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.rememberResourceEnvironment
 
@@ -16,6 +18,9 @@ import org.jetbrains.compose.resources.rememberResourceEnvironment
  */
 internal class Texts(private val environment: ResourceEnvironment) {
     suspend fun get(resource: StringResource, vararg args: Any): String = getString(environment, resource, *args)
+
+    suspend fun plural(resource: PluralStringResource, quantity: Int, vararg args: Any): String =
+        getPluralString(environment, resource, quantity, *args)
 }
 
 /** The strings in the language of the composition, for a model made here. */

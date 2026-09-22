@@ -10,4 +10,7 @@
     <string name="notification_channel_description">Shown while a workout is running, so you can get back to it from anywhere.</string>
     <string name="notification_running">Workout in progress. Tap to get back to it.</string>
     <string name="notification_resting">Resting. Tap to get back to your workout.</string>
+    <!-- The streak reminder's channel: at most two a week, and only in a week with nothing logged. -->
+    <string name="notification_channel_streak">Streak reminder</string>
+    <string name="notification_channel_streak_description">A quiet nudge when a week is about to end with no session in it. Nothing is sent once you have trained.</string>
 </resources>

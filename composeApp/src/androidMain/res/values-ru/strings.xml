@@ -9,4 +9,7 @@
     <string name="notification_channel_description">Показывается, пока идёт тренировка, чтобы вернуться к ней откуда угодно.</string>
     <string name="notification_running">Идёт тренировка. Нажмите, чтобы вернуться к ней.</string>
     <string name="notification_resting">Отдых. Нажмите, чтобы вернуться к тренировке.</string>
+    <!-- Канал напоминания о серии: не больше двух раз в неделю и только если ничего не записано. -->
+    <string name="notification_channel_streak">Напоминание о серии</string>
+    <string name="notification_channel_streak_description">Тихое напоминание, когда неделя заканчивается без единой тренировки. После тренировки ничего не приходит.</string>
 </resources>

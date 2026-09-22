@@ -99,6 +99,31 @@
     <string name="trend_down">Спад</string>
     <string name="trend_steady">Ровно</string>
     <string name="streak">Серия</string>
+    <!-- Серия: карточка на главной, напоминание и слова о том, что на кону. -->
+    <string name="streak_personal_best">Личный рекорд</string>
+    <string name="streak_best">Рекорд: %1$s</string>
+    <string name="streak_milestone">Рубеж</string>
+    <string name="streak_goal_progress">%1$d из %2$d на этой неделе</string>
+    <string name="streak_none">Потренируйся на этой неделе — и серия начнётся.</string>
+    <string name="streak_full_week">Полная неделя. Серия в безопасности.</string>
+    <string name="streak_safe">Серия в безопасности. До полной недели — %1$s.</string>
+    <string name="streak_days_left">Осталось %1$s, чтобы сохранить серию.</string>
+    <string name="streak_days_left_rest">Осталось %1$s, дальше серию прикроет неделя отдыха.</string>
+    <string name="streak_last_day">Последний день, чтобы сохранить серию.</string>
+    <string name="streak_last_day_rest">Последний день; дальше серию прикроет неделя отдыха.</string>
+    <string name="streak_rest_week_used">Прошлую неделю прикрыла неделя отдыха — серия устояла.</string>
+    <string name="streak_rest_in_hand">В запасе: %1$s</string>
+    <string name="streak_remind_me">Напомнить</string>
+    <string name="streak_reminder">Напоминание о серии</string>
+    <string name="streak_reminder_note">Не больше двух раз в неделю и только если за неделю ничего не записано — около %1$s, в час, когда ты обычно тренируешься. После тренировки ничего не приходит.</string>
+    <string name="streak_reminder_note_off">Выключено. О серии ничего не приходит.</string>
+    <string name="rest_week_day">%1$s, неделя отдыха</string>
+    <string name="nudge_keep_title">Два дня, чтобы сохранить серию</string>
+    <string name="nudge_keep_body">Пока что %1$s. Одна тренировка до вечера воскресенья — и серия продолжится.</string>
+    <string name="nudge_keep_rest_body">Пока что %1$s. Пропустишь неделю — уйдёт одна из недель отдыха.</string>
+    <string name="nudge_last_title">Последний день недели</string>
+    <string name="nudge_last_body">Пока что %1$s, а на этой неделе пусто. Одна тренировка сегодня — и серия цела.</string>
+    <string name="nudge_last_rest_body">Пока что %1$s, а на этой неделе пусто. Пропустишь — серию прикроет неделя отдыха.</string>
     <string name="last26_weeks">Последние 26 недель</string>
     <string name="tap_a_day_to_open">Нажми на день, чтобы открыть</string>
     <string name="sessions_per_week">Тренировок в неделю</string>
@@ -969,11 +994,23 @@
         <item quantity="many">%1$d дней в неделю</item>
         <item quantity="other">%1$d дня в неделю</item>
     </plurals>
-    <plurals name="week_streak">
-        <item quantity="one">%1$d неделя подряд</item>
-        <item quantity="few">%1$d недели подряд</item>
-        <item quantity="many">%1$d недель подряд</item>
-        <item quantity="other">%1$d недели подряд</item>
+    <plurals name="week_streak_label">
+        <item quantity="one">неделя подряд</item>
+        <item quantity="few">недели подряд</item>
+        <item quantity="many">недель подряд</item>
+        <item quantity="other">недели подряд</item>
+    </plurals>
+    <plurals name="days">
+        <item quantity="one">%1$d день</item>
+        <item quantity="few">%1$d дня</item>
+        <item quantity="many">%1$d дней</item>
+        <item quantity="other">%1$d дня</item>
+    </plurals>
+    <plurals name="rest_weeks">
+        <item quantity="one">%1$d неделя отдыха</item>
+        <item quantity="few">%1$d недели отдыха</item>
+        <item quantity="many">%1$d недель отдыха</item>
+        <item quantity="other">%1$d недели отдыха</item>
     </plurals>
     <plurals name="week_word">
         <item quantity="one">неделя</item>

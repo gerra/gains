@@ -221,6 +221,8 @@ internal fun restRangeText(range: IntRange): String =
 @Composable internal fun monthYear(date: LocalDate): String = stringResource(Res.string.month_year, monthShort(date), date.year)
 /** "12 Feb" in the current year, otherwise "12 Feb 2025". */
 @Composable internal fun dateContextual(date: LocalDate, today: LocalDate): String = if (date.year == today.year) dateShort(date) else dateShortWithYear(date)
+/** "18:00": the hour a reminder would arrive, on the same 24-hour clock as every other time in the app. */
+internal fun clockHour(hour: Int): String = hour.toString().padStart(2, '0') + ":00"
 /** "Wed 17 Sep", with the year once it is not this one. */
 @Composable internal fun dateWithWeekday(date: LocalDate, today: LocalDate): String = "${dayShort(date.dayOfWeek)} ${dateContextual(date, today)}"
 
@@ -233,6 +235,10 @@ internal fun restRangeText(range: IntRange): String =
 /** "13 weeks" after "in", "for", "ago": the accusative in languages that have one. */
 @Composable internal fun weeksAccusative(n: Int): String = pluralStringResource(Res.plurals.weeks_accusative, n, n)
 @Composable internal fun daysAWeekText(n: Int): String = pluralStringResource(Res.plurals.days_a_week, n, n)
+@Composable internal fun daysText(n: Int): String = pluralStringResource(Res.plurals.days, n, n)
+@Composable internal fun restWeeksText(n: Int): String = pluralStringResource(Res.plurals.rest_weeks, n, n)
+/** The words under the streak's number: "week streak", declined for the number in languages that decline it. */
+@Composable internal fun weekStreakLabel(n: Int): String = pluralStringResource(Res.plurals.week_streak_label, n)
 
 // ---- Small sentences with a plural or a label inside ------------------------------------------
 
@@ -242,6 +248,11 @@ internal fun heatmapDayText(date: LocalDate, sessions: Int): String = stringReso
     Res.string.heatmap_day, dayShort(date.dayOfWeek), dateShortWithYear(date),
     if (sessions == 0) stringResource(Res.string.no_sessions_count) else sessionsText(sessions),
 )
+
+/** The same cell in a week a rest week carried: "…, no sessions, rest week". */
+@Composable
+internal fun heatmapDayText(date: LocalDate, sessions: Int, restWeek: Boolean): String =
+    heatmapDayText(date, sessions).let { if (restWeek) stringResource(Res.string.rest_week_day, it) else it }
 
 /** "3M", "6M", "1Y", "All": the chip for a lift-detail window of [days]. */
 @Composable

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,13 +31,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import app.gains.analysis.ConsistencyAnalyzer
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
 import app.gains.analysis.GoalTuning
 import app.gains.analysis.Insight
 import app.gains.analysis.InsightEngine
 import app.gains.analysis.InsightKind
+import app.gains.analysis.Streak
+import app.gains.analysis.StreakEngine
 import app.gains.analysis.TrainingData
 import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
@@ -49,7 +51,6 @@ import app.gains.domain.WeightUnit
 import app.gains.program.Rotation
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.DeltaBadge
-import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.Pill
@@ -58,10 +59,10 @@ import app.gains.ui.components.RoundedIconBox
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
+import app.gains.ui.components.StreakCard
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.i18n.*
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
@@ -72,6 +73,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 
@@ -81,8 +83,9 @@ internal data class HomeState(
     val exerciseCount: Int = 0,
     val lastSession: LocalDate? = null,
     val lastSessionId: String? = null,
-    val thisWeekSessions: Int = 0,
-    val streakWeeks: Int = 0,
+    val streak: Streak = Streak(),
+    /** False while the lifter has never said whether the streak reminder may be sent. */
+    val reminderAnswered: Boolean = true,
     val insights: List<Insight> = emptyList(),
     val unit: WeightUnit = WeightUnit.KG,
     val profile: GoalProfile? = null,
@@ -94,14 +97,20 @@ internal data class HomeState(
 
 internal class HomeModel(
     trainingData: TrainingData = inject(),
-    settings: SettingsRepository = inject(),
+    private val settings: SettingsRepository = inject(),
     programs: ProgramRepository = inject(),
     sessions: SessionRepository = inject(),
 ) : ScreenModel() {
-    val state: StateFlow<HomeState> = combine(trainingData.snapshot, settings.observeUnit(), programs.observeState(), sessions.observeProgramLinks()) { snapshot, unit, programState, links ->
-        Inputs(snapshot, unit, programState, links)
+    val state: StateFlow<HomeState> = combine(
+        trainingData.snapshot,
+        settings.observeUnit(),
+        programs.observeState(),
+        sessions.observeProgramLinks(),
+        settings.observeStreakReminder(),
+    ) { snapshot, unit, programState, links, reminder ->
+        Inputs(snapshot, unit, programState, links, reminder)
     }
-        .mapLatest { (snapshot, unit, programState, links) ->
+        .mapLatest { (snapshot, unit, programState, links, reminder) ->
             withContext(Dispatchers.Default) {
                 val today = Dates.today()
                 val weekStart = Dates.weekStart(today)
@@ -113,8 +122,8 @@ internal class HomeModel(
                     exerciseCount = snapshot.trainedExercises.size,
                     lastSession = snapshot.sessions.maxOfOrNull { it.date },
                     lastSessionId = snapshot.sessions.maxByOrNull { it.timestamp }?.id,
-                    thisWeekSessions = snapshot.sessions.count { it.date >= weekStart },
-                    streakWeeks = ConsistencyAnalyzer.currentStreakWeeks(snapshot.sessions, today),
+                    streak = StreakEngine.compute(snapshot.sessions, today, programState.weeklyGoal),
+                    reminderAnswered = reminder != null,
                     insights = GoalTuning.rank(InsightEngine(GoalTuning.thresholds(goal)).generate(snapshot.sessions, snapshot.exercises, today), goal),
                     unit = unit,
                     profile = programState.profile,
@@ -126,7 +135,16 @@ internal class HomeModel(
         }
         .stateIn(scope, SharingStarted.WhileSubscribed(5_000), HomeState())
 
-    private data class Inputs(val snapshot: app.gains.analysis.TrainingSnapshot, val unit: WeightUnit, val programs: app.gains.domain.ProgramState, val links: List<app.gains.domain.ProgramLink>)
+    /** The offer on the card taken: from here on the reminder may be sent. */
+    fun enableReminder() { scope.launch { settings.setStreakReminder(true) } }
+
+    private data class Inputs(
+        val snapshot: app.gains.analysis.TrainingSnapshot,
+        val unit: WeightUnit,
+        val programs: app.gains.domain.ProgramState,
+        val links: List<app.gains.domain.ProgramLink>,
+        val reminder: Boolean?,
+    )
 }
 
 @Composable
@@ -136,6 +154,7 @@ internal fun HomeScreen(
     onOpenExercise: (String) -> Unit,
     onOpenSession: (String) -> Unit,
     onOpenVolume: () -> Unit,
+    onOpenHistory: () -> Unit = {},
     onOpenOnboarding: () -> Unit = {},
     onOpenPrograms: () -> Unit = {},
     onOpenProgram: (String) -> Unit = {},
@@ -176,7 +195,15 @@ internal fun HomeScreen(
                     onSubtitleClick = state.lastSessionId?.let { id -> { onOpenSession(id) } },
                 )
                 ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram, onStartDay)
-                HeroCard(state)
+                StreakCard(
+                    state.streak,
+                    Modifier.fillMaxWidth(),
+                    onClick = onOpenHistory,
+                    // The offer is made once there is a run worth protecting, and never again after an answer.
+                    onRemindMe = if (!state.reminderAnswered && state.streak.weeks >= REMIND_FROM_WEEKS) model::enableReminder else null,
+                ) {
+                    HeroStats(state)
+                }
             }
             item {
                 SectionHeader(stringResource(Res.string.whats_moving), action = {
@@ -281,33 +308,25 @@ private fun ProgramCard(
     }
 }
 
+/** The four numbers under the streak: how much is on record, and what is moving which way. */
 @Composable
-private fun HeroCard(state: HomeState) {
+private fun HeroStats(state: HomeState) {
     val palette = GainsColors.palette
     val regressions = state.insights.count { it.kind == InsightKind.REGRESSION }
     val progress = state.insights.count { it.kind == InsightKind.PROGRESS }
-    GainsCard(Modifier.fillMaxWidth(), brush = palette.heroBrush(), contentPadding = Dp16.Loose) {
-        Row(verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(Res.string.this_week).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(state.thisWeekSessions.toString(), style = MaterialTheme.typography.displayLarge, color = palette.volt)
-                    Spacer(Modifier.width(8.dp))
-                    Text(pluralStringResource(Res.plurals.session_word, state.thisWeekSessions, state.thisWeekSessions), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            Pill(pluralStringResource(Res.plurals.week_streak, state.streakWeeks, state.streakWeeks), palette.volt, filled = true)
-        }
-        Spacer(Modifier.height(18.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            HeroStat(stringResource(Res.string.hero_sessions), state.sessionCount.toString())
-            HeroStat(stringResource(Res.string.hero_lifts), state.exerciseCount.toString())
-            HeroStat(stringResource(Res.string.hero_up), progress.toString(), palette.progress)
-            HeroStat(stringResource(Res.string.hero_down), regressions.toString(), if (regressions > 0) palette.regression else null)
-        }
+    Spacer(Modifier.height(18.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(Modifier.height(16.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        HeroStat(stringResource(Res.string.hero_sessions), state.sessionCount.toString())
+        HeroStat(stringResource(Res.string.hero_lifts), state.exerciseCount.toString())
+        HeroStat(stringResource(Res.string.hero_up), progress.toString(), palette.progress)
+        HeroStat(stringResource(Res.string.hero_down), regressions.toString(), if (regressions > 0) palette.regression else null)
     }
 }
+
+/** Weeks of streak before the reminder is worth offering: below that there is nothing to protect. */
+private const val REMIND_FROM_WEEKS = 2
 
 @Composable
 private fun HeroStat(label: String, value: String, color: Color? = null) {

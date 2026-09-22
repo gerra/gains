@@ -61,7 +61,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.gains.analysis.Dates
 import app.gains.analysis.Format
+import app.gains.analysis.StreakEngine
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.i18n.*
@@ -81,12 +83,17 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import app.gains.data.ThemeMode
 import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.LiveSessionNotice
 import app.gains.platform.LiveSessionNotifier
+import app.gains.platform.Nudge
+import app.gains.platform.NudgeScheduler
 import app.gains.platform.PhotoPicker
 import app.gains.platform.ResumeRequests
 import app.gains.platform.SkipRestRequests
@@ -131,6 +138,10 @@ import app.gains.ui.theme.GainsTheme
  * its tray while the lifter is elsewhere; a tap there comes back through [ResumeRequests].
  *
  * [photoPicker] opens the platform's photo library for the picture a workout's summary can carry.
+ *
+ * [nudges] holds the streak reminders the platform is to deliver while the app is not running. The
+ * whole plan is handed over again every time the streak changes, so it can never fall behind what
+ * has actually been logged.
  */
 @Composable
 internal fun App(
@@ -138,6 +149,7 @@ internal fun App(
     systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit = { _, _ -> },
     notifier: LiveSessionNotifier = LiveSessionNotifier.None,
     photoPicker: PhotoPicker = PhotoPicker.None,
+    nudges: NudgeScheduler = NudgeScheduler.None,
 ) {
     val settings = remember { inject<SettingsRepository>() }
     // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
@@ -158,7 +170,7 @@ internal fun App(
             // been chosen. Nothing is drawn until that preference has been read — a moment, at
             // launch — so the app is never shown in one language and then another.
             val language = settings.observeLanguage().collectAsState(initial = null).value ?: return@Surface
-            InLanguage(language) { AppBody(navigator, stateHolder, filePicker, photoPicker, systemBack, notifier) }
+            InLanguage(language) { AppBody(navigator, stateHolder, filePicker, photoPicker, systemBack, notifier, nudges) }
         }
     }
 }
@@ -167,6 +179,9 @@ internal fun App(
  * Everything under the look and the language: the screens on [navigator]'s back stack, the workout
  * in progress, and the way between them. Composed afresh whenever the language changes, which is
  * what puts every word on screen into the new one; the stack and [stateHolder] outlive that.
+ *
+ * The streak reminders are planned here too, so that a change of language re-words the ones still
+ * to come: their text is settled when the plan is made, not when the platform shows them.
  */
 @Composable
 private fun AppBody(
@@ -176,7 +191,9 @@ private fun AppBody(
     photoPicker: PhotoPicker,
     systemBack: @Composable (enabled: Boolean, onBack: () -> Unit) -> Unit,
     notifier: LiveSessionNotifier,
+    nudges: NudgeScheduler,
 ) {
+    val settings = remember { inject<SettingsRepository>() }
     val exercises = remember { inject<ExerciseRepository>() }
     LaunchedEffect(Unit) { exercises.seedCatalogue() }
 
@@ -215,6 +232,26 @@ private fun AppBody(
                     delay(restEnds - nowMs())
                 }
                 notifier.update(notice?.copy(restEndsAtMs = null))
+            }
+    }
+    // The streak reminder. Nothing is scheduled until the lifter has asked for it, and nothing is
+    // scheduled in a week they have already trained: the plan comes back empty and cancels itself.
+    LaunchedEffect(texts) {
+        combine(sessions.observeSessionTimes(), programs.observeState(), settings.observeStreakReminder()) { times, programState, on ->
+            if (on != true) emptyList() else {
+                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                val streak = StreakEngine.computeAt(times, now.date, programState.weeklyGoal)
+                StreakEngine.plan(streak, now, StreakEngine.usualHourAt(times))
+            }
+        }
+            .distinctUntilChanged()
+            .collectLatest { planned ->
+                nudges.schedule(
+                    planned.map { nudge ->
+                        val (title, body) = nudgeWords(texts, nudge)
+                        Nudge(nudge.id, Dates.epochMs(nudge.at), title, body)
+                    },
+                )
             }
     }
     // A tap on that notice: open the running workout once the database has said there is one.
@@ -308,6 +345,7 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
                 onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
                 onOpenSession = { navigator.push(Screen.EditSession(it)) },
                 onOpenVolume = { navigator.switchTab(Tab.VOLUME) },
+                onOpenHistory = { navigator.switchTab(Tab.HISTORY) },
                 onOpenOnboarding = { navigator.push(Screen.Onboarding) },
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenProgram = { navigator.push(Screen.ProgramDetail(it)) },

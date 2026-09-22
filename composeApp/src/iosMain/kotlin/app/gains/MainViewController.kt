@@ -48,7 +48,7 @@ fun MainViewController(): UIViewController {
         koinStarted = true
     }
     return ComposeUIViewController {
-        App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier, photoPicker = IosPhotoPicker())
+        App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier, photoPicker = IosPhotoPicker(), nudges = IosNudgeScheduler)
     }
 }
 
