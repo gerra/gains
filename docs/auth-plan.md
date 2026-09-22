@@ -65,11 +65,13 @@ These are console work. Agents should assume they're done or in progress and mus
 
 - [x] Apple: Sign in with Apple capability on the `app.gains.Gains` App ID; App Store profile
       regenerated and `IOS_APP_STORE_PROFILE_BASE64` updated.
-- [ ] Google Cloud: an **iOS** OAuth client for `app.gains.Gains`. Put its id in
-      `GOOGLE_IOS_CLIENT_ID` in `iosApp/Configuration/Config.xcconfig` (item 2 adds the key).
+- [x] Google Cloud: an **iOS** OAuth client for `app.gains.Gains`:
+      `95741411455-2fouqgkjlnault5cvd8lc17n4jekg7ea.apps.googleusercontent.com`. Item 2 writes it into `iosApp/Configuration/Config.xcconfig`.
 - [ ] Server `secrets/.env`: `GOOGLE_CLIENT_IDS` includes that iOS client id,
       `APPLE_CLIENT_IDS=app.gains.Gains`, `JWT_SECRET` set; `tools/deploy_server.py secrets`.
-- [ ] Google Auth Platform: branding filled in, app **published to production**.
+- [ ] Google Auth Platform: for now, stays in **Testing** with the owner's accounts listed
+      under Audience → Test users. Only those accounts can sign in with Google. Publish to
+      production before a public release.
 - [ ] App Store Connect: App Privacy answers and privacy policy URL.
 
 ---
@@ -151,8 +153,10 @@ redirects for **iOS** OAuth clients, and they need no client secret.
 
 Steps:
 
-1. **Config.** In `Config.xcconfig` add `GOOGLE_IOS_CLIENT_ID =`, left empty with a comment that
-   the owner fills it in from the Google Cloud console; the value is public. In `Info.plist`
+1. **Config.** In `Config.xcconfig` add
+   `GOOGLE_IOS_CLIENT_ID = 95741411455-2fouqgkjlnault5cvd8lc17n4jekg7ea.apps.googleusercontent.com`, with a comment that it's the iOS OAuth client from the
+   Google Cloud console and isn't a secret (it ships inside every app).
+   Its redirect scheme is `com.googleusercontent.apps.95741411455-2fouqgkjlnault5cvd8lc17n4jekg7ea`. In `Info.plist`
    add `<key>GainsGoogleClientID</key><string>$(GOOGLE_IOS_CLIENT_ID)</string>`. In the iOS
    `AuthConfig`, set `googleClientId` from it, blank → `null`, so the button stays disabled
    until it's filled in.
