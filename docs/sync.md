@@ -209,12 +209,20 @@ then pull:
    device may have written in between.
 
 [`SyncController`](../shared/src/commonMain/kotlin/app/gains/sync/SyncController.kt) decides
-when: two seconds after `sync_change` last grew, every time the app comes to the foreground and
-right after sign-in. Signing in on a device that already holds guest data marks every local
+when: two seconds after `sync_change` last grew, every time the app comes to the foreground (on
+iOS, `UIApplicationWillEnterForegroundNotification` in `MainViewController.kt`), when the person
+taps "Sync now" in Settings and right after sign-in. Signing in on a device that already holds guest data marks every local
 document as changed and resets the cursor, so the first sync is a union of what is here and what
 is there. A guest does that from Settings: the account card offers the enabled providers' buttons
 and signs in where the person stands, with no sign-out first, so closing the sheet leaves them a
 guest with everything in place.
+
+Settings shows where it stands in the signed-in account card: "Syncing…", "Synced 5 min ago",
+with "· 3 changes waiting" while the change log holds something, or that the last run failed.
+The engine's status is in memory, so the time of the last successful run is also kept in
+`sync_state` (`last_synced_at`) and still shows after a restart; it is cleared when the feed
+changes hands. A 401 from the server shows "Signed out on the server" with the provider buttons,
+which sign in again where the person stands and then ask for a sync.
 
 The bearer token and the cursor live in `sync_state`, inside the app's database. The Keychain and
 the Android Keystore are the better home for the token and the noted follow-up.

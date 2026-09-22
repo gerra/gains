@@ -221,6 +221,13 @@
     <string name="not_signed_in">Вход не выполнен</string>
     <string name="guest_data_note">Данные хранятся только на этом устройстве. Войдите позже, чтобы сделать резервную копию и синхронизацию.</string>
     <string name="synced_to_server">Синхронизируется с вашим сервером</string>
+    <string name="syncing">Синхронизация…</string>
+    <string name="synced_ago">Синхронизировано %1$s назад</string>
+    <string name="synced_just_now">Синхронизировано только что</string>
+    <string name="not_synced_yet">Ещё не синхронизировано</string>
+    <string name="sync_failed">Не удалось синхронизировать. Нажмите «Синхронизировать», чтобы повторить.</string>
+    <string name="sync_signed_out">Сервер завершил сеанс. Войдите снова.</string>
+    <string name="sync_now">Синхронизировать</string>
     <string name="sign_out">Выйти</string>
     <string name="delete_account">Удалить аккаунт</string>
     <string name="delete_account_title">Удалить аккаунт?</string>
@@ -1008,6 +1015,12 @@
         <item quantity="few">недели подряд</item>
         <item quantity="many">недель подряд</item>
         <item quantity="other">недели подряд</item>
+    </plurals>
+    <plurals name="changes_waiting">
+        <item quantity="one">%1$d изменение ждёт отправки</item>
+        <item quantity="few">%1$d изменения ждут отправки</item>
+        <item quantity="many">%1$d изменений ждут отправки</item>
+        <item quantity="other">%1$d изменения ждут отправки</item>
     </plurals>
     <plurals name="days">
         <item quantity="one">%1$d день</item>

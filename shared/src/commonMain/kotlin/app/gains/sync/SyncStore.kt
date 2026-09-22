@@ -2,6 +2,7 @@ package app.gains.sync
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToOne
+import app.cash.sqldelight.coroutines.mapToOneOrNull
 import app.gains.data.writeProgramRows
 import app.gains.data.writeSessionRows
 import app.gains.db.GainsDatabase
@@ -28,7 +29,8 @@ data class PendingChange(val kind: String, val id: String, val changedAt: String
 /**
  * The sync's side of the device database: the change log the triggers in Sync.sq keep, the
  * documents built from the tables for a push, the tables written from documents on a pull, and
- * the two values kept between runs (the pull cursor and the bearer token). See docs/sync.md.
+ * the values kept between runs (the pull cursor, the bearer token, when the last run went
+ * through). See docs/sync.md.
  */
 class SyncStore(
     private val db: GainsDatabase,
@@ -236,10 +238,21 @@ class SyncStore(
             db.transaction {
                 q.upsertState(KEY_USER, userId.toString())
                 q.upsertState(KEY_CURSOR, "0")
+                // The last run was another account's; this one has not synced yet.
+                q.deleteState(KEY_LAST_SYNCED)
             }
             markAllPending()
         }
     }
+
+    /**
+     * When a sync last went through, in [now]'s format, or null before the first one. Stored
+     * rather than kept on [SyncEngine.status] so Settings can still say "Synced 5 min ago" after
+     * a restart.
+     */
+    fun observeLastSyncedAt(): Flow<String?> = q.selectState(KEY_LAST_SYNCED).asFlow().mapToOneOrNull(io).flowOn(io)
+
+    suspend fun setLastSyncedAt(at: String) = withContext(io) { q.upsertState(KEY_LAST_SYNCED, at) }
 
     /** Forgets the token. The cursor and the user stay, so signing back in resumes rather than re-merges. */
     suspend fun clearToken() = withContext(io) {
@@ -254,7 +267,7 @@ class SyncStore(
      * hands out the same ids again). See docs/sync.md, "Signing in".
      */
     suspend fun forgetFeed() = withContext(io) {
-        db.transaction { q.deleteState(KEY_USER); q.deleteState(KEY_CURSOR) }
+        db.transaction { q.deleteState(KEY_USER); q.deleteState(KEY_CURSOR); q.deleteState(KEY_LAST_SYNCED) }
     }
 
     companion object {
@@ -262,6 +275,7 @@ class SyncStore(
         const val KEY_TOKEN = "token"
         const val KEY_TOKEN_ISSUED = "token_issued_at"
         const val KEY_USER = "user_id"
+        const val KEY_LAST_SYNCED = "last_synced_at"
 
         /**
          * This moment as the triggers write it: UTC, millisecond precision, `Z`. The same shape
