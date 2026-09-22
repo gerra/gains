@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.sqldelight)
 }
 
@@ -48,6 +49,10 @@ kotlin {
             api(libs.koin.core)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
+            // The sync wire format (app.gains.sync) and the client that speaks it. The server
+            // module compiles the same classes, so both ends agree on every field.
+            api(libs.kotlinx.serialization.json)
+            api(libs.ktor.client.core)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -57,14 +62,17 @@ kotlin {
             androidMain.dependencies {
                 implementation(libs.sqldelight.android)
                 implementation(libs.kotlinx.coroutines.android)
+                implementation(libs.ktor.client.okhttp)
             }
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native)
+            implementation(libs.ktor.client.darwin)
         }
         val desktopMain by getting {
             dependencies {
                 implementation(libs.sqldelight.sqlite)
+                implementation(libs.ktor.client.cio)
             }
         }
         val desktopTest by getting {

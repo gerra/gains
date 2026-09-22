@@ -121,3 +121,15 @@ DELETE FROM session;
 
 deleteAllPhotos:
 DELETE FROM session_photo;
+
+-- One session for the sync, with its entries and sets read by the two queries after it.
+selectSessionById:
+SELECT id, timestamp, duration_minutes, source, program_id, program_day_id, caption FROM session WHERE id = ?;
+
+selectEntriesForSession:
+SELECT id, session_id, exercise_id, position, note FROM exercise_entry WHERE session_id = ? ORDER BY position;
+
+selectSetsForSession:
+SELECT set_entry.id, entry_id, set_order, type, weight_kg, reps, seconds, distance_km, rpe, is_warmup
+FROM set_entry JOIN exercise_entry ON set_entry.entry_id = exercise_entry.id
+WHERE exercise_entry.session_id = ? ORDER BY entry_id, set_order;

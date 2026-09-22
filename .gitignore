@@ -27,3 +27,9 @@ captures
 # Python bytecode from the scripts in tools/
 __pycache__/
 *.pyc
+# The sync server's secrets and local data (secrets/README.md); only .env.example is tracked.
+/secrets/.env
+/secrets/.env.*
+!/secrets/.env.example
+/server/data/
+/data/

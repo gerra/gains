@@ -1,0 +1,28 @@
+# systemd unit for gains.gerra.sh — installed by the deploy workflow on every deploy
+# (taxes / www pattern: `install -m 644 deploy/gains-server.service /etc/systemd/system/`).
+#
+# Env vars come from secrets/.env under the working directory, read by the server itself
+# (server/src/main/kotlin/app/gains/server/Config.kt) — no EnvironmentFile here, because
+# systemd's parser quotes differently from dotenv's and the file should go through one parser.
+# `current/` is what `./gradlew :server:installDist` produces, rsynced by the workflow.
+
+[Unit]
+Description=gains.gerra.sh sync server (Ktor)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/Projects/gains-server
+ExecStart=/root/Projects/gains-server/current/bin/gains-server
+Environment=JAVA_OPTS=-Xmx256m
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gains-server
+
+[Install]
+WantedBy=multi-user.target

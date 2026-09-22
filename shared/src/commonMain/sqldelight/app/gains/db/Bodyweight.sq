@@ -11,3 +11,6 @@ INSERT OR REPLACE INTO bodyweight(date, weight_kg) VALUES (?, ?);
 
 delete:
 DELETE FROM bodyweight WHERE date = ?;
+
+selectByDate:
+SELECT date, weight_kg FROM bodyweight WHERE date = ?;

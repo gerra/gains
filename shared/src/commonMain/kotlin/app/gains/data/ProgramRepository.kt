@@ -97,24 +97,7 @@ class ProgramRepository(
         require(!program.isBuiltIn) { "Built-in programs are read-only; duplicate first." }
         db.transaction {
             val createdAt = q.selectProgramCreatedAt(program.id).executeAsOneOrNull() ?: now()
-            q.deleteSlotsForProgram(program.id)
-            q.deleteDaysForProgram(program.id)
-            q.upsertProgram(
-                id = program.id, name = program.name, description = program.description,
-                goals = ProgramCodec.encodeGoals(program.goals), level = program.level.name,
-                days_per_week = program.daysPerWeek.toLong(), created_at = createdAt,
-            )
-            program.days.forEachIndexed { di, day ->
-                q.insertDay(day.id, program.id, di.toLong(), day.name)
-                day.slots.forEachIndexed { si, slot ->
-                    q.insertSlot(
-                        day_id = day.id, position = si.toLong(), exercise_id = slot.exerciseId,
-                        sets = slot.sets.toLong(), reps = ProgramCodec.encodeReps(slot.reps),
-                        last_set_amrap = if (slot.lastSetAmrap) 1L else 0L,
-                        progression = ProgramCodec.encodeRule(slot.progression), note = slot.note,
-                    )
-                }
-            }
+            writeProgramRows(q, program, createdAt)
         }
     }
 

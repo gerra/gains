@@ -568,6 +568,7 @@
     <string name="hold_outlier">%1$s по %2$s (обычно %3$s) · похоже на значение таймера по умолчанию</string>
     <string name="goal_sort_note">Программы отсортированы по соответствию цели «%1$s»; главный экран начинает с её сигналов.</string>
     <string name="sign_in_not_configured">Вход через %1$s пока не настроен.</string>
+    <string name="sign_in_failed">Войти не удалось. Проверьте соединение и попробуйте ещё раз.</string>
     <string name="profile_summary">%1$s · %2$s · %3$s</string>
     <string name="up_next">ДАЛЬШЕ · %1$s</string>
     <string name="exercises_and_week_count">%1$s · %2$d из %3$d на этой неделе</string>

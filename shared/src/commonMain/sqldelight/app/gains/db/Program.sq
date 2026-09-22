@@ -65,3 +65,15 @@ DELETE FROM program_day WHERE program_id = ?;
 
 deleteProgram:
 DELETE FROM program WHERE id = ?;
+
+-- One program for the sync, with its days and slots read by the two queries after it.
+selectProgramById:
+SELECT id, name, description, goals, level, days_per_week, created_at FROM program WHERE id = ?;
+
+selectDaysForProgram:
+SELECT id, program_id, position, name FROM program_day WHERE program_id = ? ORDER BY position;
+
+selectSlotsForProgram:
+SELECT program_slot.id, day_id, program_slot.position, exercise_id, sets, reps, last_set_amrap, progression, note
+FROM program_slot JOIN program_day ON program_slot.day_id = program_day.id
+WHERE program_day.program_id = ? ORDER BY program_day.position, program_slot.position;

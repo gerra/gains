@@ -62,6 +62,7 @@ import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
@@ -73,15 +74,28 @@ internal class SignInModel(
     /** The provider whose sign-in is not configured, after a tap on its button; the screen words it. */
     var error by mutableStateOf<AuthNotConfiguredException?>(null)
         private set
+    /** A sign-in that was configured but did not go through: the sheet was dismissed, or the server could not be reached. */
+    var failed by mutableStateOf(false)
+        private set
 
     fun continueAsGuest() = scope.launch { accounts.continueAsGuest() }
 
-    fun signInWithGoogle() = scope.launch {
-        try { accounts.signInWithGoogle() } catch (e: AuthNotConfiguredException) { error = e }
-    }
+    fun signInWithGoogle() = signIn { accounts.signInWithGoogle() }
 
-    fun signInWithApple() = scope.launch {
-        try { accounts.signInWithApple() } catch (e: AuthNotConfiguredException) { error = e }
+    fun signInWithApple() = signIn { accounts.signInWithApple() }
+
+    private fun signIn(block: suspend () -> Unit) = scope.launch {
+        error = null
+        failed = false
+        try {
+            block()
+        } catch (e: AuthNotConfiguredException) {
+            error = e
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failed = true
+        }
     }
 }
 
@@ -131,8 +145,10 @@ internal fun SignInScreen() {
             PrimaryButton(stringResource(Res.string.continue_as_guest), onClick = { model.continueAsGuest() }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
             val note = if (model.config.googleEnabled && model.config.appleEnabled) stringResource(Res.string.guest_note_with_sync) else stringResource(Res.string.guest_note_coming_soon)
-            Text(model.error?.let { stringResource(Res.string.sign_in_not_configured, it.provider.label()) } ?: note, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
-                color = if (model.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+            val message = model.error?.let { stringResource(Res.string.sign_in_not_configured, it.provider.label()) }
+                ?: if (model.failed) stringResource(Res.string.sign_in_failed) else note
+            Text(message, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                color = if (model.error != null || model.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
