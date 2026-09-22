@@ -230,7 +230,8 @@ Steps:
 
 ## 4. Settings: delete account
 
-- [ ] Done
+- [x] Done
+  Done in #65
 
 **Depends on:** nothing (it's visible only to a signed-in account). It's required by App Store
 guideline 5.1.1(v) for apps that offer account creation.

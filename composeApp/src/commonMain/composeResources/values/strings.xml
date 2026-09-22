@@ -222,6 +222,10 @@
     <string name="guest_data_note">Data is saved on this device only. Sign in later to back it up and sync.</string>
     <string name="synced_to_server">Synced to your server</string>
     <string name="sign_out">Sign out</string>
+    <string name="delete_account">Delete account</string>
+    <string name="delete_account_title">Delete your account?</string>
+    <string name="delete_account_body">Your account and everything synced to it are removed from the server. Workouts on this device stay here.</string>
+    <string name="delete_account_failed">Couldn't delete the account. Check your connection and try again.</string>
     <string name="sign_in_not_configured_note">Google and Apple sign-in are not configured yet; the sync server is coming later.</string>
     <string name="training_goal">Training goal</string>
     <string name="days_a_week_label">Days a week</string>

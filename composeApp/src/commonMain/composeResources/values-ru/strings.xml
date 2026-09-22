@@ -222,6 +222,10 @@
     <string name="guest_data_note">Данные хранятся только на этом устройстве. Войдите позже, чтобы сделать резервную копию и синхронизацию.</string>
     <string name="synced_to_server">Синхронизируется с вашим сервером</string>
     <string name="sign_out">Выйти</string>
+    <string name="delete_account">Удалить аккаунт</string>
+    <string name="delete_account_title">Удалить аккаунт?</string>
+    <string name="delete_account_body">Аккаунт и всё, что с ним синхронизировано, будут удалены с сервера. Тренировки на этом устройстве останутся.</string>
+    <string name="delete_account_failed">Не удалось удалить аккаунт. Проверьте подключение и попробуйте ещё раз.</string>
     <string name="sign_in_not_configured_note">Вход через Google и Apple пока не настроен; сервер синхронизации появится позже.</string>
     <string name="training_goal">Цель тренировок</string>
     <string name="days_a_week_label">Дней в неделю</string>

@@ -246,6 +246,17 @@ class SyncStore(
         db.transaction { q.deleteState(KEY_TOKEN); q.deleteState(KEY_TOKEN_ISSUED) }
     }
 
+    /**
+     * Forgets whose feed this device follows and how far it has read, so the next sign-in, to
+     * whichever account, starts the feed over and uploads everything on the device. What a deleted
+     * account needs: its documents are gone from the server, so the device must not rely on the
+     * next account's user id differing from the old one's (a server rebuilt from an empty database
+     * hands out the same ids again). See docs/sync.md, "Signing in".
+     */
+    suspend fun forgetFeed() = withContext(io) {
+        db.transaction { q.deleteState(KEY_USER); q.deleteState(KEY_CURSOR) }
+    }
+
     companion object {
         const val KEY_CURSOR = "cursor"
         const val KEY_TOKEN = "token"

@@ -63,6 +63,9 @@ import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -151,6 +154,11 @@ internal class SettingsModel(
     val linking: Boolean get() = link.running
     fun linkGoogle() = link.google()
     fun linkApple() = link.apple()
+
+    /** Deletes the account on the server; see [AccountDeletion]. */
+    val deletion = AccountDeletion(scope, accounts)
+    fun deleteAccount() = deletion.run()
+
     fun merge(custom: Exercise, into: Exercise) { scope.launch { exercises.merge(custom.id, into.id, custom.name) } }
     fun removeAlias(raw: String) { scope.launch { exercises.removeAlias(raw) } }
     fun clearOverride(exerciseId: String) { scope.launch { exercises.setWorkingSetRatio(exerciseId, null) } }
@@ -165,6 +173,37 @@ internal class SettingsModel(
     }
 }
 
+/**
+ * Deleting the signed-in account from Settings, which App Store guideline 5.1.1(v) asks of any app
+ * that creates accounts. While the call is out the card's buttons wait for it. A failure (offline,
+ * a 5xx) leaves the person signed in with a line saying so, because [AccountRepository.deleteAccount]
+ * signs out only once the server has confirmed; on success the account turns `null` and the app
+ * shows the sign-in screen, as after a sign-out.
+ */
+internal class AccountDeletion(private val scope: CoroutineScope, private val accounts: AccountRepository) {
+    var running by mutableStateOf(false)
+        private set
+    var failed by mutableStateOf(false)
+        private set
+
+    fun run(): Job {
+        if (running) return Job().apply { complete() }
+        running = true
+        failed = false
+        return scope.launch {
+            try {
+                accounts.deleteAccount()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failed = true
+            } finally {
+                running = false
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}) {
@@ -172,6 +211,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
     val model = rememberScreenModel { SettingsModel(texts) }
     val state by model.state.collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDeleteAccount by remember { mutableStateOf(false) }
     val palette = GainsColors.palette
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
@@ -193,7 +233,17 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                         )
                     }
                     if (account?.isGuest != true) {
-                        TextButton(onClick = { model.signOut() }) { Text(stringResource(Res.string.sign_out), color = palette.volt) }
+                        TextButton(onClick = { model.signOut() }, enabled = !model.deletion.running) { Text(stringResource(Res.string.sign_out), color = palette.volt) }
+                    }
+                }
+                if (account != null && !account.isGuest) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { confirmDeleteAccount = true }, enabled = !model.deletion.running) {
+                            Text(stringResource(Res.string.delete_account), color = palette.coral)
+                        }
+                    }
+                    if (model.deletion.failed) {
+                        Text(stringResource(Res.string.delete_account_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     }
                 }
                 val providers = signInButtons(model.authConfig)
@@ -350,6 +400,20 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
             text = { Text(stringResource(Res.string.delete_all_sessions_body)) },
             confirmButton = { PrimaryButton(stringResource(Res.string.delete), onClick = { model.deleteAllData(); confirmDelete = false }) },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(Res.string.cancel)) } },
+        )
+    }
+    if (confirmDeleteAccount) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteAccount = false },
+            shape = MaterialTheme.shapes.large,
+            title = { Text(stringResource(Res.string.delete_account_title)) },
+            text = { Text(stringResource(Res.string.delete_account_body)) },
+            confirmButton = {
+                TextButton(onClick = { model.deleteAccount(); confirmDeleteAccount = false }) {
+                    Text(stringResource(Res.string.delete), color = palette.coral)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeleteAccount = false }) { Text(stringResource(Res.string.cancel)) } },
         )
     }
 }

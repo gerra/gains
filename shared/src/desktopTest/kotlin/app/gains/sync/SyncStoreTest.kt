@@ -191,6 +191,27 @@ class SyncStoreTest {
     }
 
     @Test
+    fun forgettingTheFeedMakesTheNextSignInUploadEverything() = runTest {
+        val d = Device()
+        d.exercises.seedCatalogue()
+        d.sessions.upsert(session)
+        d.store.setToken("t")
+        d.store.startFeed(userId = 7)
+        for (change in d.store.pendingChanges()) d.store.clearPushed(change)
+        d.store.applyPage(emptyList(), emptyMap(), cursor = 42)
+
+        d.store.forgetFeed()
+        assertNull(d.store.userId())
+        assertEquals(0L, d.store.cursor())
+        assertEquals("t", d.store.token(), "the token is signOut's to clear")
+        assertEquals(emptySet(), d.pending(), "nothing is marked until someone signs in")
+
+        // Even the same user id starts over, so the upload doesn't depend on the server's id scheme.
+        d.store.startFeed(userId = 7)
+        assertEquals(setOf(Triple(SyncKinds.SESSION, session.id, false)), d.pending())
+    }
+
+    @Test
     fun theClockReadsLikeTheTriggersWrite() = runTest {
         val d = Device()
         d.bodyweight.upsert(BodyweightEntry(LocalDate(2026, 9, 20), 82.4))
