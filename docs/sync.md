@@ -97,7 +97,10 @@ stable subject, never on the email. The same person signing in with both provide
 identities on one user when the emails match.
 
 `DELETE /auth/account` removes the user, both identities, every document and every blob, which
-Apple requires of any app that offers Sign in with Apple.
+Apple requires of any app that offers Sign in with Apple. Settings offers it as "Delete account" on
+a signed-in account, behind a confirmation. The device keeps its workouts. Only after the server
+confirms does it sign out and forget the feed's user and cursor, so a later sign-in, to any
+account, uploads everything again. If the call fails, the person stays signed in and can retry.
 
 ## What is synced
 
@@ -269,6 +272,10 @@ three taxes uses.
 - **End-to-end encryption.** Because the payload is opaque to the server, sealing it on the
   device is a client-side change with the same routes, the way fintrack's E2E note describes it.
 - **Multi-user features.** One user sees one user's documents. Nothing is shared.
+- **Revoking the Sign in with Apple token on deletion.** Apple recommends that deleting an account
+  also call `POST https://appleid.apple.com/auth/revoke`. That needs the authorization code from
+  the client and a `.p8` key on the server, so for now deleting removes our data but leaves the
+  app listed under the person's Apple ID until they remove it there.
 - **Native sign-in buttons beyond iOS.** Sign in with Apple and with Google work on iOS
   (`IosIdentityProvider`, the `com.apple.developer.applesignin` entitlement, and the server URL
   and Google client from `GAINS_SERVER_URL` and `GOOGLE_IOS_CLIENT_ID` in `Config.xcconfig`);

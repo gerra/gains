@@ -181,6 +181,40 @@ class SyncRoundTripTest {
     }
 
     @Test
+    fun deletingTheAccountKeepsTheDeviceAndStartsTheFeedOver() = testApplication {
+        application { gainsServer(testServices(google, apple)) }
+        val phone = Device(client, google, "me")
+        phone.exercises.seedCatalogue()
+        val config = AuthConfig(appleServiceId = APPLE_AUDIENCE, serverBaseUrl = "https://api.example")
+        val sheet = object : IdentityProvider {
+            override suspend fun signIn(kind: AccountKind) = IdentityAssertion(apple.token("apple-me", APPLE_AUDIENCE, email = "me@x.y"), "Me")
+        }
+        val accounts = AccountRepository(phone.settings, config, phone.api, phone.store, sheet)
+        accounts.signInWithApple()
+        phone.sessions.upsert(session("2026-09-03T10:00", 70.0))
+        phone.engine.sync()
+        assertEquals(0L, phone.store.observePendingCount().first())
+
+        accounts.deleteAccount()
+        assertNull(accounts.observeAccount().first(), "back to the sign-in screen")
+        assertNull(phone.store.token())
+        assertNull(phone.store.userId())
+        assertEquals(listOf("2026-09-03T10:00"), phone.sessions.observeRawSessions().first().map { it.id })
+
+        // Signing in again makes a new, empty account, and the device fills it.
+        accounts.signInWithApple()
+        assertTrue(phone.store.observePendingCount().first() > 0, "everything on the device waits to go up")
+        assertTrue(phone.engine.sync().pushed > 0)
+        val laptop = Device(client, apple, "apple-me")
+        laptop.exercises.seedCatalogue()
+        val relogin = laptop.api.signIn(AccountKind.APPLE, apple.token("apple-me", APPLE_AUDIENCE, email = "me@x.y"), null)
+        laptop.store.setToken(relogin.token)
+        laptop.store.startFeed(relogin.user.id)
+        laptop.engine.sync()
+        assertEquals(listOf("2026-09-03T10:00"), laptop.sessions.observeRawSessions().first().map { it.id })
+    }
+
+    @Test
     fun aDifferentAccountSeesNoneOfIt() = testApplication {
         application { gainsServer(testServices(google, apple)) }
         val mine = Device(client, google, "me")

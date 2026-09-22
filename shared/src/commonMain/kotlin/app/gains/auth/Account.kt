@@ -116,9 +116,14 @@ class AccountRepository(
         settings.set(KEY_ACCOUNT, "")
     }
 
-    /** Removes the account and everything it holds on the server, then signs out. Local data is kept. */
+    /**
+     * Removes the account and everything it holds on the server, then signs out. Local data is
+     * kept, and the feed is forgotten so a later sign-in uploads all of it again. If the server
+     * call fails nothing local changes: the person is still signed in and can try again.
+     */
     suspend fun deleteAccount() {
         api.deleteAccount()
+        store.forgetFeed()
         signOut()
     }
 
