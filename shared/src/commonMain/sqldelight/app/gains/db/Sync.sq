@@ -1,5 +1,6 @@
 -- What has changed on this device since it was last pushed, one row per document, and the little
--- state the sync keeps (the pull cursor, the bearer token). See docs/sync.md.
+-- state the sync keeps (the pull cursor; the bearer token too, unless the platform keeps it in a
+-- safer vault, as iOS does in the Keychain). See docs/sync.md.
 --
 -- The rows are written by the triggers below, one AFTER INSERT / UPDATE / DELETE per synced table,
 -- so every write path is covered, including the ones not written yet. A change to a set marks its

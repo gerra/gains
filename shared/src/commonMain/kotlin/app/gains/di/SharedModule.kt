@@ -17,14 +17,17 @@ import app.gains.analysis.TrainingData
 import app.gains.sync.SyncApi
 import app.gains.sync.SyncController
 import app.gains.sync.SyncEngine
+import app.gains.sync.SqliteTokenVault
 import app.gains.sync.SyncStore
+import app.gains.sync.TokenVault
 import app.gains.sync.createHttpClient
 import org.koin.dsl.module
 
 /**
  * Shared dependencies. Platforms must additionally provide a [DatabaseDriverFactory], and may
- * override [AuthConfig] (with the client ids and the server) and [IdentityProvider] (with their
- * native sign-in); the defaults here keep the app a guest.
+ * override [AuthConfig] (with the client ids and the server), [IdentityProvider] (with their
+ * native sign-in) and [TokenVault] (with a safer home for the token than the database); the
+ * defaults here keep the app a guest.
  */
 val sharedModule = module {
     single { GainsDatabase(get<DatabaseDriverFactory>().createDriver()) }
@@ -39,7 +42,8 @@ val sharedModule = module {
     single { AuthConfig() }
     single<IdentityProvider> { NoIdentityProvider }
     single { createHttpClient() }
-    single { SyncStore(get()) }
+    single<TokenVault> { SqliteTokenVault(get()) }
+    single { SyncStore(get(), vault = get()) }
     single {
         val store = get<SyncStore>()
         SyncApi(get(), get<AuthConfig>().serverBaseUrl ?: "", token = { store.token() })

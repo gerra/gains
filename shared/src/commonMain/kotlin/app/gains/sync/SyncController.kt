@@ -36,11 +36,21 @@ class SyncController(
         requests.tryEmit(Unit)
     }
 
-    /** Runs until [scope] is cancelled. Launched once, from the app's root. */
+    /**
+     * Runs until [scope] is cancelled. Launched once, from the app's root, so it is also where a
+     * token left behind by an earlier install is dropped ([AccountRepository.forgetOrphanedToken]).
+     */
     @OptIn(FlowPreview::class)
     fun start(scope: CoroutineScope) {
         if (!enabled) return
         scope.launch {
+            try {
+                accounts.forgetOrphanedToken()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A vault that can't be read now is checked again at the next start.
+            }
             val signedIn = accounts.observeAccount().map { it != null && !it.isGuest }.distinctUntilChanged()
             val changes = store.observePendingCount().filter { it > 0 }.map { }
             val triggers = merge(changes, requests, signedIn.filter { it }.map { })

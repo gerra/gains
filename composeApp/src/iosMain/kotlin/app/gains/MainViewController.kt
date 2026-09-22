@@ -10,7 +10,9 @@ import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.PhotoPicker
 import app.gains.platform.PickedFile
+import app.gains.sync.KeychainTokenVault
 import app.gains.sync.SyncController
+import app.gains.sync.TokenVault
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
@@ -58,6 +60,7 @@ fun MainViewController(): UIViewController {
                 // Loaded after the shared module, so these replace its guest-only defaults.
                 single { iosAuthConfig() }
                 single<IdentityProvider> { IosIdentityProvider(get(), get()) }
+                single<TokenVault> { KeychainTokenVault() }
             },
         )
         koinStarted = true

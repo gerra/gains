@@ -232,6 +232,69 @@ class SyncStoreTest {
         assertNull(d.store.observeLastSyncedAt().first())
     }
 
+    /** A vault that is not the database, as the Keychain is on iOS. */
+    private class MemoryVault(var token: String? = null) : TokenVault {
+        override suspend fun get() = token
+        override suspend fun set(token: String) { this.token = token }
+        override suspend fun clear() { token = null }
+    }
+
+    private fun GainsDatabase.tokenRow() = syncQueries.selectState(SyncStore.KEY_TOKEN).executeAsOneOrNull()
+
+    @Test
+    fun aTokenFromBeforeTheVaultMovesIntoItOnFirstRead() = runTest {
+        val db = GainsDatabase(DesktopDriverFactory(file = null).createDriver())
+        db.syncQueries.upsertState(SyncStore.KEY_TOKEN, "old")
+        val vault = MemoryVault()
+        val store = SyncStore(db, Dispatchers.Unconfined, vault)
+
+        assertEquals("old", store.token(), "an update keeps the person signed in")
+        assertEquals("old", vault.token)
+        assertNull(db.tokenRow(), "the database no longer holds it")
+
+        store.setToken("new")
+        assertEquals("new", store.token())
+        assertNull(db.tokenRow())
+    }
+
+    @Test
+    fun aTokenWrittenBeforeAnyReadStillDropsTheOldRow() = runTest {
+        val db = GainsDatabase(DesktopDriverFactory(file = null).createDriver())
+        db.syncQueries.upsertState(SyncStore.KEY_TOKEN, "old")
+        val vault = MemoryVault()
+        val store = SyncStore(db, Dispatchers.Unconfined, vault)
+
+        store.setToken("new")
+        assertNull(db.tokenRow())
+        assertEquals("new", store.token())
+    }
+
+    @Test
+    fun clearingTheTokenEmptiesTheVaultAndTheOldRow() = runTest {
+        val db = GainsDatabase(DesktopDriverFactory(file = null).createDriver())
+        db.syncQueries.upsertState(SyncStore.KEY_TOKEN, "old")
+        val vault = MemoryVault("t")
+        val store = SyncStore(db, Dispatchers.Unconfined, vault)
+        store.setTokenIssuedAt("2026-09-22T10:00:00Z")
+
+        store.clearToken()
+        assertNull(vault.token)
+        assertNull(db.tokenRow())
+        assertNull(store.token(), "the old row does not come back as the token")
+        assertNull(store.tokenIssuedAt())
+    }
+
+    @Test
+    fun withoutAVaultTheTokenStaysInTheDatabase() = runTest {
+        val d = Device()
+        d.store.setToken("t")
+        assertEquals("t", d.db.tokenRow())
+        assertEquals("t", d.store.token())
+        d.store.clearToken()
+        assertNull(d.db.tokenRow())
+        assertNull(d.store.token())
+    }
+
     @Test
     fun theClockReadsLikeTheTriggersWrite() = runTest {
         val d = Device()
