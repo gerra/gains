@@ -1004,7 +1004,6 @@
     <string name="no_muscles_trained">No working sets to credit to a muscle group.</string>
     <string name="last_weight_on">Last entry %1$s on %2$s.</string>
     <string name="no_bodyweight_yet">No body weight on record yet.</string>
-    <string name="weight_recorded">Weight recorded</string>
     <string name="caption_and_photo">Caption and photo</string>
     <string name="caption_placeholder">How did it go?</string>
     <string name="workout_photo">Workout photo</string>
@@ -1014,6 +1013,8 @@
     <string name="summary_row">Summary, photo and caption</string>
     <string name="choose_a_photo">Choose a photo</string>
     <string name="photo_pill">Photo</string>
+    <string name="save">Save</string>
+    <string name="saved">Saved</string>
     <string-array name="months_short">
         <item>Jan</item>
         <item>Feb</item>

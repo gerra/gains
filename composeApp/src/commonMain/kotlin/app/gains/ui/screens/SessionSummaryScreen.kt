@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -328,24 +329,32 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
         }
         item {
             SectionHeader(stringResource(Res.string.bodyweight_title))
+            // One number and one word to put it on record: the wheel on the left, Save beside it.
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
-                ChooserRow(
-                    stringResource(Res.string.weight_label),
-                    if (state.weight > 0) Format.number(state.weight, 2) + " " + unit.label() else stringResource(Res.string.not_set),
-                    onClick = { weightPickerOpen = true },
-                    muted = state.weight <= 0,
-                )
-                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    ChooserRow(
+                        stringResource(Res.string.weight_label),
+                        if (state.weight > 0) Format.number(state.weight, 2) + " " + unit.label() else stringResource(Res.string.not_set),
+                        onClick = { weightPickerOpen = true },
+                        modifier = Modifier.weight(1f),
+                        muted = state.weight <= 0,
+                    )
+                    if (state.weightSaved) {
+                        Text(
+                            stringResource(Res.string.saved),
+                            Modifier.padding(start = 10.dp),
+                            style = MaterialTheme.typography.labelMedium, color = palette.volt,
+                        )
+                    } else {
+                        TextButton(onClick = model::saveWeight, enabled = state.weight > 0) {
+                            Text(stringResource(Res.string.save), color = if (state.weight > 0) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
                 Text(
                     state.lastWeight?.let { stringResource(Res.string.last_weight_on, weightText(it.weightKg, unit, 1), dateContextual(it.date, today)) }
                         ?: stringResource(Res.string.no_bodyweight_yet),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(12.dp))
-                PrimaryButton(
-                    if (state.weightSaved) stringResource(Res.string.weight_recorded) else stringResource(Res.string.save_entry),
-                    onClick = model::saveWeight,
-                    enabled = state.weight > 0 && !state.weightSaved,
                 )
             }
         }

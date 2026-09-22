@@ -370,12 +370,12 @@ class ScreenshotTest {
         // The last body weight is filled in, ready to be recorded against the day that was trained.
         // A row is paged to before it is scrolled into view: the list composes a little past its
         // viewport, so a row that exists may still be under the tab bar, where a tap never reaches it.
-        scrollUntil(text("Muscles trained"), text("Save entry"))
-        scrollIntoView(text("Save entry") and hasClickAction())
-        onNode(text("Save entry") and hasClickAction()).performClick()
-        require(text("Weight recorded"))
+        scrollUntil(text("Muscles trained"), hasText("Save") and hasClickAction())
+        scrollIntoView(hasText("Save") and hasClickAction())
+        onNode(hasText("Save") and hasClickAction()).performClick()
+        require(hasText("Saved"))
         // A caption and a photo to remember the session by.
-        scrollUntil(text("Weight recorded"), hasContentDescription("Add photo"))
+        scrollUntil(hasText("Saved"), hasContentDescription("Add photo"))
         scrollIntoView(hasContentDescription("Add photo"))
         onNode(hasContentDescription("Add photo") and hasClickAction()).performClick()
         require(hasContentDescription("Workout photo"))
