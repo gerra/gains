@@ -1,0 +1,122 @@
+-- The sync server's five tables (docs/sync.md, "The server"). One SQLite file per box; every
+-- row belongs to a user and nothing is shared between users.
+
+CREATE TABLE user (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  email TEXT,
+  name TEXT,
+  created_at TEXT NOT NULL
+);
+
+-- A sign-in provider's stable subject, pointing at the user it belongs to. The same person
+-- with both providers has two rows here and one in `user`.
+CREATE TABLE identity (
+  provider TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES user(id),
+  email TEXT,
+  PRIMARY KEY (provider, subject)
+);
+
+CREATE INDEX identity_user ON identity(user_id);
+
+-- One synced thing in its latest state. `seq` is the feed position; an overwrite takes a new one.
+CREATE TABLE document (
+  user_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,
+  id TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted INTEGER NOT NULL DEFAULT 0,
+  payload TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (user_id, kind, id)
+);
+
+CREATE INDEX document_feed ON document(user_id, seq);
+
+-- The bytes behind a `session_photo` document; the feed row carries only their hash and size.
+CREATE TABLE blob (
+  user_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,
+  id TEXT NOT NULL,
+  bytes BLOB NOT NULL,
+  PRIMARY KEY (user_id, kind, id)
+);
+
+-- The one counter every accepted write takes its `seq` from.
+CREATE TABLE counter (
+  name TEXT NOT NULL PRIMARY KEY,
+  value INTEGER NOT NULL
+);
+
+INSERT INTO counter(name, value) VALUES ('seq', 0);
+
+-- users and identities
+
+selectIdentity:
+SELECT provider, subject, user_id, email FROM identity WHERE provider = ? AND subject = ?;
+
+selectUserByEmail:
+SELECT id, email, name, created_at FROM user WHERE email = ? COLLATE NOCASE LIMIT 1;
+
+selectUser:
+SELECT id, email, name, created_at FROM user WHERE id = ?;
+
+insertUser:
+INSERT INTO user(email, name, created_at) VALUES (?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+insertIdentity:
+INSERT INTO identity(provider, subject, user_id, email) VALUES (?, ?, ?, ?);
+
+updateUserDetails:
+UPDATE user SET email = COALESCE(email, ?), name = COALESCE(name, ?) WHERE id = ?;
+
+selectProvidersForUser:
+SELECT provider FROM identity WHERE user_id = ? ORDER BY provider;
+
+deleteIdentitiesForUser:
+DELETE FROM identity WHERE user_id = ?;
+
+deleteUser:
+DELETE FROM user WHERE id = ?;
+
+-- documents
+
+-- Bumped and read as a pair, inside the transaction that uses the value.
+incrementSeq:
+UPDATE counter SET value = value + 1 WHERE name = 'seq';
+
+selectSeq:
+SELECT value FROM counter WHERE name = 'seq';
+
+selectDocument:
+SELECT user_id, kind, id, seq, updated_at, deleted, payload FROM document WHERE user_id = ? AND kind = ? AND id = ?;
+
+upsertDocument:
+INSERT OR REPLACE INTO document(user_id, kind, id, seq, updated_at, deleted, payload) VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectFeed:
+SELECT user_id, kind, id, seq, updated_at, deleted, payload FROM document WHERE user_id = ? AND seq > ? ORDER BY seq LIMIT ?;
+
+countDocumentsForUser:
+SELECT COUNT(*) FROM document WHERE user_id = ?;
+
+deleteDocumentsForUser:
+DELETE FROM document WHERE user_id = ?;
+
+-- blobs
+
+selectBlob:
+SELECT bytes FROM blob WHERE user_id = ? AND kind = ? AND id = ?;
+
+upsertBlob:
+INSERT OR REPLACE INTO blob(user_id, kind, id, bytes) VALUES (?, ?, ?, ?);
+
+deleteBlob:
+DELETE FROM blob WHERE user_id = ? AND kind = ? AND id = ?;
+
+deleteBlobsForUser:
+DELETE FROM blob WHERE user_id = ?;

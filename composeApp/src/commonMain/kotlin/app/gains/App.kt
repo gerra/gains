@@ -77,6 +77,7 @@ import app.gains.data.SettingsRepository
 import app.gains.domain.LiveSession
 import app.gains.domain.ProgramDayRef
 import app.gains.program.Rotation
+import app.gains.sync.SyncController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -196,6 +197,9 @@ private fun AppBody(
     val settings = remember { inject<SettingsRepository>() }
     val exercises = remember { inject<ExerciseRepository>() }
     LaunchedEffect(Unit) { exercises.seedCatalogue() }
+    // The sync runs for as long as the app does; it does nothing for a guest or without a server.
+    val sync = remember { inject<SyncController>() }
+    LaunchedEffect(Unit) { sync.start(this) }
 
     // Files shared into the app open the import screen.
     val incoming by IncomingFiles.pending.collectAsState()

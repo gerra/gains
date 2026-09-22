@@ -17,7 +17,6 @@ import app.gains.domain.Session
 import app.gains.domain.SetEntry
 import app.gains.domain.SetType
 import app.gains.domain.WeightUnit
-import app.gains.importer.ImportAnalyzer
 import app.gains.importer.StoredSessionSummary
 import app.gains.program.Gzclp
 import kotlinx.coroutines.CoroutineDispatcher
@@ -114,39 +113,7 @@ class SessionRepository(
     /** Inserts or replaces whole sessions in one transaction. */
     suspend fun upsertAll(sessions: List<Session>) = withContext(io) {
         db.transaction {
-            for (session in sessions) {
-                q.deleteSetsForSession(session.id)
-                q.deleteEntriesForSession(session.id)
-                q.insertSession(
-                    id = session.id,
-                    timestamp = session.timestamp.toString(),
-                    date = session.date.toString(),
-                    duration_minutes = session.durationMinutes?.toLong(),
-                    fingerprint = ImportAnalyzer.fingerprint(session),
-                    content_hash = ImportAnalyzer.contentHash(session),
-                    source = session.source,
-                    program_id = session.program?.programId,
-                    program_day_id = session.program?.dayId,
-                    caption = session.caption?.takeIf { it.isNotBlank() },
-                )
-                session.exercises.forEachIndexed { position, entry ->
-                    q.insertEntry(session.id, entry.exerciseId, position.toLong(), entry.note)
-                    val entryId = q.lastInsertedId().executeAsOne()
-                    for (set in entry.sets) {
-                        q.insertSet(
-                            entry_id = entryId,
-                            set_order = set.order.toLong(),
-                            type = set.type.name,
-                            weight_kg = set.weightKg,
-                            reps = set.reps?.toLong(),
-                            seconds = set.seconds?.toLong(),
-                            distance_km = set.distanceKm,
-                            rpe = set.rpe,
-                            is_warmup = if (set.isWarmup) 1L else 0L,
-                        )
-                    }
-                }
-            }
+            for (session in sessions) writeSessionRows(q, session)
         }
     }
 

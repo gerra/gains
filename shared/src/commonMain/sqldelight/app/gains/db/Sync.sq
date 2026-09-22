@@ -1,0 +1,205 @@
+-- What has changed on this device since it was last pushed, one row per document, and the little
+-- state the sync keeps (the pull cursor, the bearer token). See docs/sync.md.
+--
+-- The rows are written by the triggers below, one AFTER INSERT / UPDATE / DELETE per synced table,
+-- so every write path is covered, including the ones not written yet. A change to a set marks its
+-- session; a change to a slot marks its program; built-in exercises and unsynced settings mark
+-- nothing. `changed_at` is this device's clock in UTC and becomes the document's `updated_at`.
+
+CREATE TABLE sync_change (
+  kind TEXT NOT NULL,
+  id TEXT NOT NULL,
+  changed_at TEXT NOT NULL,
+  deleted INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (kind, id)
+);
+
+CREATE TABLE sync_state (
+  key TEXT NOT NULL PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+-- session: the row itself, its entries and its sets all mark the session.
+CREATE TRIGGER sync_session_insert AFTER INSERT ON session BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('session', new.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_session_update AFTER UPDATE ON session BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('session', new.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_session_delete AFTER DELETE ON session BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('session', old.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1);
+END;
+CREATE TRIGGER sync_entry_insert AFTER INSERT ON exercise_entry BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('session', new.session_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_entry_update AFTER UPDATE ON exercise_entry BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('session', new.session_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+-- Entries go before their session in deleteSession, so this marks an edit; the session's own
+-- delete trigger turns it into a tombstone right after.
+CREATE TRIGGER sync_entry_delete AFTER DELETE ON exercise_entry BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('session', old.session_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+-- A set reaches its session through its entry, which is still there whenever a set is written.
+CREATE TRIGGER sync_set_insert AFTER INSERT ON set_entry BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted)
+  SELECT 'session', session_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0 FROM exercise_entry WHERE id = new.entry_id;
+END;
+CREATE TRIGGER sync_set_update AFTER UPDATE ON set_entry BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted)
+  SELECT 'session', session_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0 FROM exercise_entry WHERE id = new.entry_id;
+END;
+CREATE TRIGGER sync_set_delete AFTER DELETE ON set_entry BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted)
+  SELECT 'session', session_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0 FROM exercise_entry WHERE id = old.entry_id;
+END;
+
+-- session_photo: its own document, since the bytes travel outside the JSON feed.
+CREATE TRIGGER sync_photo_insert AFTER INSERT ON session_photo BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('session_photo', new.session_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_photo_update AFTER UPDATE ON session_photo BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('session_photo', new.session_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_photo_delete AFTER DELETE ON session_photo BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('session_photo', old.session_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1);
+END;
+
+-- exercise: only the person's own. The catalogue is re-seeded on every launch and never travels.
+CREATE TRIGGER sync_exercise_insert AFTER INSERT ON exercise WHEN new.is_builtin = 0 BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('exercise', new.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_exercise_update AFTER UPDATE ON exercise WHEN new.is_builtin = 0 BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('exercise', new.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_exercise_delete AFTER DELETE ON exercise WHEN old.is_builtin = 0 BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('exercise', old.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1);
+END;
+
+CREATE TRIGGER sync_alias_insert AFTER INSERT ON exercise_alias BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('alias', new.raw_name, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_alias_update AFTER UPDATE ON exercise_alias BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('alias', new.raw_name, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_alias_delete AFTER DELETE ON exercise_alias BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('alias', old.raw_name, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1);
+END;
+
+CREATE TRIGGER sync_override_insert AFTER INSERT ON exercise_override BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('override', new.exercise_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_override_update AFTER UPDATE ON exercise_override BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('override', new.exercise_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_override_delete AFTER DELETE ON exercise_override BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('override', old.exercise_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1);
+END;
+
+CREATE TRIGGER sync_bodyweight_insert AFTER INSERT ON bodyweight BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('bodyweight', new.date, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_bodyweight_update AFTER UPDATE ON bodyweight BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('bodyweight', new.date, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_bodyweight_delete AFTER DELETE ON bodyweight BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('bodyweight', old.date, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1);
+END;
+
+-- program: the row, its days and its slots all mark the program.
+CREATE TRIGGER sync_program_insert AFTER INSERT ON program BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('program', new.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_program_update AFTER UPDATE ON program BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('program', new.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_program_delete AFTER DELETE ON program BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('program', old.id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1);
+END;
+CREATE TRIGGER sync_day_insert AFTER INSERT ON program_day BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('program', new.program_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_day_update AFTER UPDATE ON program_day BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('program', new.program_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_day_delete AFTER DELETE ON program_day BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('program', old.program_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_slot_insert AFTER INSERT ON program_slot BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted)
+  SELECT 'program', program_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0 FROM program_day WHERE id = new.day_id;
+END;
+CREATE TRIGGER sync_slot_update AFTER UPDATE ON program_slot BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted)
+  SELECT 'program', program_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0 FROM program_day WHERE id = new.day_id;
+END;
+CREATE TRIGGER sync_slot_delete AFTER DELETE ON program_slot BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted)
+  SELECT 'program', program_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0 FROM program_day WHERE id = old.day_id;
+END;
+
+-- setting: the keys that are the person's, not the device's. Same list as SyncKinds.settingKeys.
+CREATE TRIGGER sync_setting_insert AFTER INSERT ON setting
+WHEN new.key IN ('weight_unit', 'bar_weight_kg', 'auto_warmups', 'goal_profile', 'active_program', 'onboarding_done') BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('setting', new.key, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_setting_update AFTER UPDATE ON setting
+WHEN new.key IN ('weight_unit', 'bar_weight_kg', 'auto_warmups', 'goal_profile', 'active_program', 'onboarding_done') BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('setting', new.key, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+
+selectChanges:
+SELECT kind, id, changed_at, deleted FROM sync_change ORDER BY changed_at;
+
+selectChange:
+SELECT kind, id, changed_at, deleted FROM sync_change WHERE kind = ? AND id = ?;
+
+countChanges:
+SELECT COUNT(*) FROM sync_change;
+
+markChange:
+INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES (?, ?, ?, ?);
+
+-- Only the row that was pushed: a change made since keeps its newer stamp.
+clearChangeIfUnchanged:
+DELETE FROM sync_change WHERE kind = ? AND id = ? AND changed_at = ?;
+
+clearChange:
+DELETE FROM sync_change WHERE kind = ? AND id = ?;
+
+clearAllChanges:
+DELETE FROM sync_change;
+
+selectState:
+SELECT value FROM sync_state WHERE key = ?;
+
+upsertState:
+INSERT OR REPLACE INTO sync_state(key, value) VALUES (?, ?);
+
+deleteState:
+DELETE FROM sync_state WHERE key = ?;
+
+-- Everything that would be synced, so a fresh sign-in can mark it all as changed.
+selectSessionIdsForSync:
+SELECT id FROM session;
+
+selectPhotoIdsForSync:
+SELECT session_id FROM session_photo;
+
+selectCustomExerciseIds:
+SELECT id FROM exercise WHERE is_builtin = 0;
+
+selectAliasNames:
+SELECT raw_name FROM exercise_alias;
+
+selectOverrideIds:
+SELECT exercise_id FROM exercise_override;
+
+selectBodyweightDates:
+SELECT date FROM bodyweight;
+
+selectProgramIds:
+SELECT id FROM program;
+
+selectSettingKeys:
+SELECT key FROM setting;

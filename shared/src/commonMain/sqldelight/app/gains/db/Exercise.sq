@@ -55,3 +55,12 @@ UPDATE exercise_entry SET exercise_id = ? WHERE exercise_id = ?;
 
 deleteExercise:
 DELETE FROM exercise WHERE id = ? AND is_builtin = 0;
+
+selectExerciseById:
+SELECT id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles, equipment FROM exercise WHERE id = ?;
+
+selectAlias:
+SELECT raw_name, exercise_id FROM exercise_alias WHERE raw_name = ?;
+
+selectOverride:
+SELECT exercise_id, working_set_ratio FROM exercise_override WHERE exercise_id = ?;

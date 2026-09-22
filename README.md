@@ -50,8 +50,8 @@ month. Every statement comes with the numbers and the chart behind it.
 It is a [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html) app with a
 [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/) UI. iOS is the primary
 target; Android and a desktop (JVM) build share the same code. Everything lives in a local
-SQLite database on the device. A self-hosted sync server is planned but nothing leaves your
-device today.
+SQLite database on the device. Signing in adds a self-hosted sync server that carries your
+documents between devices and never reads them; as a guest, nothing leaves your device.
 
 <details>
 <summary><strong>Table of contents</strong></summary>
@@ -477,6 +477,7 @@ flowchart LR
 | [`shared/`](shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence (including the workout in progress), insight engine, streak engine, program rotation and progression logic. Pure Kotlin, no UI, 100+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
 | [`composeApp/`](composeApp) | Compose Multiplatform UI (goal onboarding, home insights with the next program day, programs and a program editor, history with a workout editor, the end-of-session summary, import preview, lifts, volume, bodyweight, settings), Canvas charts and the Android, iOS and desktop entry points. |
 | [`iosApp/`](iosApp) | Xcode project wrapping the `ComposeApp` framework in SwiftUI. |
+| [`server/`](server) | The sync server: Ktor on a SQLite file, sign-in with Google or Apple identity tokens, a per-user document feed and photo blobs. Built on `shared`'s JVM target so both ends share the wire format; tested by syncing two real client databases through the real routes. |
 | [`samples/`](samples) | A generated eight-month Liftoff export used by the screenshots and handy for trying the app. |
 
 Dependencies are wired with [Koin](https://insert-koin.io/); each platform supplies a
@@ -488,10 +489,23 @@ reloading.
 ### Accounts and sync
 
 On first launch the app asks how to continue. **Continue as guest** keeps everything in the local
-database. **Continue with Google / Apple** are present but disabled: they light up once
-`AuthConfig` in [`Account.kt`](shared/src/commonMain/kotlin/app/gains/auth/Account.kt) carries a
-Google client id, an Apple service id and the sync server's base URL. Settings shows the current
-account and lets you return to the sign-in screen; local data is kept.
+database. **Continue with Google / Apple** signs in to the sync server: the phone hands the
+provider's identity token to the server, which verifies it against the provider's published keys
+and issues a token of its own. From then on a background worker pushes what changed on this
+device and pulls what changed on the others, two seconds after an edit and whenever the app
+comes to the front. Workouts, their photos, custom exercises, aliases, body weight, programs and
+the preferences that are yours rather than the device's all travel; theme, language and the
+streak reminder stay put. Signing in on a device that already holds guest data merges it into
+the account. Settings shows the current account and lets you return to the sign-in screen; local
+data is kept.
+
+What is synced is a set of small JSON documents, one per workout or program, kept in their
+latest state on the server with last-writer-wins per document and a change log kept by SQLite
+triggers on the device. [docs/sync.md](docs/sync.md) is the whole design: the protocol, the
+server, why photos travel outside the feed, and how it is deployed. The provider buttons light up
+once `AuthConfig` in [`Account.kt`](shared/src/commonMain/kotlin/app/gains/auth/Account.kt) carries
+the client ids and the server's URL, and each platform registers its native sign-in sheet as an
+`IdentityProvider`.
 
 ## Development
 
@@ -499,6 +513,8 @@ account and lets you return to the sign-in screen; local data is kept.
 ./gradlew :shared:desktopTest -Pgains.android=false            # parser, importer, insight and integration tests
 ./gradlew :composeApp:desktopTest -Pgains.android=false        # UI smoke test that also renders screenshots into composeApp/build/screenshots
 ./gradlew :composeApp:run -Pgains.android=false                # desktop app
+./gradlew :server:test -Pgains.android=false                   # the sync server's routes and a two-device round trip
+./gradlew :server:run -Pgains.android=false                    # the sync server on :5003 (needs JWT_SECRET, see secrets/README.md)
 ```
 
 `-Pgains.android=false` configures the build without the Android Gradle Plugin, which is what
@@ -535,6 +551,17 @@ the estimated 1RM, the warm-up steps, the default bar weight and increments, and
 
 **Changing the schema.** Edit the `.sq` file and add a `migrations/N.sqm` with the same DDL;
 `MigrationTest` upgrades a database from the previous version and compares it with a fresh one.
+A new table that should sync also needs its three triggers in
+[`Sync.sq`](shared/src/commonMain/sqldelight/app/gains/db/Sync.sq) and a document class in
+[`Documents.kt`](shared/src/commonMain/kotlin/app/gains/sync/Documents.kt); `SyncStoreTest`
+checks that what the repositories write is what the triggers record.
+
+**The sync server.** Lives in [`server/`](server) and is deployed by the
+[Deploy server workflow](.github/workflows/deploy.yml) on a push to `main` that touches it:
+tests, `installDist`, rsync to the Hetzner box, the systemd unit from `deploy/`, a smoke test.
+The nginx block is pushed with `scripts/push-conf.sh`, the secrets with
+`scripts/deploy_secrets.sh` ([secrets/README.md](secrets/README.md) lists them). A server-only
+change cuts no release branch. Design and routes: [docs/sync.md](docs/sync.md).
 
 **Exercise photos.** `python3 tools/exercise_demos.py` (needs Pillow) matches every catalogue
 exercise to a [free-exercise-db](https://github.com/yuhonas/free-exercise-db) entry by its
@@ -581,8 +608,9 @@ in `iosApp/iosApp/Info.plist`.
 
 ## Roadmap
 
-- [ ] Self-hosted sync server (the token exchange in `AccountRepository` is the open TODO)
-- [ ] Google and Apple sign-in, which the server unlocks
+- [x] Self-hosted sync server and the client that speaks to it ([docs/sync.md](docs/sync.md))
+- [ ] The native sign-in sheets: Sign in with Apple on iOS, Google through Credential Manager on Android and the Google Sign-In SDK on iOS, behind the `IdentityProvider` interface, plus the client ids and the server URL in `AuthConfig`
+- [ ] Keep the sync token in the Keychain and the Android Keystore rather than the app database
 - [ ] More connectors: a `ColumnSpec` and a `match` function each, contributions welcome
 
 ## Known limitations

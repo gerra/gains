@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- The sync server (docs/sync.md); nothing is sent while the app is used as a guest. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Android 13+: the workout-in-progress notification, asked for when the first workout starts. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- A reboot clears alarms; this lets the streak reminders be put back. -->
