@@ -209,7 +209,9 @@ then pull:
 when: two seconds after `sync_change` last grew, every time the app comes to the foreground and
 right after sign-in. Signing in on a device that already holds guest data marks every local
 document as changed and resets the cursor, so the first sync is a union of what is here and what
-is there.
+is there. A guest does that from Settings: the account card offers the enabled providers' buttons
+and signs in where the person stands, with no sign-out first, so closing the sheet leaves them a
+guest with everything in place.
 
 The bearer token and the cursor live in `sync_state`, inside the app's database. The Keychain and
 the Android Keystore are the better home for the token and the noted follow-up.

@@ -1,6 +1,11 @@
 package app.gains.server
 
+import app.gains.auth.Account
 import app.gains.auth.AccountKind
+import app.gains.auth.AccountRepository
+import app.gains.auth.AuthConfig
+import app.gains.auth.IdentityAssertion
+import app.gains.auth.IdentityProvider
 import app.gains.data.BodyweightRepository
 import app.gains.data.DesktopDriverFactory
 import app.gains.data.ExerciseRepository
@@ -140,6 +145,39 @@ class SyncRoundTripTest {
         assertEquals(listOf("2026-09-01T10:00", "2026-09-02T10:00"), laptop.sessions.observeRawSessions().first().map { it.id })
         phone.engine.sync()
         assertEquals(listOf("2026-09-01T10:00", "2026-09-02T10:00"), phone.sessions.observeRawSessions().first().map { it.id })
+    }
+
+    @Test
+    fun aGuestLinksFromSettingsWithoutLosingAnything() = testApplication {
+        application { gainsServer(testServices(google, apple)) }
+        val phone = Device(client, google, "me")
+        phone.exercises.seedCatalogue()
+        val config = AuthConfig(appleServiceId = APPLE_AUDIENCE, serverBaseUrl = "https://api.example")
+        val seen = mutableListOf<Account?>()
+        val sheet = object : IdentityProvider {
+            override suspend fun signIn(kind: AccountKind): IdentityAssertion {
+                seen += AccountRepository.decode(phone.settings.observe(AccountRepository.KEY_ACCOUNT).first())
+                return IdentityAssertion(apple.token("apple-me", APPLE_AUDIENCE, email = "me@x.y"), "Me")
+            }
+        }
+        val accounts = AccountRepository(phone.settings, config, phone.api, phone.store, sheet)
+
+        // A guest logs a workout; as far as the change log knows, it has been dealt with.
+        accounts.continueAsGuest()
+        phone.sessions.upsert(session("2026-09-03T10:00", 70.0))
+        for (change in phone.store.pendingChanges()) phone.store.clearPushed(change)
+
+        // Linking from Settings: the sheet opens on the guest, not on a signed-out app.
+        accounts.signInWithApple()
+        assertEquals(listOf<Account?>(Account(AccountKind.GUEST)), seen)
+        assertEquals(AccountKind.APPLE, accounts.observeAccount().first()?.kind)
+        assertEquals(listOf("2026-09-03T10:00"), phone.sessions.observeRawSessions().first().map { it.id })
+        assertTrue(phone.store.observePendingCount().first() > 0, "everything on the device waits to go up")
+
+        val upload = phone.engine.sync()
+        assertTrue(upload.pushed > 0)
+        assertEquals(0, upload.rejected)
+        assertEquals(0L, phone.store.observePendingCount().first())
     }
 
     @Test

@@ -43,6 +43,9 @@
     <string name="sign_in_blurb">Записывай тренировки или импортируй из Liftoff, Strong, Hevy и любого CSV. Gains покажет, какие упражнения растут, стоят на месте или проседают, — с цифрами.</string>
     <string name="sign_in_with_apple">Вход с Apple</string>
     <string name="sign_in_with_google">Войти с аккаунтом Google</string>
+    <string name="link_with_apple">Продолжить с Apple</string>
+    <string name="link_with_google">Продолжить с Google</string>
+    <string name="link_note">Тренировки с этого устройства загрузятся в аккаунт и объединятся с тем, что там уже есть.</string>
     <string name="continue_as_guest">Продолжить как гость</string>
     <string name="guest_note_with_sync">В режиме гостя всё хранится на этом устройстве. Войдите позже, чтобы сделать резервную копию и синхронизацию.</string>
     <string name="guest_note_coming_soon">Вход и облачная синхронизация появятся позже. В режиме гостя всё хранится на этом устройстве.</string>
@@ -218,7 +221,6 @@
     <string name="not_signed_in">Вход не выполнен</string>
     <string name="guest_data_note">Данные хранятся только на этом устройстве. Войдите позже, чтобы сделать резервную копию и синхронизацию.</string>
     <string name="synced_to_server">Синхронизируется с вашим сервером</string>
-    <string name="sign_in">Войти</string>
     <string name="sign_out">Выйти</string>
     <string name="sign_in_not_configured_note">Вход через Google и Apple пока не настроен; сервер синхронизации появится позже.</string>
     <string name="training_goal">Цель тренировок</string>

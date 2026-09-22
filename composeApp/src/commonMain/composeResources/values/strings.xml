@@ -43,6 +43,9 @@
     <string name="sign_in_blurb">Log workouts or import from Liftoff, Strong, Hevy or any CSV. Gains shows which lifts climb, stall or slip, with the numbers to prove it.</string>
     <string name="sign_in_with_apple">Sign in with Apple</string>
     <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="link_with_apple">Continue with Apple</string>
+    <string name="link_with_google">Continue with Google</string>
+    <string name="link_note">Your workouts on this device will be uploaded to the account and merged with anything already there.</string>
     <string name="continue_as_guest">Continue as guest</string>
     <string name="guest_note_with_sync">As a guest everything stays on this device. Sign in later to back it up and sync.</string>
     <string name="guest_note_coming_soon">Sign-in and cloud sync are coming soon. As a guest everything stays on this device.</string>
@@ -218,7 +221,6 @@
     <string name="not_signed_in">Not signed in</string>
     <string name="guest_data_note">Data is saved on this device only. Sign in later to back it up and sync.</string>
     <string name="synced_to_server">Synced to your server</string>
-    <string name="sign_in">Sign in</string>
     <string name="sign_out">Sign out</string>
     <string name="sign_in_not_configured_note">Google and Apple sign-in are not configured yet; the sync server is coming later.</string>
     <string name="training_goal">Training goal</string>
