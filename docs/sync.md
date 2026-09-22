@@ -1,7 +1,7 @@
 # Accounts and sync
 
 How a workout logged on the phone reaches the laptop, and what the server that carries it knows.
-The short version lives in the [README](../README.md#accounts-and-sync); this page is the design
+The short version lives in [How it works](how-it-works.md#accounts-and-sync); this page is the design
 and the reasons behind it.
 
 - [Shape of it](#shape-of-it)
