@@ -1,6 +1,15 @@
 package app.gains
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.LocalDensity
@@ -24,6 +33,10 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Dates
+import app.gains.analysis.Dates.minusDays
+import app.gains.analysis.Dates.plusDays
+import app.gains.analysis.Streak
+import app.gains.analysis.StreakStatus
 import app.gains.auth.AccountRepository
 import app.gains.data.BodyweightRepository
 import app.gains.data.DatabaseDriverFactory
@@ -41,9 +54,13 @@ import app.gains.platform.IncomingFiles
 import app.gains.platform.PickedFile
 import app.gains.ui.charts.BodyMapModel
 import app.gains.ui.components.GainsLogo
+import app.gains.ui.components.StreakCard
+import app.gains.ui.theme.GainsTheme
 import app.gains.ui.inject
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.daysUntil
 import kotlinx.datetime.minus
 import org.koin.core.context.stopKoin
 import org.koin.dsl.module
@@ -68,7 +85,7 @@ class ScreenshotTest {
         val dbFile = File.createTempFile("gains-screenshots", ".db").apply { delete(); deleteOnExit() }
         stopKoin()
         initKoin(module { single<DatabaseDriverFactory> { DesktopDriverFactory(dbFile) } })
-        val csv = sampleCsv.readText()
+        val csv = endingYesterday(sampleCsv.readText())
 
         // Drive the clock by hand from the very first composition. With autoAdvance the framework
         // cancels infinite animations and waits for the scene to stop invalidating before every node
@@ -363,6 +380,77 @@ class ScreenshotTest {
         settle(1_500)
         shot("11-lift-detail-light")
         watchdog.interrupt()
+    }
+
+    /**
+     * The streak card in every state it has, side by side: what the nudge looks like on the two days
+     * it fires, what it says instead when a rest week would cover the miss, and what a safe, a full
+     * and an empty week look like. The end-to-end run above can only ever show one of these, because
+     * it can only show the week it happens to run in.
+     */
+    @Test
+    fun captureTheStreakCardInEveryState() = runDesktopComposeUiTest(width = 960, height = 5200) {
+        mainClock.autoAdvance = false
+        // Saturday and Sunday of a week with nothing in it: the ring around today is breathing.
+        val atRisk = Streak(weeks = 12, best = 12, sessionsThisWeek = 0, goalPerWeek = 3, daysLeftInWeek = 2, status = StreakStatus.AT_RISK, nextMilestone = 26)
+        val covered = atRisk.copy(daysLeftInWeek = 1, status = StreakStatus.LAST_CHANCE, restWeeksInHand = 2)
+        val states = listOf(
+            "At risk — Saturday, nothing logged" to atRisk,
+            "Last day, and a rest week would cover it" to covered,
+            "Safe, one short of the week's goal" to Streak(
+                weeks = 13, best = 13, sessionsThisWeek = 2, goalPerWeek = 3, daysLeftInWeek = 3,
+                status = StreakStatus.SAFE, thisWeekSessions = listOf(1, 0, 1, 0, 0, 0, 0), restWeeksInHand = 1, nextMilestone = 26,
+            ),
+            "A full week, and a milestone with it" to Streak(
+                weeks = 26, best = 26, sessionsThisWeek = 4, goalPerWeek = 4, daysLeftInWeek = 2,
+                status = StreakStatus.SAFE, thisWeekSessions = listOf(1, 0, 1, 0, 2, 0, 0), atMilestone = true, nextMilestone = 52,
+            ),
+            "A rest week carried last week" to Streak(
+                weeks = 9, best = 14, sessionsThisWeek = 1, goalPerWeek = 3, daysLeftInWeek = 4,
+                status = StreakStatus.SAFE, thisWeekSessions = listOf(0, 0, 0, 1, 0, 0, 0), heldLastWeek = true, nextMilestone = 12,
+            ),
+            "Nothing to protect yet" to Streak(goalPerWeek = 3, daysLeftInWeek = 5),
+        )
+        setContent {
+            CompositionLocalProvider(LocalDensity provides Density(2f)) {
+                GainsTheme(darkTheme = true) {
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            for ((caption, streak) in states) {
+                                Text(caption.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                StreakCard(streak, Modifier.fillMaxWidth())
+                            }
+                            // The same card in the light theme, to show it is not a dark-only design.
+                            Text("THE SAME CARD, LIGHT THEME", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            GainsTheme(darkTheme = false) {
+                                Surface(color = MaterialTheme.colorScheme.background) { StreakCard(atRisk, Modifier.fillMaxWidth()) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // The at-risk ring is a slow pulse; land on a frame where it is drawn close to full.
+        repeat(90) { mainClock.advanceTimeByFrame() }
+        ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(outDir, "17-streak-states.png"))
+    }
+
+    /**
+     * The sample export ends whenever it was generated, which after a few weeks is a lifter who has
+     * stopped training: every picture would show an empty week and a streak of zero. Each row is
+     * moved forward by the same number of days so the history ends yesterday, which leaves the shape
+     * of the eight months exactly as it was and makes the screenshots look like a log in use.
+     */
+    private fun endingYesterday(csv: String): String {
+        val rows = csv.lines()
+        fun dateOf(row: String) = row.take(10).takeIf { it.length == 10 && it[4] == '-' }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        val last = rows.drop(1).mapNotNull(::dateOf).maxOrNull() ?: return csv
+        val shift = last.daysUntil(Dates.today().minusDays(1))
+        if (shift == 0) return csv
+        return rows.joinToString("\n") { row ->
+            val date = dateOf(row) ?: return@joinToString row
+            (if (shift > 0) date.plusDays(shift) else date.minusDays(-shift)).toString() + row.drop(10)
+        }
     }
 
     @Test
