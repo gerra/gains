@@ -294,7 +294,7 @@ Steps:
 
 ## 6. Keep the token in the iOS Keychain
 
-- [ ] Done
+- [x] Done
 
 **Depends on:** nothing. Merge it before any public release.
 

@@ -224,8 +224,16 @@ The engine's status is in memory, so the time of the last successful run is also
 changes hands. A 401 from the server shows "Signed out on the server" with the provider buttons,
 which sign in again where the person stands and then ask for a sync.
 
-The bearer token and the cursor live in `sync_state`, inside the app's database. The Keychain and
-the Android Keystore are the better home for the token and the noted follow-up.
+The cursor, the user id and when the token was issued live in `sync_state`, inside the app's
+database; none of them is a secret. The bearer token goes through a
+[`TokenVault`](../shared/src/commonMain/kotlin/app/gains/sync/TokenVault.kt). On iOS that is the
+Keychain ([`KeychainTokenVault`](../shared/src/iosMain/kotlin/app/gains/sync/KeychainTokenVault.kt)):
+one generic password, service `app.gains.sync`, account `token`, readable after the first unlock
+so a background sync works, and "this device only" so it never reaches a backup. A token an
+earlier version left in `sync_state` moves into the Keychain the first time it is read, and its
+row is deleted. The Keychain outlives the app while the database does not, so at start a token
+with no signed-in account in front of it (a reinstall) is cleared. Android and the desktop still
+keep the token in `sync_state`; the Android Keystore is still to do.
 
 ## The server
 

@@ -29,14 +29,22 @@ data class PendingChange(val kind: String, val id: String, val changedAt: String
 /**
  * The sync's side of the device database: the change log the triggers in Sync.sq keep, the
  * documents built from the tables for a push, the tables written from documents on a pull, and
- * the values kept between runs (the pull cursor, the bearer token, when the last run went
- * through). See docs/sync.md.
+ * the values kept between runs (the pull cursor, when the last run went through). The bearer
+ * token is kept by [vault], which on iOS is the Keychain. See docs/sync.md.
  */
 class SyncStore(
     private val db: GainsDatabase,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    private val vault: TokenVault = SqliteTokenVault(db, io),
 ) {
     private val q get() = db.syncQueries
+
+    /**
+     * Whether a token row from before [vault] may still sit in `sync_state`. Never for a
+     * [SqliteTokenVault], whose own row it is; for any other vault it is checked once, on the
+     * first read of the token.
+     */
+    private var legacyTokenUnchecked = vault !is SqliteTokenVault
 
     // --- the change log ---------------------------------------------------------------------
 
@@ -216,9 +224,31 @@ class SyncStore(
 
     suspend fun cursor(): Long = withContext(io) { q.selectState(KEY_CURSOR).executeAsOneOrNull()?.toLongOrNull() ?: 0L }
 
-    suspend fun token(): String? = withContext(io) { q.selectState(KEY_TOKEN).executeAsOneOrNull()?.ifBlank { null } }
+    suspend fun token(): String? = vault.get() ?: moveLegacyToken()
 
-    suspend fun setToken(token: String) = withContext(io) { q.upsertState(KEY_TOKEN, token) }
+    suspend fun setToken(token: String) {
+        vault.set(token)
+        dropLegacyToken()
+    }
+
+    /**
+     * The token an earlier version kept in `sync_state`, moved into [vault] and its row deleted,
+     * so an update keeps the person signed in. Null when there is none or it was already moved.
+     */
+    private suspend fun moveLegacyToken(): String? {
+        if (!legacyTokenUnchecked) return null
+        val legacy = withContext(io) { q.selectState(KEY_TOKEN).executeAsOneOrNull()?.ifBlank { null } }
+        if (legacy != null) vault.set(legacy)
+        dropLegacyToken()
+        return legacy
+    }
+
+    /** Deletes the old token row once [vault] holds the token, or holds none on purpose. */
+    private suspend fun dropLegacyToken() {
+        if (vault is SqliteTokenVault) return
+        withContext(io) { q.deleteState(KEY_TOKEN) }
+        legacyTokenUnchecked = false
+    }
 
     /** When the token was last issued, so the controller knows when to ask for a fresh one. */
     suspend fun tokenIssuedAt(): String? = withContext(io) { q.selectState(KEY_TOKEN_ISSUED).executeAsOneOrNull() }
@@ -255,8 +285,10 @@ class SyncStore(
     suspend fun setLastSyncedAt(at: String) = withContext(io) { q.upsertState(KEY_LAST_SYNCED, at) }
 
     /** Forgets the token. The cursor and the user stay, so signing back in resumes rather than re-merges. */
-    suspend fun clearToken() = withContext(io) {
-        db.transaction { q.deleteState(KEY_TOKEN); q.deleteState(KEY_TOKEN_ISSUED) }
+    suspend fun clearToken() {
+        vault.clear()
+        dropLegacyToken()
+        withContext(io) { q.deleteState(KEY_TOKEN_ISSUED) }
     }
 
     /**
@@ -272,6 +304,7 @@ class SyncStore(
 
     companion object {
         const val KEY_CURSOR = "cursor"
+        /** The token's row in `sync_state`: a [SqliteTokenVault]'s, or one left by a version before the vault. */
         const val KEY_TOKEN = "token"
         const val KEY_TOKEN_ISSUED = "token_issued_at"
         const val KEY_USER = "user_id"

@@ -4,7 +4,10 @@ import app.gains.data.SettingsRepository
 import app.gains.sync.SyncApi
 import app.gains.sync.SyncStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.Clock
 
 enum class AccountKind(val label: String) { GUEST("Guest"), GOOGLE("Google"), APPLE("Apple") }
@@ -79,6 +82,9 @@ class AccountRepository(
     private val store: SyncStore,
     private val identity: IdentityProvider,
 ) {
+    /** Held while a sign-in stores its token and account, so [forgetOrphanedToken] never sees one without the other. */
+    private val writing = Mutex()
+
     fun observeAccount(): Flow<Account?> = settings.observe(KEY_ACCOUNT).map { decode(it) }
 
     suspend fun continueAsGuest() = settings.set(KEY_ACCOUNT, encode(Account(AccountKind.GUEST)))
@@ -96,10 +102,22 @@ class AccountRepository(
     private suspend fun signIn(kind: AccountKind) {
         val assertion = identity.signIn(kind)
         val response = api.signIn(kind, assertion.token, assertion.name)
-        store.setToken(response.token)
-        store.setTokenIssuedAt(Clock.System.now().toString())
-        store.startFeed(response.user.id)
-        settings.set(KEY_ACCOUNT, encode(Account(kind, response.user.name ?: assertion.name, response.user.email)))
+        writing.withLock {
+            store.setToken(response.token)
+            store.setTokenIssuedAt(Clock.System.now().toString())
+            store.startFeed(response.user.id)
+            settings.set(KEY_ACCOUNT, encode(Account(kind, response.user.name ?: assertion.name, response.user.email)))
+        }
+    }
+
+    /**
+     * Clears a token that no signed-in account goes with. The iOS Keychain outlives the app while
+     * its database does not, so after a reinstall the vault still holds the last install's token
+     * with no account or a guest in front of it; it should not linger there. Called once at start.
+     */
+    suspend fun forgetOrphanedToken() = writing.withLock {
+        val account = decode(settings.observe(KEY_ACCOUNT).first())
+        if ((account == null || account.isGuest) && store.token() != null) store.clearToken()
     }
 
     /** Swaps the token for a fresh one. Called by the sync controller once a week; a 401 means the person must sign in again. */
