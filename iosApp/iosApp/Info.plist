@@ -36,8 +36,9 @@
 	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<!-- Export compliance: the app makes no network calls and uses no encryption beyond what
-	     iOS provides, so TestFlight builds skip the "Missing Compliance" question. -->
+	<!-- Export compliance: a signed-in account syncs to api.gains.gerra.sh over HTTPS, using only
+	     the encryption iOS provides (URLSession/TLS), which is exempt. So the value stays false and
+	     TestFlight builds skip the "Missing Compliance" question. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIApplicationSceneManifest</key>
