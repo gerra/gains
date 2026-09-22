@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -40,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
@@ -122,7 +125,7 @@ private fun ExerciseDemo(exercise: Exercise) {
         Text(stringResource(Res.string.demo_none), style = MaterialTheme.typography.bodySmall, color = muted)
     } else {
         // Loading; keep the card's height close to what the photo will need so the page does not jump.
-        Spacer(Modifier.fillMaxWidth().aspectRatio(3f / 2f))
+        Spacer(Modifier.demoWidth().aspectRatio(3f / 2f))
     }
     Spacer(Modifier.height(12.dp))
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -177,23 +180,31 @@ private fun FrameLoop(frames: Frames, name: String) {
     val endLabel = stringResource(Res.string.demo_frame_end)
     val description = stringResource(Res.string.demo_of, name)
     Box(
-        Modifier.fillMaxWidth().aspectRatio(ratio).clip(MaterialTheme.shapes.medium)
+        Modifier.demoWidth().aspectRatio(ratio).clip(MaterialTheme.shapes.medium)
             .clickable(enabled = frames.end != null) { frozen = if (frozen == null) animated else null }
             .semantics { contentDescription = description },
     ) {
-        Image(start, null, Modifier.fillMaxWidth(), contentScale = ContentScale.Fit)
+        // The photos fill the box, which already carries their aspect ratio: sized by width alone they
+        // would lay out at their pixel height instead, leaving the photo stranded at the top of the box.
+        Image(start, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
         if (frames.end != null) {
-            Image(frames.end, null, Modifier.fillMaxWidth(), contentScale = ContentScale.Fit, alpha = progress)
+            Image(frames.end, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit, alpha = progress)
             Text(
                 if (progress < 0.5f) startLabel else endLabel,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = Color.White,
                 modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).clip(CircleShape)
                     .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f)).padding(horizontal = 8.dp, vertical = 3.dp),
             )
         }
     }
 }
+
+/**
+ * The photos are 480x320, so past a point stretching them to the card's width only blurs them; on a
+ * phone the cap is wider than the card and the demo still fills it.
+ */
+private fun Modifier.demoWidth(): Modifier = widthIn(max = 420.dp).fillMaxWidth()
 
 private const val HOLD_MS = 900
 private const val FADE_MS = 450
