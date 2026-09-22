@@ -46,10 +46,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # When the branch already shipped this also publishes its GitHub release if it is
+      # missing, hence the token.
       - id: pick
         env:
           BRANCH: ${{ inputs.branch }}
           FORCE: ${{ inputs.force }}
+          GH_TOKEN: ${{ github.token }}
         run: python3 tools/release.py pick
 
   upload:

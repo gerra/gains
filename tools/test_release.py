@@ -14,6 +14,7 @@ import unittest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from release import (
+    newest_build,
     next_version,
     parse,
     previous_version,
@@ -93,6 +94,14 @@ class ReleaseNotes(unittest.TestCase):
     def test_a_rebuild_with_nothing_new_has_no_empty_heading(self):
         notes = release_notes("1.2", "44", "abcdef1234", "1.1", "")
         self.assertNotIn("## Changes since", notes)
+
+
+class NewestBuild(unittest.TestCase):
+    def test_highest_build_number_wins(self):
+        self.assertEqual(newest_build(["testflight/1.4/3", "testflight/1.4/12"]), "12")
+
+    def test_no_tags_no_build(self):
+        self.assertIsNone(newest_build([]))
 
 
 if __name__ == "__main__":

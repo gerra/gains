@@ -80,7 +80,8 @@ and the last cut, at 22:00, ships at 23:00.
    [GitHub release](https://github.com/gerra/gains/releases/latest) named
    **Gains \<version\> (\<build\>)** with the changes since the previous version; the newest
    one is what the README's TestFlight badge shows. A branch whose tip is already tagged is not
-   uploaded again, so a round that follows a skipped cut is quiet. An upload takes 10 to 20
+   uploaded again, so a round that follows a skipped cut is quiet, apart from publishing that
+   build's release if it is still missing. An upload takes 10 to 20
    minutes with the caches warm, well inside the two hours before the next one.
 3. **Merge the pull request** once the build looks good. That puts the version bump, and any
    fix committed on the branch, on `main`. An open pull request does not hold up the next cut —
