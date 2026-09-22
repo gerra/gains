@@ -31,7 +31,7 @@ class GoogleOAuthTest {
 
     @Test
     fun theAuthorizationUrlCarriesEveryParameterEncoded() {
-        val url = GoogleOAuth.authorizationUrl(clientId, codeChallenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGGSSvbuzI", state = "a b&c")
+        val url = GoogleOAuth.authorizationUrl(clientId, codeChallenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", state = "a b&c")
         assertTrue(url.startsWith("https://accounts.google.com/o/oauth2/v2/auth?"))
         val query = url.substringAfter('?')
         assertTrue(" " !in query, "spaces are encoded: $query")
@@ -42,7 +42,7 @@ class GoogleOAuthTest {
         assertEquals("$scheme:/oauth2redirect", parameters["redirect_uri"])
         assertEquals("code", parameters["response_type"])
         assertEquals("openid email profile", parameters["scope"])
-        assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGGSSvbuzI", parameters["code_challenge"])
+        assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", parameters["code_challenge"])
         assertEquals("S256", parameters["code_challenge_method"])
         assertEquals("select_account", parameters["prompt"])
         assertEquals("a b&c", parameters["state"])
@@ -68,9 +68,9 @@ class GoogleOAuthTest {
             22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83, 132, 141, 121,
         ).map { it.toByte() }.toByteArray()
         val verifier = GoogleOAuth.base64Url(random)
-        assertEquals("dBjftJeZ4CVP-mJ92K9qzG-Q7jDHW8fSFEvS6hKWr24", verifier)
+        assertEquals("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk", verifier)
         val digest = MessageDigest.getInstance("SHA-256").digest(verifier.encodeToByteArray())
-        assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGGSSvbuzI", GoogleOAuth.base64Url(digest))
+        assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", GoogleOAuth.base64Url(digest))
     }
 
     @Test
