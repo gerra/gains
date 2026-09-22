@@ -51,8 +51,8 @@ data class IdentityAssertion(val token: String, val name: String? = null)
 
 /**
  * The platform's native sign-in: Sign in with Apple through AuthenticationServices on iOS, Google
- * through Credential Manager on Android and the Google Sign-In SDK on iOS. Each platform registers
- * its own in Koin; the shared module's default offers nothing.
+ * through Credential Manager on Android and through [GoogleOAuth] in a browser sheet on iOS. Each
+ * platform registers its own in Koin; the shared module's default offers nothing.
  */
 interface IdentityProvider {
     /**

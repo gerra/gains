@@ -20,3 +20,10 @@ CURRENT_PROJECT_VERSION=1
 // The sync server (docs/sync.md), read by the app through GainsServerURL in Info.plist. The
 // empty $() is there because xcconfig treats // as the start of a comment, even inside a value.
 GAINS_SERVER_URL = https:/$()/api.gains.gerra.sh
+
+// The iOS OAuth client from the Google Cloud console (APIs & Services > Credentials), read by
+// the app through GainsGoogleClientID in Info.plist. Not a secret: it ships inside every copy of
+// the app. Google redirects back to its reversed form,
+// com.googleusercontent.apps.95741411455-2fouqgkjlnault5cvd8lc17n4jekg7ea. Empty disables the
+// Google button.
+GOOGLE_IOS_CLIENT_ID = 95741411455-2fouqgkjlnault5cvd8lc17n4jekg7ea.apps.googleusercontent.com
