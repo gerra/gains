@@ -489,7 +489,7 @@ class ScreenshotTest {
         }
         // The at-risk ring is a slow pulse; land on a frame where it is drawn close to full.
         repeat(90) { mainClock.advanceTimeByFrame() }
-        ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(outDir, "17-streak-states.png"))
+        ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(outDir, "18-streak-states.png"))
     }
 
     /**

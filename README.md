@@ -218,6 +218,14 @@ tab, so the pictures cannot drift from the code.
   </tr>
 </table>
 
+The streak card has more states than a walk through the app can show, so it is rendered on its own
+as well — at risk on the two days the nudge fires, what it says instead when a rest week would cover
+the miss, a safe week, a full one, a week a rest week carried, and an empty slate.
+
+<p align="center">
+  <img src="docs/screenshots/18-streak-states.png" alt="The streak card in each of its states" width="46%">
+</p>
+
 ## Getting started
 
 Requirements: JDK 17 or newer. Android additionally needs Android Studio with SDK 35, iOS needs
