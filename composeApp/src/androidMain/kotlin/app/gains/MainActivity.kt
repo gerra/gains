@@ -8,9 +8,11 @@ import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
+import app.gains.platform.PhotoPicker
 import app.gains.platform.PickedFile
 import app.gains.platform.ResumeRequests
 
@@ -26,6 +28,20 @@ class MainActivity : ComponentActivity() {
     private val filePicker = CsvFilePicker { onResult ->
         pendingPick = onResult
         openDocuments.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream", "*/*"))
+    }
+
+    private var pendingPhoto: ((ByteArray?) -> Unit)? = null
+
+    // The system photo picker: it hands back the one image the user chose and needs no storage permission.
+    private val pickPhoto = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+        val callback = pendingPhoto
+        pendingPhoto = null
+        callback?.invoke(uri?.let { bytes(it) })
+    }
+
+    private val photoPicker = PhotoPicker { onResult ->
+        pendingPhoto = onResult
+        pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
     // The workout in progress lives in the tray while the lifter is elsewhere; see AndroidLiveSessionNotifier.
@@ -47,6 +63,7 @@ class MainActivity : ComponentActivity() {
                 filePicker = filePicker,
                 systemBack = { enabled, onBack -> BackHandler(enabled, onBack) },
                 notifier = notifier,
+                photoPicker = photoPicker,
                 nudges = nudges,
             )
         }
@@ -76,6 +93,10 @@ class MainActivity : ComponentActivity() {
         }
         IncomingFiles.offer(uris.mapNotNull { read(it) })
     }
+
+    private fun bytes(uri: Uri): ByteArray? = runCatching {
+        contentResolver.openInputStream(uri)?.use { it.readBytes() }
+    }.getOrNull()
 
     private fun read(uri: Uri): PickedFile? = runCatching {
         val name = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->

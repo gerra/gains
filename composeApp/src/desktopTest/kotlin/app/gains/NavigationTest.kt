@@ -81,6 +81,26 @@ class NavigationTest {
         assertEquals(listOf(settings), released)
     }
 
+    /** An ended workout's editor hands over to its summary: Back from there leaves for what came before. */
+    @Test
+    fun replaceTakesTheTopScreensPlace() {
+        val released = mutableListOf<NavEntry>()
+        val navigator = Navigator(onReleased = { released += it })
+        val home = navigator.currentEntry
+        navigator.push(Screen.EditSession(null, live = true))
+        val editor = navigator.currentEntry
+        val editorModel = editor.model()
+        navigator.replace(Screen.SessionSummary("2026-03-01T10:00"))
+
+        assertEquals(Screen.SessionSummary("2026-03-01T10:00"), navigator.current)
+        assertEquals(2, navigator.stack.size)
+        // The editor is gone for good rather than waiting underneath.
+        assertEquals(listOf(editor), released)
+        assertFalse(editorModel.scope.isActive)
+        navigator.pop()
+        assertSame(home, navigator.currentEntry)
+    }
+
     @Test
     fun tabRootsAreKeptAcrossTabSwitches() {
         val released = mutableListOf<NavEntry>()

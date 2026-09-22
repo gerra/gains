@@ -1,0 +1,6 @@
+ALTER TABLE session ADD COLUMN caption TEXT;
+
+CREATE TABLE session_photo (
+  session_id TEXT NOT NULL PRIMARY KEY,
+  photo BLOB NOT NULL
+);

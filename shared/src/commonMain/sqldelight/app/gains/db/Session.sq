@@ -7,10 +7,17 @@ CREATE TABLE session (
   content_hash TEXT NOT NULL,
   source TEXT NOT NULL DEFAULT 'import',
   program_id TEXT,
-  program_day_id TEXT
+  program_day_id TEXT,
+  caption TEXT
 );
 
 CREATE INDEX session_date ON session(date);
+
+-- The workout's photo, kept out of the session row so that reading every session never loads them.
+CREATE TABLE session_photo (
+  session_id TEXT NOT NULL PRIMARY KEY,
+  photo BLOB NOT NULL
+);
 
 CREATE TABLE exercise_entry (
   id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -39,8 +46,12 @@ CREATE TABLE set_entry (
 CREATE INDEX set_entry_entry ON set_entry(entry_id);
 
 insertSession:
-INSERT OR REPLACE INTO session(id, timestamp, date, duration_minutes, fingerprint, content_hash, source, program_id, program_day_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO session(id, timestamp, date, duration_minutes, fingerprint, content_hash, source, program_id, program_day_id, caption)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- What the summary screen changes, without touching the sets.
+updateSessionSummary:
+UPDATE session SET duration_minutes = ?, caption = ? WHERE id = ?;
 
 deleteEntriesForSession:
 DELETE FROM exercise_entry WHERE session_id = ?;
@@ -50,6 +61,18 @@ DELETE FROM set_entry WHERE entry_id IN (SELECT id FROM exercise_entry WHERE ses
 
 deleteSession:
 DELETE FROM session WHERE id = ?;
+
+selectPhotoIds:
+SELECT session_id FROM session_photo;
+
+selectPhoto:
+SELECT photo FROM session_photo WHERE session_id = ?;
+
+upsertPhoto:
+INSERT OR REPLACE INTO session_photo(session_id, photo) VALUES (?, ?);
+
+deletePhoto:
+DELETE FROM session_photo WHERE session_id = ?;
 
 insertEntry:
 INSERT INTO exercise_entry(session_id, exercise_id, position, note) VALUES (?, ?, ?, ?);
@@ -65,7 +88,7 @@ selectSummaries:
 SELECT id, date, fingerprint, content_hash FROM session;
 
 selectSessions:
-SELECT id, timestamp, duration_minutes, source, program_id, program_day_id FROM session ORDER BY timestamp;
+SELECT id, timestamp, duration_minutes, source, program_id, program_day_id, caption FROM session ORDER BY timestamp;
 
 selectProgramSessions:
 SELECT id, timestamp, program_id, program_day_id FROM session WHERE program_id IS NOT NULL AND program_day_id IS NOT NULL ORDER BY timestamp;
@@ -95,3 +118,6 @@ DELETE FROM exercise_entry;
 
 deleteAllSessions:
 DELETE FROM session;
+
+deleteAllPhotos:
+DELETE FROM session_photo;

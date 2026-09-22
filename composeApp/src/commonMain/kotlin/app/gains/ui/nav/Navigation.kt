@@ -33,6 +33,12 @@ internal sealed interface Screen {
      * one already running), then the clock runs, sets tick off, and it is stored when the session is ended.
      */
     data class EditSession(val sessionId: String?, val programDay: ProgramDayRef? = null, val live: Boolean = false) : Screen
+
+    /**
+     * What a workout came to, shown as a session is ended and reachable again from its editor: the
+     * muscles it trained, the body weight of the day, how long it took and a caption with a photo.
+     */
+    data class SessionSummary(val sessionId: String) : Screen
 }
 
 internal enum class Tab(val root: Screen) {
@@ -135,6 +141,19 @@ internal class Navigator(private val onReleased: (NavEntry) -> Unit = {}) {
     fun push(screen: Screen) {
         skipTransition = false
         if (current != screen) stack.add(entry(screen))
+    }
+
+    /**
+     * Puts [screen] where the current one is, so that going back from it reaches what came before
+     * rather than the screen it replaced. Used when a screen has done its job and hands over to
+     * another: the ended workout's editor to its summary.
+     */
+    fun replace(screen: Screen) {
+        skipTransition = false
+        if (stack.size <= 1) return push(screen)
+        val leaving = stack.removeAt(stack.lastIndex)
+        stack.add(entry(screen))
+        leaving.retire()
     }
 
     /** Removes the top screen. Pass [animated] = false when the caller has already animated it away. */

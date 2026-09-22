@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.ConsistencyAnalyzer
 import app.gains.analysis.ConsistencyStats
@@ -279,6 +280,19 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                     session.exercises.map { exercisesById[it.exerciseId]?.displayName() ?: it.exerciseId }.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
                 )
+                // What was written on the summary screen, so a day is recognisable without opening it.
+                if (session.caption != null || session.hasPhoto) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (session.hasPhoto) {
+                            Pill(stringResource(Res.string.photo_pill), palette.amber)
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        session.caption?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
             }
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {

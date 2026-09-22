@@ -90,7 +90,7 @@ class MigrationTest {
         GainsDatabase.Schema.migrate(upgraded, 2, GainsDatabase.Schema.version)
 
         assertEquals(tables(fresh), tables(upgraded))
-        for (table in listOf("session", "exercise_entry", "set_entry", "exercise", "program", "program_day", "program_slot", "live_session", "live_exercise", "live_set")) {
+        for (table in listOf("session", "session_photo", "exercise_entry", "set_entry", "exercise", "program", "program_day", "program_slot", "live_session", "live_exercise", "live_set")) {
             assertEquals(columns(fresh, table), columns(upgraded, table), "columns of $table")
         }
         // Existing rows survive with the new columns defaulted.
@@ -102,6 +102,9 @@ class MigrationTest {
         assertEquals(0L, db.sessionQueries.selectSets().executeAsList().single().is_warmup)
         // No workout is in progress on an upgraded install.
         assertEquals(null, db.liveSessionQueries.selectLiveSession().executeAsOneOrNull())
-        assertTrue(GainsDatabase.Schema.version >= 5)
+        // A session logged before summaries existed has no caption and no photo.
+        assertEquals(null, session.caption)
+        assertEquals(emptyList(), db.sessionQueries.selectPhotoIds().executeAsList())
+        assertTrue(GainsDatabase.Schema.version >= 6)
     }
 }

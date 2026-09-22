@@ -9,7 +9,11 @@ import app.gains.csv.Fixtures
 import app.gains.csv.LiftoffCsvParser
 import app.gains.db.GainsDatabase
 import app.gains.domain.BodyweightEntry
+import app.gains.domain.ExerciseEntry
 import app.gains.domain.MuscleGroup
+import app.gains.domain.Session
+import app.gains.domain.SetEntry
+import app.gains.domain.SetType
 import app.gains.domain.WeightUnit
 import app.gains.importer.ImportAnalyzer
 import app.gains.importer.ImportService
@@ -17,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -136,6 +141,46 @@ class IntegrationTest {
         sessions.deleteAll()
         assertEquals(0, TrainingData(sessions, exercises).snapshot.first().sessions.size)
         assertEquals(1, bodyweight.observe().first().size)
+    }
+
+    /** The summary screen's fields: they belong to the session, survive an edit of its sets and go with it. */
+    @Test
+    fun captionAndPhotoRoundTripAndAreDeletedWithTheSession() = runTest {
+        val db = newDb()
+        val sessions = SessionRepository(db, Dispatchers.Unconfined)
+        val exercises = ExerciseRepository(db, Dispatchers.Unconfined)
+        exercises.seedCatalogue()
+        val entry = ExerciseEntry("bench_press", listOf(SetEntry(0, SetType.WEIGHTED, weightKg = 60.0, reps = 5)))
+        val session = Session("s1", LocalDateTime(2026, 3, 1, 10, 0), 45, listOf(entry), Session.MANUAL)
+        sessions.upsert(session)
+
+        // A fresh session has neither until the summary adds them.
+        assertEquals(null, sessions.observeRawSessions().first().single().caption)
+        assertEquals(false, sessions.observeRawSessions().first().single().hasPhoto)
+        assertEquals(null, sessions.photo("s1"))
+
+        val photo = byteArrayOf(1, 2, 3, 4)
+        sessions.updateSummary("s1", durationMinutes = 52, caption = "Felt strong")
+        sessions.setPhoto("s1", photo)
+        val stored = sessions.observeRawSessions().first().single()
+        assertEquals("Felt strong", stored.caption)
+        assertEquals(52, stored.durationMinutes)
+        assertTrue(stored.hasPhoto)
+        assertEquals(photo.toList(), sessions.photo("s1")?.toList())
+
+        // Editing the workout rewrites its sets; the photo is not part of that row and stays.
+        sessions.upsert(stored.copy(exercises = listOf(entry.copy(sets = entry.sets + SetEntry(1, SetType.WEIGHTED, weightKg = 62.5, reps = 5)))))
+        val edited = sessions.observeRawSessions().first().single()
+        assertEquals("Felt strong", edited.caption)
+        assertTrue(edited.hasPhoto)
+
+        // A blank caption is stored as none rather than as an empty line.
+        sessions.updateSummary("s1", durationMinutes = 52, caption = "  ")
+        assertEquals(null, sessions.observeRawSessions().first().single().caption)
+
+        sessions.deleteSession("s1")
+        assertEquals(null, sessions.photo("s1"))
+        assertEquals(emptyList(), sessions.observeRawSessions().first())
     }
 
     @Test

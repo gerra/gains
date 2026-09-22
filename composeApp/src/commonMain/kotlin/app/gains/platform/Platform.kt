@@ -11,6 +11,19 @@ internal fun interface CsvFilePicker {
     fun pick(onResult: (List<PickedFile>) -> Unit)
 }
 
+/**
+ * Platform photo picking (Photos / the system picker / an AWT dialog). The callback runs on the
+ * main thread with the file's bytes, or null when nothing was chosen.
+ */
+internal fun interface PhotoPicker {
+    fun pick(onResult: (ByteArray?) -> Unit)
+
+    companion object {
+        /** No library to pick from (a headless test, a platform that has not wired one up). */
+        val None = PhotoPicker { onResult -> onResult(null) }
+    }
+}
+
 /** Files handed to the app from outside (share sheet, "Open with", ACTION_VIEW / ACTION_SEND_MULTIPLE). */
 internal object IncomingFiles {
     private val _pending = MutableStateFlow<List<PickedFile>>(emptyList())
