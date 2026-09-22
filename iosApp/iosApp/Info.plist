@@ -29,6 +29,11 @@
 	     iosAuthConfig() in MainViewController.kt; empty keeps the app a guest. -->
 	<key>GainsServerURL</key>
 	<string>$(GAINS_SERVER_URL)</string>
+	<!-- The Google iOS OAuth client, from GOOGLE_IOS_CLIENT_ID in Configuration/Config.xcconfig.
+	     Read by iosAuthConfig() in MainViewController.kt; empty keeps the Google button disabled.
+	     No CFBundleURLTypes entry: ASWebAuthenticationSession catches the redirect itself. -->
+	<key>GainsGoogleClientID</key>
+	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<!-- Export compliance: the app makes no network calls and uses no encryption beyond what

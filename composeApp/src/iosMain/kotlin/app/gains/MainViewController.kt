@@ -52,7 +52,7 @@ fun MainViewController(): UIViewController {
                 single<DatabaseDriverFactory> { IosDriverFactory() }
                 // Loaded after the shared module, so these replace its guest-only defaults.
                 single { iosAuthConfig() }
-                single<IdentityProvider> { IosIdentityProvider() }
+                single<IdentityProvider> { IosIdentityProvider(get(), get()) }
             },
         )
         koinStarted = true
@@ -63,13 +63,15 @@ fun MainViewController(): UIViewController {
 }
 
 /**
- * The server comes from Info.plist (`GainsServerURL`, set from Config.xcconfig) so it is changed
- * without touching code; the Apple audience is the bundle id, which the native flow signs for.
+ * The server and the Google client come from Info.plist (`GainsServerURL`, `GainsGoogleClientID`,
+ * set from Config.xcconfig) so they are changed without touching code; the Apple audience is the
+ * bundle id, which the native flow signs for.
  */
 private fun iosAuthConfig(): AuthConfig {
     val bundle = NSBundle.mainBundle
     return AuthConfig(
         serverBaseUrl = (bundle.objectForInfoDictionaryKey("GainsServerURL") as? String)?.trim()?.trimEnd('/')?.ifBlank { null },
+        googleClientId = (bundle.objectForInfoDictionaryKey("GainsGoogleClientID") as? String)?.trim()?.ifBlank { null },
         appleServiceId = bundle.bundleIdentifier,
     )
 }

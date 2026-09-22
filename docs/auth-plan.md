@@ -143,7 +143,7 @@ Tests: a desktop unit test for anything pure you add. The iOS code is checked by
 
 ## 2. iOS: Sign in with Google
 
-- [ ] Done
+- [x] Done
 
 **Depends on:** 1.
 

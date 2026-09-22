@@ -70,12 +70,19 @@ so a UI change does not restart the server.
 
 ## Signing in
 
-The mobile flow is not the web flow used by taxes and fintrack. There is no redirect, no OAuth
-state and no cookie:
+The mobile flow is not the web flow used by taxes and fintrack. The server sees no redirect, no
+OAuth state and no cookie, only an identity token the device already holds:
 
 1. The app asks the platform for an identity token: Sign in with Apple through
-   `ASAuthorizationController` on iOS, Google through Credential Manager on Android and the
-   Google Sign-In SDK on iOS. Desktop has no native provider and stays a guest.
+   `ASAuthorizationController` on iOS, Google through Credential Manager on Android. Google on
+   iOS is an OAuth 2.0 authorization-code flow with PKCE in an `ASWebAuthenticationSession`
+   ([`GoogleOAuth`](../shared/src/commonMain/kotlin/app/gains/auth/GoogleOAuth.kt)): the sheet
+   shows Google's account chooser, redirects to the iOS client's reversed-id scheme with a code,
+   and the app trades the code at Google's token endpoint for an identity token. That is what the
+   GoogleSignIn SDK does inside; doing it directly keeps a Swift package and a bridge out of the
+   Xcode project and leaves the flow in Kotlin, where CI compiles it and the desktop tests check
+   it. The iOS client needs no secret, and its id (`GOOGLE_IOS_CLIENT_ID` in `Config.xcconfig`)
+   is the token's audience. Desktop has no native provider and stays a guest.
 2. The app posts that token to `POST /auth/google` or `POST /auth/apple`.
 3. The server checks the token's signature against the provider's published keys (Google's
    `oauth2/v3/certs`, Apple's `auth/keys`), its issuer, its expiry and that its audience is one
@@ -260,8 +267,9 @@ three taxes uses.
 - **End-to-end encryption.** Because the payload is opaque to the server, sealing it on the
   device is a client-side change with the same routes, the way fintrack's E2E note describes it.
 - **Multi-user features.** One user sees one user's documents. Nothing is shared.
-- **Native sign-in buttons beyond Apple on iOS.** Sign in with Apple works on iOS
+- **Native sign-in buttons beyond iOS.** Sign in with Apple and with Google work on iOS
   (`IosIdentityProvider`, the `com.apple.developer.applesignin` entitlement, and the server URL
-  from `GAINS_SERVER_URL` in `Config.xcconfig`); the audience is the bundle id. Google on iOS is
-  next, then Android. Until a provider is wired up its button stays hidden, or disabled when
-  neither is, and Android and desktop keep `NoIdentityProvider`.
+  and Google client from `GAINS_SERVER_URL` and `GOOGLE_IOS_CLIENT_ID` in `Config.xcconfig`);
+  Apple's audience is the bundle id, Google's the iOS client id. Android is next. Until a
+  provider is wired up its button stays hidden, or disabled when neither is, and Android and
+  desktop keep `NoIdentityProvider`.

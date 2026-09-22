@@ -78,6 +78,8 @@ kotlin {
         val desktopTest by getting {
             dependencies {
                 implementation(libs.sqldelight.sqlite)
+                // GoogleOAuthTest answers the token exchange without a network.
+                implementation(libs.ktor.client.mock)
             }
         }
     }
