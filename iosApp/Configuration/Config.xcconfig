@@ -10,7 +10,7 @@ APP_NAME=Gains
 // is the last version released; the daily "Cut release branch" workflow bumps the minor on
 // each release/<major>.<minor> branch and the release pull request brings it back here. To
 // start a new major, run that workflow by hand with the version (docs/testflight.md).
-MARKETING_VERSION=1.0
+MARKETING_VERSION=1.4
 // Build number (CFBundleVersion). App Store Connect rejects an upload that reuses a build
 // number for the same version, so bump it before every TestFlight upload. The Release and
 // TestFlight workflows override it with their GitHub run number;
