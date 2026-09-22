@@ -7,7 +7,7 @@ How a commit becomes a build that testers can install. The short version lives i
 - [Versions and build numbers](#versions-and-build-numbers)
 - [Upload from Xcode](#upload-from-xcode)
 - [Upload from the command line](#upload-from-the-command-line)
-- [Daily releases](#daily-releases)
+- [Releases through the day](#releases-through-the-day)
 - [Upload from GitHub Actions](#upload-from-github-actions)
 - [Upload from Xcode Cloud](#upload-from-xcode-cloud)
 - [Adding testers](#adding-testers)
@@ -44,7 +44,7 @@ Both numbers live in `Config.xcconfig` and flow into `Info.plist` through build 
 | `CURRENT_PROJECT_VERSION` | The build number | **Before every upload.** App Store Connect rejects a build number it has already seen for that version. |
 
 On `main`, `MARKETING_VERSION` is the last version that was released: the
-[daily release](#daily-releases) cuts `release/<major>.<minor>` with the minor bumped, commits
+[release run](#releases-through-the-day) cuts `release/<major>.<minor>` with the minor bumped, commits
 the new version on that branch, and its pull request carries it back to `main`.
 
 Both can be overridden on the command line, which is how the GitHub workflows stamp each
@@ -57,30 +57,40 @@ xcodebuild ... MARKETING_VERSION=1.1 CURRENT_PROJECT_VERSION=42
 If builds come from both Xcode and the workflows, keep the numbers moving in one direction: a
 manual upload should use a build number above the latest workflow run number.
 
-## Daily releases
+## Releases through the day
 
-Not every commit on `main` becomes a build. Two scheduled workflows turn a day's worth of
-merges into one TestFlight build:
+Not every commit on `main` becomes a build. Two scheduled workflows turn the last couple of
+hours of merges into a TestFlight build, eight times a day: a branch is cut on every even hour
+from 08:00 to 22:00 UTC and goes up an hour later, so the first build of the day lands at 09:00
+and the last cut, at 22:00, ships at 23:00.
 
-1. **01:00 UTC, [Cut release branch](../.github/workflows/release-branch.yml).** Branches
+1. **Every even hour, 08:00 to 22:00 UTC,
+   [Cut release branch](../.github/workflows/release-branch.yml).** Branches
    `release/<major>.<minor>` off `main`, with the minor one above the newest release branch
    (or above `MARKETING_VERSION` on `main`, whichever is higher), and commits the new
-   `MARKETING_VERSION` on it. `1.0` on `main` gives `release/1.1`, then `release/1.2` the next
-   day, and so on. On a day when nothing that reaches the iOS app changed since the previous
-   branch (docs, samples, tests, workflows and the Android- and desktop-only sources do not
-   count) no branch is cut.
-2. **19:00 UTC, [Release](../.github/workflows/release.yml).** Takes the newest release branch,
-   archives and uploads it through the [TestFlight workflow](../.github/workflows/testflight.yml),
-   tags the shipped commit `testflight/<version>/<build>` and opens a pull request
+   `MARKETING_VERSION` on it. `1.0` on `main` gives `release/1.1`, then `release/1.2` two hours
+   later, and so on, so a busy day walks through eight minors. When nothing that reaches the
+   iOS app changed since the previous branch (docs, samples, tests, workflows and the Android-
+   and desktop-only sources do not count) no branch is cut, so quiet hours cost nothing.
+2. **Every odd hour, 09:00 to 23:00 UTC, [Release](../.github/workflows/release.yml).** Takes
+   the newest release branch — normally the one cut an hour earlier — archives and uploads it
+   through the [TestFlight workflow](../.github/workflows/testflight.yml), tags the shipped
+   commit `testflight/<version>/<build>` and opens a pull request
    **Release \<version\>** from the branch to `main`. A branch whose tip is already tagged is not
-   uploaded again, so a day without a new cut is quiet.
+   uploaded again, so a round that follows a skipped cut is quiet. An upload takes 10 to 20
+   minutes with the caches warm, well inside the two hours before the next one.
 3. **Merge the pull request** once the build looks good. That puts the version bump, and any
-   fix committed on the branch, on `main`. Merge it before the next cut: a fix that is only on
-   `release/1.1` is not on `main`, so `release/1.2` would ship without it.
+   fix committed on the branch, on `main`. An open pull request does not hold up the next cut —
+   the next version comes from the branch names, not from `main` — but a fix that lives only on
+   `release/1.1` is not on `main`, so `release/1.2` ships without it. At this cadence that
+   window is an hour, so either merge promptly or expect to carry a branch-only fix forward by
+   hand. The same goes for a fix pushed to a release branch after its build: a scheduled run
+   picks the *newest* branch, so once a newer one exists that fix needs a manual *Release* run
+   for its own branch.
 
 Both workflows also run from **Actions > Run workflow**:
 
-- *Cut release branch* takes a **version** (`2.0` starts a new major; the following days give
+- *Cut release branch* takes a **version** (`2.0` starts a new major; the following cuts give
   `2.1`, `2.2`, …) and a **force** switch that cuts even when `main` has not changed.
 - *Release* takes a **branch** (to upload an older release branch) and a **force** switch that
   uploads a commit again with a new build number. A fix pushed to a release branch after its
@@ -91,10 +101,31 @@ The build number is the Release workflow's run number. Keep re-releases of a ver
 workflow rather than on *TestFlight > Run workflow*, whose own run number may be lower and
 would be rejected by App Store Connect for the same version.
 
-GitHub runs schedules in UTC and can start them a few minutes late when its queue is busy;
-on a public repository it also switches schedules off after 60 days without a commit, until
-someone re-enables the workflow. Both workflow files are read from `main`, so a change to the release process
-lands there, not on a release branch.
+**Where the logic lives.** The workflow files hold the schedule, the permissions and the
+secrets; the steps themselves call [`tools/release.py`](../tools/release.py) — cutting a
+branch, picking what to upload, tagging the build and opening the pull request — and
+[`tools/testflight.py`](../tools/testflight.py) for the signing, archiving and uploading,
+with [`tools/gha.py`](../tools/gha.py) holding the handful of Actions helpers they share.
+Each takes a command, so a step reads as `python3 tools/release.py cut`; `--help` lists the
+rest. The version arithmetic that decides which branch gets cut is covered by tests, which
+CI runs on every pull request:
+
+```bash
+python3 -m unittest discover -s tools -p 'test_*.py'
+```
+
+**Eight versions a day and external testers.** Every cut is a new `MARKETING_VERSION`, and the
+first build of a version for an external group goes through Beta App Review (see
+[Adding testers](#adding-testers)). Internal testing takes every build immediately, so this
+cadence suits an internal group; pointing an external group at all eight cuts means eight
+reviews a day. Give external testers a slower lane — a group that gets only the versions worth
+reviewing — or keep them on internal testing.
+
+GitHub runs schedules in UTC and can start them a few minutes late when its queue is busy, and
+the top of the hour is its busiest moment; the hour between a cut and its release absorbs that.
+On a public repository it also switches schedules off after 60 days without a commit, until
+someone re-enables the workflow. Both workflow files are read from `main`, so a change to the
+release process lands there, not on a release branch.
 
 **Pull requests and CI.** Work done with the default `GITHUB_TOKEN` triggers no other
 workflows, so the branch push and the pull request get no CI run, and the repository must
@@ -156,7 +187,7 @@ command uploads in step 2 instead, which is what the workflow does.
 
 The [TestFlight workflow](../.github/workflows/testflight.yml) runs on a macOS runner, signs
 with material stored as repository secrets, and uploads with an App Store Connect API key.
-The [daily release](#daily-releases) calls it for the current release branch; it also runs on
+The [release runs](#releases-through-the-day) call it for the current release branch; it also runs on
 any tag such as `v1.0.0` and by hand from **Actions > TestFlight > Run workflow** (optionally
 with a build number). The workflow run number becomes the build number, so nothing in
 `Config.xcconfig` has to change. Uploads are serialized by a concurrency group, so two runs
@@ -179,7 +210,7 @@ keychain and removed at the end of the run.
 
 Creating the certificate, profile and API key is the only part that touches a Mac (Keychain
 Access exports the `.p12`). After that, every upload runs on GitHub's macOS runners; commit,
-let the daily release run, push a tag or press *Run workflow* from any machine.
+let the next release run pick it up, push a tag or press *Run workflow* from any machine.
 
 **Caching.** The first run downloads the Gradle distribution, all dependencies and the
 Kotlin/Native toolchain and takes 30 to 40 minutes. The workflow keeps the Gradle home
