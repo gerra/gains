@@ -3,7 +3,8 @@ name: Release
 # Every two hours through the day, on the odd hours from 09:00 to 23:00 UTC, uploads the
 # newest release branch (release/<major>.<minor>, cut by the "Cut release branch" workflow
 # an hour earlier) to TestFlight, tags the commit that shipped as
-# testflight/<version>/<build>, and opens a pull request from the branch to main. A branch
+# testflight/<version>/<build>, opens a pull request from the branch to main and publishes
+# the tag as the latest GitHub release, which the README's TestFlight badge shows. A branch
 # whose tip already carries such a tag is left alone, so a round without a new cut uploads
 # nothing. "Run workflow" releases by hand, for a chosen branch or again for one that
 # shipped already (a fix pushed to a release branch is picked up either way).
@@ -67,7 +68,7 @@ jobs:
     secrets: inherit
 
   finish:
-    name: Tag and open the pull request
+    name: Tag, open the pull request and publish the release
     needs: [pick, upload]
     runs-on: ubuntu-latest
     env:
@@ -85,8 +86,9 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
 
       # Tags the commit that shipped, then opens Release <version> — or, when that pull
-      # request is already open, comments the new build number on it: tools/release.py.
-      - name: Tag the build and open the pull request
+      # request is already open, comments the new build number on it — and publishes the
+      # tag as a GitHub release: tools/release.py.
+      - name: Tag the build, open the pull request, publish the release
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
         run: python3 tools/release.py finish

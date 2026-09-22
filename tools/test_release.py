@@ -13,7 +13,14 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from release import next_version, parse, previous_version, pull_request_body, sort_versions
+from release import (
+    next_version,
+    parse,
+    previous_version,
+    pull_request_body,
+    release_notes,
+    sort_versions,
+)
 
 
 class NextVersion(unittest.TestCase):
@@ -72,6 +79,20 @@ class PullRequestBody(unittest.TestCase):
         self.assertIn("Gains **1.1** (build 42) went to TestFlight from abcdef1.", body)
         self.assertIn("back to `main`", body)
         self.assertNotIn("## Changes since", body)
+
+
+class ReleaseNotes(unittest.TestCase):
+    def test_first_release_has_no_change_list(self):
+        notes = release_notes("1.1", "42", "abcdef1234", None)
+        self.assertEqual(notes, "Gains **1.1** (build 42) went to TestFlight from abcdef1.\n")
+
+    def test_lists_the_changes_since_the_previous_version(self):
+        notes = release_notes("1.2", "43", "abcdef1234", "1.1", "- Fix the timer")
+        self.assertIn("## Changes since Gains 1.1\n\n- Fix the timer\n", notes)
+
+    def test_a_rebuild_with_nothing_new_has_no_empty_heading(self):
+        notes = release_notes("1.2", "44", "abcdef1234", "1.1", "")
+        self.assertNotIn("## Changes since", notes)
 
 
 if __name__ == "__main__":
