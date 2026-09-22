@@ -1,16 +1,17 @@
 name: Release
 
-# Every day at 19:00 UTC, uploads the newest release branch (release/<major>.<minor>, cut by
-# the "Cut release branch" workflow at 01:00 UTC) to TestFlight, tags the commit that
-# shipped as testflight/<version>/<build>, and opens a pull request from the branch to
-# main. A branch whose tip already carries such a tag is left alone, so a day without a new
-# cut uploads nothing. "Run workflow" releases by hand, for a chosen branch or again for one
-# that shipped already (a fix pushed to a release branch is picked up either way).
+# Every two hours through the day, on the odd hours from 09:00 to 23:00 UTC, uploads the
+# newest release branch (release/<major>.<minor>, cut by the "Cut release branch" workflow
+# an hour earlier) to TestFlight, tags the commit that shipped as
+# testflight/<version>/<build>, and opens a pull request from the branch to main. A branch
+# whose tip already carries such a tag is left alone, so a round without a new cut uploads
+# nothing. "Run workflow" releases by hand, for a chosen branch or again for one that
+# shipped already (a fix pushed to a release branch is picked up either way).
 #
-# How the pieces fit together: docs/testflight.md#daily-releases
+# How the pieces fit together: docs/testflight.md#releases-through-the-day
 on:
   schedule:
-    - cron: "0 19 * * *"
+    - cron: "0 9-23/2 * * *"
   workflow_dispatch:
     inputs:
       branch:
@@ -161,7 +162,7 @@ jobs:
           } > "$body"
 
           if ! url="$(gh pr create --base main --head "$BRANCH" --title "Release $VERSION" --body-file "$body")"; then
-            echo "::error::Could not open the pull request. Without a RELEASE_TOKEN secret, Settings > Actions > General > Workflow permissions must allow GitHub Actions to create pull requests (docs/testflight.md#daily-releases)."
+            echo "::error::Could not open the pull request. Without a RELEASE_TOKEN secret, Settings > Actions > General > Workflow permissions must allow GitHub Actions to create pull requests (docs/testflight.md#releases-through-the-day)."
             exit 1
           fi
           echo "Opened $url for Gains $VERSION (build $BUILD)." >> "$GITHUB_STEP_SUMMARY"

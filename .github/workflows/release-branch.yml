@@ -1,18 +1,20 @@
 name: Cut release branch
 
-# Every day at 01:00 UTC, branches release/<major>.<minor> off main with the minor version
-# one above the newest release branch (or above MARKETING_VERSION on main, whichever is
-# higher) and commits that version on the branch. The Release workflow uploads the newest
-# release branch to TestFlight at 19:00 UTC and opens its pull request back to main.
+# Every two hours through the day, on the even hours from 08:00 to 22:00 UTC, branches
+# release/<major>.<minor> off main with the minor version one above the newest release
+# branch (or above MARKETING_VERSION on main, whichever is higher) and commits that version
+# on the branch. The Release workflow uploads the newest release branch to TestFlight an
+# hour later, on the odd hours from 09:00 to 23:00 UTC, and opens its pull request back to
+# main.
 #
-# Nothing is cut on a day when main carries no change that reaches the iOS app, so a quiet
-# day produces no branch and no build. "Run workflow" cuts by hand, optionally with an
-# explicit version (the way to start a new major) or ignoring the no-change check.
+# Nothing is cut when main carries no change that reaches the iOS app, so a quiet stretch
+# produces no branch and no build. "Run workflow" cuts by hand, optionally with an explicit
+# version (the way to start a new major) or ignoring the no-change check.
 #
-# How the pieces fit together: docs/testflight.md#daily-releases
+# How the pieces fit together: docs/testflight.md#releases-through-the-day
 on:
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "0 8-22/2 * * *"
   workflow_dispatch:
     inputs:
       version:
@@ -92,7 +94,7 @@ jobs:
                 ':(exclude)composeApp/src/androidMain' ':(exclude)composeApp/src/desktopMain' \
                 ':(exclude)shared/src/androidMain' ':(exclude)shared/src/desktopMain' \
                 ':(exclude)*/src/commonTest/*' ':(exclude)*/src/desktopTest/*'; then
-            echo "main has not changed since release/$newest was cut; nothing to release today." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "main has not changed since release/$newest was cut; nothing to release this round." | tee -a "$GITHUB_STEP_SUMMARY"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -114,4 +116,4 @@ jobs:
           git add iosApp/Configuration/Config.xcconfig
           git commit -m "Release $VERSION"
           git push -u origin "release/$VERSION"
-          echo "Cut **release/$VERSION** from main at $(git rev-parse --short origin/main). The Release workflow uploads it to TestFlight at 19:00 UTC and then opens the pull request to main." >> "$GITHUB_STEP_SUMMARY"
+          echo "Cut **release/$VERSION** from main at $(git rev-parse --short origin/main). The Release workflow uploads it to TestFlight in an hour and then opens the pull request to main." >> "$GITHUB_STEP_SUMMARY"

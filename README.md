@@ -308,12 +308,13 @@ the [issue tracker](https://github.com/gerra/gains/issues).
 **Distribute App > TestFlight & App Store**.
 
 **From GitHub Actions.** Add the six secrets listed in [docs/testflight.md](docs/testflight.md#upload-from-github-actions)
-(distribution certificate, App Store profile, App Store Connect API key). Then, every day,
-a release branch `release/<major>.<minor>` is cut from `main` at 01:00 UTC with the minor
-bumped, uploaded to TestFlight at 19:00 UTC, and offered back to `main` as a pull request.
-Commits merged during the day ride the next branch; a quiet day ships nothing. A `v*` tag or
-**Run workflow** in the Actions tab uploads by hand. The run number becomes the build number.
-Details in [docs/testflight.md](docs/testflight.md#daily-releases).
+(distribution certificate, App Store profile, App Store Connect API key). Then, every two
+hours through the day, a release branch `release/<major>.<minor>` is cut from `main` with the
+minor bumped — on the even hours from 08:00 to 22:00 UTC — uploaded to TestFlight an hour
+later, and offered back to `main` as a pull request. Commits merged in between ride the next
+branch; a quiet couple of hours ships nothing. A `v*` tag or **Run workflow** in the Actions
+tab uploads by hand. The run number becomes the build number.
+Details in [docs/testflight.md](docs/testflight.md#releases-through-the-day).
 
 **From Xcode Cloud.** No Mac and no secrets: Apple's CI signs and uploads the build itself.
 Connect the app once in App Store Connect and point the workflow's Archive action at
@@ -507,11 +508,12 @@ CI does on runners without an SDK. Everything else is unaffected.
 a GitHub runner and commits the images under `docs/screenshots`. Trigger it from the Actions tab
 after a UI change.
 
-**Releasing.** Once a day, [Cut release branch](.github/workflows/release-branch.yml) branches
+**Releasing.** Every two hours through the day,
+[Cut release branch](.github/workflows/release-branch.yml) branches
 `release/<major>.<minor>` off `main` and [Release](.github/workflows/release.yml) uploads it
 through the [TestFlight workflow](.github/workflows/testflight.yml), which archives the iOS app
 on a macOS runner and sends it to App Store Connect, then opens the pull request back to `main`.
-[docs/testflight.md](docs/testflight.md#daily-releases) covers the schedule, the secrets and
+[docs/testflight.md](docs/testflight.md#releases-through-the-day) covers the schedule, the secrets and
 the manual route through Xcode.
 
 **Adding a connector.** Declare a `ColumnSpec` and a `match` function in
