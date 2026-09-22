@@ -49,71 +49,11 @@ jobs:
           # checks; pushes made with the default token trigger no workflows.
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
 
-      - name: Pick the version
-        id: pick
+      # Picks the version, stops when main has not changed since the newest branch, and
+      # pushes release/<version> with the new MARKETING_VERSION committed on it. The inputs
+      # go through the environment, not the command line: tools/release.py reads them there.
+      - name: Cut the branch
         env:
-          REQUESTED: ${{ inputs.version }}
+          VERSION: ${{ inputs.version }}
           FORCE: ${{ inputs.force }}
-        run: |
-          set -euo pipefail
-          current="$(grep '^MARKETING_VERSION=' iosApp/Configuration/Config.xcconfig | cut -d= -f2- | tr -d '[:space:]')"
-          major="${current%%.*}"
-          minor="${current#*.}"; minor="${minor%%.*}"
-
-          # Every release/<major>.<minor> branch on origin, lowest version first.
-          branches="$(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release/' \
-            | sed 's#^origin/release/##' | grep -E '^[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n || true)"
-          newest="$(printf '%s\n' "$branches" | tail -n1)"
-
-          if [ -n "$REQUESTED" ]; then
-            version="$REQUESTED"
-            [[ "$version" =~ ^[0-9]+\.[0-9]+$ ]] \
-              || { echo "::error::Version must look like major.minor, got '$version'"; exit 1; }
-          else
-            # One above the highest minor branched for this major, or above main's if higher.
-            top="$(printf '%s\n' "$branches" | awk -F. -v M="$major" '$1 == M { m = $2 } END { print m + 0 }')"
-            [ "$minor" -gt "$top" ] && top="$minor"
-            version="$major.$((top + 1))"
-          fi
-
-          if [ "$version" = "$current" ]; then
-            echo "::error::main is already at version $version; pick a higher one"; exit 1
-          fi
-          if git ls-remote --exit-code --heads origin "release/$version" >/dev/null; then
-            echo "::error::Branch release/$version already exists"; exit 1
-          fi
-
-          # Skip when nothing that reaches the app changed since the newest release branch.
-          # The version line differs by design; docs, samples, the workflows, tests and the
-          # Android- and desktop-only sources never make it into the iOS build (the same
-          # list the TestFlight workflow used to ignore on pushes to main).
-          if [ -n "$newest" ] && [ "$FORCE" != "true" ] \
-              && git diff --quiet "origin/release/$newest" origin/main -- . \
-                ':(exclude)iosApp/Configuration/Config.xcconfig' \
-                ':(exclude)*.md' ':(exclude)docs' ':(exclude)samples' ':(exclude).github' \
-                ':(exclude)composeApp/src/androidMain' ':(exclude)composeApp/src/desktopMain' \
-                ':(exclude)shared/src/androidMain' ':(exclude)shared/src/desktopMain' \
-                ':(exclude)*/src/commonTest/*' ':(exclude)*/src/desktopTest/*'; then
-            echo "main has not changed since release/$newest was cut; nothing to release this round." | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "Next release: $version (main is at $current, newest branch: ${newest:-none})"
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Create the branch
-        if: steps.pick.outputs.skip != 'true'
-        env:
-          VERSION: ${{ steps.pick.outputs.version }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "release/$VERSION"
-          sed -i "s/^MARKETING_VERSION=.*/MARKETING_VERSION=$VERSION/" iosApp/Configuration/Config.xcconfig
-          git add iosApp/Configuration/Config.xcconfig
-          git commit -m "Release $VERSION"
-          git push -u origin "release/$VERSION"
-          echo "Cut **release/$VERSION** from main at $(git rev-parse --short origin/main). The Release workflow uploads it to TestFlight in an hour and then opens the pull request to main." >> "$GITHUB_STEP_SUMMARY"
+        run: python3 tools/release.py cut

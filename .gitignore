@@ -23,3 +23,7 @@ captures
 *.mobileprovision
 *.xcarchive
 *.ipa
+
+# Python bytecode from the scripts in tools/
+__pycache__/
+*.pyc

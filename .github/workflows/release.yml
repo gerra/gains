@@ -47,43 +47,9 @@ jobs:
           fetch-depth: 0
       - id: pick
         env:
-          REQUESTED: ${{ inputs.branch }}
+          BRANCH: ${{ inputs.branch }}
           FORCE: ${{ inputs.force }}
-        run: |
-          set -euo pipefail
-          if [ -n "$REQUESTED" ]; then
-            branch="${REQUESTED#origin/}"
-            [[ "$branch" =~ ^release/[0-9]+\.[0-9]+$ ]] \
-              || { echo "::error::Expected a branch named release/<major>.<minor>, got '$branch'"; exit 1; }
-            git rev-parse --verify -q "origin/$branch" >/dev/null \
-              || { echo "::error::There is no branch $branch on origin"; exit 1; }
-          else
-            newest="$(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release/' \
-              | sed 's#^origin/release/##' | grep -E '^[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n | tail -n1 || true)"
-            if [ -z "$newest" ]; then
-              echo "There is no release branch yet; nothing to upload." | tee -a "$GITHUB_STEP_SUMMARY"
-              echo "upload=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            branch="release/$newest"
-          fi
-          version="${branch#release/}"
-          sha="$(git rev-parse "origin/$branch")"
-
-          shipped="$(git tag --points-at "$sha" --list 'testflight/*' | tr '\n' ' ')"
-          if [ -n "$shipped" ] && [ "$FORCE" != "true" ]; then
-            echo "$branch at ${sha:0:7} already went to TestFlight as $shipped; nothing to upload." | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "upload=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "Releasing $branch at ${sha:0:7} as Gains $version"
-          {
-            echo "upload=true"
-            echo "branch=$branch"
-            echo "version=$version"
-            echo "sha=$sha"
-          } >> "$GITHUB_OUTPUT"
+        run: python3 tools/release.py pick
 
   upload:
     name: TestFlight
@@ -118,51 +84,9 @@ jobs:
           # runs CI; without it the repository must allow Actions to create pull requests.
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
 
-      - name: Tag the shipped commit
-        run: |
-          set -euo pipefail
-          tag="testflight/$VERSION/$BUILD"
-          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
-            echo "Tag $tag already exists (re-run)"; exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$tag" "$SHA" -m "Gains $VERSION ($BUILD) uploaded to TestFlight"
-          git push origin "$tag"
-
-      - name: Open the pull request to main
+      # Tags the commit that shipped, then opens Release <version> — or, when that pull
+      # request is already open, comments the new build number on it: tools/release.py.
+      - name: Tag the build and open the pull request
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
-        run: |
-          set -euo pipefail
-          short="${SHA:0:7}"
-          open="$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
-          if [ -n "$open" ]; then
-            gh pr comment "$open" --body "Build $BUILD of Gains $VERSION went to TestFlight from $short."
-            echo "Pull request #$open for $BRANCH is already open; noted build $BUILD on it." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          # The release branch this one follows, for the list of changes.
-          previous="$(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release/' \
-            | sed 's#^origin/release/##' | grep -E '^[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n \
-            | awk -v V="$VERSION" '$0 == V { exit } { p = $0 } END { print p }')"
-
-          body="$RUNNER_TEMP/pr-body.md"
-          {
-            echo "Gains **$VERSION** (build $BUILD) went to TestFlight from $short."
-            echo
-            echo "Merging brings the version bump, and anything else committed on \`$BRANCH\`, back to \`main\`."
-            if [ -n "$previous" ]; then
-              echo
-              echo "## Changes since release/$previous"
-              echo
-              git log -n 100 --no-merges --format='- %s' "origin/release/$previous..$SHA" -- . ':(exclude)iosApp/Configuration/Config.xcconfig'
-            fi
-          } > "$body"
-
-          if ! url="$(gh pr create --base main --head "$BRANCH" --title "Release $VERSION" --body-file "$body")"; then
-            echo "::error::Could not open the pull request. Without a RELEASE_TOKEN secret, Settings > Actions > General > Workflow permissions must allow GitHub Actions to create pull requests (docs/testflight.md#releases-through-the-day)."
-            exit 1
-          fi
-          echo "Opened $url for Gains $VERSION (build $BUILD)." >> "$GITHUB_STEP_SUMMARY"
+        run: python3 tools/release.py finish

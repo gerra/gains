@@ -101,6 +101,19 @@ The build number is the Release workflow's run number. Keep re-releases of a ver
 workflow rather than on *TestFlight > Run workflow*, whose own run number may be lower and
 would be rejected by App Store Connect for the same version.
 
+**Where the logic lives.** The workflow files hold the schedule, the permissions and the
+secrets; the steps themselves call [`tools/release.py`](../tools/release.py) — cutting a
+branch, picking what to upload, tagging the build and opening the pull request — and
+[`tools/testflight.py`](../tools/testflight.py) for the signing, archiving and uploading,
+with [`tools/gha.py`](../tools/gha.py) holding the handful of Actions helpers they share.
+Each takes a command, so a step reads as `python3 tools/release.py cut`; `--help` lists the
+rest. The version arithmetic that decides which branch gets cut is covered by tests, which
+CI runs on every pull request:
+
+```bash
+python3 -m unittest discover -s tools -p 'test_*.py'
+```
+
 **Eight versions a day and external testers.** Every cut is a new `MARKETING_VERSION`, and the
 first build of a version for an external group goes through Beta App Review (see
 [Adding testers](#adding-testers)). Internal testing takes every build immediately, so this

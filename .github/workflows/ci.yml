@@ -16,6 +16,10 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      # The release scripts in tools/ decide which branch gets cut and what version it
+      # carries, so their arithmetic is tested here rather than discovered at 08:00 UTC.
+      - name: Release script tests
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
       # No Android SDK on the runner: build the shared module and the desktop target only.
       - run: ./gradlew :shared:desktopTest :composeApp:desktopTest -Pgains.android=false --no-daemon
       # The tests run on the JVM, so a JVM-only call in commonMain (putIfAbsent, String.format,
