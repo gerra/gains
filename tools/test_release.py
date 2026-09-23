@@ -14,6 +14,7 @@ import unittest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from release import (
+    TESTFLIGHT_LINK,
     newest_build,
     next_version,
     parse,
@@ -85,7 +86,14 @@ class PullRequestBody(unittest.TestCase):
 class ReleaseNotes(unittest.TestCase):
     def test_first_release_has_no_change_list(self):
         notes = release_notes("1.1", "42", "abcdef1234", None)
-        self.assertEqual(notes, "Gains **1.1** (build 42) went to TestFlight from abcdef1.\n")
+        self.assertIn("Gains **1.1** (build 42) went to TestFlight from abcdef1.", notes)
+        self.assertNotIn("## Changes since", notes)
+
+    def test_leads_with_the_testflight_link(self):
+        notes = release_notes("1.1", "42", "abcdef1234", None)
+        self.assertTrue(notes.startswith("[![Install with TestFlight]"))
+        self.assertIn(f"]({TESTFLIGHT_LINK})", notes.splitlines()[0])
+        self.assertIn(f"open **{TESTFLIGHT_LINK}** on your iPhone", notes)
 
     def test_lists_the_changes_since_the_previous_version(self):
         notes = release_notes("1.2", "43", "abcdef1234", "1.1", "- Fix the timer")
