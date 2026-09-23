@@ -31,6 +31,14 @@ CONFIG = ROOT / "iosApp/Configuration/Config.xcconfig"
 VERSION = re.compile(r"^\d+\.\d+$")
 BRANCH = re.compile(r"^release/\d+\.\d+$")
 
+# The public TestFlight invite, which the README also gives. Every GitHub release leads with
+# it, so a release page is one tap away from installing the build.
+TESTFLIGHT_LINK = "https://testflight.apple.com/join/T4dqvPW7"
+TESTFLIGHT_BUTTON = (
+    "[![Install with TestFlight](https://img.shields.io/badge/Install_with-TestFlight-0D96F6"
+    f"?style=for-the-badge&logo=apple&logoColor=white)]({TESTFLIGHT_LINK})"
+)
+
 BOT_NAME = "github-actions[bot]"
 BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -278,7 +286,12 @@ def pull_request_body(version, build, sha, branch, previous):
 
 def release_notes(version, build, sha, previous, changes=None):
     """What the GitHub release for a build says. `changes` is the list since `previous`."""
-    lines = [f"Gains **{version}** (build {build}) went to TestFlight from {sha[:7]}."]
+    lines = [
+        TESTFLIGHT_BUTTON,
+        "",
+        f"Gains **{version}** (build {build}) went to TestFlight from {sha[:7]}. "
+        f"To install it, open **{TESTFLIGHT_LINK}** on your iPhone.",
+    ]
     if previous and changes:
         lines += ["", f"## Changes since Gains {previous}", "", changes]
     return "\n".join(lines) + "\n"
