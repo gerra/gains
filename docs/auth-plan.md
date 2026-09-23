@@ -1,5 +1,9 @@
 # Sign-in and sync: implementation plan
 
+> **Finished.** Items 1–7 shipped in release 1.5. Everything still open, including the owner
+> actions below, is in [`docs/launch-plan.md`](launch-plan.md). This file stays as the record of
+> how sign-in was built.
+
 A queue of self-contained work items. **Each item is one branch, one pull request.** An agent
 starting from scratch should:
 
@@ -67,12 +71,13 @@ These are console work. Agents should assume they're done or in progress and mus
       regenerated and `IOS_APP_STORE_PROFILE_BASE64` updated.
 - [x] Google Cloud: an **iOS** OAuth client for `app.gains.Gains`:
       `95741411455-2fouqgkjlnault5cvd8lc17n4jekg7ea.apps.googleusercontent.com`. Item 2 writes it into `iosApp/Configuration/Config.xcconfig`.
-- [ ] Server `secrets/.env`: `GOOGLE_CLIENT_IDS` includes that iOS client id,
+- [x] Server `secrets/.env`: `GOOGLE_CLIENT_IDS` includes that iOS client id,
       `APPLE_CLIENT_IDS=app.gains.Gains`, `JWT_SECRET` set; `tools/deploy_server.py secrets`.
 - [ ] Google Auth Platform: for now, stays in **Testing** with the owner's accounts listed
-      under Audience → Test users. Only those accounts can sign in with Google. Publish to
-      production before a public release.
-- [ ] App Store Connect: App Privacy answers and privacy policy URL.
+      under Audience → Test users. Only those accounts can sign in with Google. Moved to
+      [`launch-plan.md`](launch-plan.md) item 5.
+- [x] App Store Connect: App Privacy answers. The privacy policy URL moved to
+      [`launch-plan.md`](launch-plan.md) item 3.
 
 ---
 
