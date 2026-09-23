@@ -172,17 +172,17 @@ in `iosApp/iosApp/Info.plist`.
 - The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request,
   but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
   hosted macOS runner for this).
-- Only Sign in with Apple on iOS is wired up so far; Android and the desktop run as guests, so
-  their data stays on the device.
+- Sign-in is wired up on iOS only (Apple and Google); Android and the desktop run as guests, so
+  their data stays on the device. [docs/launch-plan.md](launch-plan.md) has the rest.
 
 ## Roadmap
 
+Everything still to do, before and after going public, lives in one file:
+[docs/launch-plan.md](launch-plan.md), with the test plan next to it. Done so far:
+
 - [x] Self-hosted sync server and the client that speaks to it ([docs/sync.md](sync.md))
-- [x] Sign in with Apple on iOS, syncing through `api.gains.gerra.sh`
-- [ ] Sign in with Google on iOS, then linking a guest account, deleting an account and sync status in Settings ([docs/auth-plan.md](auth-plan.md))
-- [ ] Sign-in on Android (Google through Credential Manager)
-- [ ] Keep the sync token in the Keychain and the Android Keystore rather than the app database
-- [ ] More connectors: a `ColumnSpec` and a `match` function each, contributions welcome
+- [x] Sign in with Apple and with Google on iOS, linking a guest account, deleting an account,
+      sync status in Settings and the token in the Keychain ([docs/auth-plan.md](auth-plan.md))
 
 ## Contributing
 

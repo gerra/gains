@@ -97,9 +97,9 @@ The long version of the list in the [README](../README.md).
   listed with a reason.
 - **Dark and light themes**, a floating pill navigation and animated Canvas charts with no
   charting library.
-- **Local first, sync optional.** Guest mode keeps everything on the device. Sign in with Apple on
-  iOS syncs it through the self-hosted server at `api.gains.gerra.sh`; Google and the other
-  platforms follow ([docs/auth-plan.md](auth-plan.md)).
+- **Local first, sync optional.** Guest mode keeps everything on the device. Sign in with Apple or
+  Google on iOS syncs it through the self-hosted server at `api.gains.gerra.sh`; the other
+  platforms follow ([docs/launch-plan.md](launch-plan.md)).
 - **English and Russian.** Settings → Language switches between them where you stand, with no
   relaunch, and follows the device while it is left on System. Down to the insight sentences, the
   progression hints, the built-in programs and every exercise in the catalogue. See

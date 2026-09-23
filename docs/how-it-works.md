@@ -180,10 +180,10 @@ streak reminder stay put. Signing in on a device that already holds guest data m
 the account. Settings shows the current account and lets you return to the sign-in screen; local
 data is kept.
 
-Today that is **Sign in with Apple on iOS**, against the server at `api.gains.gerra.sh`: the iOS
-app reads the server from `GAINS_SERVER_URL` in `Config.xcconfig` and the sign-in screen shows
-only the providers that are wired up. Google on iOS is next; Android and the desktop still run as
-guests. [docs/auth-plan.md](auth-plan.md) is the queue of what is left.
+Today that is **Sign in with Apple and with Google on iOS**, against the server at
+`api.gains.gerra.sh`: the iOS app reads the server from `GAINS_SERVER_URL` in `Config.xcconfig`
+and the sign-in screen shows only the providers that are wired up. Android and the desktop still
+run as guests. [docs/launch-plan.md](launch-plan.md) is the queue of what is left.
 
 What is synced is a set of small JSON documents, one per workout or program, kept in their
 latest state on the server with last-writer-wins per document and a change log kept by SQLite

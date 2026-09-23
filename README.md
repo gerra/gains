@@ -74,7 +74,7 @@ Add `-Pgains.openFile=samples/liftoff-export.csv` to the desktop run to start fr
 | [`tools/`](tools) | Release, TestFlight and deploy scripts. |
 
 More: [how it works](docs/how-it-works.md) · [development](docs/development.md) ·
-[sync](docs/sync.md) · [TestFlight](docs/testflight.md)
+[sync](docs/sync.md) · [TestFlight](docs/testflight.md) · [launch plan](docs/launch-plan.md)
 
 ## License
 
