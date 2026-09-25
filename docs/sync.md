@@ -120,6 +120,36 @@ only if the `id_token` in Apple's answer has the subject that just signed in, so
 someone else's code to their own account. A later Apple sign-in replaces it. A failed exchange is
 logged and the sign-in goes ahead.
 
+**Sign in with Apple without Apple's sheet.** Android and the desktop have no native Apple
+sign-in, so they use Apple's web flow
+([`AppleWebSignIn`](../server/src/main/kotlin/app/gains/server/AppleWebSignIn.kt)). Apple only
+redirects to an HTTPS URL registered on the **Services ID** (`APPLE_SERVICES_ID`), so the server
+receives the redirect, and the app never sees Apple's tokens:
+
+1. The app opens `GET /auth/apple/start?redirect=<app callback>&state=<app state>` in a browser.
+   The callback must be Android's App Link `https://gains.gerra.sh/auth/done` or the desktop's
+   loopback `http://127.0.0.1:<port>/…`; anything else is a 400, since the callback receives a
+   code that signs someone in. The server remembers the callback and the app's state under a
+   state and a nonce of its own (in memory, for ten minutes) and redirects to
+   `appleid.apple.com/auth/authorize` with `response_type=code id_token`,
+   `response_mode=form_post` (Apple requires it when asking for the name or email),
+   `scope=name email` and the Services ID as client id.
+2. Apple posts the form to `POST /auth/apple/callback` (`https://api.gains.gerra.sh/…`, or
+   `GAINS_PUBLIC_URL`). The server takes the state back, once, and checks the `id_token` like
+   `/auth/apple` does, plus two things: its audience is the Services ID, and its `nonce` is the
+   one from step 1, so a token from any other sign-in can't be replayed here. The name comes from
+   the `user` field Apple posts the first time. It signs the person in, trades the form's `code`
+   for a refresh token as above (with the Services ID as client id), and sends the browser to the
+   app's callback with `code=<one-time code>&state=<app state>` (a 303). On a closed Apple page
+   the callback gets `error=cancelled` instead, and on anything else `error=failed`.
+3. The app posts that code to `POST /auth/exchange` and gets the same `{token, user}` as a
+   native sign-in. The code works once and for a minute. Our bearer token never goes in a URL,
+   where it would stay in the browser's history.
+
+The Apple subject is the same for the bundle id and the Services ID, so an Apple ID signed in on
+an iPhone and on Android is one user. Pending sign-ins and codes live in memory, capped at ten
+thousand: a restart only loses a sign-in in flight.
+
 On `DELETE /auth/account`, the server posts each stored Apple refresh token to
 `appleid.apple.com/auth/revoke` **before** deleting the rows. A failed revoke is logged, and the
 deletion goes ahead anyway: Apple being unreachable must never keep anyone's data on our server.
@@ -202,6 +232,9 @@ responses over a kilobyte.
 |-------|---------------|
 | `GET /health` | `{"status":"ok"}` |
 | `POST /auth/google`, `POST /auth/apple` | `{token, name?}` → `{token, user}` |
+| `GET /auth/apple/start?redirect=…&state=…` | → 302 to Apple; 400 for a callback that isn't the app's |
+| `POST /auth/apple/callback` | Apple's form post → 303 to the app's callback with `code` or `error`, and `state` |
+| `POST /auth/exchange` | `{code}` → `{token, user}`; 401 once used or after a minute |
 | `POST /auth/refresh` | bearer → `{token, user}` |
 | `GET /auth/me` | bearer → `user` |
 | `DELETE /auth/account` | bearer → 204, everything gone |
@@ -284,9 +317,11 @@ tests hand the server a key pair of their own and sign real tokens with it.
 Configuration is read from the environment, with `secrets/.env` under the working directory
 loaded first when it exists (the systemd unit deliberately has no `EnvironmentFile`, for the
 reason noted in www's unit): `JWT_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS`,
-`APPLE_KEY_ID`, `APPLE_TEAM_ID`, `APPLE_PRIVATE_KEY`, `GAINS_DATA_DIR`, `PORT`. Without a
+`APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_TEAM_ID`, `APPLE_PRIVATE_KEY`, `GAINS_PUBLIC_URL`,
+`GAINS_DATA_DIR`, `PORT`. Without a
 provider's ids that provider's route answers 503. Without the Apple key, sign-in codes are ignored
-and nothing is revoked; the start-up log line says `apple revoke on` or `off`.
+and nothing is revoked; the start-up log line says `apple revoke on` or `off`. Without
+`APPLE_SERVICES_ID` the web flow's routes answer 503, and the log line says `apple web off`.
 
 ## Deploying
 
@@ -328,6 +363,7 @@ three taxes uses.
 - **Native sign-in buttons beyond iOS.** Sign in with Apple and with Google work on iOS
   (`IosIdentityProvider`, the `com.apple.developer.applesignin` entitlement, and the server URL
   and Google client from `GAINS_SERVER_URL` and `GOOGLE_IOS_CLIENT_ID` in `Config.xcconfig`);
-  Apple's audience is the bundle id, Google's the iOS client id. Android is next. Until a
+  Apple's audience is the bundle id, Google's the iOS client id. Android is next; the server
+  side of Apple's web flow for Android and the desktop is in place (above). Until a
   provider is wired up its button stays hidden, or disabled when neither is, and Android and
   desktop keep `NoIdentityProvider`.

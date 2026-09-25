@@ -20,6 +20,10 @@ data class Config(
     val port: Int,
     /** The Sign in with Apple key that revokes a deleted account's Apple tokens; null leaves them be. */
     val appleKey: AppleKey? = null,
+    /** The Services ID of Apple's web flow (Android, desktop); also in [appleClientIds]. Null turns the web flow off. */
+    val appleServicesId: String? = null,
+    /** Where the internet reaches this server, for the redirect URL registered with Apple. */
+    val publicUrl: String = DEFAULT_PUBLIC_URL,
 ) {
     /** A key from developer.apple.com → Keys with Sign in with Apple enabled. [privateKey] is the `.p8` file's contents. */
     data class AppleKey(val keyId: String, val teamId: String, val privateKey: String) {
@@ -39,15 +43,22 @@ data class Config(
             require(appleKeyParts.all { it.isEmpty() } || appleKeyParts.none { it.isEmpty() }) {
                 "APPLE_KEY_ID, APPLE_TEAM_ID and APPLE_PRIVATE_KEY go together: set all three or none (see secrets/README.md)"
             }
+            val servicesId = values["APPLE_SERVICES_ID"]?.trim()?.ifEmpty { null }
+            val appleClientIds = values["APPLE_CLIENT_IDS"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
             return Config(
                 jwtSecret = secret,
                 googleClientIds = values["GOOGLE_CLIENT_IDS"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
-                appleClientIds = values["APPLE_CLIENT_IDS"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
+                // The web flow's tokens are issued to the Services ID, so it is always an accepted audience.
+                appleClientIds = (appleClientIds + listOfNotNull(servicesId)).distinct(),
                 dataDir = File(values["GAINS_DATA_DIR"]?.ifBlank { null } ?: "data"),
                 port = values["PORT"]?.toIntOrNull() ?: 5003,
                 appleKey = appleKeyParts.takeIf { parts -> parts.none { it.isEmpty() } }?.let { (id, team, key) -> AppleKey(id, team, key) },
+                appleServicesId = servicesId,
+                publicUrl = values["GAINS_PUBLIC_URL"]?.trim()?.trimEnd('/')?.ifEmpty { null } ?: DEFAULT_PUBLIC_URL,
             )
         }
+
+        const val DEFAULT_PUBLIC_URL = "https://api.gains.gerra.sh"
 
         /** `KEY=value` lines; blank lines and `#` comments skipped; surrounding single or double quotes dropped. */
         fun parseDotenv(text: String): Map<String, String> = text.lineSequence()

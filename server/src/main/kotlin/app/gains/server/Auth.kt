@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit
  * [emailVerified] is the provider's `email_verified` claim; only a verified email may join this
  * identity to another one ([Store.signIn]). [audience] is which of our client ids the token was
  * issued to, which is the client id Apple wants when the sign-in's code is exchanged ([AppleTokens]).
+ * [nonce] is the token's `nonce` claim, which the web flow checks against the one it sent ([AppleWebSignIn]).
  */
 data class VerifiedIdentity(
     val provider: String,
@@ -23,6 +24,7 @@ data class VerifiedIdentity(
     val name: String?,
     val emailVerified: Boolean = false,
     val audience: String? = null,
+    val nonce: String? = null,
 )
 
 class InvalidTokenException(message: String) : Exception(message)
@@ -78,7 +80,8 @@ class JwksIdentityVerifier(
         val verifiedClaim = decoded.getClaim("email_verified")
         val emailVerified = email != null && (verifiedClaim.asBoolean() ?: verifiedClaim.asString()?.toBooleanStrictOrNull() ?: false)
         val audience = decoded.audience?.firstOrNull { it in keys.audiences }
-        return VerifiedIdentity(provider, decoded.subject ?: throw InvalidTokenException("no subject"), email, name, emailVerified, audience)
+        val nonce = decoded.getClaim("nonce").asString()
+        return VerifiedIdentity(provider, decoded.subject ?: throw InvalidTokenException("no subject"), email, name, emailVerified, audience, nonce)
     }
 
     companion object {

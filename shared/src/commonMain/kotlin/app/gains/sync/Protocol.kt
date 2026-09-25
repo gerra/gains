@@ -61,6 +61,14 @@ data class SignInRequest(val token: String, val name: String? = null, val author
 @Serializable
 data class SignInResponse(val token: String, val user: UserInfo)
 
+/**
+ * The end of a web sign-in (Sign in with Apple on Android and the desktop): the one-time code the
+ * server put on the app's callback URL, traded for the same [SignInResponse] as a native sign-in.
+ * The callback carries a code rather than the token itself, because URLs end up in browser history.
+ */
+@Serializable
+data class ExchangeRequest(val code: String)
+
 @Serializable
 data class UserInfo(
     val id: Long,

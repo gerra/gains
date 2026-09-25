@@ -46,7 +46,7 @@ The same rules as `auth-plan.md`:
 | 7 | Submit iOS for App Review | iOS launch | Owner | 1–6, test plan | [ ] |
 | 8 | Android package name and Play Console app | Android launch | Owner + Agent | — | [ ] |
 | 9 | Android: Sign in with Google | Android launch | Agent + Owner | 8 | [ ] |
-| 10 | Server: Apple web sign-in (Services ID) | Android launch | Agent + Owner | — | [ ] |
+| 10 | Server: Apple web sign-in (Services ID) | Android launch | Agent + Owner | — | [x] |
 | 11 | Android: Sign in with Apple | Android launch | Agent | 8, 10 | [ ] |
 | 12 | Android: keep the token in the Keystore | Android launch | Agent | — | [ ] |
 | 13 | Android: release workflow and Play closed testing | Android launch | Agent + Owner | 8, 9 | [ ] |
@@ -304,7 +304,9 @@ taken on Play. **Choose before the first upload: Play never lets you change it.*
 
 ### 10. Server: Apple web sign-in (Services ID)
 
-- [ ] Done
+- [x] Done
+  Done in #PR. The owner's step 1 (`APPLE_SERVICES_ID` in `secrets/.env`) switches it on; until
+  then the three routes answer 503 and the server logs `apple web off` at start.
 
 **Milestone:** Android launch. **Depends on:** nothing. Also used by item 16.
 
@@ -314,7 +316,8 @@ redirects to an HTTPS URL registered with Apple, so the server has to receive th
 1. **Owner:** developer.apple.com → Identifiers → a **Services ID** (e.g.
    `app.gains.Gains.web`) with Sign in with Apple enabled, primary App ID `app.gains.Gains`,
    domain `api.gains.gerra.sh`, return URL `https://api.gains.gerra.sh/auth/apple/callback`.
-   Add the Services ID to `APPLE_CLIENT_IDS`.
+   Set it as `APPLE_SERVICES_ID` in `secrets/.env` (which also makes it an accepted audience)
+   and run `deploy_server.py secrets`.
 2. `GET /auth/apple/start?redirect=<app callback>&state=<client state>` redirects to
    `https://appleid.apple.com/auth/authorize` with `response_type=code id_token`,
    `response_mode=form_post` (required when asking for name or email), `scope=name email`, the
@@ -601,6 +604,16 @@ build fails a check, open an issue and link it next to the box.
       Settings → Apple Account → Sign in with Apple no longer lists Gains.
 - [ ] Deleting while Apple is unreachable still deletes the account (server log shows the
       failed revoke).
+
+**10. Apple web sign-in** (once `APPLE_SERVICES_ID` is deployed)
+- [ ] `journalctl -u gains-server` shows `apple web on`.
+- [ ] Open `https://api.gains.gerra.sh/auth/apple/start?redirect=http://127.0.0.1:1234/&state=x`
+      in a desktop browser: Apple's page asks to sign in to Gains. Finishing it lands on
+      `http://127.0.0.1:1234/?code=…&state=x` (the page itself fails to load, which is fine).
+- [ ] Within a minute, `curl -X POST https://api.gains.gerra.sh/auth/exchange -H 'Content-Type: application/json' -d '{"code":"<code>"}'`
+      answers `{token, user}` with your iPhone account's user id. The same call again → 401.
+- [ ] Cancelling on Apple's page lands on `…?error=cancelled&state=x`.
+- [ ] `redirect=https://example.com/` → 400.
 
 ### Android (items 9–13)
 

@@ -15,12 +15,13 @@ fun main() {
         tokens = SessionTokens(config.jwtSecret),
         verifier = JwksIdentityVerifier(config.googleClientIds, config.appleClientIds),
         appleTokens = config.appleKey?.let { AppleTokenClient(it.keyId, it.teamId, it.privateKey) } ?: NoAppleTokens,
+        appleWeb = config.appleServicesId?.let { AppleWebSignIn(it, "${config.publicUrl}/auth/apple/callback") },
     )
     log.info(
-        "gains-server on port {} (data {}; google {}; apple {}; apple revoke {})",
+        "gains-server on port {} (data {}; google {}; apple {}; apple web {}; apple revoke {})",
         config.port, config.dataDir.absolutePath,
         if (config.googleClientIds.isEmpty()) "off" else "on", if (config.appleClientIds.isEmpty()) "off" else "on",
-        if (services.appleTokens.enabled) "on" else "off",
+        if (services.appleWeb == null) "off" else "on", if (services.appleTokens.enabled) "on" else "off",
     )
     embeddedServer(CIO, port = config.port, host = "127.0.0.1") { gainsServer(services) }.start(wait = true)
 }
