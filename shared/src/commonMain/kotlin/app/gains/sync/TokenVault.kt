@@ -9,8 +9,9 @@ import kotlinx.coroutines.withContext
 /**
  * Where the sync server's bearer token is kept. It is the one secret the sync holds, so it has a
  * home of its own rather than a row next to the cursor: on iOS that is the Keychain
- * (`KeychainTokenVault`), which keeps it out of backups and out of the database file. The rest of
- * the sync's state is not secret and stays in `sync_state`. See docs/sync.md.
+ * (`KeychainTokenVault`), on Android a Keystore key (`KeystoreTokenVault`); both keep it out of
+ * backups and out of the database file. The rest of the sync's state is not secret and stays in
+ * `sync_state`. See docs/sync.md.
  */
 interface TokenVault {
     /** The token, or null when there is none. */
@@ -22,8 +23,8 @@ interface TokenVault {
 }
 
 /**
- * The token as a row of `sync_state`, where it has always lived. The default for Android and the
- * desktop until they get a vault of their own, and what the tests use.
+ * The token as a row of `sync_state`, where it has always lived. The default for the desktop
+ * until it gets a vault of its own (docs/launch-plan.md, item 17), and what the tests use.
  */
 class SqliteTokenVault(
     private val db: GainsDatabase,

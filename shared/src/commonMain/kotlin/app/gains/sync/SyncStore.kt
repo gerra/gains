@@ -30,7 +30,7 @@ data class PendingChange(val kind: String, val id: String, val changedAt: String
  * The sync's side of the device database: the change log the triggers in Sync.sq keep, the
  * documents built from the tables for a push, the tables written from documents on a pull, and
  * the values kept between runs (the pull cursor, when the last run went through). The bearer
- * token is kept by [vault], which on iOS is the Keychain. See docs/sync.md.
+ * token is kept by [vault]: the Keychain on iOS, the Keystore on Android. See docs/sync.md.
  */
 class SyncStore(
     private val db: GainsDatabase,

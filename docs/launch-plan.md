@@ -48,7 +48,7 @@ The same rules as `auth-plan.md`:
 | 9 | Android: Sign in with Google | Android launch | Agent + Owner | 8 | [ ] |
 | 10 | Server: Apple web sign-in (Services ID) | Android launch | Agent + Owner | — | [x] |
 | 11 | Android: Sign in with Apple | Android launch | Agent | 8, 10 | [ ] |
-| 12 | Android: keep the token in the Keystore | Android launch | Agent | — | [ ] |
+| 12 | Android: keep the token in the Keystore | Android launch | Agent | — | [x] |
 | 13 | Android: release workflow and Play closed testing | Android launch | Agent + Owner | 8, 9 | [ ] |
 | 14 | Publish on Google Play | Android launch | Owner | 9–13, test plan | [ ] |
 | 15 | Desktop: Sign in with Google | Desktop (P1) | Agent + Owner | — | [ ] |
@@ -353,7 +353,8 @@ expires, and an unlisted redirect is refused.
 
 ### 12. Android: keep the token in the Keystore
 
-- [ ] Done
+- [x] Done
+  Done in #82
 
 **Milestone:** Android launch. **Depends on:** nothing.
 
@@ -624,6 +625,12 @@ build fails a check, open an issue and link it next to the box.
 - [ ] Sync between an iPhone and an Android phone on one account, both ways, including a
       photo.
 - [ ] Reinstall: no stale token; signing in works.
+- [ ] Item 12: once signed in, `adb shell run-as app.gains cat shared_prefs/app.gains.sync.xml`
+      shows a Base64 blob, not the token, and `sync_state` in `databases/gains.db` has no
+      `token` row. Force-stop and reopen: still signed in, and "Sync now" works.
+- [ ] Item 12: `adb shell bmgr backupnow app.gains`, uninstall, reinstall and let the backup
+      restore: the workouts are back, and the account card says "Signed out on the server"
+      until you sign in again. No crash.
 
 ### Desktop (items 15–17)
 

@@ -292,8 +292,17 @@ one generic password, service `app.gains.sync`, account `token`, readable after 
 so a background sync works, and "this device only" so it never reaches a backup. A token an
 earlier version left in `sync_state` moves into the Keychain the first time it is read, and its
 row is deleted. The Keychain outlives the app while the database does not, so at start a token
-with no signed-in account in front of it (a reinstall) is cleared. Android and the desktop still
-keep the token in `sync_state`; the Android Keystore is still to do.
+with no signed-in account in front of it (a reinstall) is cleared.
+
+On Android it is [`KeystoreTokenVault`](../shared/src/androidMain/kotlin/app/gains/sync/KeystoreTokenVault.kt):
+an AES-GCM key in the Android Keystore (alias `app.gains.sync.token`, no screen lock needed, so a
+background sync works) encrypts the token, and the IV and ciphertext sit in the private
+preferences file `app.gains.sync.xml`. That file is excluded from backups and device transfers
+(`res/xml/backup_rules.xml`, `data_extraction_rules.xml`), since the key never leaves the phone.
+A value the key can't open is dropped and read as no token, so a signed-in account restored
+without it sees "Signed out on the server" and signs in again. The same move from `sync_state`
+happens on the first read. The key and the file go with the app, so a reinstall starts clean.
+The desktop still keeps the token in `sync_state`.
 
 ## The server
 
