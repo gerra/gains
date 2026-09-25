@@ -87,7 +87,7 @@ fun Application.gainsServer(services: Services) {
                 if (!services.verifier.enabled(provider)) throw HttpError(HttpStatusCode.ServiceUnavailable, "$provider sign-in is not configured")
                 val body = call.receive<SignInRequest>()
                 val identity = services.verifier.verify(provider, body.token)
-                val user = store.signIn(provider, identity.subject, identity.email, identity.name ?: body.name?.takeIf { it.isNotBlank() })
+                val user = store.signIn(provider, identity.subject, identity.email, identity.emailVerified, identity.name ?: body.name?.takeIf { it.isNotBlank() })
                 log.info("sign-in: user {} via {}", user.id, provider)
                 call.respond(SignInResponse(tokens.issue(user.id), user))
             }

@@ -29,7 +29,16 @@ class FakeProvider(val issuer: String, val keyId: String = "test-key") {
         ))
     }
 
-    fun token(subject: String, audience: String, email: String? = null, name: String? = null, expired: Boolean = false, keyId: String = this.keyId): String {
+    /** [emailVerified] is sent as given: Google's boolean, or Apple's string `"true"`; null leaves the claim out. */
+    fun token(
+        subject: String,
+        audience: String,
+        email: String? = null,
+        name: String? = null,
+        expired: Boolean = false,
+        keyId: String = this.keyId,
+        emailVerified: Any? = null,
+    ): String {
         val now = Instant.now()
         return JWT.create()
             .withKeyId(keyId)
@@ -38,7 +47,15 @@ class FakeProvider(val issuer: String, val keyId: String = "test-key") {
             .withAudience(audience)
             .withIssuedAt(now)
             .withExpiresAt(if (expired) now.minusSeconds(3600) else now.plusSeconds(600))
-            .apply { email?.let { withClaim("email", it) }; name?.let { withClaim("name", it) } }
+            .apply {
+                email?.let { withClaim("email", it) }
+                name?.let { withClaim("name", it) }
+                when (emailVerified) {
+                    null -> Unit
+                    is Boolean -> withClaim("email_verified", emailVerified)
+                    else -> withClaim("email_verified", emailVerified.toString())
+                }
+            }
             .sign(Algorithm.RSA256(public, private))
     }
 }

@@ -38,7 +38,7 @@ The same rules as `auth-plan.md`:
 | # | Item | Milestone | Who | Depends on | Done |
 |---|------|-----------|-----|------------|------|
 | 1 | Sign-out can't crash the app; fix the secrets deploy line | iOS launch | Agent | — | [x] |
-| 2 | Merge accounts only on verified emails | iOS launch | Agent | — | [ ] |
+| 2 | Merge accounts only on verified emails | iOS launch | Agent | — | [x] |
 | 3 | Landing page and privacy policy on `gains.gerra.sh` | iOS launch | Agent + Owner | — | [ ] |
 | 4 | Contact email alias | iOS launch | Owner | — | [ ] |
 | 5 | Google sign-in in production | iOS launch | Owner | 3, 4 | [ ] |
@@ -94,7 +94,8 @@ account `""`.
 
 ### 2. Merge accounts only on verified emails
 
-- [ ] Done
+- [x] Done
+  Done in #76
 
 **Milestone:** iOS launch. **Depends on:** nothing.
 

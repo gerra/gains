@@ -9,12 +9,15 @@ CREATE TABLE user (
 );
 
 -- A sign-in provider's stable subject, pointing at the user it belongs to. The same person
--- with both providers has two rows here and one in `user`.
+-- with both providers has two rows here and one in `user`. `email_verified` is the provider's
+-- word that the address belongs to this person; only such an email may join two identities
+-- (migrations/1.sqm).
 CREATE TABLE identity (
   provider TEXT NOT NULL,
   subject TEXT NOT NULL,
   user_id INTEGER NOT NULL REFERENCES user(id),
   email TEXT,
+  email_verified INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (provider, subject)
 );
 
@@ -54,10 +57,12 @@ INSERT INTO counter(name, value) VALUES ('seq', 0);
 -- users and identities
 
 selectIdentity:
-SELECT provider, subject, user_id, email FROM identity WHERE provider = ? AND subject = ?;
+SELECT provider, subject, user_id, email, email_verified FROM identity WHERE provider = ? AND subject = ?;
 
-selectUserByEmail:
-SELECT id, email, name, created_at FROM user WHERE email = ? COLLATE NOCASE LIMIT 1;
+-- The user one of whose identities has this email, verified by its provider. Both sides must be
+-- verified: an unverified address on the existing identity could have been typed by anyone.
+selectUserIdByVerifiedEmail:
+SELECT user_id FROM identity WHERE email = ? COLLATE NOCASE AND email_verified = 1 ORDER BY user_id LIMIT 1;
 
 selectUser:
 SELECT id, email, name, created_at FROM user WHERE id = ?;
@@ -69,7 +74,10 @@ lastInsertedId:
 SELECT last_insert_rowid();
 
 insertIdentity:
-INSERT INTO identity(provider, subject, user_id, email) VALUES (?, ?, ?, ?);
+INSERT INTO identity(provider, subject, user_id, email, email_verified) VALUES (?, ?, ?, ?, ?);
+
+updateIdentityEmail:
+UPDATE identity SET email = ?, email_verified = ? WHERE provider = ? AND subject = ?;
 
 updateUserDetails:
 UPDATE user SET email = COALESCE(email, ?), name = COALESCE(name, ?) WHERE id = ?;
