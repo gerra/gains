@@ -269,17 +269,19 @@ The same playbook as taxes and www, on the same Hetzner box:
   anywhere in it, the same way the release workflows run `tools/release.py`.
 - nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`.
   `python3 tools/deploy_server.py nginx` pushes every file in `deploy/nginx/` (this one and the
-  site's `gains.gerra.sh.conf`), then runs `nginx -t` and reloads. A site whose certificate
-  doesn't exist yet is skipped, with the `certbot certonly --nginx -d <name>` line to run
-  first.
+  site's `gains.gerra.sh.conf`), then runs `nginx -t` and reloads. The
+  [Deploy site and nginx workflow](../.github/workflows/deploy-site.yml) runs it on a push to
+  `main` that touches `deploy/nginx/`. A site whose certificate doesn't exist yet is skipped,
+  with the `certbot certonly --nginx -d <name>` line to run on the box first; that is the one
+  step left by hand.
 - Secrets: `python3 tools/deploy_server.py secrets` copies `secrets/.env` to the box and
   restarts the unit.
 - Data: `/var/lib/gains/gains-server.db`, outside the synced tree; back it up by copying the file.
 - The host is `api.gains.gerra.sh` rather than `gains.gerra.sh` on purpose: the bare name is the
   app's own site ([`site/`](../site): landing page, `/privacy`, `/support`), which App Store
   Connect needs for the privacy policy and support links, and the API stays on an origin of its
-  own. The [Deploy site workflow](../.github/workflows/deploy-site.yml) rsyncs `site/` to
-  `/var/www/gains.gerra.sh` on a push to `main` that touches it.
+  own. The same workflow rsyncs `site/` to `/var/www/gains.gerra.sh` on a push to `main` that
+  touches it, and smoke tests `https://gains.gerra.sh/privacy`.
 - Logs: `journalctl -u gains-server`, also on gerra.sh/status.
 
 The workflow needs the repository secrets `DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_KEY`, the same

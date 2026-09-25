@@ -117,7 +117,7 @@ Apple user gets a new user. A verified one joins the existing user.
 
 - [ ] Done
   Agent steps 1–3 and 6 are in (branch `claude/great-edison-bb10ft`): `site/`, the two nginx
-  files, `deploy_server.py site` / `nginx` and the Deploy site workflow. Left: the owner's
+  files, `deploy_server.py site` / `nginx` and the Deploy site and nginx workflow. Left: the owner's
   steps 4 and 5. Tick this box once `https://gains.gerra.sh/privacy` loads.
 
 **Milestone:** iOS launch. **Depends on:** nothing.
@@ -154,9 +154,8 @@ API's certificate, which shows a certificate warning.
    `deploy.yml`'s paths to `site/**`, or give the site its own workflow. Add tests in
    `tools/test_deploy_server.py` like the existing ones. Add `site` to `IGNORED` in
    `tools/release.py`, so that a site change alone doesn't cut an iOS release.
-4. **Owner:** `certbot certonly --nginx -d gains.gerra.sh` (done), then `deploy_server.py site`
-   (or run the Deploy site workflow) and `deploy_server.py nginx`. `nginx` skips a site whose
-   certificate is missing.
+4. **Owner:** `certbot certonly --nginx -d gains.gerra.sh` (done), then merge: the Deploy site
+   and nginx workflow pushes the vhosts, then the pages, and smoke tests `/privacy`.
 5. Owner steps after it is live: set the privacy policy URL in App Store Connect, and
    `https://gains.gerra.sh` as the homepage in Google Auth Platform (item 5).
 6. Link the site from the README.

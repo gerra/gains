@@ -8,7 +8,8 @@ DEPLOY_KEY secrets in the environment:
             The workflow's rsync step then copies the install directory into current/.
   install   Copy the systemd unit and this script to the box and run `remote` there.
   logs      Fetch the unit's journal into a file, for the failure artifact.
-  site      Rsync site/ (the pages of gains.gerra.sh) to the web root on the box.
+  nginx     Push every site in deploy/nginx/ whose certificate exists, `nginx -t`, reload.
+  site      Rsync site/ (the pages of gains.gerra.sh) to the web root, smoke test /privacy.
 
 On the box itself, run by `install` over ssh:
 
@@ -17,7 +18,8 @@ On the box itself, run by `install` over ssh:
 From a laptop, against the host alias in REMOTE (hetzner_gb by default):
 
   secrets   Push secrets/.env (never in git, never in the rsync) and restart the unit.
-  nginx     Push every site in deploy/nginx/ whose certificate exists and reload nginx.
+
+`nginx` and `site` also run from a laptop the same way, when the workflow isn't wanted.
 
 Nothing here goes through a shell: every command is a list of arguments, so paths and secrets
 are never re-parsed. The remote side is this same file, run with the box's python3.
@@ -129,13 +131,9 @@ def site(args):
     remote.ssh("mkdir", "-p", str(WEB_ROOT))
     run(*rsync_command(remote, SITE_DIR, WEB_ROOT))
     status = fetch_status(f"https://{SITE_HOST}/privacy")
-    if status == 200:
-        print(f"https://{SITE_HOST}/privacy answers 200.")
-    else:
-        # Not fatal: the files are in place before the certificate and the vhost exist, and
-        # `deploy_server.py nginx` is what makes them reachable (docs/launch-plan.md, item 3).
-        warning = f"https://{SITE_HOST}/privacy answered {status or 'nothing'}; is the vhost pushed?"
-        print(f"::warning::{warning}" if os.environ.get("GITHUB_ACTIONS") else f"warning: {warning}")
+    if status != 200:
+        fail(f"https://{SITE_HOST}/privacy answered {status or 'nothing'}; is the vhost pushed (`nginx`)?")
+    print(f"smoke test: https://{SITE_HOST}/privacy answers 200.")
 
 
 def rsync_command(remote, source, destination):
@@ -274,7 +272,7 @@ def main(argv=None):
         ("install", install, "CI: copy the unit and this script to the box and run `remote` there"),
         ("remote", remote, "on the box: JDK, unit, restart, smoke test"),
         ("secrets", secrets, "laptop: push secrets/.env and restart the unit"),
-        ("nginx", nginx, "laptop: push every site in deploy/nginx/ and reload nginx"),
+        ("nginx", nginx, "CI or laptop: push every site in deploy/nginx/ and reload nginx"),
         ("site", site, "CI or laptop: rsync site/ to the web root on the box"),
     ]:
         commands.add_parser(name, help=help_text).set_defaults(handler=handler)
