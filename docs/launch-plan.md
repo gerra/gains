@@ -255,7 +255,7 @@ sections passed on a TestFlight build containing them.
 ### 8. Android package name and Play Console app
 
 - [ ] Done
-  Agent step 2 is in #PR: the owner kept `app.gains`, so `applicationId` doesn't change, and
+  Agent step 2 is in #80: the owner kept `app.gains`, so `applicationId` doesn't change, and
   nothing in the manifest or the receivers depends on it (the intent actions are plain strings,
   and the notification uses `context.packageName`). Left: the owner's steps 3 and 4. Tick this
   box once the Play Console app exists.
