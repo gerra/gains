@@ -76,6 +76,7 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
 ### 1. Sign-out can't crash the app; fix the secrets deploy line
 
 - [x] Done
+  Done in #75
 
 **Milestone:** iOS launch. **Depends on:** nothing.
 
