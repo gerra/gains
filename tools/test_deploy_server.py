@@ -1,8 +1,7 @@
 """The parts of deploy_server.py that need no box: where it connects, what it accepts as healthy,
-how it installs nginx sites, and that the site it ships has no broken links."""
+which certificates each nginx site needs, and that the site it ships has no broken links."""
 
 import html.parser
-import os
 import pathlib
 import tempfile
 import unittest
@@ -69,103 +68,11 @@ class NginxTest(unittest.TestCase):
         sites = {path.stem: path.read_text() for path in deploy_server.NGINX_DIR.glob("*.conf")}
         self.assertEqual(["api.gains.gerra.sh"], deploy_server.certificates(sites["api.gains.gerra.sh"]))
         self.assertEqual(["gains.gerra.sh"], deploy_server.certificates(sites["gains.gerra.sh"]))
-        self.assertEqual([], deploy_server.certificates(sites["default"]))
-
-    def test_the_catch_all_is_the_only_default_server(self):
-        for path in deploy_server.NGINX_DIR.glob("*.conf"):
-            lines = [line for line in path.read_text().splitlines() if not line.lstrip().startswith("#")]
-            says_default = any("default_server" in line for line in lines)
-            self.assertEqual(path.stem == "default", says_default, path.name)
+        self.assertEqual([], deploy_server.certificates("# ssl_certificate /etc/letsencrypt/live/x/fullchain.pem"))
 
     def test_the_site_is_served_from_where_it_is_synced_to(self):
         config = (deploy_server.NGINX_DIR / f"{deploy_server.SITE_HOST}.conf").read_text()
         self.assertIn(f"root {deploy_server.WEB_ROOT};", config)
-
-
-class InstallSitesTest(unittest.TestCase):
-    def setUp(self):
-        temp = tempfile.TemporaryDirectory()
-        self.addCleanup(temp.cleanup)
-        root = pathlib.Path(temp.name)
-        self.staging, self.available, self.enabled, self.live, self.backups = (
-            root / "staging", root / "available", root / "enabled", root / "live", root / "backup"
-        )
-        for directory in (self.staging, self.available, self.enabled, self.live):
-            directory.mkdir()
-
-    def stage(self, name, certificate=None):
-        text = f"server {{ server_name {name}; }}\n"
-        if certificate:
-            text += f"    ssl_certificate /etc/letsencrypt/live/{certificate}/fullchain.pem;\n"
-        (self.staging / f"{name}.conf").write_text(text)
-        return text
-
-    def issue(self, domain):
-        (self.live / domain).mkdir()
-        (self.live / domain / "fullchain.pem").write_text("cert")
-
-    def install(self, config_ok=True):
-        return deploy_server.install_sites(
-            self.staging, self.available, self.enabled, self.live, lambda: config_ok, self.backups
-        )
-
-    def test_installs_and_links_every_site_with_a_certificate(self):
-        api = self.stage("api.example", certificate="api.example")
-        catch_all = self.stage("default")
-        self.issue("api.example")
-        installed, skipped = self.install()
-        self.assertEqual(["api.example", "default"], installed)
-        self.assertEqual({}, skipped)
-        self.assertEqual(api, (self.available / "api.example").read_text())
-        self.assertEqual(catch_all, (self.enabled / "default").read_text())
-        self.assertEqual(self.available / "default", pathlib.Path(os.readlink(self.enabled / "default")))
-
-    def test_a_site_without_its_certificate_is_skipped(self):
-        self.stage("site.example", certificate="site.example")
-        installed, skipped = self.install()
-        self.assertEqual([], installed)
-        self.assertEqual({"site.example": ["site.example"]}, skipped)
-        self.assertFalse((self.available / "site.example").exists())
-        self.assertFalse((self.enabled / "site.example").is_symlink())
-
-    def test_a_replaced_site_is_backed_up(self):
-        (self.available / "default").write_text("stock page")
-        (self.enabled / "default").symlink_to(self.available / "default")
-        self.stage("default")
-        self.install()
-        [backup] = self.backups.iterdir()
-        self.assertEqual("stock page", backup.read_text())
-        self.assertTrue(backup.name.startswith("default."))
-
-    def test_a_failed_config_test_puts_everything_back(self):
-        (self.available / "default").write_text("stock page")
-        (self.enabled / "default").write_text("a plain file, not a link")
-        self.stage("default")
-        self.stage("new.example")
-        with self.assertRaises(RuntimeError):
-            self.install(config_ok=False)
-        self.assertEqual("stock page", (self.available / "default").read_text())
-        self.assertFalse((self.enabled / "default").is_symlink())
-        self.assertEqual("a plain file, not a link", (self.enabled / "default").read_text())
-        self.assertFalse((self.available / "new.example").exists())
-        self.assertFalse((self.enabled / "new.example").is_symlink())
-
-
-class FallbackCertificateTest(unittest.TestCase):
-    def test_made_once_and_then_left_alone(self):
-        with tempfile.TemporaryDirectory() as temp:
-            directory = pathlib.Path(temp) / "ssl"
-            deploy_server.ensure_fallback_certificate(directory)
-            certificate = (directory / "default.crt").read_bytes()
-            self.assertIn(b"BEGIN CERTIFICATE", certificate)
-            self.assertEqual(0o600, (directory / "default.key").stat().st_mode & 0o777)
-            deploy_server.ensure_fallback_certificate(directory)
-            self.assertEqual(certificate, (directory / "default.crt").read_bytes())
-
-    def test_the_catch_all_uses_it(self):
-        config = (deploy_server.NGINX_DIR / "default.conf").read_text()
-        self.assertIn(f"ssl_certificate {deploy_server.FALLBACK_CERTIFICATE}/default.crt;", config)
-        self.assertIn(f"ssl_certificate_key {deploy_server.FALLBACK_CERTIFICATE}/default.key;", config)
 
 
 class SitePagesTest(unittest.TestCase):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Putting the sync server on its box (docs/sync.md, "Deploying").
 
-Nine commands, in three groups. From the deploy workflows, with the DEPLOY_HOST, DEPLOY_USER and
+Seven commands, in three groups. From the deploy workflows, with the DEPLOY_HOST, DEPLOY_USER and
 DEPLOY_KEY secrets in the environment:
 
   prepare   Write the key file and make sure the target directories exist on the box.
@@ -10,16 +10,14 @@ DEPLOY_KEY secrets in the environment:
   logs      Fetch the unit's journal into a file, for the failure artifact.
   site      Rsync site/ (the pages of gains.gerra.sh) to the web root on the box.
 
-On the box itself, run over ssh by `install` and `nginx`:
+On the box itself, run by `install` over ssh:
 
-  remote        Install a JDK if there is none, install the unit, restart, smoke test /health.
-  remote-nginx  Install the staged nginx sites, test the configuration, reload or roll back.
+  remote    Install a JDK if there is none, install the unit, restart, smoke test /health.
 
 From a laptop, against the host alias in REMOTE (hetzner_gb by default):
 
   secrets   Push secrets/.env (never in git, never in the rsync) and restart the unit.
   nginx     Push every site in deploy/nginx/ whose certificate exists and reload nginx.
-            A site whose certificate is missing is skipped, with the certbot line to run.
 
 Nothing here goes through a shell: every command is a list of arguments, so paths and secrets
 are never re-parsed. The remote side is this same file, run with the box's python3.
@@ -50,13 +48,6 @@ HEALTH = "http://127.0.0.1:5003/health"
 
 # nginx: each deploy/nginx/<name>.conf becomes sites-available/<name>, linked from sites-enabled.
 NGINX_DIR = ROOT / "deploy" / "nginx"
-NGINX_STAGING = HOME / "nginx"
-SITES_AVAILABLE = pathlib.Path("/etc/nginx/sites-available")
-SITES_ENABLED = pathlib.Path("/etc/nginx/sites-enabled")
-LETSENCRYPT_LIVE = pathlib.Path("/etc/letsencrypt/live")
-# The catch-all (deploy/nginx/default.conf) needs some certificate to listen on 443; a
-# self-signed one for no real name, made once on the box.
-FALLBACK_CERTIFICATE = pathlib.Path("/etc/nginx/ssl")
 CERTIFICATE = re.compile(r"^\s*ssl_certificate\s+/etc/letsencrypt/live/([^/\s]+)/", re.MULTILINE)
 
 # The site: static files, no build step. nginx (www-data) reads them, so not under /root.
@@ -241,117 +232,35 @@ def secrets(args):
 
 
 def nginx(args):
-    """Stage every site on the box, then let `remote-nginx` install them there."""
+    """Push each site in deploy/nginx/ whose certificate exists, then test and reload nginx."""
     remote = Remote.from_environment()
-    remote.ssh("rm", "-rf", str(NGINX_STAGING / "sites"))
-    remote.ssh("mkdir", "-p", str(NGINX_STAGING / "sites"))
+    pushed = []
     for path in sorted(NGINX_DIR.glob("*.conf")):
-        remote.scp(path, NGINX_STAGING / "sites" / path.name)
-    remote.scp(pathlib.Path(__file__), HOME / "deploy_server.py")
-    result = remote.ssh("python3", str(HOME / "deploy_server.py"), "remote-nginx", check=False)
-    if result.returncode != 0:
-        fail("nginx was not changed; see the output above")
-
-
-def remote_nginx(args):
-    """Runs as root on the box: install the staged sites, `nginx -t`, then reload or undo."""
-    ensure_fallback_certificate(FALLBACK_CERTIFICATE)
-    try:
-        installed, skipped = install_sites(
-            NGINX_STAGING / "sites", SITES_AVAILABLE, SITES_ENABLED, LETSENCRYPT_LIVE,
-            config_ok=lambda: run("nginx", "-t", check=False).returncode == 0,
-            backups=NGINX_STAGING / "backup",
-        )
-    except RuntimeError as error:
-        print(f"error: {error}")
-        sys.exit(1)
-    for name, missing in skipped.items():
-        print(
-            f"SKIPPED {name}: no certificate for {', '.join(missing)}. Issue it (needs the DNS "
-            f"record), then run `deploy_server.py nginx` again:\n"
-            + "\n".join(f"  certbot certonly --nginx -d {domain}" for domain in missing)
-        )
-    if installed:
-        run("systemctl", "reload", "nginx")
-        print(f"installed {', '.join(installed)}; nginx reloaded.")
-
-
-def ensure_fallback_certificate(directory):
-    """A self-signed default.crt / default.key in `directory`, unless they are already there."""
-    certificate, key = directory / "default.crt", directory / "default.key"
-    if certificate.is_file() and key.is_file():
-        return
-    directory.mkdir(parents=True, exist_ok=True)
-    run(
-        "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "3650",
-        "-subj", "/CN=invalid", "-keyout", key, "-out", certificate,
-    )
-    key.chmod(0o600)
+        site_name = path.stem
+        missing = [
+            domain for domain in certificates(path.read_text())
+            if remote.ssh("test", "-f", f"/etc/letsencrypt/live/{domain}/fullchain.pem", check=False).returncode != 0
+        ]
+        if missing:
+            print(
+                f"skipping {site_name}: no certificate; issue it first (needs the DNS record): "
+                + "; ".join(f"ssh {remote.target} 'certbot certonly --nginx -d {domain}'" for domain in missing)
+            )
+            continue
+        available = f"/etc/nginx/sites-available/{site_name}"
+        remote.scp(path, available)
+        remote.ssh("ln", "-sfn", available, f"/etc/nginx/sites-enabled/{site_name}")
+        pushed.append(site_name)
+    if not pushed:
+        fail("nothing pushed")
+    remote.ssh("nginx", "-t")
+    remote.ssh("systemctl", "reload", "nginx")
+    print(f"pushed {', '.join(pushed)}; nginx reloaded.")
 
 
 def certificates(config):
     """The Let's Encrypt names a site's configuration needs a certificate for."""
     return sorted(set(CERTIFICATE.findall(config)))
-
-
-def install_sites(staging, available, enabled, live, config_ok, backups):
-    """Copy each staged `<name>.conf` to `available/<name>` and link it from `enabled`.
-
-    A site whose certificate isn't in `live` yet is skipped rather than installed, since nginx
-    refuses to start with a missing certificate file. When `config_ok` (nginx -t) fails
-    afterwards, every file and link is put back as it was, so a bad push never leaves nginx
-    unable to reload. What a site replaces is also kept in `backups`, because the catch-all
-    replaces the stock `default` page, which is not in the repository.
-
-    Returns the names installed and, for each skipped one, the certificates it lacks.
-    """
-    stamp = time.strftime("%Y%m%d%H%M%S")
-    installed, skipped, undo = [], {}, []
-    for source in sorted(staging.glob("*.conf")):
-        name = source.stem
-        missing = [domain for domain in certificates(source.read_text())
-                   if not (live / domain / "fullchain.pem").is_file()]
-        if missing:
-            skipped[name] = missing
-            continue
-        target, link = available / name, enabled / name
-        undo.append((target, snapshot(target), link, snapshot(link)))
-        if target.is_file():
-            backups.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(target, backups / f"{name}.{stamp}")
-        shutil.copyfile(source, target)
-        if not (link.is_symlink() and pathlib.Path(os.readlink(link)) == target):
-            if link.is_symlink() or link.exists():
-                link.unlink()
-            link.symlink_to(target)
-        installed.append(name)
-    if installed and not config_ok():
-        for target, target_before, link, link_before in reversed(undo):
-            restore(link, link_before)
-            restore(target, target_before)
-        raise RuntimeError("nginx -t failed; every site is back as it was and nginx was not reloaded")
-    return installed, skipped
-
-
-def snapshot(path):
-    """What is at `path` now, for `restore`: nothing, a symlink's target, or a file's bytes."""
-    if path.is_symlink():
-        return ("link", os.readlink(path))
-    if path.is_file():
-        return ("file", path.read_bytes())
-    return None
-
-
-def restore(path, before):
-    if path.is_symlink() or path.exists():
-        path.unlink()
-    if before is None:
-        return
-    kind, value = before
-    if kind == "link":
-        path.symlink_to(value)
-    else:
-        path.write_bytes(value)
 
 
 # --- entry point ---------------------------------------------------------------
@@ -366,7 +275,6 @@ def main(argv=None):
         ("remote", remote, "on the box: JDK, unit, restart, smoke test"),
         ("secrets", secrets, "laptop: push secrets/.env and restart the unit"),
         ("nginx", nginx, "laptop: push every site in deploy/nginx/ and reload nginx"),
-        ("remote-nginx", remote_nginx, "on the box: install the staged sites, test, reload or undo"),
         ("site", site, "CI or laptop: rsync site/ to the web root on the box"),
     ]:
         commands.add_parser(name, help=help_text).set_defaults(handler=handler)

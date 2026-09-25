@@ -146,22 +146,17 @@ API's certificate, which shows a certificate warning.
    - `/support`: App Store Connect requires a support URL. A short page with the contact alias
      is enough.
 2. **nginx:** `deploy/nginx/gains.gerra.sh.conf` serves `site/` from a directory on the box,
-   in the same shape as the API vhost (ACME include, 80 → 443 redirect). Add
-   `deploy/nginx/default.conf`, a catch-all with `listen 80 default_server` and
-   `listen 443 ssl default_server` plus `ssl_reject_handshake on`, that returns `444`. Then an
-   unknown hostname never reaches the API again.
+   in the same shape as the API vhost (ACME include, 80 → 443 redirect). *Decided against:* a
+   `default.conf` catch-all for unknown hostnames. No other site on the box has one, and once
+   `gains.gerra.sh` has its own vhost it no longer falls through to the API.
 3. **Deploy:** teach `tools/deploy_server.py nginx` to push every file in `deploy/nginx/`, not
    only the API vhost. Add a `site` command that rsyncs `site/` to the box. Extend
    `deploy.yml`'s paths to `site/**`, or give the site its own workflow. Add tests in
    `tools/test_deploy_server.py` like the existing ones. Add `site` to `IGNORED` in
    `tools/release.py`, so that a site change alone doesn't cut an iOS release.
-4. **Owner:** on the box, check that nothing else claims `default_server`
-   (`grep -rn default_server /etc/nginx/sites-enabled/`; the stock `default` is fine, it gets
-   replaced). The box runs nginx 1.18, too old for `ssl_reject_handshake`, so the catch-all
-   uses a self-signed certificate that `deploy_server.py nginx` makes on the box. Then
-   `certbot certonly --nginx -d gains.gerra.sh`, `deploy_server.py site` (or run the Deploy
-   site workflow) and `deploy_server.py nginx`. `nginx` skips a site whose certificate is
-   missing and undoes everything if `nginx -t` fails.
+4. **Owner:** `certbot certonly --nginx -d gains.gerra.sh` (done), then `deploy_server.py site`
+   (or run the Deploy site workflow) and `deploy_server.py nginx`. `nginx` skips a site whose
+   certificate is missing.
 5. Owner steps after it is live: set the privacy policy URL in App Store Connect, and
    `https://gains.gerra.sh` as the homepage in Google Auth Platform (item 5).
 6. Link the site from the README.
@@ -578,14 +573,11 @@ build fails a check, open an issue and link it next to the box.
 - [ ] `http://gains.gerra.sh` → `https://gains.gerra.sh`, with no redirect to the API and no
       certificate warning.
 - [ ] `/privacy` and `/support` load, and the store and TestFlight links work.
-- [ ] An unknown hostname on the box (e.g. `curl -H 'Host: nope.gerra.sh' http://<box>`) gets
-      no answer, and `api.gains.gerra.sh` still works.
+- [ ] `api.gains.gerra.sh` still works.
 - [ ] The guest list button opens a mail to the alias with the subject "Gains guest list", and
       it arrives in your inbox (needs item 4).
 - [ ] The pages look right on a phone, in dark and light.
 - [ ] A missing page (`/nope`) shows the site's own "Nothing here" page.
-- [ ] `curl -skv https://<box IP>/` (no name) shows the self-signed `CN=invalid` certificate,
-      not the API's, and gets an empty reply.
 
 **5. Google in production**
 - [ ] An account that was never a test user signs in with Google.
