@@ -46,6 +46,18 @@ Android SDK when you pass `-Pgains.android=false`.
 Pick **Continue as guest** on first launch, then import a file with the **+** button or log a
 workout from the Home tab. The database lives in `~/.gains/gains.db`.
 
+Sign-in on the desktop goes through the browser (docs/sync.md, "Signing in"). The build passes
+three Gradle properties to the app as system properties, for `run` and the installers alike:
+`gains.serverUrl` (the sync server, `https://api.gains.gerra.sh` in `gradle.properties`),
+`gains.googleDesktopClientId` (the **Desktop app** OAuth client, also in `gradle.properties`) and
+`gains.googleDesktopClientSecret`. The secret stays out of the repository even though Google
+documents it as not secret for installed apps: keep it in `~/.gradle/gradle.properties` or pass
+it with `-P`. **Sign in with Google** shows only when both the id and the secret are set.
+
+```bash
+./gradlew :composeApp:run -Pgains.android=false -Pgains.googleDesktopClientSecret=GOCSPX-…
+```
+
 ### Android
 
 Open the project in Android Studio and run the `composeApp` configuration, or build an APK:
@@ -173,8 +185,8 @@ in `iosApp/iosApp/Info.plist`.
 - The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request,
   but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
   hosted macOS runner for this).
-- Sign-in is wired up on iOS only (Apple and Google); Android and the desktop run as guests, so
-  their data stays on the device. [docs/launch-plan.md](launch-plan.md) has the rest.
+- Sign-in is wired up on iOS (Apple and Google) and the desktop (Google); Android runs as a
+  guest, so its data stays on the device. [docs/launch-plan.md](launch-plan.md) has the rest.
 
 ## Roadmap
 

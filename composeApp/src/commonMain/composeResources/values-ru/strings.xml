@@ -584,6 +584,9 @@
     <string name="goal_sort_note">Программы отсортированы по соответствию цели «%1$s»; главный экран начинает с её сигналов.</string>
     <string name="sign_in_not_configured">Вход через %1$s пока не настроен.</string>
     <string name="sign_in_failed">Войти не удалось. Проверьте соединение и попробуйте ещё раз.</string>
+    <!-- The page the browser shows once a desktop sign-in has handed the app its answer. -->
+    <string name="browser_sign_in_done_title">Возвращайтесь в Gains</string>
+    <string name="browser_sign_in_done">Эту вкладку можно закрыть и вернуться в Gains.</string>
     <string name="profile_summary">%1$s · %2$s · %3$s</string>
     <string name="up_next">ДАЛЬШЕ · %1$s</string>
     <string name="exercises_and_week_count">%1$s · %2$d из %3$d на этой неделе</string>

@@ -20,9 +20,12 @@ class GoogleOAuthException(message: String) : Exception(message)
  * iOS project: the platform only shows [authorizationUrl] in a browser sheet and hands back the
  * redirect, and everything else is plain Kotlin that the desktop tests can check.
  *
- * It needs an **iOS** OAuth client: those accept a redirect to their own reversed-id scheme and
- * have no secret, since the id ships inside every copy of the app. The `id_token` it returns has
- * that client id as its audience, which is why the server lists it in `GOOGLE_CLIENT_IDS`.
+ * On iOS it needs an **iOS** OAuth client: those accept a redirect to their own reversed-id scheme
+ * and have no secret, since the id ships inside every copy of the app. The desktop uses a
+ * **Desktop app** client instead, which redirects to a loopback address ([loopbackRedirectUri])
+ * and comes with a client secret that Google documents as not secret for installed apps. Either
+ * way the `id_token` it returns has that client id as its audience, which is why the server lists
+ * it in `GOOGLE_CLIENT_IDS`.
  */
 object GoogleOAuth {
     const val AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -36,16 +39,33 @@ object GoogleOAuth {
         return SCHEME_PREFIX + clientId.removeSuffix(CLIENT_ID_SUFFIX)
     }
 
+    /** Where Google sends an iOS client back to, and the default for [authorizationUrl] and [exchange]. */
     fun redirectUri(clientId: String): String = "${redirectScheme(clientId)}:/oauth2redirect"
 
     /**
-     * The page the browser sheet opens. `prompt=select_account` shows the account chooser every
-     * time, so a person with several Google accounts can pick the one they want.
+     * Where Google sends a Desktop app client back to: the listener the app opened on [port].
+     * Google accepts any port on the loopback IP for those clients, so none is registered, and
+     * `127.0.0.1` rather than `localhost` keeps the browser from trying IPv6 or a hosts entry.
      */
-    fun authorizationUrl(clientId: String, codeChallenge: String, state: String): String {
+    fun loopbackRedirectUri(port: Int): String {
+        require(port in 1..65535) { "Not a port: $port" }
+        return "http://127.0.0.1:$port"
+    }
+
+    /**
+     * The page the browser sheet opens. `prompt=select_account` shows the account chooser every
+     * time, so a person with several Google accounts can pick the one they want. [redirectUri]
+     * must be the one [exchange] sends later.
+     */
+    fun authorizationUrl(
+        clientId: String,
+        codeChallenge: String,
+        state: String,
+        redirectUri: String = redirectUri(clientId),
+    ): String {
         val query = listOf(
             "client_id" to clientId,
-            "redirect_uri" to redirectUri(clientId),
+            "redirect_uri" to redirectUri,
             "response_type" to "code",
             "scope" to "openid email profile",
             "code_challenge" to codeChallenge,
@@ -69,16 +89,28 @@ object GoogleOAuth {
         return parameters["code"]?.takeIf { it.isNotEmpty() } ?: throw GoogleOAuthException("Google returned no authorization code.")
     }
 
-    /** Trades the code for Google's identity token, proving with [verifier] that this is the app that asked. */
-    suspend fun exchange(client: HttpClient, clientId: String, code: String, verifier: String): String {
+    /**
+     * Trades the code for Google's identity token, proving with [verifier] that this is the app that
+     * asked. [redirectUri] is the one the authorization used. [clientSecret] is for a Desktop app
+     * client, whose token endpoint wants it even with PKCE; an iOS client has none.
+     */
+    suspend fun exchange(
+        client: HttpClient,
+        clientId: String,
+        code: String,
+        verifier: String,
+        redirectUri: String = redirectUri(clientId),
+        clientSecret: String? = null,
+    ): String {
         val response = client.submitForm(
             TOKEN_ENDPOINT,
             parameters {
                 append("grant_type", "authorization_code")
                 append("client_id", clientId)
+                clientSecret?.let { append("client_secret", it) }
                 append("code", code)
                 append("code_verifier", verifier)
-                append("redirect_uri", redirectUri(clientId))
+                append("redirect_uri", redirectUri)
             },
         )
         val body = runCatching { json.decodeFromString(TokenResponse.serializer(), response.bodyAsText()) }.getOrNull()

@@ -60,8 +60,9 @@ data class IdentityAssertion(val token: String, val name: String? = null, val au
 
 /**
  * The platform's native sign-in: Sign in with Apple through AuthenticationServices on iOS, Google
- * through Credential Manager on Android and through [GoogleOAuth] in a browser sheet on iOS. Each
- * platform registers its own in Koin; the shared module's default offers nothing.
+ * through Credential Manager on Android, and through [GoogleOAuth] in a browser sheet on iOS and
+ * in the person's browser on the desktop. Each platform registers its own in Koin; the shared
+ * module's default offers nothing.
  */
 interface IdentityProvider {
     /**
@@ -71,7 +72,7 @@ interface IdentityProvider {
     suspend fun signIn(kind: AccountKind): IdentityAssertion
 }
 
-/** The desktop and any platform that has not registered a provider yet. */
+/** Any platform that has not registered a provider yet, and the tests. */
 object NoIdentityProvider : IdentityProvider {
     override suspend fun signIn(kind: AccountKind): IdentityAssertion = throw AuthNotConfiguredException(kind)
 }

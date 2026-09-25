@@ -584,6 +584,9 @@
     <string name="goal_sort_note">Programs are sorted by fit for this; the home screen leads with %1$s signals.</string>
     <string name="sign_in_not_configured">%1$s sign-in is not configured yet.</string>
     <string name="sign_in_failed">Sign-in did not go through. Check the connection and try again.</string>
+    <!-- The page the browser shows once a desktop sign-in has handed the app its answer. -->
+    <string name="browser_sign_in_done_title">Back to Gains</string>
+    <string name="browser_sign_in_done">You can close this tab and go back to Gains.</string>
     <string name="profile_summary">%1$s · %2$s · %3$s</string>
     <string name="up_next">UP NEXT · %1$s</string>
     <string name="exercises_and_week_count">%1$s · %2$d of %3$d this week</string>
