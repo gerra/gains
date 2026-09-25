@@ -1,10 +1,16 @@
 package app.gains.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -21,11 +27,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -42,6 +52,9 @@ import app.gains.ui.i18n.streakLine
 import app.gains.ui.i18n.weekStreakLabel
 import app.gains.ui.i18n.weeksText
 import app.gains.ui.theme.GainsColors
+import app.gains.ui.theme.LocalReduceMotion
+import app.gains.ui.theme.Motion
+import app.gains.ui.theme.rememberPreviouslyShown
 import kotlinx.datetime.DayOfWeek
 import org.jetbrains.compose.resources.stringResource
 
@@ -68,8 +81,8 @@ internal fun StreakCard(
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    // A zero is not an achievement, so it is not dressed as one.
-                    Text(
+                    // A zero is not an achievement, so it is not dressed as one. A week added rolls the number up.
+                    RollingText(
                         streak.weeks.toString(),
                         style = MaterialTheme.typography.displayLarge,
                         color = if (streak.weeks > 0) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -110,9 +123,17 @@ internal fun StreakCard(
             Dot(accent, size = 8.dp, modifier = Modifier.align(Alignment.Top).padding(top = 6.dp))
             Spacer(Modifier.width(8.dp))
             Text(streakLine(streak), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (onRemindMe != null) {
-                Spacer(Modifier.width(10.dp))
-                Pill(stringResource(Res.string.streak_remind_me), palette.volt, onClick = onRemindMe)
+            // Taken, the offer folds away instead of vanishing.
+            val reduce = LocalReduceMotion.current
+            AnimatedVisibility(
+                onRemindMe != null,
+                enter = if (reduce) EnterTransition.None else fadeIn(tween(Motion.STANDARD)),
+                exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT)),
+            ) {
+                Row {
+                    Spacer(Modifier.width(10.dp))
+                    Pill(stringResource(Res.string.streak_remind_me), palette.volt, onClick = { onRemindMe?.invoke() })
+                }
             }
         }
         // One secondary line at most: a rest week just spent outranks rest weeks merely in hand.
@@ -144,7 +165,7 @@ internal fun WeekStrip(streak: Streak, accent: Color, modifier: Modifier = Modif
     val todayIndex = 7 - streak.daysLeftInWeek
     val atRisk = streak.status == StreakStatus.AT_RISK || streak.status == StreakStatus.LAST_CHANCE
     // Started only while it would mean something: nothing on this screen animates on a quiet week.
-    val pulse = if (!atRisk) 1f else {
+    val pulse = if (!atRisk || LocalReduceMotion.current) 1f else {
         val alpha by rememberInfiniteTransition(label = "at-risk").animateFloat(
             initialValue = 0.35f,
             targetValue = 1f,
@@ -154,7 +175,7 @@ internal fun WeekStrip(streak: Streak, accent: Color, modifier: Modifier = Modif
         alpha
     }
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        streak.thisWeekSessions.forEachIndexed { index, count ->
+        streak.thisWeekSessions.forEachIndexed { index, count -> key(index) {
             val today = index == todayIndex
             val future = index > todayIndex
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -168,18 +189,29 @@ internal fun WeekStrip(streak: Streak, accent: Color, modifier: Modifier = Modif
                 )
                 Spacer(Modifier.height(5.dp))
                 val description = dayCellDescription(DayOfWeek.entries[index], count)
+                val fill = when {
+                    count > 0 -> palette.volt
+                    future -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)
+                    else -> MaterialTheme.colorScheme.surfaceContainerHighest
+                }
+                // A day trained since the card was last on screen fills in with a small pop — the one
+                // change here worth watching happen. Everything else about the week simply is.
+                val trainedBefore = rememberPreviouslyShown(count > 0)
+                val justTrained = count > 0 && !trainedBefore
+                val cellScale = remember { Animatable(if (justTrained) 0.85f else 1f) }
+                val unfilled = MaterialTheme.colorScheme.surfaceContainerHighest
+                val cellFill = remember { androidx.compose.animation.Animatable(if (justTrained) unfilled else fill) }
+                val popSpec = Motion.pop<Float>()
+                val colorSpec = Motion.reveal<Color>()
+                LaunchedEffect(fill) { if (justTrained) cellFill.animateTo(fill, colorSpec) else cellFill.snapTo(fill) }
+                LaunchedEffect(Unit) { cellScale.animateTo(1f, popSpec) }
                 Box(
                     Modifier
                         .fillMaxWidth()
                         .height(42.dp)
+                        .scale(cellScale.value)
                         .clip(shape)
-                        .background(
-                            when {
-                                count > 0 -> palette.volt
-                                future -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)
-                                else -> MaterialTheme.colorScheme.surfaceContainerHighest
-                            },
-                        )
+                        .background(cellFill.value)
                         .then(if (today && count == 0) Modifier.border(1.5.dp, accent.copy(alpha = pulse), shape) else Modifier)
                         .semantics { contentDescription = description },
                     contentAlignment = Alignment.Center,
@@ -188,7 +220,7 @@ internal fun WeekStrip(streak: Streak, accent: Color, modifier: Modifier = Modif
                     if (count > 1) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimary)
                 }
             }
-        }
+        } }
     }
 }
 

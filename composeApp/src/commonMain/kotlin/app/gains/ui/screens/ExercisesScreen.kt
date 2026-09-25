@@ -134,7 +134,8 @@ internal fun ExercisesScreen(onOpen: (String) -> Unit) {
                 up -> palette.progress
                 else -> palette.regression
             }
-            GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = { onOpen(row.exercise.id) }, contentPadding = Dp16.Tight) {
+            // Typing in the search makes rows leave and close up rather than blink out.
+            GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 8.dp), onClick = { onOpen(row.exercise.id) }, contentPadding = Dp16.Tight) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(row.name, style = MaterialTheme.typography.titleMedium)

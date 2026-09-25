@@ -2,7 +2,8 @@ name: Screenshots
 
 # Re-renders the README screenshots by driving the desktop app headlessly
 # (composeApp/src/desktopTest/kotlin/app/gains/ScreenshotTest.kt) and commits
-# the result to the branch the workflow ran on.
+# the result to the branch the workflow ran on. The same run records clips of the
+# app's motion frame by frame and encodes them into docs/animations as GIFs and MP4s.
 on:
   workflow_dispatch:
 
@@ -24,7 +25,25 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
       - name: Render screenshots
-        run: ./gradlew :composeApp:desktopTest --tests 'app.gains.ScreenshotTest' -Pgains.android=false -Pgains.screenshotDir=docs/screenshots --no-daemon
+        run: ./gradlew :composeApp:desktopTest --tests 'app.gains.ScreenshotTest' -Pgains.android=false -Pgains.screenshotDir=docs/screenshots -Pgains.animationDir=docs/animations --no-daemon
+      - name: Encode animations
+        if: always()
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q ffmpeg; }
+          mkdir -p docs/animations
+          cd docs/animations
+          shopt -s nullglob
+          for dir in frames/*/; do
+            name=$(basename "$dir")
+            # Frames were saved every 32 ms of app time: 31.25 a second.
+            ffmpeg -loglevel error -y -framerate 31.25 -i "$dir/%04d.png" \
+              -vf "scale=360:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" \
+              -loop 0 "$name.gif"
+            ffmpeg -loglevel error -y -framerate 31.25 -i "$dir/%04d.png" \
+              -vf "scale=720:-2:flags=lanczos" -c:v libx264 -pix_fmt yuv420p -crf 23 -movflags +faststart "$name.mp4"
+            echo "$name: $(ls "$dir" | wc -l) frames"
+          done
+          rm -rf frames
       - name: Show test report on failure
         if: failure()
         run: |
@@ -34,9 +53,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p docs/screenshots
-          git add -A docs/screenshots
+          mkdir -p docs/screenshots docs/animations
+          # Raw frames are only ever an intermediate, even when encoding them failed.
+          rm -rf docs/animations/frames
+          git add -A docs/screenshots docs/animations
           if git diff --cached --quiet; then echo "Screenshots unchanged"; exit 0; fi
-          git commit -m "Regenerate screenshots"
+          git commit -m "Regenerate screenshots and animations"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"

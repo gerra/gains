@@ -1,5 +1,20 @@
 package app.gains.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.ui.draw.scale
+import app.gains.ui.theme.LocalReduceMotion
+import app.gains.ui.theme.Motion
+import app.gains.ui.theme.fadeThrough
+import app.gains.ui.theme.popIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -804,9 +819,19 @@ internal fun SessionEditorScreen(
 
     Column(Modifier.fillMaxSize()) {
         // Pinned above the list however far it is scrolled: Start until the clock runs, then the clock.
-        when {
-            startedAt != null -> SessionClock(startedAt, state.restTimer, onSkipRest = model::dismissRest, onEnd = model::endSession)
-            state.timed -> ReadyCard(state.exercises, onStart = model::start)
+        // Start is the moment the plan comes alive, so the one card hands over to the other.
+        val reduce = LocalReduceMotion.current
+        val header = when {
+            startedAt != null -> EditorHeader.CLOCK
+            state.timed -> EditorHeader.READY
+            else -> EditorHeader.NONE
+        }
+        AnimatedContent(header, transitionSpec = { fadeThrough(reduce) }, label = "editor-header") { shown ->
+            when (shown) {
+                EditorHeader.CLOCK -> state.startedAtMs?.let { SessionClock(it, state.restTimer, onSkipRest = model::dismissRest, onEnd = model::endSession) }
+                EditorHeader.READY -> ReadyCard(state.exercises, onStart = model::start)
+                EditorHeader.NONE -> {}
+            }
         }
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {
@@ -866,7 +891,9 @@ internal fun SessionEditorScreen(
                 )
             }
             item {
-                if (state.error) Text(stringResource(Res.string.add_at_least_one_exercise), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
+                AnimatedVisibility(state.error, enter = if (reduce) EnterTransition.None else fadeIn(tween(Motion.STANDARD)), exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT))) {
+                    Text(stringResource(Res.string.add_at_least_one_exercise), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
+                }
                 Spacer(Modifier.height(12.dp))
                 when {
                     startedAt != null -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -975,6 +1002,9 @@ internal fun SessionEditorScreen(
     }
     state.longSessionMinutes?.let { timed -> LongSessionDialog(timed, onConfirm = model::confirmEnd, onCancel = model::cancelEnd) }
 }
+
+/** What is pinned above the workout: nothing for a logged one, Start before a timed one runs, then its clock. */
+private enum class EditorHeader { NONE, READY, CLOCK }
 
 /** "18:05" */
 private fun clock(hour: Int, minute: Int) = "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
@@ -1090,6 +1120,18 @@ private fun SessionClock(startedAtMs: Long, rest: RestTimer?, onSkipRest: () -> 
     var now by remember { mutableStateOf(nowMs()) }
     LaunchedEffect(Unit) { while (true) { delay(500); now = nowMs() } }
     val remaining = rest?.remainingSeconds(now)
+    val reduce = LocalReduceMotion.current
+    // The rest's colour eases in and out with it; its end gives one beat, for a lifter looking away between sets.
+    val restColor by animateColorAsState(
+        when { remaining == null -> muted; remaining > 0 -> palette.cyan; else -> palette.volt },
+        Motion.standard(), label = "rest",
+    )
+    val over = remaining != null && remaining <= 0
+    val beat = remember { Animatable(1f) }
+    val popSpec = Motion.pop<Float>()
+    LaunchedEffect(over) {
+        if (over && !reduce) { beat.snapTo(1.18f); beat.animateTo(1f, popSpec) }
+    }
     GainsCard(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 8.dp), contentPadding = Dp16.Tight) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -1105,16 +1147,36 @@ private fun SessionClock(startedAtMs: Long, rest: RestTimer?, onSkipRest: () -> 
                         else -> stringResource(Res.string.done)
                     },
                     style = MaterialTheme.typography.headlineSmall,
-                    color = when { remaining == null -> muted; remaining > 0 -> palette.cyan; else -> palette.volt },
+                    color = restColor,
+                    modifier = Modifier.scale(beat.value),
                 )
             }
-            if (remaining != null) {
-                TextButton(onClick = onSkipRest) { Text(if (remaining > 0) stringResource(Res.string.skip) else stringResource(Res.string.ok), color = muted) }
+            AnimatedVisibility(
+                remaining != null,
+                enter = if (reduce) EnterTransition.None else fadeIn(tween(Motion.STANDARD)),
+                exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT)),
+            ) {
+                TextButton(onClick = onSkipRest) { Text(if (remaining == null || remaining > 0) stringResource(Res.string.skip) else stringResource(Res.string.ok), color = muted) }
             }
             Button(
                 onClick = onEnd, shape = CircleShape, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
             ) { Text(stringResource(Res.string.end), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+        }
+        // How much of the rest is left, running down between the clock's ticks. The only thing here
+        // that moves on its own, because it is the thing being waited for.
+        if (rest != null && remaining != null && remaining > 0) {
+            val left = ((rest.endsAtMs - now).coerceAtLeast(0L).toFloat() / (rest.totalSeconds * 1000f).coerceAtLeast(1f)).coerceIn(0f, 1f)
+            val bar = remember(rest) { Animatable(left) }
+            LaunchedEffect(rest, now) {
+                // Glide to where it will be at the next tick, so the bar moves smoothly rather than in steps.
+                val next = ((rest.endsAtMs - now - 500).coerceAtLeast(0L).toFloat() / (rest.totalSeconds * 1000f).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                if (reduce) bar.snapTo(left) else { bar.snapTo(left); bar.animateTo(next, tween(500, easing = LinearEasing)) }
+            }
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.fillMaxWidth().height(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
+                Box(Modifier.fillMaxWidth(bar.value).height(3.dp).clip(CircleShape).background(palette.cyan))
+            }
         }
     }
 }
@@ -1256,10 +1318,14 @@ private fun ExerciseCard(
             // so a glance shows how far the workout has got without the row turning into a card of its own.
             val done = set.done
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
+                val labelColor by animateColorAsState(
+                    when { done -> palette.volt; set.isWarmup -> muted; else -> MaterialTheme.colorScheme.onSurface },
+                    Motion.standard(), label = "set-label",
+                )
                 Text(
                     label, Modifier.width(LABEL_WIDTH),
                     style = if (set.isWarmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
-                    color = when { done -> palette.volt; set.isWarmup -> muted; else -> MaterialTheme.colorScheme.onSurface },
+                    color = labelColor,
                 )
                 PreviousCell(previousLabels[setIndex], label)
                 // The keyboard's action key moves from the first field to the second, then closes the keyboard.
@@ -1390,15 +1456,18 @@ private fun SetCell(
     val palette = GainsColors.palette
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    val fill by animateColorAsState(cellFill(done, enabled), Motion.standard(), label = "cell")
+    val text by animateColorAsState(cellText(muted, enabled), Motion.standard(), label = "cell-text")
+    val border by animateColorAsState(if (focused) palette.volt else Color.Transparent, Motion.press(), label = "cell-focus")
     BasicTextField(
         value, onChange, modifier = modifier, enabled = enabled, singleLine = true, interactionSource = interaction,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
-        textStyle = MaterialTheme.typography.titleMedium.copy(color = cellText(muted, enabled), textAlign = TextAlign.Center),
+        textStyle = MaterialTheme.typography.titleMedium.copy(color = text, textAlign = TextAlign.Center),
         cursorBrush = SolidColor(palette.volt),
         decorationBox = { inner ->
             Box(
-                Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(cellFill(done, enabled))
-                    .border(1.5.dp, if (focused) palette.volt else Color.Transparent, CellShape)
+                Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(fill)
+                    .border(1.5.dp, border, CellShape)
                     .padding(horizontal = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -1414,14 +1483,16 @@ private fun SetCell(
 @Composable
 private fun WeightCell(value: String, done: Boolean, muted: Boolean, enabled: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) {
     val description = weightForSetText(setLabel, value.ifEmpty { null })
+    val fill by animateColorAsState(cellFill(done, enabled), Motion.standard(), label = "cell")
+    val text by animateColorAsState(cellText(muted, enabled), Motion.standard(), label = "cell-text")
     Box(
-        modifier.height(CELL_HEIGHT).clip(CellShape).background(cellFill(done, enabled)).clickable(enabled = enabled, onClick = onClick)
+        modifier.height(CELL_HEIGHT).clip(CellShape).background(fill).clickable(enabled = enabled, onClick = onClick)
             .semantics { role = Role.Button; contentDescription = description }
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (value.isEmpty()) CellPlaceholder(enabled)
-        else Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1, color = cellText(muted, enabled))
+        else Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1, color = text)
     }
 }
 
@@ -1459,18 +1530,32 @@ private fun DoneCheck(done: Boolean, enabled: Boolean, label: String, onClick: (
     val palette = GainsColors.palette
     val outline = MaterialTheme.colorScheme.outline
     val description = setDoneText(label, done)
+    val reduce = LocalReduceMotion.current
+    // The most repeated tap of a workout, so it answers at once: the circle fills and gives a small
+    // pop, the check springs in. Unticking just eases back.
+    val fill by animateColorAsState(if (done) palette.volt else Color.Transparent, Motion.press(), label = "check")
+    val ring by animateColorAsState(if (done) palette.volt else outline.copy(alpha = if (enabled) 1f else DISABLED_ALPHA), Motion.press(), label = "check-ring")
+    val scale = remember { Animatable(1f) }
+    val popSpec = Motion.pop<Float>()
+    var wasDone by remember { mutableStateOf(done) }
+    LaunchedEffect(done) {
+        if (done && !wasDone && !reduce) { scale.snapTo(0.8f); scale.animateTo(1f, popSpec) }
+        wasDone = done
+    }
     Box(
         Modifier.size(CHECK_HIT, CELL_HEIGHT).clip(CellShape).clickable(enabled = enabled, onClick = onClick)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.size(CHECK_SIZE).clip(CircleShape)
-                .background(if (done) palette.volt else Color.Transparent)
-                .border(1.5.dp, if (done) palette.volt else outline.copy(alpha = if (enabled) 1f else DISABLED_ALPHA), CircleShape),
+            Modifier.size(CHECK_SIZE).scale(scale.value).clip(CircleShape)
+                .background(fill)
+                .border(1.5.dp, ring, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            if (done) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+            AnimatedVisibility(done, enter = popIn(reduce, from = 0.4f), exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.PRESS))) {
+                Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+            }
         }
     }
 }

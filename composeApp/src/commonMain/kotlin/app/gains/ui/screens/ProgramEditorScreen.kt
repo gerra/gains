@@ -276,7 +276,8 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
             Text(stringResource(Res.string.days_rotate_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
         }
         itemsIndexed(state.days, key = { _, d -> d.id }) { dayIndex, day ->
-            GainsCard(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
+            // Days added, removed or moved slide into place, as the exercise cards of a workout do.
+            GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     OutlinedTextField(day.name, { model.renameDay(dayIndex, it) }, label = { Text(stringResource(Res.string.day_name)) }, singleLine = true, modifier = Modifier.weight(1f), colors = fieldColors, shape = MaterialTheme.shapes.medium)
                     TextButton(onClick = { model.moveDay(dayIndex, -1) }, enabled = dayIndex > 0) { Text("↑") }

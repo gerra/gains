@@ -235,10 +235,11 @@ internal fun VolumeScreen() {
             SectionHeader(current?.let { stringResource(Res.string.this_week_from, dateShort(it.weekStart)) } ?: stringResource(Res.string.this_week))
         }
         if (current != null) {
-            items(MuscleGroup.entries.filter { selected.isEmpty() || it in selected }.sortedByDescending { current.sets[it] ?: 0.0 }) { g ->
+            items(MuscleGroup.entries.filter { selected.isEmpty() || it in selected }.sortedByDescending { current.sets[it] ?: 0.0 }, key = { it.name }) { g ->
                 val sets = current.sets[g] ?: 0.0
                 val status = VolumeAnalyzer.status(sets)
-                GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+                // Picking a muscle on the map filters this list; the rest fold away around it.
+                GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Dot(g.color())
                         Spacer(Modifier.width(10.dp))

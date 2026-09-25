@@ -1,5 +1,9 @@
 package app.gains.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import app.gains.ui.components.RollingText
+import app.gains.ui.theme.LocalReduceMotion
+import app.gains.ui.theme.fadeThrough
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -163,12 +167,19 @@ internal fun HomeScreen(
     val model = rememberScreenModel { HomeModel() }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
+    val reduce = LocalReduceMotion.current
 
-    when {
-        state.loading -> Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    // The spinner hands over to the screen with a fade rather than a cut.
+    val phase = when {
+        state.loading -> HomePhase.LOADING
+        state.sessionCount == 0 -> HomePhase.EMPTY
+        else -> HomePhase.READY
+    }
+    AnimatedContent(phase, transitionSpec = { fadeThrough(reduce) }, label = "home") { shown -> when (shown) {
+        HomePhase.LOADING -> Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             CircularProgressIndicator(color = palette.volt)
         }
-        state.sessionCount == 0 -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
+        HomePhase.EMPTY -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {
                 Spacer(Modifier.height(8.dp))
                 ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram, onStartDay)
@@ -186,7 +197,7 @@ internal fun HomeScreen(
                 )
             }
         }
-        else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
+        HomePhase.READY -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {
                 ScreenTitle(
                     stringResource(Res.string.home_title),
@@ -232,8 +243,10 @@ internal fun HomeScreen(
                 Spacer(Modifier.height(10.dp))
             }
         }
-    }
+    } }
 }
+
+private enum class HomePhase { LOADING, EMPTY, READY }
 
 /**
  * The daily entry point above everything else: what to do today. Three states, in order of
@@ -261,7 +274,8 @@ private fun ProgramCard(
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(Res.string.up_next, program.displayName().uppercase()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         Spacer(Modifier.height(4.dp))
-                        Text(day.displayName(), style = MaterialTheme.typography.headlineSmall)
+                        // After a workout the rotation moves on, and the new day is seen taking the old one's place.
+                        RollingText(day.displayName(), MaterialTheme.typography.headlineSmall, MaterialTheme.colorScheme.onSurface)
                         Text(
                             stringResource(Res.string.exercises_and_week_count, exercisesText(day.slots.size), state.programSessionsThisWeek, program.daysPerWeek),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -331,7 +345,7 @@ private const val REMIND_FROM_WEEKS = 2
 @Composable
 private fun HeroStat(label: String, value: String, color: Color? = null) {
     Column {
-        Text(value, style = MaterialTheme.typography.headlineMedium, color = color ?: MaterialTheme.colorScheme.onSurface)
+        RollingText(value, MaterialTheme.typography.headlineMedium, color ?: MaterialTheme.colorScheme.onSurface)
         Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

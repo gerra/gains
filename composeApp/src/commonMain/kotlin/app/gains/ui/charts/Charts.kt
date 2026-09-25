@@ -1,7 +1,6 @@
 package app.gains.ui.charts
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +58,7 @@ import app.gains.analysis.Dates
 import app.gains.analysis.Format
 import app.gains.ui.i18n.*
 import app.gains.ui.theme.GainsColors
+import app.gains.ui.theme.Motion
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlin.math.abs
@@ -180,7 +181,8 @@ private fun DrawScope.axisLabel(measurer: TextMeasurer, text: String, x: Float, 
 @Composable
 private fun rememberDrawProgress(key: Any?): Float {
     val anim = remember(key) { Animatable(0f) }
-    LaunchedEffect(key) { anim.animateTo(1f, tween(700)) }
+    val spec = Motion.reveal<Float>()
+    LaunchedEffect(key) { anim.animateTo(1f, spec) }
     return anim.value
 }
 
@@ -398,6 +400,11 @@ internal fun CalendarHeatmap(
     val start = Dates.run { end.minusDays((weeks - 1) * 7) }
     val leftPad = 34.dp
     val topPad = 18.dp
+    // The trained days light up from today back into the past, like the charts drawing in. Read
+    // only while drawing, so the grid itself is not recomposed frame by frame.
+    val reveal = remember(counts) { Animatable(0f) }
+    val revealSpec = Motion.reveal<Float>()
+    LaunchedEffect(counts) { reveal.animateTo(1f, revealSpec) }
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val cell = maxOf(minCell, (maxWidth - leftPad) / weeks)
         val gap = cell * 0.2f
@@ -422,6 +429,8 @@ internal fun CalendarHeatmap(
                         labelled = w == 0 || weekStart.day <= 7
                     }
                     val rested = weekStart in restWeeks
+                    // How far back this week is, 0 for the newest: it lights up that much later.
+                    val lag = (weeks - 1 - w).toFloat() / weeks * 0.6f
                     Column(Modifier.width(cell)) {
                         Box(Modifier.height(topPad).wrapContentWidth(Alignment.Start, unbounded = true)) {
                             if (labelled) Text(monthShort(weekStart), style = labelStyle, maxLines = 1, softWrap = false)
@@ -441,11 +450,19 @@ internal fun CalendarHeatmap(
                                     .semantics { contentDescription = description }
                                     .padding(gap / 2)
                                     .clip(shape)
-                                    .background(
-                                        when {
-                                            n == 0 -> if (rested) rest else empty
-                                            n >= 2 -> filled
-                                            else -> filled.copy(alpha = 0.72f)
+                                    .background(empty)
+                                    .then(
+                                        if (n == 0 && !rested) Modifier
+                                        else {
+                                            val lit = when {
+                                                n == 0 -> rest
+                                                n >= 2 -> filled
+                                                else -> filled.copy(alpha = 0.72f)
+                                            }
+                                            Modifier.drawBehind {
+                                                val shown = ((reveal.value - lag) / 0.4f).coerceIn(0f, 1f)
+                                                drawRect(lit.copy(alpha = lit.alpha * shown))
+                                            }
                                         },
                                     )
                                     .then(if (date == today && n == 0) Modifier.border(1.5.dp, filled, shape) else Modifier),

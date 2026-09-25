@@ -1,5 +1,6 @@
 package app.gains.ui.charts
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -15,8 +16,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +46,7 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.theme.GainsColors
+import app.gains.ui.theme.Motion
 
 /** The two figures of the muscle map. */
 internal enum class BodySide { FRONT, BACK }
@@ -147,7 +152,29 @@ internal fun BodyMap(
     val tap by rememberUpdatedState(onRegionTap)
     val regions = remember { BodyMapModel.regions }
 
-    fun fillFor(region: BodyRegion): Color {
+    // The shading washes in over the resting body when it is first shown, and from one set of
+    // numbers to the next when they change (another week picked), rather than cutting between them.
+    var from by remember { mutableStateOf<Map<MuscleGroup, Double>>(emptyMap()) }
+    var to by remember { mutableStateOf<Map<MuscleGroup, Double>>(emptyMap()) }
+    val shade = remember { Animatable(1f) }
+    val revealSpec = Motion.reveal<Float>()
+    LaunchedEffect(sets) {
+        if (sets == to) return@LaunchedEffect
+        from = to
+        to = sets
+        shade.snapTo(0f)
+        shade.animateTo(1f, revealSpec)
+    }
+    // A muscle picked on the map is outlined with a quick fade rather than a blink.
+    val ring = remember { Animatable(1f) }
+    val ringSpec = Motion.standard<Float>()
+    LaunchedEffect(selected) {
+        if (selected.isEmpty()) return@LaunchedEffect
+        ring.snapTo(0f)
+        ring.animateTo(1f, ringSpec)
+    }
+
+    fun fillFor(region: BodyRegion, sets: Map<MuscleGroup, Double>): Color {
         val value = region.groups.maxOfOrNull { sets[it] ?: 0.0 } ?: 0.0
         if (value <= 0.0) return resting
         val t = (value / maxSets).coerceIn(0.0, 1.0).toFloat()
@@ -180,7 +207,7 @@ internal fun BodyMap(
             }) {
                 for (region in regions) {
                     if (region.side != side) continue
-                    val fill = fillFor(region)
+                    val fill = lerp(fillFor(region, from), fillFor(region, to), shade.value)
                     for (path in region.paths) {
                         drawPath(path, fill)
                         drawPath(path, outline, style = thin)
@@ -190,7 +217,7 @@ internal fun BodyMap(
                 if (selected.isNotEmpty()) {
                     for (region in regions) {
                         if (region.side != side || region.groups.none { it in selected }) continue
-                        for (path in region.paths) drawPath(path, highlight, style = thick)
+                        for (path in region.paths) drawPath(path, highlight.copy(alpha = highlight.alpha * ring.value), style = thick)
                     }
                 }
             }

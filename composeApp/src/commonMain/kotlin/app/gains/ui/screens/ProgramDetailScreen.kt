@@ -1,5 +1,8 @@
 package app.gains.ui.screens
 
+import app.gains.ui.theme.fadeThrough
+import app.gains.ui.theme.LocalReduceMotion
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -141,8 +144,12 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
             Text(program.displayDescription(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (state.isActive) SecondaryButton(stringResource(Res.string.deactivate), onClick = { model.deactivate() }, Modifier.weight(1f))
-                else PrimaryButton(stringResource(Res.string.activate), onClick = { model.activate() }, Modifier.weight(1f))
+                // Activate and Deactivate hand over to each other where they stand.
+                val reduce = LocalReduceMotion.current
+                AnimatedContent(state.isActive, Modifier.weight(1f), transitionSpec = { fadeThrough(reduce) }, label = "activate") { active ->
+                    if (active) SecondaryButton(stringResource(Res.string.deactivate), onClick = { model.deactivate() }, Modifier.fillMaxWidth())
+                    else PrimaryButton(stringResource(Res.string.activate), onClick = { model.activate() }, Modifier.fillMaxWidth())
+                }
                 val copyName = stringResource(Res.string.copy_of, program.displayName())
                 if (program.isBuiltIn) SecondaryButton(stringResource(Res.string.duplicate_to_edit), onClick = { model.duplicate(program, copyName) }, Modifier.weight(1f))
                 else SecondaryButton(stringResource(Res.string.edit), onClick = { onEdit(program.id) }, Modifier.weight(1f))

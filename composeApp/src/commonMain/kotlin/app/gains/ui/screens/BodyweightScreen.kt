@@ -1,5 +1,15 @@
 package app.gains.ui.screens
 
+import app.gains.ui.theme.Motion
+import app.gains.ui.theme.LocalReduceMotion
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -130,8 +140,16 @@ internal fun BodyweightScreen() {
             ScreenTitle(stringResource(Res.string.bodyweight_title), subtitle = stringResource(Res.string.bodyweight_subtitle), trailing = {
                 TextButton(onClick = { showEntry = !showEntry }) { Text(if (showEntry) stringResource(Res.string.hide) else stringResource(Res.string.plus_add), color = palette.volt) }
             })
-            if (showEntry) GainsCard(Modifier.fillMaxWidth().padding(bottom = 12.dp), contentPadding = Dp16.Tight) {
-                EntryForm(unit, today, lastWeightKg = state.points.lastOrNull()?.weightKg, onAdd = { d, kg -> model.add(d, kg); showEntry = false })
+            // The form opens under the title and folds away again once an entry is saved.
+            val reduce = LocalReduceMotion.current
+            AnimatedVisibility(
+                showEntry,
+                enter = if (reduce) EnterTransition.None else expandVertically(tween(Motion.STANDARD)) + fadeIn(tween(Motion.STANDARD)),
+                exit = if (reduce) ExitTransition.None else shrinkVertically(tween(Motion.STANDARD)) + fadeOut(tween(Motion.EXIT)),
+            ) {
+                GainsCard(Modifier.fillMaxWidth().padding(bottom = 12.dp), contentPadding = Dp16.Tight) {
+                    EntryForm(unit, today, lastWeightKg = state.points.lastOrNull()?.weightKg, onAdd = { d, kg -> model.add(d, kg); showEntry = false })
+                }
             }
         }
         if (state.points.isEmpty()) {
@@ -167,7 +185,8 @@ internal fun BodyweightScreen() {
         }
         item { SectionHeader(stringResource(Res.string.entries)) }
         items(state.points.asReversed(), key = { it.date.toString() }) { p ->
-            GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+            // A new entry slides the list down to make room; a deleted one fades and the list closes up.
+            GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(dateContextual(p.date, today), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     Text(weightText(p.weightKg, unit, 1), style = MaterialTheme.typography.titleSmall)
