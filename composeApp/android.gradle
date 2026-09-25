@@ -4,6 +4,8 @@ android {
     compileSdk libs.versions.android.compileSdk.get().toInteger()
 
     defaultConfig {
+        // Public on Google Play, and Play never lets it change after the first upload
+        // (docs/launch-plan.md, item 8). Kept as "app.gains" on purpose.
         applicationId "app.gains"
         minSdk libs.versions.android.minSdk.get().toInteger()
         targetSdk libs.versions.android.targetSdk.get().toInteger()
