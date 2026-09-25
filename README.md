@@ -24,6 +24,8 @@
   <img src="docs/screenshots/17-summary.png" alt="The summary after a workout" width="24%">
 </p>
 
+Website, privacy policy and support: **https://gains.gerra.sh**
+
 ## Features
 
 - **Import your history** from Liftoff, Strong, Hevy or any CSV. Re-importing never duplicates.
@@ -72,6 +74,7 @@ Add `-Pgains.openFile=samples/liftoff-export.csv` to the desktop run to start fr
 | [`iosApp/`](iosApp) | The Xcode project. |
 | [`server/`](server) | The sync server (Ktor, SQLite). |
 | [`tools/`](tools) | Release, TestFlight and deploy scripts. |
+| [`site/`](site) | [gains.gerra.sh](https://gains.gerra.sh): landing page, privacy policy, support. Static HTML. |
 
 More: [how it works](docs/how-it-works.md) · [development](docs/development.md) ·
 [sync](docs/sync.md) · [TestFlight](docs/testflight.md) · [launch plan](docs/launch-plan.md)

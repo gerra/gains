@@ -46,7 +46,7 @@ BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com"
 # The version line differs by design; docs, samples, the workflows, tests and the Android-
 # and desktop-only sources never make it into the app. `tools` is here for the same reason
 # `.github` is: this file lives in it, and a change to the release process is not a change
-# to the app.
+# to the app. `site` is gains.gerra.sh, shipped by its own workflow.
 IGNORED = [
     "iosApp/Configuration/Config.xcconfig",
     "*.md",
@@ -56,6 +56,7 @@ IGNORED = [
     "tools",
     "server",
     "deploy",
+    "site",
     "secrets",
     "composeApp/src/androidMain",
     "composeApp/src/desktopMain",

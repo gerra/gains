@@ -1,0 +1,36 @@
+name: Deploy site
+
+# Ships site/, the static pages of gains.gerra.sh (landing page, privacy policy, support), to
+# the Hetzner box: an rsync into /var/www/gains.gerra.sh, nothing to build. The nginx vhost
+# that serves it is pushed from a laptop with `python3 tools/deploy_server.py nginx`, after
+# its certificate exists (docs/launch-plan.md, item 3). Uses the same DEPLOY_* secrets as
+# deploy.yml.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "tools/deploy_server.py"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+  DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+  DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+
+jobs:
+  deploy:
+    name: Rsync site/ to Hetzner
+    runs-on: ubuntu-latest
+    environment: default
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the pages and the deploy script
+        run: python3 -m unittest discover -s tools -p 'test_deploy_server.py'
+      - name: Rsync the pages to the box
+        run: python3 tools/deploy_server.py site

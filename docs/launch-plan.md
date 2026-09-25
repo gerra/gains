@@ -116,6 +116,9 @@ Apple user gets a new user. A verified one joins the existing user.
 ### 3. Landing page and privacy policy on `gains.gerra.sh`
 
 - [ ] Done
+  Agent steps 1–3 and 6 are in (branch `claude/great-edison-bb10ft`): `site/`, the two nginx
+  files, `deploy_server.py site` / `nginx` and the Deploy site workflow. Left: the owner's
+  steps 4 and 5. Tick this box once `https://gains.gerra.sh/privacy` loads.
 
 **Milestone:** iOS launch. **Depends on:** nothing.
 
@@ -133,6 +136,9 @@ API's certificate, which shows a certificate warning.
    - **Guest list (Owner decides first):** what it collects (an email address?), where it is
      stored and who emails it. If it stores emails on our server, it needs a route and a table,
      and the privacy policy must cover it. A link to a form hosted elsewhere avoids both.
+     *For now:* a `mailto:` link to the contact alias (subject "Gains guest list"), so nothing
+     is stored on our server; `/privacy#guest-list` covers it. Swapping in a hosted form is a
+     one-line change in `site/index.html` plus that privacy paragraph.
    - `/privacy`: what a guest keeps on the device, what a signed-in account sends to
      `api.gains.gerra.sh` (the same list as `PrivacyInfo.xcprivacy`), where the server is, how
      long data is kept, how to delete it (Settings → Delete account, plus what item 6 revokes),
@@ -149,7 +155,12 @@ API's certificate, which shows a certificate warning.
    `deploy.yml`'s paths to `site/**`, or give the site its own workflow. Add tests in
    `tools/test_deploy_server.py` like the existing ones. Add `site` to `IGNORED` in
    `tools/release.py`, so that a site change alone doesn't cut an iOS release.
-4. **Owner:** `certbot certonly --nginx -d gains.gerra.sh`, then `deploy_server.py nginx`.
+4. **Owner:** on the box, check that nothing else claims `default_server`
+   (`grep -rn default_server /etc/nginx/sites-enabled/`; the stock `default` is fine, it gets
+   replaced) and that `nginx -v` is 1.19.4 or later, for `ssl_reject_handshake`. Then
+   `certbot certonly --nginx -d gains.gerra.sh`, `deploy_server.py site` (or run the Deploy
+   site workflow) and `deploy_server.py nginx`. `nginx` skips a site whose certificate is
+   missing and undoes everything if `nginx -t` fails.
 5. Owner steps after it is live: set the privacy policy URL in App Store Connect, and
    `https://gains.gerra.sh` as the homepage in Google Auth Platform (item 5).
 6. Link the site from the README.
@@ -219,7 +230,9 @@ after five minutes and works once.
 4. **Existing users** have no stored refresh token. Accept that; their next Apple sign-in stores
    one. Deleting before then removes our data but can't revoke.
 5. Update `docs/sync.md`: remove the "Revoking the Sign in with Apple token" bullet from "What is
-   deliberately not here", and describe the flow under "Signing in".
+   deliberately not here", and describe the flow under "Signing in". In
+   `site/privacy.html` → "Deleting your account", add the revocation sentence (there's an HTML
+   comment marking where).
 
 Tests: server tests with a fake `AppleTokens`: a sign-in with a code stores the refresh token,
 account deletion revokes it before deleting, and a failed revoke still deletes.
@@ -466,7 +479,7 @@ Linux box).
 | Google Cloud / Search Console | Owner account | No: it's the Google account | — |
 | Play Console → store listing | Contact email (public, required) | Yes | [ ] |
 | Play Console | Developer account | No: it's the Google account | — |
-| `gains.gerra.sh/privacy` and `/support` (item 3) | Contact line, in `site/` | Yes | [ ] |
+| `gains.gerra.sh/privacy` and `/support` (item 3) | Contact line, in `site/` (`gains@gerra.sh`, also the guest list) | Yes | [x] |
 | Server, certbot | Let's Encrypt notices (`certbot update_account --email …`) | Yes | [ ] |
 | Email provider (item 18) | Sender and account | Yes | [ ] |
 
@@ -566,8 +579,12 @@ build fails a check, open an issue and link it next to the box.
 - [ ] `/privacy` and `/support` load, and the store and TestFlight links work.
 - [ ] An unknown hostname on the box (e.g. `curl -H 'Host: nope.gerra.sh' http://<box>`) gets
       no answer, and `api.gains.gerra.sh` still works.
-- [ ] The guest list works end to end.
+- [ ] The guest list button opens a mail to the alias with the subject "Gains guest list", and
+      it arrives in your inbox (needs item 4).
 - [ ] The pages look right on a phone, in dark and light.
+- [ ] A missing page (`/nope`) shows the site's own "Nothing here" page.
+- [ ] `curl -skv https://<box IP>/` (no name) fails the handshake instead of showing a
+      certificate.
 
 **5. Google in production**
 - [ ] An account that was never a test user signs in with Google.
