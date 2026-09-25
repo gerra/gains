@@ -102,7 +102,8 @@ compose.resources {
 // The screenshot test (composeApp/src/desktopTest) writes into build/screenshots unless
 // `-Pgains.screenshotDir=<dir>` (relative to the repository root) points it elsewhere.
 tasks.withType<Test>().configureEach {
-    timeout.set(Duration.ofMinutes(10))
+    // Recording the motion clips (-Pgains.animationDir) saves several hundred frames on top of the screenshots.
+    timeout.set(Duration.ofMinutes(if (project.hasProperty("gains.animationDir")) 25 else 10))
     // The UI tests look for English text and the screenshots are the README's, whatever the runner's locale.
     jvmArgs("-Duser.language=en", "-Duser.country=US")
     testLogging {
@@ -116,6 +117,8 @@ tasks.withType<Test>().configureEach {
             ?: layout.buildDirectory.dir("screenshots").get().asFile.absolutePath,
     )
     systemProperty("gains.sampleCsv", rootProject.file("samples/liftoff-export.csv").absolutePath)
+    // `-Pgains.animationDir=<dir>` makes the screenshot test record clips of the app's motion there too.
+    project.findProperty("gains.animationDir")?.let { systemProperty("gains.animationDir", rootProject.file(it.toString()).absolutePath) }
 }
 
 compose.desktop {

@@ -1,5 +1,7 @@
 package app.gains.ui.screens
 
+import app.gains.ui.theme.Motion
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -218,18 +220,16 @@ internal fun ExercisePickerSheet(
 @Composable
 private fun FilterChip(label: String, active: Boolean, onClick: () -> Unit) {
     val palette = GainsColors.palette
+    val fill by animateColorAsState(if (active) palette.volt else MaterialTheme.colorScheme.surfaceContainerHigh, Motion.standard(), label = "filter")
+    val text by animateColorAsState(if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, Motion.standard(), label = "filter-text")
     Box(
         Modifier
             .clip(CircleShape)
-            .background(if (active) palette.volt else MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(fill)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text(label, style = MaterialTheme.typography.labelLarge, color = text)
     }
 }
 
@@ -273,7 +273,7 @@ private fun PickerRow(e: Exercise, name: String, selected: Boolean, added: Boole
         Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .background(if (selected) palette.volt.copy(alpha = 0.10f) else Color.Transparent)
+            .background(animateColorAsState(if (selected) palette.volt.copy(alpha = 0.10f) else Color.Transparent, Motion.press(), label = "picked").value)
             .then(if (added) Modifier else Modifier.clickable(onClick = onToggle))
             .padding(horizontal = 6.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

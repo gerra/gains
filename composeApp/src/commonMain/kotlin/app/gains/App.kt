@@ -1,15 +1,19 @@
 package app.gains
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -48,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +67,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Dates
+import app.gains.platform.systemReducesMotion
+import app.gains.ui.components.indicatorSlot
+import app.gains.ui.components.rememberSlidingIndicator
+import app.gains.ui.components.slidingIndicator
+import app.gains.ui.theme.LocalReduceMotion
+import app.gains.ui.theme.Motion
+import app.gains.ui.theme.fadeThrough
+import app.gains.ui.theme.screenSlide
 import app.gains.analysis.Format
 import app.gains.analysis.StreakEngine
 import app.gains.resources.Res
@@ -164,7 +177,8 @@ internal fun App(
         ThemeMode.LIGHT -> false
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
-    GainsTheme(darkTheme = dark) {
+    val reduceMotion = remember { systemReducesMotion() }
+    GainsTheme(darkTheme = dark) { CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
         // Surface sets the content colour for every Text below it and paints the background.
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
             // Everything below is worded in the chosen language, or in the device's where none has
@@ -173,7 +187,7 @@ internal fun App(
             val language = settings.observeLanguage().collectAsState(initial = null).value ?: return@Surface
             InLanguage(language) { AppBody(navigator, stateHolder, filePicker, photoPicker, systemBack, notifier, nudges) }
         }
-    }
+    } }
 }
 
 /**
@@ -288,6 +302,7 @@ private fun AppBody(
     Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
         TopBar(navigator, screen, upNext)
         val transition = updateTransition(navigator.currentEntry, label = "screen")
+        val reduceMotion = LocalReduceMotion.current
         SwipeBack(
             // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
             enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
@@ -297,20 +312,23 @@ private fun AppBody(
         ) {
             transition.AnimatedContent(
                 transitionSpec = {
-                    if (navigator.skipTransition) {
-                        // The swipe-back gesture has already slid the old screen away.
-                        EnterTransition.None togetherWith ExitTransition.None
-                    } else {
-                        val forward = navigator.stack.size > 1 && targetState.screen !is Screen.Home
-                        val enter = fadeIn(tween(220)) + slideInHorizontally(tween(260)) { if (forward) it / 12 else -it / 12 }
-                        val exit = fadeOut(tween(160)) + slideOutHorizontally(tween(220)) { if (forward) -it / 16 else it / 16 }
-                        enter togetherWith exit
-                    }
+                    // The swipe-back gesture has already slid the old screen away. Otherwise the new screen comes
+                    // in the way the lifter went: deeper or to a tab on the right from the right, back or left from the left.
+                    screenSlide(forward = navigator.direction > 0, reduce = navigator.skipTransition || reduceMotion)
                 },
             ) { entry -> ScreenContent(entry, navigator, filePicker, photoPicker, stateHolder) }
         }
-        live?.let { running ->
-            if (!(screen is Screen.EditSession && screen.live)) {
+        // The bar rises in when a workout starts and folds away when it ends, rather than shoving the tabs.
+        // The workout it last showed, so the bar can still be drawn while it folds away after the workout ends.
+        var lastLive by remember { mutableStateOf(live) }
+        SideEffect { if (live != null) lastLive = live }
+        val shownLive = live ?: lastLive
+        AnimatedVisibility(
+            visible = live != null && !(screen is Screen.EditSession && screen.live),
+            enter = if (reduceMotion) EnterTransition.None else expandVertically(tween(Motion.STANDARD)) + fadeIn(tween(Motion.STANDARD)),
+            exit = if (reduceMotion) ExitTransition.None else shrinkVertically(tween(Motion.STANDARD)) + fadeOut(tween(Motion.EXIT)),
+        ) {
+            shownLive?.let { running ->
                 LiveSessionBar(running, onResume = { navigator.push(Screen.EditSession(null, running.program, live = true)) })
             }
         }
@@ -398,15 +416,23 @@ private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (navigator.canGoBack) {
-            IconCircle(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.back)) { navigator.pop() }
-            Spacer(Modifier.size(8.dp))
-        } else {
-            GainsWordmark(Modifier.padding(start = 4.dp))
+        val reduce = LocalReduceMotion.current
+        // The wordmark and the back arrow hand over to each other while the screen below slides.
+        AnimatedContent(navigator.canGoBack, transitionSpec = { fadeThrough(reduce) }, contentAlignment = Alignment.CenterStart) { canGoBack ->
+            if (canGoBack) {
+                Row {
+                    IconCircle(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.back)) { navigator.pop() }
+                    Spacer(Modifier.size(8.dp))
+                }
+            } else {
+                GainsWordmark(Modifier.padding(start = 4.dp))
+            }
         }
         Spacer(Modifier.weight(1f))
+        val iconEnter = if (reduce) EnterTransition.None else fadeIn(tween(Motion.STANDARD)) + scaleIn(tween(Motion.STANDARD), initialScale = 0.8f)
+        val iconExit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT)) + scaleOut(tween(Motion.EXIT), targetScale = 0.8f)
         // "+" offers both ways of getting a session in; hidden on the screens that already are one of them.
-        if (screen != Screen.Import && screen !is Screen.EditSession && screen !is Screen.SessionSummary) {
+        AnimatedVisibility(screen != Screen.Import && screen !is Screen.EditSession && screen !is Screen.SessionSummary, enter = iconEnter, exit = iconExit) {
             var menuOpen by remember { mutableStateOf(false) }
             Box {
                 IconCircle(Icons.Default.Add, stringResource(Res.string.add_description)) { menuOpen = true }
@@ -444,7 +470,9 @@ private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
             }
         }
         Spacer(Modifier.size(8.dp))
-        if (screen != Screen.Settings) IconCircle(Icons.Default.Settings, stringResource(Res.string.settings_description)) { navigator.push(Screen.Settings) }
+        AnimatedVisibility(screen != Screen.Settings, enter = iconEnter, exit = iconExit) {
+            IconCircle(Icons.Default.Settings, stringResource(Res.string.settings_description)) { navigator.push(Screen.Settings) }
+        }
     }
 }
 
@@ -465,39 +493,38 @@ private fun IconCircle(icon: ImageVector, description: String, onClick: () -> Un
 @Composable
 private fun BottomNav(navigator: Navigator) {
     val palette = GainsColors.palette
+    // One pill that slides along the bar to the chosen tab, and fades while a screen is pushed on top.
+    val indicator = rememberSlidingIndicator(navigator.currentTab?.ordinal?.takeIf { !navigator.canGoBack })
     Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(6.dp),
+                .padding(6.dp)
+                .slidingIndicator(indicator, palette.volt),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             for (tab in Tab.entries) {
                 val selected = navigator.currentTab == tab && !navigator.canGoBack
                 val interaction = remember { MutableInteractionSource() }
+                val content by animateColorAsState(
+                    if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    Motion.standard(), label = "tab",
+                )
                 Column(
                     Modifier
                         .weight(1f)
+                        .indicatorSlot(indicator, tab.ordinal)
                         .clip(CircleShape)
-                        .background(if (selected) palette.volt else androidx.compose.ui.graphics.Color.Transparent)
                         .clickable(interaction, indication = null) { navigator.switchTab(tab) }
                         .padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     val label = tab.label()
-                    Icon(
-                        tab.icon(), label,
-                        tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp),
-                    )
+                    Icon(tab.icon(), label, tint = content, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.height(2.dp))
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text(label, style = MaterialTheme.typography.labelSmall, color = content)
                 }
             }
         }
@@ -521,7 +548,8 @@ private fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
             .clip(CircleShape)
             .background(palette.volt)
             .clickable(onClick = onResume)
-            .padding(horizontal = 18.dp, vertical = 10.dp),
+            .padding(horizontal = 18.dp, vertical = 10.dp)
+            .animateContentSize(Motion.standard()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val onAccent = MaterialTheme.colorScheme.onPrimary

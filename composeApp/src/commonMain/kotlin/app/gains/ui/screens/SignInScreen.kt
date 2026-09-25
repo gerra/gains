@@ -1,5 +1,6 @@
 package app.gains.ui.screens
 
+import app.gains.ui.theme.LocalReduceMotion
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -213,7 +214,9 @@ internal fun SignInScreen() {
 private fun AuroraBackground(modifier: Modifier = Modifier) {
     val palette = GainsColors.palette
     val transition = rememberInfiniteTransition(label = "aurora")
-    val t by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(14_000, easing = LinearEasing), RepeatMode.Restart), label = "t")
+    val drifting by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(14_000, easing = LinearEasing), RepeatMode.Restart), label = "t")
+    // Held still where the platform asks for less motion.
+    val t = if (LocalReduceMotion.current) 0f else drifting
     val alpha = if (palette.isDark) 0.55f else 0.35f
     Canvas(modifier) {
         val w = size.width; val h = size.height
@@ -232,7 +235,9 @@ private fun AuroraBackground(modifier: Modifier = Modifier) {
 private fun HeroPreview(chartHeight: Dp) {
     val palette = GainsColors.palette
     val transition = rememberInfiniteTransition(label = "hero")
-    val progress by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Restart), label = "p")
+    val drawing by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Restart), label = "p")
+    // Where the platform asks for less motion, the trend is shown whole instead of drawing itself over and over.
+    val progress = if (LocalReduceMotion.current) 1f else drawing
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Normal) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Pill(InsightKind.PROGRESS.label(), palette.progress)

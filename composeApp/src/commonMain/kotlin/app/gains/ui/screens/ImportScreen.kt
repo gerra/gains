@@ -1,5 +1,8 @@
 package app.gains.ui.screens
 
+import app.gains.ui.theme.fadeThrough
+import app.gains.ui.theme.LocalReduceMotion
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -133,8 +136,11 @@ internal fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
         model.load(IncomingFiles.consume())
     }
     val pick = { filePicker.pick { files -> model.load(files) } }
+    val reduce = LocalReduceMotion.current
 
-    when (val s = state) {
+    // Each step of an import hands over to the next with a fade; changes within a step (an outlier
+    // kept or dropped in the preview) are not steps and do not fade.
+    AnimatedContent(state, contentKey = { it::class }, transitionSpec = { fadeThrough(reduce) }, label = "import") { s -> when (s) {
         ImportState.Idle -> EmptyState(
             title = stringResource(Res.string.import_your_history),
             body = stringResource(Res.string.import_blurb),
@@ -161,10 +167,11 @@ internal fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
             title = stringResource(Res.string.imported),
             emoji = "✓",
             body = importedSummary(s.result.sessionsWritten, s.result.exercisesCreated, s.result.outliersDiscarded),
+            celebrate = true,
             action = { PrimaryButton(stringResource(Res.string.done), onDone) },
         )
         is ImportState.Preview -> PreviewContent(s, model, onCancel = { model.reset() })
-    }
+    } }
 }
 
 @Composable
