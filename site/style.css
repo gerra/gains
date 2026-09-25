@@ -120,9 +120,7 @@ footer a { color: var(--muted); }
 }
 .hero h1 span { color: var(--accent); }
 .hero p { color: var(--muted); font-size: 19px; margin: 20px 0 28px; }
-/* The phone is cut off at the bottom of its screenshot, so it rises out of the card's
-   bottom edge: no bottom padding, flush to the border. */
-.hero .hero-phone { justify-self: center; align-self: end; max-width: 300px; margin-bottom: -48px; }
+.hero .hero-phone { justify-self: center; max-width: 300px; }
 
 .eyebrow {
   margin: 0 0 12px;
@@ -210,7 +208,7 @@ section > .lead { color: var(--muted); margin: 0 0 28px; max-width: 640px; }
 
 @media (max-width: 760px) {
   .hero { grid-template-columns: 1fr; padding: 32px 20px; }
-  .hero .hero-phone { max-width: 260px; margin-bottom: -32px; }
+  .hero .hero-phone { max-width: 260px; }
   .shots { grid-auto-columns: 72%; }
   .top nav { gap: 14px; }
 }
