@@ -33,7 +33,7 @@ class SyncApi(
     private val baseUrl: String,
     private val token: suspend () -> String?,
 ) {
-    suspend fun signIn(provider: AccountKind, idToken: String, name: String?): SignInResponse {
+    suspend fun signIn(provider: AccountKind, idToken: String, name: String?, authorizationCode: String? = null): SignInResponse {
         val route = when (provider) {
             AccountKind.GOOGLE -> "google"
             AccountKind.APPLE -> "apple"
@@ -41,7 +41,7 @@ class SyncApi(
         }
         val response = client.post("$baseUrl/auth/$route") {
             contentType(ContentType.Application.Json)
-            setBody(SyncJson.encodeToString(SignInRequest.serializer(), SignInRequest(idToken, name)))
+            setBody(SyncJson.encodeToString(SignInRequest.serializer(), SignInRequest(idToken, name, authorizationCode)))
         }
         return response.read(SignInResponse.serializer())
     }

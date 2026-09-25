@@ -13,7 +13,8 @@ import java.util.concurrent.TimeUnit
 /**
  * Who a provider says the person is: its stable subject, plus the email when it told us.
  * [emailVerified] is the provider's `email_verified` claim; only a verified email may join this
- * identity to another one ([Store.signIn]).
+ * identity to another one ([Store.signIn]). [audience] is which of our client ids the token was
+ * issued to, which is the client id Apple wants when the sign-in's code is exchanged ([AppleTokens]).
  */
 data class VerifiedIdentity(
     val provider: String,
@@ -21,6 +22,7 @@ data class VerifiedIdentity(
     val email: String?,
     val name: String?,
     val emailVerified: Boolean = false,
+    val audience: String? = null,
 )
 
 class InvalidTokenException(message: String) : Exception(message)
@@ -75,7 +77,8 @@ class JwksIdentityVerifier(
         // else, including no claim at all, counts as unverified.
         val verifiedClaim = decoded.getClaim("email_verified")
         val emailVerified = email != null && (verifiedClaim.asBoolean() ?: verifiedClaim.asString()?.toBooleanStrictOrNull() ?: false)
-        return VerifiedIdentity(provider, decoded.subject ?: throw InvalidTokenException("no subject"), email, name, emailVerified)
+        val audience = decoded.audience?.firstOrNull { it in keys.audiences }
+        return VerifiedIdentity(provider, decoded.subject ?: throw InvalidTokenException("no subject"), email, name, emailVerified, audience)
     }
 
     companion object {

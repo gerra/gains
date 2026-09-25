@@ -34,6 +34,9 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.toByteArray
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import org.slf4j.LoggerFactory
 import java.security.MessageDigest
@@ -46,6 +49,8 @@ class Services(
     val store: Store,
     val tokens: SessionTokens,
     val verifier: IdentityVerifier,
+    /** Trades Apple sign-in codes for refresh tokens and revokes them when an account is deleted. */
+    val appleTokens: AppleTokens = NoAppleTokens,
     /** The largest blob accepted, in bytes. A workout photo is a few hundred kilobytes. */
     val maxBlobBytes: Int = 8 * 1024 * 1024,
 )
@@ -79,6 +84,53 @@ fun Application.gainsServer(services: Services) {
         return tokens.userId(token) ?: throw HttpError(HttpStatusCode.Unauthorized, "token expired or invalid")
     }
 
+    /**
+     * Trades the code an Apple sign-in came with for a refresh token and keeps it on the identity,
+     * so that deleting the account can revoke it. Anything going wrong is logged and the sign-in
+     * goes ahead: the person is signed in either way, and only the revocation is lost.
+     */
+    suspend fun keepAppleRefreshToken(identity: VerifiedIdentity, code: String) {
+        val appleTokens = services.appleTokens
+        val clientId = identity.audience
+        if (!appleTokens.enabled || clientId == null || code.isBlank()) return
+        try {
+            val grant = withContext(Dispatchers.IO) { appleTokens.exchange(code, clientId) }
+            // A code from someone else's sign-in would let deleting this account revoke theirs.
+            if (grant.subject != identity.subject) {
+                log.warn("apple code exchange: the code belongs to another subject, not stored")
+                return
+            }
+            store.setRefreshToken(Providers.APPLE, identity.subject, grant.refreshToken, clientId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn("apple code exchange failed: {}", e.message)
+        }
+    }
+
+    /**
+     * Revokes the user's Apple refresh tokens, which removes Gains from their Apple ID. Called
+     * before the rows go, and never stops them going: Apple being unreachable must not keep
+     * anyone's data on our server.
+     */
+    suspend fun revokeAppleTokens(userId: Long) {
+        val stored = store.refreshTokens(userId, Providers.APPLE)
+        if (stored.isNotEmpty() && !services.appleTokens.enabled) {
+            log.warn("apple revoke skipped for user {}: no Sign in with Apple key configured", userId)
+            return
+        }
+        for ((refreshToken, clientId) in stored) {
+            try {
+                withContext(Dispatchers.IO) { services.appleTokens.revoke(refreshToken, clientId) }
+                log.info("apple token revoked: user {}", userId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log.warn("apple revoke failed for user {}: {}", userId, e.message)
+            }
+        }
+    }
+
     routing {
         get("/health") { call.respond(mapOf("status" to "ok")) }
 
@@ -88,6 +140,7 @@ fun Application.gainsServer(services: Services) {
                 val body = call.receive<SignInRequest>()
                 val identity = services.verifier.verify(provider, body.token)
                 val user = store.signIn(provider, identity.subject, identity.email, identity.emailVerified, identity.name ?: body.name?.takeIf { it.isNotBlank() })
+                if (provider == Providers.APPLE) body.authorizationCode?.let { keepAppleRefreshToken(identity, it) }
                 log.info("sign-in: user {} via {}", user.id, provider)
                 call.respond(SignInResponse(tokens.issue(user.id), user))
             }
@@ -106,6 +159,7 @@ fun Application.gainsServer(services: Services) {
 
         delete("/auth/account") {
             val userId = call.userId()
+            revokeAppleTokens(userId)
             store.deleteUser(userId)
             log.info("account deleted: user {}", userId)
             call.respond(HttpStatusCode.NoContent)

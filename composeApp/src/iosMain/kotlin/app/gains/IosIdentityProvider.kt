@@ -143,9 +143,11 @@ internal class IosIdentityProvider(private val config: AuthConfig, private val h
         override fun authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization: ASAuthorization) {
             val credential = didCompleteWithAuthorization.credential as? ASAuthorizationAppleIDCredential
             val token = credential?.identityToken?.toByteArray()?.decodeToString()
+            // Optional: without it the sign-in still works, only deleting the account can't revoke.
+            val code = credential?.authorizationCode?.toByteArray()?.decodeToString()?.takeIf { it.isNotEmpty() }
             onResult(
                 if (credential == null || token.isNullOrEmpty()) Result.failure(IllegalStateException("Apple returned no identity token."))
-                else Result.success(IdentityAssertion(token, credential.fullName?.let(::displayName)))
+                else Result.success(IdentityAssertion(token, credential.fullName?.let(::displayName), code))
             )
         }
 

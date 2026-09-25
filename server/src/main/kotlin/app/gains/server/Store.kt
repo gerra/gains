@@ -59,6 +59,21 @@ class Store(private val db: ServerDatabase) {
         return UserInfo(row.id, row.email, row.name, q.selectProvidersForUser(id).executeAsList())
     }
 
+    /**
+     * Keeps the refresh token Apple issued for this identity, replacing an older one: only the
+     * latest is needed, since revoking any of them removes the app from the person's Apple ID.
+     */
+    fun setRefreshToken(provider: String, subject: String, refreshToken: String, clientId: String) =
+        q.updateIdentityRefreshToken(refreshToken, clientId, provider, subject)
+
+    /** The [provider]'s refresh tokens stored for the user, each with the client id it was issued to. */
+    fun refreshTokens(userId: Long, provider: String): List<Pair<String, String>> =
+        q.selectRefreshTokensForUser(userId, provider).executeAsList().mapNotNull { row ->
+            val token = row.refresh_token ?: return@mapNotNull null
+            val clientId = row.refresh_client_id ?: return@mapNotNull null
+            token to clientId
+        }
+
     /** Removes the user, their identities, every document and every blob. */
     fun deleteUser(id: Long) = db.transaction {
         q.deleteBlobsForUser(id)
