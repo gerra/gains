@@ -138,9 +138,13 @@ API's certificate, which shows a certificate warning.
    - **Guest list (Owner decides first):** what it collects (an email address?), where it is
      stored and who emails it. If it stores emails on our server, it needs a route and a table,
      and the privacy policy must cover it. A link to a form hosted elsewhere avoids both.
-     *For now:* a `mailto:` link to the contact alias (subject "Gains guest list"), so nothing
-     is stored on our server; `/privacy#guest-list` covers it. Swapping in a hosted form is a
-     one-line change in `site/index.html` plus that privacy paragraph.
+     *Decided:* an email field on `/` that posts `{"email"}` to `POST /guest-list` on our own
+     server (the `guest_list` table, `migrations/3.sqm`). The site's vhost proxies that one path
+     to the server, so the form is same-origin and needs no CORS, and rate-limits it per IP;
+     the server answers 204 whether the address is new or already listed, and 503 once the list
+     holds 10,000. Without JavaScript the section falls back to the `mailto:` link.
+     `/privacy#guest-list` covers it. To read the list on the box:
+     `sqlite3 /var/lib/gains/gains-server.db 'SELECT email, created_at FROM guest_list'`.
    - `/privacy`: what a guest keeps on the device, what a signed-in account sends to
      `api.gains.gerra.sh` (the same list as `PrivacyInfo.xcprivacy`), where the server is, how
      long data is kept, how to delete it (Settings → Delete account, plus what item 6 revokes),
@@ -577,8 +581,9 @@ build fails a check, open an issue and link it next to the box.
       certificate warning.
 - [ ] `/privacy` and `/support` load, and the store and TestFlight links work.
 - [ ] `api.gains.gerra.sh` still works.
-- [ ] The guest list button opens a mail to the alias with the subject "Gains guest list", and
-      it arrives in your inbox (needs item 4).
+- [ ] Leaving an email in the guest list form says "You're on the list", and the address is in
+      `guest_list` on the box (the `sqlite3` line under item 3). A second try with the same
+      address says the same and adds no row; `nope` is refused.
 - [ ] The pages look right on a phone, in dark and light.
 - [ ] A missing page (`/nope`) shows the site's own "Nothing here" page.
 

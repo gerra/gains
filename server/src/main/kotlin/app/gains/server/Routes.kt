@@ -2,6 +2,7 @@ package app.gains.server
 
 import app.gains.sync.BlobResponse
 import app.gains.sync.ErrorResponse
+import app.gains.sync.GuestListRequest
 import app.gains.sync.PhotoDoc
 import app.gains.sync.PullResponse
 import app.gains.sync.PushRequest
@@ -53,7 +54,14 @@ class Services(
     val appleTokens: AppleTokens = NoAppleTokens,
     /** The largest blob accepted, in bytes. A workout photo is a few hundred kilobytes. */
     val maxBlobBytes: Int = 8 * 1024 * 1024,
+    /** The most addresses the guest list holds; past it, joining answers 503. */
+    val maxGuestList: Long = 10_000,
 )
+
+/** What the guest list accepts as an email address: something@domain.tld, at most 254 characters, no spaces. */
+private val EMAIL = Regex("[^@\\s]+@[^@\\s.]+(\\.[^@\\s.]+)+")
+
+fun isEmailAddress(text: String): Boolean = text.length <= 254 && EMAIL.matches(text)
 
 private val log = LoggerFactory.getLogger("app.gains.server")
 
@@ -162,6 +170,16 @@ fun Application.gainsServer(services: Services) {
             revokeAppleTokens(userId)
             store.deleteUser(userId)
             log.info("account deleted: user {}", userId)
+            call.respond(HttpStatusCode.NoContent)
+        }
+
+        // The launch guest list: the form on gains.gerra.sh posts here (its vhost proxies the
+        // path). Answers 204 whether the address is new or already listed, so it tells no one
+        // who else is on it.
+        post("/guest-list") {
+            val email = call.receive<GuestListRequest>().email.trim()
+            if (!isEmailAddress(email)) throw HttpError(HttpStatusCode.BadRequest, "not an email address")
+            if (!store.joinGuestList(email, services.maxGuestList)) throw HttpError(HttpStatusCode.ServiceUnavailable, "the guest list is full")
             call.respond(HttpStatusCode.NoContent)
         }
 

@@ -209,6 +209,7 @@ responses over a kilobyte.
 | `GET /sync/pull?since=N&limit=500` | → `{documents: [...with seq], cursor, more}` |
 | `PUT /sync/blobs/{kind}/{id}` | bytes + `X-Updated-At` → `{seq}` |
 | `GET /sync/blobs/{kind}/{id}` | → bytes |
+| `POST /guest-list` | `{email}` → 204 (new or already listed), 400 not an address, 503 list full. No bearer: the form on gains.gerra.sh posts it, not the app |
 
 A push is accepted per document when its `updatedAt` is not older than the row's; a rejected one
 is answered with the row's `seq` and `accepted: false`, and the next pull brings the newer version.
@@ -264,7 +265,7 @@ keep the token in `sync_state`; the Android Keystore is still to do.
 ## The server
 
 [`server/`](../server) is Ktor on the CIO engine, a single SQLite file under `GAINS_DATA_DIR`
-(WAL mode), SQLDelight for its five tables:
+(WAL mode), SQLDelight for its tables:
 
 ```sql
 user     (id, email, name, created_at)
@@ -273,6 +274,7 @@ identity (provider, subject, user_id, email, email_verified,
 document (user_id, kind, id, seq, updated_at, deleted, payload)   PRIMARY KEY (user_id, kind, id)
 blob     (user_id, kind, id, bytes)              PRIMARY KEY (user_id, kind, id)
 counter  (name, value)                           -- the one seq counter
+guest_list (email, created_at)                   PRIMARY KEY (email COLLATE NOCASE), no user
 ```
 
 Sign-in tokens are RS256 identity tokens checked with `jwks-rsa` against the provider's key set

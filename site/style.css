@@ -204,6 +204,33 @@ section > .lead { color: var(--muted); margin: 0 0 28px; max-width: 640px; }
 .shots img { border-radius: 20px; border: 1px solid var(--outline); }
 
 .card h2 { font-size: 26px; }
+
+.join { display: flex; flex-wrap: wrap; gap: 12px; }
+.join[hidden] { display: none; }
+.join input {
+  flex: 1 1 240px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.join input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.join button { border: 0; font: inherit; font-weight: 700; cursor: pointer; }
+.join button:disabled { opacity: 0.6; cursor: default; }
+.note:empty { display: none; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 .card p { color: var(--muted); }
 
 @media (max-width: 760px) {

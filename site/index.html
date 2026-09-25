@@ -79,12 +79,23 @@
     <section id="guest-list" class="card">
       <h2>Guest list</h2>
       <p>Gains is in beta on TestFlight today, with the App Store and Google Play to follow. Want
-        a note when it's out? Email us and we'll write once, when it launches. We keep your
-        address only for that, and you can ask us to drop it at any time
+        a note when it's out? Leave your email and we'll write once, when it launches. We keep
+        your address only for that, and you can ask us to drop it at any time
         (<a href="/privacy#guest-list">privacy</a>).</p>
-      <div class="actions">
-        <a class="button primary" href="mailto:gains@gerra.sh?subject=Gains%20guest%20list&amp;body=Let%20me%20know%20when%20Gains%20launches.">Email to join</a>
-      </div>
+      <!-- Posts {"email"} to /guest-list, which this vhost proxies to the server
+           (deploy/nginx/gains.gerra.sh.conf). Shown by the script below. -->
+      <form class="join" id="guest-list-form" hidden>
+        <label class="visually-hidden" for="guest-list-email">Email address</label>
+        <input id="guest-list-email" name="email" type="email" required maxlength="254"
+          autocomplete="email" inputmode="email" placeholder="you@example.com">
+        <button class="button primary" type="submit">Join the guest list</button>
+      </form>
+      <p class="note" id="guest-list-status" role="status" aria-live="polite"></p>
+      <noscript>
+        <div class="actions">
+          <a class="button primary" href="mailto:gains@gerra.sh?subject=Gains%20guest%20list&amp;body=Let%20me%20know%20when%20Gains%20launches.">Email to join</a>
+        </div>
+      </noscript>
     </section>
   </main>
 
@@ -98,5 +109,38 @@
       </nav>
     </div>
   </footer>
+
+  <script>
+    (function () {
+      var form = document.getElementById("guest-list-form");
+      var email = document.getElementById("guest-list-email");
+      var button = form.querySelector("button");
+      var status = document.getElementById("guest-list-status");
+      form.hidden = false;
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        button.disabled = true;
+        status.textContent = "Adding you…";
+        fetch("/guest-list", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.value.trim() })
+        }).then(function (response) {
+          if (response.ok) {
+            form.hidden = true;
+            status.textContent = "You're on the list. We'll write once, when Gains launches.";
+          } else if (response.status === 400) {
+            status.textContent = "That doesn't look like an email address.";
+          } else {
+            throw new Error(response.status);
+          }
+        }).catch(function () {
+          status.innerHTML = 'Something went wrong. Try again, or email <a href="mailto:gains@gerra.sh?subject=Gains%20guest%20list">gains@gerra.sh</a> to join.';
+        }).then(function () {
+          button.disabled = false;
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

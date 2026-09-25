@@ -123,6 +123,24 @@ class Store(private val db: ServerDatabase) {
 
     fun blob(userId: Long, kind: String, id: String): ByteArray? = q.selectBlob(userId, kind, id).executeAsOneOrNull()
 
+    // --- guest list -------------------------------------------------------------------------
+
+    /**
+     * Puts [email] on the launch guest list. An address already there (in any case) is left as
+     * it was. Returns false only when the list already holds [limit] addresses, so that a script
+     * filling it can't fill the disk.
+     */
+    fun joinGuestList(email: String, limit: Long): Boolean = db.transactionWithResult {
+        when {
+            q.selectGuest(email).executeAsOneOrNull() != null -> true
+            q.countGuests().executeAsOne() >= limit -> false
+            else -> {
+                q.insertGuest(email, Instant.now().toString())
+                true
+            }
+        }
+    }
+
     /** The next feed position. Only called inside a transaction, so two writes never share one. */
     private fun nextSeq(): Long {
         q.incrementSeq()

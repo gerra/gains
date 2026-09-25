@@ -1,6 +1,7 @@
 package app.gains.server
 
 import app.gains.sync.BlobResponse
+import app.gains.sync.GuestListRequest
 import app.gains.sync.PullResponse
 import app.gains.sync.PushRequest
 import app.gains.sync.PushResponse
@@ -276,6 +277,32 @@ class ServerTest {
         val fresh = client.signIn("google", google.token("a", GOOGLE_AUDIENCE))
         assertEquals(emptyList(), client.get("/sync/pull?since=0") { header("Authorization", "Bearer ${fresh.token}") }.read(PullResponse.serializer()).documents)
         assertEquals(HttpStatusCode.NotFound, client.get("/sync/blobs/session_photo/p") { header("Authorization", "Bearer ${fresh.token}") }.status)
+    }
+
+    @Test
+    fun theGuestListTakesEachAddressOnceAndStopsWhenFull() = testApplication {
+        val services = testServices(google, apple).let { Services(it.store, it.tokens, it.verifier, maxGuestList = 2) }
+        application { gainsServer(services) }
+        suspend fun join(email: String) = client.post("/guest-list") {
+            contentType(ContentType.Application.Json)
+            setBody(SyncJson.encodeToString(GuestListRequest.serializer(), GuestListRequest(email)))
+        }.status
+
+        assertEquals(HttpStatusCode.NoContent, join("ada@example.com"))
+        // Already listed, in any case or with stray spaces: the same answer, and no second row.
+        assertEquals(HttpStatusCode.NoContent, join("  Ada@Example.COM "))
+        assertEquals(HttpStatusCode.NoContent, join("grace@example.org"))
+        assertEquals(HttpStatusCode.ServiceUnavailable, join("linus@example.net"))
+        assertEquals(HttpStatusCode.NoContent, join("grace@example.org"), "a listed address still answers when full")
+
+        for (bad in listOf("", "ada", "ada@", "@example.com", "ada@example", "a da@example.com", "a@b@c.d", "a".repeat(250) + "@x.yz")) {
+            assertEquals(HttpStatusCode.BadRequest, join(bad), bad)
+        }
+        val garbage = client.post("/guest-list") {
+            contentType(ContentType.Application.Json)
+            setBody("{\"mail\":\"ada@example.com\"}")
+        }
+        assertEquals(HttpStatusCode.BadRequest, garbage.status)
     }
 
     @Test
