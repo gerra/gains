@@ -87,6 +87,12 @@ import kotlin.test.Test
 class ScreenshotTest {
     private val outDir = File(System.getProperty("gains.screenshotDir") ?: "build/screenshots").apply { mkdirs() }
     private val sampleCsv = File(System.getProperty("gains.sampleCsv") ?: "../samples/liftoff-export.csv")
+    /**
+     * Where the clips of the app's motion go, frame by frame, when `-Pgains.animationDir` asks for
+     * them (the Screenshots workflow turns them into GIFs and videos). Unset, nothing is recorded and
+     * the run is the plain screenshot run.
+     */
+    private val animationDir = System.getProperty("gains.animationDir")?.let { File(it).apply { mkdirs() } }
 
     @Test
     fun captureEveryScreen() = runDesktopComposeUiTest(width = 960, height = 1720) {
@@ -125,6 +131,35 @@ class ScreenshotTest {
          * Long enough for the longest one-off motion (Motion.REVEAL: charts, meters, the summary's count-up) to land.
          */
         fun settle(millis: Long = 800) = repeat((millis / 16).toInt()) { mainClock.advanceTimeByFrame() }
+        // Recording: every second frame of a clip is saved, so a clip plays back at 31.25 frames a second.
+        var recording: File? = null
+        var frameNo = 0
+        fun capture() {
+            val dir = recording ?: return
+            ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(dir, "%04d.png".format(++frameNo)))
+        }
+        /** Lets [millis] of the app run: recorded frame by frame inside a [clip], simply settled outside one. */
+        fun hold(millis: Long) {
+            if (recording == null) return settle(millis)
+            repeat((millis / 16).toInt()) { i ->
+                mainClock.advanceTimeByFrame()
+                if (i % 2 == 1) capture()
+            }
+        }
+        /** Records what [block] does on screen as the clip [name], when clips are asked for; otherwise just does it. */
+        fun clip(name: String, block: () -> Unit) {
+            recording = animationDir?.let { File(it, "frames/$name").apply { deleteRecursively(); mkdirs() } }
+            frameNo = 0
+            try {
+                capture()
+                block()
+            } finally {
+                recording = null
+                println("clip: $name ($frameNo frames)")
+            }
+        }
+        val recordingClips = animationDir != null
+        fun tap(matcher: SemanticsMatcher) = onAllNodes(matcher).onFirst().performClick()
         /** Section headers are shown in upper case, so text is matched ignoring case. */
         fun text(value: String) = hasText(value, substring = true, ignoreCase = true)
         fun exists(matcher: SemanticsMatcher) = onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
@@ -213,7 +248,18 @@ class ScreenshotTest {
 
         // 1b. Goal onboarding: answer the first question for the picture, then skip the rest.
         settle(1_000)
-        onNode(text("Get stronger") and hasClickAction()).performClick()
+        clip("onboarding") {
+            hold(300)
+            onNode(text("Get stronger") and hasClickAction()).performClick()
+            hold(700)
+            if (recordingClips) {
+                // The questions page like screens, and the step dot stretches with them.
+                tap(hasText("Next") and hasClickAction())
+                hold(800)
+                tap(hasText("Back") and hasClickAction())
+                hold(900)
+            }
+        }
         settle()
         shot("01b-onboarding")
         onNode(text("Skip for now") and hasClickAction()).performClick()
@@ -280,6 +326,16 @@ class ScreenshotTest {
         onNode(text("Show all") and hasClickAction()).performClick()
         settle()
         check(!exists(text("Show all"))) { "Show all did not clear the muscle-map selection" }
+        if (recordingClips) clip("volume-weeks") {
+            // The chip's pill slides to the week picked and the body's shading washes over to it.
+            hold(200)
+            tap(text("w avg") and hasClickAction())
+            hold(1_000)
+            tap(hasText("Last week") and hasClickAction())
+            hold(1_000)
+            tap(hasText("This week") and hasClickAction())
+            hold(1_000)
+        }
 
         // 7. Bodyweight, with a few months of entries.
         val bodyweight = inject<BodyweightRepository>()
@@ -295,6 +351,18 @@ class ScreenshotTest {
         require(text("Trend"))
         settle(1_500)
         shot("08-body")
+        if (recordingClips) clip("navigation") {
+            // Tabs slide the way the bar goes and the pill follows; a pushed screen and Back swap the
+            // top bar's wordmark and arrow while the pill fades out and back.
+            fun tapTab(label: String) = onNode(hasContentDescription(label) and hasClickAction()).performClick()
+            hold(300)
+            tapTab("Home"); hold(800)
+            tapTab("Volume"); hold(800)
+            tapTab("History"); hold(800)
+            tapTab("Body"); hold(800)
+            onNode(hasContentDescription("Settings") and hasClickAction()).performClick(); hold(800)
+            onNode(hasContentDescription("Back") and hasClickAction()).performClick(); hold(1_000)
+        }
 
         // 8. Settings, then the light theme.
         onNode(hasContentDescription("Settings") and hasClickAction()).performClick()
@@ -322,13 +390,23 @@ class ScreenshotTest {
         require(startButton)
         settle(1_000)
         shot("14-program-day-ready")
-        onNode(startButton).performClick()
+        clip("start-workout") {
+            // Start hands the Ready card over to the clock and the plan fades to life.
+            hold(300)
+            onNode(startButton).performClick()
+            hold(1_300)
+        }
         // Start runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
         require(text("Total"))
         // The clock and day notes push the first work set below the fold, so bring it into view before tapping.
         val firstSet = hasContentDescription("Set 1 not done") and hasClickAction()
         scrollIntoView(firstSet)
-        onAllNodes(firstSet).onFirst().performClick()
+        clip("tick-set") {
+            // The check pops, the row takes its tint and the rest starts running down.
+            hold(300)
+            onAllNodes(firstSet).onFirst().performClick()
+            hold(1_800)
+        }
         require(hasContentDescription("Set 1 done"))
         // Ticking inserted the rest countdown above the row, so bring the ticked row back into view.
         scrollIntoView(hasContentDescription("Set 1 done"))
@@ -372,7 +450,12 @@ class ScreenshotTest {
         onNode(hasText("End") and hasClickAction()).performClick()
         // Only one set was ticked, so ending asks about the rest; keep them all.
         require(text("aren't ticked off"))
-        onNode(text("Save all") and hasClickAction()).performClick()
+        clip("workout-summary") {
+            // The summary makes its entrance: sections rise in and the figures count up.
+            hold(200)
+            onNode(text("Save all") and hasClickAction()).performClick()
+            hold(2_600)
+        }
 
         // 9b. The ended workout hands over to its summary: how long it took, the day's body weight
         // and a caption with a photo to fill in, then what it trained. Everything here edits the
@@ -415,7 +498,11 @@ class ScreenshotTest {
         shot("17d-summary-muscles")
         scrollUntil(hasContentDescription("Muscle map"), hasText("Done") and hasClickAction())
         scrollIntoView(hasText("Done") and hasClickAction())
-        onNode(hasText("Done") and hasClickAction()).performClick()
+        clip("home-after-workout") {
+            // Back on Home, what the workout changed is seen changing: the day fills in, the rotation moves on.
+            onNode(hasText("Done") and hasClickAction()).performClick()
+            hold(2_000)
+        }
 
         require(text("What's moving"), 60_000)
         settle(1_000)
