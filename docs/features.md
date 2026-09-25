@@ -69,8 +69,9 @@ The long version of the list in the [README](../README.md).
   plain sentence about what is actually at stake. Every four weeks kept banks a **rest week**, two
   at most; a missed week spends one instead of ending the run, silently, and the calendar shows it
   afterwards. Miss a whole week with none banked and the run ends — there is no way to buy it back.
-  Nothing on the card moves except the ring around today, and only on the two days it means
-  something. See [Streaks and the nudge](how-it-works.md#streaks-and-the-nudge).
+  Nothing on the card moves on its own except the ring around today, and only on the two days it
+  means something; a session logged since you last looked fills its day in and rolls the number up,
+  once. See [Streaks and the nudge](how-it-works.md#streaks-and-the-nudge).
 - **Per-lift analysis.** Estimated 1RM (Epley) over working sets, top set weight, volume per
   session and best set per session, over 3-month, 6-month, 1-year or all-time windows.
 - **Weekly volume by muscle group.** Working sets per week with primary and secondary credit,
@@ -97,6 +98,11 @@ The long version of the list in the [README](../README.md).
   listed with a reason.
 - **Dark and light themes**, a floating pill navigation and animated Canvas charts with no
   charting library.
+- **Motion that says what changed.** One set of timings (`ui/theme/Motion.kt`) for the whole app:
+  the tab pill slides to the tab chosen, screens and onboarding's questions slide the way you went,
+  a ticked set pops, Start brings the plan to life, the rest bar runs down, the summary counts its
+  figures up, numbers roll when they change and lists close up around what left them. Nothing
+  loops that did not before, and everything is cut short when the device asks for reduced motion.
 - **Local first, sync optional.** Guest mode keeps everything on the device. Sign in with Apple or
   Google on iOS syncs it through the self-hosted server at `api.gains.gerra.sh`; the other
   platforms follow ([docs/launch-plan.md](launch-plan.md)).

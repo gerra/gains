@@ -1,5 +1,14 @@
 package app.gains.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import app.gains.ui.theme.LocalReduceMotion
+import app.gains.ui.theme.Motion
+import app.gains.ui.theme.enterOnce
+import app.gains.ui.theme.fadeThrough
+import kotlin.math.roundToInt
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -281,9 +290,22 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
     val today = Dates.today()
     val unit = state.unit
     val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = palette.volt, unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant)
+    val reduce = LocalReduceMotion.current
+    // The end of a workout is the one screen that makes an entrance: the sections rise in one after
+    // another and the three figures count up to what the session came to. Once only; coming back
+    // to the summary later shows it as it is.
+    var counted by rememberSaveable { mutableStateOf(reduce) }
+    val count = remember { Animatable(if (counted) 1f else 0f) }
+    val revealSpec = Motion.reveal<Float>()
+    LaunchedEffect(Unit) {
+        if (counted) return@LaunchedEffect
+        count.animateTo(1f, revealSpec)
+        counted = true
+    }
+    val p = count.value
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
-        item {
+        item { Column(Modifier.enterOnce(0)) {
             Text(stringResource(Res.string.workout_logged), style = MaterialTheme.typography.labelSmall, color = palette.volt)
             Spacer(Modifier.height(4.dp))
             Text(state.title, style = MaterialTheme.typography.headlineLarge)
@@ -295,17 +317,24 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricTile(
                     stringResource(Res.string.duration),
-                    state.durationMinutes?.let { minutesText(it) } ?: stringResource(Res.string.not_timed),
+                    state.durationMinutes?.let { minutesText(if (counted) it else (it * p).roundToInt()) } ?: stringResource(Res.string.not_timed),
                     Modifier.weight(1f),
                     caption = stringResource(Res.string.tap_to_change),
                     accent = palette.volt,
                     onClick = { durationPickerOpen = true },
+                    roll = counted,
                 )
-                MetricTile(stringResource(Res.string.exercises_section), state.exerciseCount.toString(), Modifier.weight(1f), caption = setsText(state.workingSets))
-                MetricTile(stringResource(Res.string.total_volume), Format.weightValue(state.volumeKg, unit), Modifier.weight(1f), caption = unit.label())
+                MetricTile(
+                    stringResource(Res.string.exercises_section), (if (counted) state.exerciseCount else (state.exerciseCount * p).roundToInt()).toString(),
+                    Modifier.weight(1f), caption = setsText(state.workingSets), roll = counted,
+                )
+                MetricTile(
+                    stringResource(Res.string.total_volume), Format.weightValue(if (counted) state.volumeKg else state.volumeKg * p, unit),
+                    Modifier.weight(1f), caption = unit.label(), roll = counted,
+                )
             }
-        }
-        item {
+        } }
+        item { Column(Modifier.enterOnce(1)) {
             SectionHeader(stringResource(Res.string.bodyweight_title))
             // One number and one word to put it on record: the wheel on the left, Save beside it.
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
@@ -317,15 +346,17 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                         modifier = Modifier.weight(1f),
                         muted = state.weight <= 0,
                     )
-                    if (state.weightSaved) {
-                        Text(
-                            stringResource(Res.string.saved),
-                            Modifier.padding(start = 10.dp),
-                            style = MaterialTheme.typography.labelMedium, color = palette.volt,
-                        )
-                    } else {
-                        TextButton(onClick = model::saveWeight, enabled = state.weight > 0) {
-                            Text(stringResource(Res.string.save), color = if (state.weight > 0) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant)
+                    AnimatedContent(state.weightSaved, transitionSpec = { fadeThrough(reduce) }, label = "weight-saved") { saved ->
+                        if (saved) {
+                            Text(
+                                stringResource(Res.string.saved),
+                                Modifier.padding(start = 10.dp),
+                                style = MaterialTheme.typography.labelMedium, color = palette.volt,
+                            )
+                        } else {
+                            TextButton(onClick = model::saveWeight, enabled = state.weight > 0) {
+                                Text(stringResource(Res.string.save), color = if (state.weight > 0) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
@@ -335,8 +366,8 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
-        item {
+        } }
+        item { Column(Modifier.enterOnce(2)) {
             SectionHeader(stringResource(Res.string.caption_and_photo))
             // One row, as Liftoff has it: a small picture on the left and the line about the
             // session beside it, so the two read as one note rather than two sections.
@@ -360,8 +391,8 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                     )
                 }
             }
-        }
-        item {
+        } }
+        item { Column(Modifier.enterOnce(3)) {
             SectionHeader(stringResource(Res.string.muscles_trained))
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 if (state.muscles.isEmpty()) {
@@ -382,11 +413,11 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                     }
                 }
             }
-        }
-        item {
+        } }
+        item { Column(Modifier.enterOnce(4)) {
             Spacer(Modifier.height(20.dp))
             PrimaryButton(stringResource(Res.string.done), onDone, Modifier.fillMaxWidth())
-        }
+        } }
     }
 
     if (durationPickerOpen) DurationPickerSheet(state.durationMinutes, onPick = model::setDuration, onDismiss = { durationPickerOpen = false })
@@ -410,6 +441,9 @@ private val PhotoHeight = 92.dp
 private fun PhotoThumbnail(photo: ImageBitmap?, busy: Boolean, onPick: () -> Unit, onRemove: () -> Unit) {
     val palette = GainsColors.palette
     val shape = MaterialTheme.shapes.medium
+    val reduce = LocalReduceMotion.current
+    // A picture chosen or taken off fades in over the empty place, rather than cutting.
+    AnimatedContent(photo, Modifier.size(PhotoWidth, PhotoHeight), transitionSpec = { fadeThrough(reduce) }, label = "photo") { photo ->
     Box(Modifier.size(PhotoWidth, PhotoHeight)) {
         if (photo == null) {
             val addPhoto = stringResource(Res.string.add_photo)
@@ -452,6 +486,7 @@ private fun PhotoThumbnail(photo: ImageBitmap?, busy: Boolean, onPick: () -> Uni
                 .semantics { contentDescription = remove },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Default.Close, null, tint = palette.coral, modifier = Modifier.size(14.dp)) }
+    }
     }
 }
 

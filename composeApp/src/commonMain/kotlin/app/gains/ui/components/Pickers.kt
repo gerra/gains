@@ -1,5 +1,10 @@
 package app.gains.ui.components
 
+import app.gains.ui.theme.screenSlide
+import app.gains.ui.theme.Motion
+import app.gains.ui.theme.LocalReduceMotion
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -256,12 +261,13 @@ internal fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, mo
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val today = Dates.today()
     var month by remember(selected.year, selected.month) { mutableStateOf(LocalDate(selected.year, selected.month, 1)) }
-    val daysInMonth = month.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).day
-    // Blank cells before the 1st, so every column is one weekday.
-    val leading = month.dayOfWeek.isoDayNumber - 1
+    val reduce = LocalReduceMotion.current
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("${monthName(month)} ${month.year}", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            // The month pages like a screen: a later one comes in from the right, an earlier one from the left.
+            AnimatedContent(month, Modifier.weight(1f), transitionSpec = { screenSlide(targetState > initialState, reduce) }, label = "month-name") { shown ->
+                Text("${monthName(shown)} ${shown.year}", style = MaterialTheme.typography.titleMedium)
+            }
             MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(Res.string.previous_month)) { month = month.minus(1, DateTimeUnit.MONTH) }
             Spacer(Modifier.width(6.dp))
             MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(Res.string.next_month)) { month = month.plus(1, DateTimeUnit.MONTH) }
@@ -273,7 +279,12 @@ internal fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, mo
             }
         }
         Spacer(Modifier.height(4.dp))
+        AnimatedContent(month, transitionSpec = { screenSlide(targetState > initialState, reduce) }, label = "month") { month ->
+        val daysInMonth = month.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).day
+        // Blank cells before the 1st, so every column is one weekday.
+        val leading = month.dayOfWeek.isoDayNumber - 1
         val rows = (leading + daysInMonth + 6) / 7
+        Column {
         for (row in 0 until rows) {
             Row(Modifier.fillMaxWidth()) {
                 for (column in 0 until 7) {
@@ -284,9 +295,10 @@ internal fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, mo
                             val isSelected = day == selected
                             val isToday = day == today
                             val description = "${dayShort(day.dayOfWeek)} ${dateShortWithYear(day)}" + if (isSelected) ", ${stringResource(Res.string.chosen)}" else ""
+                            val fill by animateColorAsState(if (isSelected) palette.volt else Color.Transparent, Motion.standard(), label = "day")
                             Box(
                                 Modifier.size(38.dp).clip(CircleShape)
-                                    .background(if (isSelected) palette.volt else Color.Transparent)
+                                    .background(fill)
                                     .border(1.5.dp, if (isToday && !isSelected) palette.volt else Color.Transparent, CircleShape)
                                     .clickable { onPick(day) }
                                     .semantics { contentDescription = description },
@@ -306,6 +318,8 @@ internal fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, mo
                     }
                 }
             }
+        }
+        }
         }
     }
 }

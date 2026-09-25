@@ -80,10 +80,10 @@ internal fun ProgramsScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
         }
         if (state.custom.isNotEmpty()) {
             item { SectionHeader(stringResource(Res.string.your_programs)) }
-            items(state.custom, key = { it.id }) { ProgramRow(it, it.id == state.activeId, onClick = { onOpen(it.id) }) }
+            items(state.custom, key = { it.id }) { ProgramRow(it, it.id == state.activeId, onClick = { onOpen(it.id) }, Modifier.animateItem()) }
         }
         item { SectionHeader(if (state.profile != null) stringResource(Res.string.built_in_best_fit) else stringResource(Res.string.built_in)) }
-        items(state.builtIn, key = { it.id }) { ProgramRow(it, it.id == state.activeId, onClick = { onOpen(it.id) }) }
+        items(state.builtIn, key = { it.id }) { ProgramRow(it, it.id == state.activeId, onClick = { onOpen(it.id) }, Modifier.animateItem()) }
         item {
             Spacer(Modifier.height(12.dp))
             Text(
@@ -95,8 +95,8 @@ internal fun ProgramsScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
 }
 
 @Composable
-private fun ProgramRow(program: Program, active: Boolean, onClick: () -> Unit) {
-    GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = onClick, contentPadding = Dp16.Tight) {
+private fun ProgramRow(program: Program, active: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    GainsCard(modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = onClick, contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(program.displayName(), style = MaterialTheme.typography.titleMedium)

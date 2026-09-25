@@ -120,8 +120,11 @@ class ScreenshotTest {
             }
         }.apply { isDaemon = true; start() }
 
-        /** Frames are only delivered when the scene renders, so advance one frame at a time to let animations finish. */
-        fun settle(millis: Long = 600) = repeat((millis / 16).toInt()) { mainClock.advanceTimeByFrame() }
+        /**
+         * Frames are only delivered when the scene renders, so advance one frame at a time to let animations finish.
+         * Long enough for the longest one-off motion (Motion.REVEAL: charts, meters, the summary's count-up) to land.
+         */
+        fun settle(millis: Long = 800) = repeat((millis / 16).toInt()) { mainClock.advanceTimeByFrame() }
         /** Section headers are shown in upper case, so text is matched ignoring case. */
         fun text(value: String) = hasText(value, substring = true, ignoreCase = true)
         fun exists(matcher: SemanticsMatcher) = onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()

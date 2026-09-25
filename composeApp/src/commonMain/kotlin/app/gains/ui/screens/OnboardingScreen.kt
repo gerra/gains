@@ -1,5 +1,17 @@
 package app.gains.ui.screens
 
+import app.gains.ui.theme.screenSlide
+import app.gains.ui.theme.popIn
+import app.gains.ui.theme.enterOnce
+import app.gains.ui.theme.Motion
+import app.gains.ui.theme.LocalReduceMotion
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -107,20 +119,33 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
     val model = rememberScreenModel { OnboardingModel() }
     val palette = GainsColors.palette
     if (model.done) { onDone(); return }
+    val reduce = LocalReduceMotion.current
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             GainsLogo(size = 36.dp)
             Spacer(Modifier.width(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (i in 0..3) Box(Modifier.size(8.dp).clip(CircleShape).background(if (i <= model.step) palette.volt else MaterialTheme.colorScheme.surfaceContainerHighest))
+                // The current question's dot stretches into a pill; the ones behind stay lit.
+                for (i in 0..3) {
+                    val width by animateDpAsState(if (i == model.step) 20.dp else 8.dp, Motion.move(), label = "dot")
+                    val color by animateColorAsState(if (i <= model.step) palette.volt else MaterialTheme.colorScheme.surfaceContainerHighest, Motion.standard(), label = "dot-color")
+                    Box(Modifier.size(width, 8.dp).clip(CircleShape).background(color))
+                }
             }
             Spacer(Modifier.weight(1f))
             TextButton(onClick = { model.skip() }) { Text(stringResource(Res.string.skip_for_now), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         Spacer(Modifier.height(16.dp))
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            when (model.step) {
+        // Each question slides in the way the lifter is going, as screens do: Next from the right, Back from the left.
+        AnimatedContent(
+            model.step,
+            Modifier.weight(1f),
+            transitionSpec = { screenSlide(forward = targetState > initialState, reduce = reduce) },
+            label = "onboarding",
+        ) { step ->
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            when (step) {
                 0 -> {
                     Text(stringResource(Res.string.onboarding_goal_title), style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(6.dp))
@@ -159,7 +184,7 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                     }
                     Spacer(Modifier.height(18.dp))
                     for ((index, program) in model.suggestions.withIndex()) {
-                        GainsCard(Modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
+                        GainsCard(Modifier.enterOnce(index).fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(program.displayName(), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                                 if (index == 0) Pill(stringResource(Res.string.best_match), palette.volt, filled = true)
@@ -175,6 +200,7 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                 }
             }
         }
+        }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (model.step > 0) SecondaryButton(stringResource(Res.string.back), onClick = { model.back() }, Modifier.weight(1f))
@@ -189,17 +215,25 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
 @Composable
 private fun OptionCard(title: String, blurb: String, selected: Boolean, onClick: () -> Unit) {
     val palette = GainsColors.palette
+    val reduce = LocalReduceMotion.current
+    // An answer picked lights up and its tick pops in; the one it replaced eases back.
+    val titleColor by animateColorAsState(if (selected) palette.volt else MaterialTheme.colorScheme.onSurface, Motion.standard(), label = "option")
+    val tickFill by animateColorAsState(if (selected) palette.volt else MaterialTheme.colorScheme.surfaceContainerHighest, Motion.standard(), label = "option-tick")
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 10.dp), onClick = onClick, contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = if (selected) palette.volt else MaterialTheme.colorScheme.onSurface)
+                Text(title, style = MaterialTheme.typography.titleMedium, color = titleColor)
                 Text(blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.width(10.dp))
             Box(
-                Modifier.size(22.dp).clip(CircleShape).background(if (selected) palette.volt else MaterialTheme.colorScheme.surfaceContainerHighest),
+                Modifier.size(22.dp).clip(CircleShape).background(tickFill),
                 contentAlignment = Alignment.Center,
-            ) { if (selected) Text("✓", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary) }
+            ) {
+                androidx.compose.animation.AnimatedVisibility(selected, enter = popIn(reduce, from = 0.4f), exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.PRESS))) {
+                    Text("✓", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
+                }
+            }
         }
     }
 }
@@ -214,7 +248,11 @@ private fun OptionCard(title: String, blurb: String, selected: Boolean, onClick:
 internal fun ProgramTags(program: Program, active: Boolean = false) {
     val palette = GainsColors.palette
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (active) Pill(stringResource(Res.string.active), palette.volt, filled = true)
+        val reduce = LocalReduceMotion.current
+        // Activated from the program's page, the tag pops in beside the others.
+        AnimatedVisibility(active, enter = popIn(reduce, from = 0.7f), exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT))) {
+            Pill(stringResource(Res.string.active), palette.volt, filled = true)
+        }
         Pill(stringResource(Res.string.days_per_week_tag, program.daysPerWeek), palette.cyan)
         Pill(program.level.label(), palette.violet)
         for (g in program.goals.take(2)) Pill(g.label(), palette.amber)

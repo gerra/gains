@@ -1,5 +1,6 @@
 package app.gains.ui.screens
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -375,13 +376,14 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp),
             )
         }
+        // Merged, removed or reset, a row fades and the list closes up behind it.
         items(state.customExercises, key = { it.id }) { custom ->
-            MergeRow(custom, state.catalogue, onMerge = { model.merge(custom, it) })
+            Box(Modifier.animateItem()) { MergeRow(custom, state.catalogue, onMerge = { model.merge(custom, it) }) }
         }
         if (state.aliases.isNotEmpty()) {
             item { SectionHeader(stringResource(Res.string.aliases)) }
             items(state.aliases.entries.toList(), key = { it.key }) { (raw, id) ->
-                GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+                GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(raw, style = MaterialTheme.typography.titleSmall)
@@ -395,7 +397,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
         if (state.overrides.isNotEmpty()) {
             item { SectionHeader(stringResource(Res.string.working_set_overrides)) }
             items(state.overrides.entries.toList(), key = { "o" + it.key }) { (id, ratio) ->
-                GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+                GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("${state.exercisesById[id]?.displayName() ?: id}: ${(ratio * 100).toInt()}%", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                         TextButton(onClick = { model.clearOverride(id) }) { Text(stringResource(Res.string.reset), color = palette.coral) }

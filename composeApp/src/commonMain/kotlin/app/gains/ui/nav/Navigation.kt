@@ -138,8 +138,16 @@ internal class Navigator(private val onReleased: (NavEntry) -> Unit = {}) {
     var skipTransition: Boolean by mutableStateOf(false)
         private set
 
+    /**
+     * Which way the most recent change went, for the screen transition to slide with it: forward (1)
+     * for a screen pushed on top or a tab to the right, back (-1) for a pop or a tab to the left.
+     */
+    var direction: Int by mutableStateOf(1)
+        private set
+
     fun push(screen: Screen) {
         skipTransition = false
+        direction = 1
         if (current != screen) stack.add(entry(screen))
     }
 
@@ -150,6 +158,7 @@ internal class Navigator(private val onReleased: (NavEntry) -> Unit = {}) {
      */
     fun replace(screen: Screen) {
         skipTransition = false
+        direction = 1
         if (stack.size <= 1) return push(screen)
         val leaving = stack.removeAt(stack.lastIndex)
         stack.add(entry(screen))
@@ -160,12 +169,16 @@ internal class Navigator(private val onReleased: (NavEntry) -> Unit = {}) {
     fun pop(animated: Boolean = true): Boolean {
         if (stack.size <= 1) return false
         skipTransition = !animated
+        direction = -1
         stack.removeAt(stack.lastIndex).retire()
         return true
     }
 
     fun switchTab(tab: Tab) {
         skipTransition = false
+        // Along the bar: a tab to the right comes in from the right. Back to the root of the same tab is a way back.
+        val from = currentTab
+        direction = if (from != null && tab.ordinal > from.ordinal) 1 else -1
         val root = roots.getOrPut(tab) { entry(tab.root) }
         // Only the tab roots outlive this; anything pushed on top of the old one is gone.
         val leaving = stack.filter { it !in roots.values }
