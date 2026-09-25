@@ -38,6 +38,7 @@ class FakeProvider(val issuer: String, val keyId: String = "test-key") {
         expired: Boolean = false,
         keyId: String = this.keyId,
         emailVerified: Any? = null,
+        nonce: String? = null,
     ): String {
         val now = Instant.now()
         return JWT.create()
@@ -50,6 +51,7 @@ class FakeProvider(val issuer: String, val keyId: String = "test-key") {
             .apply {
                 email?.let { withClaim("email", it) }
                 name?.let { withClaim("name", it) }
+                nonce?.let { withClaim("nonce", it) }
                 when (emailVerified) {
                     null -> Unit
                     is Boolean -> withClaim("email_verified", emailVerified)
@@ -62,6 +64,7 @@ class FakeProvider(val issuer: String, val keyId: String = "test-key") {
 
 const val GOOGLE_AUDIENCE = "123.apps.googleusercontent.com"
 const val APPLE_AUDIENCE = "app.gains.Gains"
+const val APPLE_SERVICES_ID = "app.gains.Gains.web"
 
 /**
  * Apple's token endpoints as the tests want them: each code in [codes] is exchanged for
@@ -91,21 +94,23 @@ class FakeAppleTokens(
     }
 }
 
-/** A server with an in-memory database and both providers backed by [google] and [apple]. */
+/** A server with an in-memory database and both providers backed by [google] and [apple]; [apple] accepts the bundle id and the Services ID. */
 fun testServices(
     google: FakeProvider,
     apple: FakeProvider,
     appleEnabled: Boolean = true,
     appleTokens: AppleTokens = NoAppleTokens,
+    appleWeb: AppleWebSignIn? = null,
 ) = Services(
     store = Store.open(null),
     tokens = SessionTokens("a-test-secret-that-is-long-enough-for-hmac-256"),
     verifier = JwksIdentityVerifier(
         googleClientIds = listOf(GOOGLE_AUDIENCE),
-        appleClientIds = if (appleEnabled) listOf(APPLE_AUDIENCE) else emptyList(),
+        appleClientIds = if (appleEnabled) listOf(APPLE_AUDIENCE, APPLE_SERVICES_ID) else emptyList(),
         googleKeys = google.jwks,
         appleKeys = apple.jwks,
     ),
     appleTokens = appleTokens,
+    appleWeb = appleWeb,
     maxBlobBytes = 1024,
 )

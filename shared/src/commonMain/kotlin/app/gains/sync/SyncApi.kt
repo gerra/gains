@@ -46,6 +46,15 @@ class SyncApi(
         return response.read(SignInResponse.serializer())
     }
 
+    /**
+     * Finishes a web sign-in: trades the one-time [code] from the app's callback URL for our token.
+     * The code works once and for a minute, so this runs as soon as the callback arrives.
+     */
+    suspend fun exchange(code: String): SignInResponse = client.post("$baseUrl/auth/exchange") {
+        contentType(ContentType.Application.Json)
+        setBody(SyncJson.encodeToString(ExchangeRequest.serializer(), ExchangeRequest(code)))
+    }.read(SignInResponse.serializer())
+
     suspend fun refresh(): SignInResponse = client.post("$baseUrl/auth/refresh") { bearer() }.read(SignInResponse.serializer())
 
     suspend fun me(): UserInfo = client.get("$baseUrl/auth/me") { bearer() }.read(UserInfo.serializer())

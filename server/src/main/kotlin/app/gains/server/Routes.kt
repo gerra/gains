@@ -2,6 +2,7 @@ package app.gains.server
 
 import app.gains.sync.BlobResponse
 import app.gains.sync.ErrorResponse
+import app.gains.sync.ExchangeRequest
 import app.gains.sync.GuestListRequest
 import app.gains.sync.PhotoDoc
 import app.gains.sync.PullResponse
@@ -13,6 +14,7 @@ import app.gains.sync.SyncApi
 import app.gains.sync.SyncJson
 import app.gains.sync.SyncKinds
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -27,8 +29,11 @@ import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.receive
 import io.ktor.server.request.receiveChannel
+import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
+import io.ktor.server.response.respondRedirect
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -52,6 +57,8 @@ class Services(
     val verifier: IdentityVerifier,
     /** Trades Apple sign-in codes for refresh tokens and revokes them when an account is deleted. */
     val appleTokens: AppleTokens = NoAppleTokens,
+    /** Sign in with Apple through Apple's web page, for Android and the desktop; null when no Services ID is set. */
+    val appleWeb: AppleWebSignIn? = null,
     /** The largest blob accepted, in bytes. A workout photo is a few hundred kilobytes. */
     val maxBlobBytes: Int = 8 * 1024 * 1024,
     /** The most addresses the guest list holds; past it, joining answers 503. */
@@ -139,6 +146,12 @@ fun Application.gainsServer(services: Services) {
         }
     }
 
+    /** Sends the browser on to [url] with a 303, so the post Apple made becomes a plain GET. */
+    suspend fun ApplicationCall.seeOther(url: String) {
+        response.headers.append(HttpHeaders.Location, url)
+        respond(HttpStatusCode.SeeOther)
+    }
+
     routing {
         get("/health") { call.respond(mapOf("status" to "ok")) }
 
@@ -152,6 +165,63 @@ fun Application.gainsServer(services: Services) {
                 log.info("sign-in: user {} via {}", user.id, provider)
                 call.respond(SignInResponse(tokens.issue(user.id), user))
             }
+        }
+
+        // Sign in with Apple for Android and the desktop (AppleWebSignIn): start, Apple's post back,
+        // then the app trades the one-time code for our token.
+        get("/auth/apple/start") {
+            val web = services.appleWeb ?: throw HttpError(HttpStatusCode.ServiceUnavailable, "apple web sign-in is not configured")
+            val redirect = call.request.queryParameters["redirect"].orEmpty()
+            val state = call.request.queryParameters["state"].orEmpty()
+            if (redirect.length > 2048 || !AppleWebSignIn.isAllowedAppCallback(redirect)) throw HttpError(HttpStatusCode.BadRequest, "redirect is not an app callback")
+            if (state.isBlank() || state.length > 512) throw HttpError(HttpStatusCode.BadRequest, "state missing or too long")
+            val authorizeUrl = web.start(redirect, state) ?: throw HttpError(HttpStatusCode.ServiceUnavailable, "too many sign-ins in progress")
+            call.respondRedirect(authorizeUrl)
+        }
+
+        post("/auth/apple/callback") {
+            val web = services.appleWeb ?: throw HttpError(HttpStatusCode.ServiceUnavailable, "apple web sign-in is not configured")
+            val form = call.receiveParameters()
+            // Without a state we know of there is no app to send the person back to, so this one
+            // answers in the browser; everything after it goes back to the app.
+            val pending = web.finish(form["state"].orEmpty())
+            if (pending == null) {
+                call.respondText("This sign-in has expired. Go back to Gains and start again.", status = HttpStatusCode.BadRequest)
+                return@post
+            }
+            suspend fun backToApp(vararg params: Pair<String, String>) =
+                call.seeOther(AppleWebSignIn.withQuery(pending.appRedirect, *params, "state" to pending.appState))
+
+            form["error"]?.let { error ->
+                // Closing Apple's page is a cancel, not a failure: the app shows no error for it.
+                log.info("apple web sign-in: {}", error)
+                return@post backToApp("error" to if (error == "user_cancelled_authorize") "cancelled" else "failed")
+            }
+            val identity = try {
+                services.verifier.verify(Providers.APPLE, form["id_token"].orEmpty())
+            } catch (e: InvalidTokenException) {
+                log.warn("apple web sign-in: {}", e.message)
+                return@post backToApp("error" to "failed")
+            }
+            // The token must come from this sign-in: issued to the Services ID, with the nonce
+            // start made. Otherwise a token lifted from elsewhere could be replayed here.
+            if (identity.audience != web.servicesId || identity.nonce != pending.nonce) {
+                log.warn("apple web sign-in: token for another client or sign-in")
+                return@post backToApp("error" to "failed")
+            }
+            val name = AppleWebSignIn.nameFromUserJson(form["user"])
+            val user = store.signIn(Providers.APPLE, identity.subject, identity.email, identity.emailVerified, identity.name ?: name)
+            form["code"]?.let { keepAppleRefreshToken(identity, it) }
+            log.info("sign-in: user {} via apple web", user.id)
+            backToApp("code" to web.issueCode(user.id))
+        }
+
+        post("/auth/exchange") {
+            val web = services.appleWeb ?: throw HttpError(HttpStatusCode.ServiceUnavailable, "apple web sign-in is not configured")
+            val code = call.receive<ExchangeRequest>().code
+            val userId = web.redeem(code) ?: throw HttpError(HttpStatusCode.Unauthorized, "code expired or already used")
+            val user = store.user(userId) ?: throw HttpError(HttpStatusCode.Unauthorized, "no such user")
+            call.respond(SignInResponse(tokens.issue(userId), user))
         }
 
         post("/auth/refresh") {
