@@ -3,6 +3,7 @@ package app.gains.auth
 import app.gains.data.SettingsRepository
 import app.gains.sync.SyncApi
 import app.gains.sync.SyncStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -128,9 +129,21 @@ class AccountRepository(
         store.setTokenIssuedAt(Clock.System.now().toString())
     }
 
-    /** Forgets the account and its token. Local data is kept; the user lands on the sign-in screen again. */
+    /**
+     * Forgets the account and its token. Local data is kept; the user lands on the sign-in screen
+     * again. The account row is cleared even when the vault can't clear the token (the Keychain
+     * throws when `SecItemDelete` fails): the callers launch this with no exception handler, and an
+     * uncaught exception crashes a Kotlin/Native app. The token left behind has no account in front
+     * of it, so [forgetOrphanedToken] drops it at the next start.
+     */
     suspend fun signOut() {
-        store.clearToken()
+        try {
+            store.clearToken()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Orphaned now; cleared at the next start.
+        }
         settings.set(KEY_ACCOUNT, "")
     }
 

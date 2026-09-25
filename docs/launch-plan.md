@@ -37,7 +37,7 @@ The same rules as `auth-plan.md`:
 
 | # | Item | Milestone | Who | Depends on | Done |
 |---|------|-----------|-----|------------|------|
-| 1 | Sign-out can't crash the app; fix the secrets deploy line | iOS launch | Agent | — | [ ] |
+| 1 | Sign-out can't crash the app; fix the secrets deploy line | iOS launch | Agent | — | [x] |
 | 2 | Merge accounts only on verified emails | iOS launch | Agent | — | [ ] |
 | 3 | Landing page and privacy policy on `gains.gerra.sh` | iOS launch | Agent + Owner | — | [ ] |
 | 4 | Contact email alias | iOS launch | Owner | — | [ ] |
@@ -75,7 +75,8 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
 
 ### 1. Sign-out can't crash the app; fix the secrets deploy line
 
-- [ ] Done
+- [x] Done
+  Done in #75
 
 **Milestone:** iOS launch. **Depends on:** nothing.
 
