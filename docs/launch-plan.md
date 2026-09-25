@@ -116,7 +116,7 @@ Apple user gets a new user. A verified one joins the existing user.
 ### 3. Landing page and privacy policy on `gains.gerra.sh`
 
 - [ ] Done
-  Agent steps 1–3 and 6 are in (branch `claude/great-edison-bb10ft`): `site/`, the two nginx
+  Agent steps 1–3 and 6 are in #73: `site/`, the two nginx
   files, `deploy_server.py site` / `nginx` and the Deploy site and nginx workflow. Left: the owner's
   steps 4 and 5. Tick this box once `https://gains.gerra.sh/privacy` loads.
 
