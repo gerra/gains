@@ -255,6 +255,10 @@ sections passed on a TestFlight build containing them.
 ### 8. Android package name and Play Console app
 
 - [ ] Done
+  Agent step 2 is in #80: the owner kept `app.gains`, so `applicationId` doesn't change, and
+  nothing in the manifest or the receivers depends on it (the intent actions are plain strings,
+  and the notification uses `context.packageName`). Left: the owner's steps 3 and 4. Tick this
+  box once the Play Console app exists.
 
 **Milestone:** Android launch. **Depends on:** nothing.
 
@@ -262,7 +266,8 @@ The application id is `app.gains` today (`composeApp/android.gradle`), which may
 taken on Play. **Choose before the first upload: Play never lets you change it.**
 
 1. **Owner:** pick the id. `sh.gerra.gains` follows the domain you own. Check that no Play
-   listing uses it.
+   listing uses it. *Decided:* keep `app.gains`. Play refuses the first upload if the
+   id is taken; if that happens, come back here and pick another before retrying.
 2. Change `applicationId` in `composeApp/android.gradle`. `namespace` and the Kotlin packages
    can stay `app.gains`, since only the application id is public. Check `AndroidManifest.xml`
    and the notification / receiver code for any hard-coded `app.gains` that means the
@@ -281,8 +286,8 @@ taken on Play. **Choose before the first upload: Play never lets you change it.*
 **Milestone:** Android launch. **Depends on:** 8.
 
 1. **Owner:** Google Cloud, in the same project as the iOS client:
-   - an **Android** OAuth client with the new package name and the SHA-1 of **both** the Play
-     App Signing key and the upload key (debug keystore too, for local runs);
+   - an **Android** OAuth client with the package name `app.gains` and the SHA-1 of **both**
+     the Play App Signing key and the upload key (debug keystore too, for local runs);
    - a **Web application** client. Its id is Credential Manager's `serverClientId` and the
      audience of the tokens Android sends.
    Add the web client id to `GOOGLE_CLIENT_IDS` and deploy the secrets.
