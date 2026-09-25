@@ -54,6 +54,9 @@ NGINX_STAGING = HOME / "nginx"
 SITES_AVAILABLE = pathlib.Path("/etc/nginx/sites-available")
 SITES_ENABLED = pathlib.Path("/etc/nginx/sites-enabled")
 LETSENCRYPT_LIVE = pathlib.Path("/etc/letsencrypt/live")
+# The catch-all (deploy/nginx/default.conf) needs some certificate to listen on 443; a
+# self-signed one for no real name, made once on the box.
+FALLBACK_CERTIFICATE = pathlib.Path("/etc/nginx/ssl")
 CERTIFICATE = re.compile(r"^\s*ssl_certificate\s+/etc/letsencrypt/live/([^/\s]+)/", re.MULTILINE)
 
 # The site: static files, no build step. nginx (www-data) reads them, so not under /root.
@@ -252,6 +255,7 @@ def nginx(args):
 
 def remote_nginx(args):
     """Runs as root on the box: install the staged sites, `nginx -t`, then reload or undo."""
+    ensure_fallback_certificate(FALLBACK_CERTIFICATE)
     try:
         installed, skipped = install_sites(
             NGINX_STAGING / "sites", SITES_AVAILABLE, SITES_ENABLED, LETSENCRYPT_LIVE,
@@ -270,6 +274,19 @@ def remote_nginx(args):
     if installed:
         run("systemctl", "reload", "nginx")
         print(f"installed {', '.join(installed)}; nginx reloaded.")
+
+
+def ensure_fallback_certificate(directory):
+    """A self-signed default.crt / default.key in `directory`, unless they are already there."""
+    certificate, key = directory / "default.crt", directory / "default.key"
+    if certificate.is_file() and key.is_file():
+        return
+    directory.mkdir(parents=True, exist_ok=True)
+    run(
+        "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "3650",
+        "-subj", "/CN=invalid", "-keyout", key, "-out", certificate,
+    )
+    key.chmod(0o600)
 
 
 def certificates(config):

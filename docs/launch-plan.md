@@ -157,7 +157,8 @@ API's certificate, which shows a certificate warning.
    `tools/release.py`, so that a site change alone doesn't cut an iOS release.
 4. **Owner:** on the box, check that nothing else claims `default_server`
    (`grep -rn default_server /etc/nginx/sites-enabled/`; the stock `default` is fine, it gets
-   replaced) and that `nginx -v` is 1.19.4 or later, for `ssl_reject_handshake`. Then
+   replaced). The box runs nginx 1.18, too old for `ssl_reject_handshake`, so the catch-all
+   uses a self-signed certificate that `deploy_server.py nginx` makes on the box. Then
    `certbot certonly --nginx -d gains.gerra.sh`, `deploy_server.py site` (or run the Deploy
    site workflow) and `deploy_server.py nginx`. `nginx` skips a site whose certificate is
    missing and undoes everything if `nginx -t` fails.
@@ -583,8 +584,8 @@ build fails a check, open an issue and link it next to the box.
       it arrives in your inbox (needs item 4).
 - [ ] The pages look right on a phone, in dark and light.
 - [ ] A missing page (`/nope`) shows the site's own "Nothing here" page.
-- [ ] `curl -skv https://<box IP>/` (no name) fails the handshake instead of showing a
-      certificate.
+- [ ] `curl -skv https://<box IP>/` (no name) shows the self-signed `CN=invalid` certificate,
+      not the API's, and gets an empty reply.
 
 **5. Google in production**
 - [ ] An account that was never a test user signs in with Google.

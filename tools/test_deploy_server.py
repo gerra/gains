@@ -151,6 +151,23 @@ class InstallSitesTest(unittest.TestCase):
         self.assertFalse((self.enabled / "new.example").is_symlink())
 
 
+class FallbackCertificateTest(unittest.TestCase):
+    def test_made_once_and_then_left_alone(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = pathlib.Path(temp) / "ssl"
+            deploy_server.ensure_fallback_certificate(directory)
+            certificate = (directory / "default.crt").read_bytes()
+            self.assertIn(b"BEGIN CERTIFICATE", certificate)
+            self.assertEqual(0o600, (directory / "default.key").stat().st_mode & 0o777)
+            deploy_server.ensure_fallback_certificate(directory)
+            self.assertEqual(certificate, (directory / "default.crt").read_bytes())
+
+    def test_the_catch_all_uses_it(self):
+        config = (deploy_server.NGINX_DIR / "default.conf").read_text()
+        self.assertIn(f"ssl_certificate {deploy_server.FALLBACK_CERTIFICATE}/default.crt;", config)
+        self.assertIn(f"ssl_certificate_key {deploy_server.FALLBACK_CERTIFICATE}/default.key;", config)
+
+
 class SitePagesTest(unittest.TestCase):
     """Every local link and image in site/ resolves the way nginx's try_files does."""
 
