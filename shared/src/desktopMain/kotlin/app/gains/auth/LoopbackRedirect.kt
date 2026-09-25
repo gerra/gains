@@ -4,12 +4,16 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import java.io.Closeable
+import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.nio.channels.Channels
+import java.nio.channels.ClosedByInterruptException
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 
@@ -38,7 +42,7 @@ class LoopbackRedirect private constructor(private val server: ServerSocketChann
         val result = CompletableDeferred<String>()
         launch(Dispatchers.IO) {
             while (true) {
-                val connection = runInterruptible { server.accept() }
+                val connection = interruptible { server.accept() }
                 launch { answer(connection, page, result) }
             }
         }
@@ -48,6 +52,8 @@ class LoopbackRedirect private constructor(private val server: ServerSocketChann
     private suspend fun answer(connection: SocketChannel, page: String, result: CompletableDeferred<String>) {
         try {
             respond(connection, page)?.let { result.complete("http://127.0.0.1:$port$it") }
+        } catch (e: IOException) {
+            // One connection going wrong (a reset, a peer that hung up) doesn't end the wait.
         } finally {
             connection.close()
         }
@@ -56,9 +62,9 @@ class LoopbackRedirect private constructor(private val server: ServerSocketChann
     /** Answers one connection, and returns its request target when it was the redirect. */
     private suspend fun respond(connection: SocketChannel, page: String): String? {
         // Reads and writes go through the channel so that cancelling interrupts them.
-        val target = runInterruptible { requestTarget(connection) } ?: return null
+        val target = interruptible { requestTarget(connection) } ?: return null
         val redirect = target.startsWith("/") && '?' in target
-        runInterruptible {
+        interruptible {
             val body = (if (redirect) page else "Not found").encodeToByteArray()
             val head = buildString {
                 append(if (redirect) "HTTP/1.1 200 OK\r\n" else "HTTP/1.1 404 Not Found\r\n")
@@ -78,6 +84,18 @@ class LoopbackRedirect private constructor(private val server: ServerSocketChann
     }
 
     override fun close() = server.close()
+
+    /**
+     * [runInterruptible] for channel calls. Interrupting one closes the channel and throws
+     * [ClosedByInterruptException], an `IOException` that `runInterruptible` passes through; when it
+     * comes from cancelling, it is rethrown as the cancellation it is.
+     */
+    private suspend fun <T> interruptible(block: () -> T): T = try {
+        runInterruptible(block = block)
+    } catch (e: ClosedByInterruptException) {
+        currentCoroutineContext().ensureActive()
+        throw e
+    }
 
     companion object {
         /** Opens the listener on a free port of `127.0.0.1`. */
