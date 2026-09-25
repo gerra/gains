@@ -37,6 +37,8 @@ import app.gains.ui.i18n.Texts
 import app.gains.ui.i18n.rememberTexts
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.compose.resources.stringResource
 import org.koin.dsl.module
@@ -54,7 +56,10 @@ fun main(args: Array<String>) {
             single<DatabaseDriverFactory> { DesktopDriverFactory() }
             // Loaded after the shared module, so these replace its guest-only defaults.
             single { desktopAuthConfig() }
-            single<IdentityProvider> { DesktopIdentityProvider(get(), desktopGoogleClientSecret(), get()) }
+            single<IdentityProvider> {
+                // Sign-in starts from the window, so its strings are there by the time a page is needed.
+                DesktopIdentityProvider(get(), desktopGoogleClientSecret(), get(), page = { donePage(windowTexts.filterNotNull().first()) })
+            }
         },
     )
     // `gains a.csv b.csv` opens straight into the import preview with those files.
@@ -92,12 +97,16 @@ fun main(args: Array<String>) {
             SideEffect { frame = window }
             SyncOnFocus(window)
             val texts = rememberTexts()
+            SideEffect { windowTexts.value = texts }
             val filePicker = remember(texts) { DesktopFilePicker(texts) }
             val photoPicker = remember(texts) { DesktopPhotoPicker(texts) }
             App(filePicker = filePicker, notifier = notifier, photoPicker = photoPicker)
         }
     }
 }
+
+/** The window's strings, for the sign-in page the browser shows, which is made outside the composition. */
+private val windowTexts = MutableStateFlow<Texts?>(null)
 
 /**
  * A sync each time the window comes back to the front, as docs/sync.md promises and iOS does on

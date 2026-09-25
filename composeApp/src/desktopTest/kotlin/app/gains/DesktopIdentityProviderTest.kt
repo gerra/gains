@@ -1,9 +1,14 @@
 package app.gains
 
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.runDesktopComposeUiTest
 import app.gains.auth.AccountKind
 import app.gains.auth.AuthConfig
 import app.gains.auth.AuthNotConfiguredException
 import app.gains.auth.SignInCancelledException
+import app.gains.ui.i18n.Texts
+import app.gains.ui.i18n.rememberTexts
+import app.gains.ui.theme.GainsTheme
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -56,7 +61,7 @@ class DesktopIdentityProviderTest {
     fun googleComesBackThroughTheLoopbackWithAToken() = runBlocking {
         var opened: URI? = null
         val browser = browserThatSignsIn { state -> "state=${URLEncoder.encode(state, "UTF-8")}&code=4%2F0Ab&scope=email" }
-        val provider = DesktopIdentityProvider(config, "GOCSPX-test", http, browse = { opened = it; browser(it) })
+        val provider = DesktopIdentityProvider(config, "GOCSPX-test", http, page = { "<p>done</p>" }, browse = { opened = it; browser(it) })
         val assertion = provider.signIn(AccountKind.GOOGLE)
         assertEquals("eyJ.desktop", assertion.token)
         assertNull(assertion.name)
@@ -73,7 +78,7 @@ class DesktopIdentityProviderTest {
 
     @Test
     fun aRedirectForAnotherRequestIsRefused() {
-        val provider = DesktopIdentityProvider(config, "GOCSPX-test", http, browse = browserThatSignsIn { "state=someone-else&code=4%2F0Ab" })
+        val provider = DesktopIdentityProvider(config, "GOCSPX-test", http, page = { "<p>done</p>" }, browse = browserThatSignsIn { "state=someone-else&code=4%2F0Ab" })
         assertFailsWith<Exception> { runBlocking { provider.signIn(AccountKind.GOOGLE) } }
         assertTrue(exchanged.isEmpty(), "no code is traded")
     }
@@ -81,13 +86,25 @@ class DesktopIdentityProviderTest {
     /** A closed tab never calls back: the wait ends as a cancel, which the sign-in screen doesn't report. */
     @Test
     fun aTabThatNeverAnswersTimesOutAsACancel() {
-        val provider = DesktopIdentityProvider(config, "GOCSPX-test", http, browse = {}, timeout = 200.milliseconds)
+        val provider = DesktopIdentityProvider(config, "GOCSPX-test", http, page = { "<p>done</p>" }, browse = {}, timeout = 200.milliseconds)
         assertFailsWith<SignInCancelledException> { runBlocking { provider.signIn(AccountKind.GOOGLE) } }
+    }
+
+    /** The page's words come from the composition's strings, which work without a display, as on CI. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun theDonePageSaysTheTabCanBeClosed() = runDesktopComposeUiTest(400, 800) {
+        var texts: Texts? = null
+        setContent { GainsTheme { texts = rememberTexts() } }
+        val page = runBlocking { donePage(checkNotNull(texts)) }
+        assertTrue(page.startsWith("<!doctype html>"), page)
+        assertTrue("<title>Back to Gains</title>" in page, page)
+        assertTrue("You can close this tab and go back to Gains." in page, page)
     }
 
     @Test
     fun appleIsNotHereYet() {
-        val provider = DesktopIdentityProvider(config, "GOCSPX-test", http, browse = { error("no browser for Apple") })
+        val provider = DesktopIdentityProvider(config, "GOCSPX-test", http, page = { "<p>done</p>" }, browse = { error("no browser for Apple") })
         assertFailsWith<AuthNotConfiguredException> { runBlocking { provider.signIn(AccountKind.APPLE) } }
     }
 

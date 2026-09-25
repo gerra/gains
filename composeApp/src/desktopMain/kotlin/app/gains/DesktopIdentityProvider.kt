@@ -11,11 +11,11 @@ import app.gains.auth.SignInCancelledException
 import app.gains.resources.Res
 import app.gains.resources.browser_sign_in_done
 import app.gains.resources.browser_sign_in_done_title
+import app.gains.ui.i18n.Texts
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import org.jetbrains.compose.resources.getString
 import java.awt.Desktop
 import java.net.URI
 import java.security.MessageDigest
@@ -29,6 +29,7 @@ import kotlin.time.Duration.Companion.minutes
  * [LoopbackRedirect] on `127.0.0.1`, and the code it carries is traded, with [clientSecret], for an
  * identity token whose audience is [AuthConfig.googleClientId]. Apple waits for item 16 of
  * docs/launch-plan.md. [http] is the app's client, used for the one call to Google's token endpoint.
+ * [page] is the HTML the tab shows once it has handed the app its answer ([donePage]).
  *
  * A browser tab can be closed without the app hearing of it, so the wait gives up after [timeout]
  * and reads as a cancel: the sign-in screen goes quiet again rather than showing an error.
@@ -37,6 +38,7 @@ internal class DesktopIdentityProvider(
     private val config: AuthConfig,
     private val clientSecret: String?,
     private val http: HttpClient,
+    private val page: suspend () -> String,
     private val browse: (URI) -> Unit = ::openInBrowser,
     private val timeout: Duration = 5.minutes,
 ) : IdentityProvider {
@@ -51,7 +53,7 @@ internal class DesktopIdentityProvider(
         val verifier = GoogleOAuth.base64Url(randomBytes(32))
         val challenge = GoogleOAuth.base64Url(MessageDigest.getInstance("SHA-256").digest(verifier.encodeToByteArray()))
         val state = GoogleOAuth.base64Url(randomBytes(32))
-        val page = donePage()
+        val page = page()
         val (redirect, redirectUri) = withContext(Dispatchers.IO) {
             LoopbackRedirect.open().use { loopback ->
                 val redirectUri = GoogleOAuth.loopbackRedirectUri(loopback.port)
@@ -97,10 +99,14 @@ private fun openInBrowser(uri: URI) {
     }
 }
 
-/** What the browser shows once it has handed the app its answer, in the colors of the app and of site/style.css. */
-private suspend fun donePage(): String {
-    val title = escapeHtml(getString(Res.string.browser_sign_in_done_title))
-    val body = escapeHtml(getString(Res.string.browser_sign_in_done))
+/**
+ * What the browser shows once it has handed the app its answer, in the colors of the app and of
+ * site/style.css. The words come through [texts], in the app's language, since the plain
+ * `getString` needs a display (see [Texts]).
+ */
+internal suspend fun donePage(texts: Texts): String {
+    val title = escapeHtml(texts.get(Res.string.browser_sign_in_done_title))
+    val body = escapeHtml(texts.get(Res.string.browser_sign_in_done))
     return """
         <!doctype html>
         <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
