@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older. The sync token's file is encrypted with a Keystore key that never leaves
+     this phone, so a copy anywhere else can't be read (KeystoreTokenVault). Everything else is
+     backed up as before. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="app.gains.sync.xml" />
+</full-backup-content>

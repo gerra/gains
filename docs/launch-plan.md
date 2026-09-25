@@ -624,6 +624,12 @@ build fails a check, open an issue and link it next to the box.
 - [ ] Sync between an iPhone and an Android phone on one account, both ways, including a
       photo.
 - [ ] Reinstall: no stale token; signing in works.
+- [ ] Item 12: once signed in, `adb shell run-as app.gains cat shared_prefs/app.gains.sync.xml`
+      shows a Base64 blob, not the token, and `sync_state` in `databases/gains.db` has no
+      `token` row. Force-stop and reopen: still signed in, and "Sync now" works.
+- [ ] Item 12: `adb shell bmgr backupnow app.gains`, uninstall, reinstall and let the backup
+      restore: the workouts are back, and the account card says "Signed out on the server"
+      until you sign in again. No crash.
 
 ### Desktop (items 15–17)
 
