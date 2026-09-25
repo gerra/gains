@@ -305,7 +305,7 @@ taken on Play. **Choose before the first upload: Play never lets you change it.*
 ### 10. Server: Apple web sign-in (Services ID)
 
 - [x] Done
-  Done in #PR. The owner's step 1 (`APPLE_SERVICES_ID` in `secrets/.env`) switches it on; until
+  Done in #81. The owner's step 1 (`APPLE_SERVICES_ID` in `secrets/.env`) switches it on; until
   then the three routes answer 503 and the server logs `apple web off` at start.
 
 **Milestone:** Android launch. **Depends on:** nothing. Also used by item 16.
