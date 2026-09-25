@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Putting the sync server on its box (docs/sync.md, "Deploying").
 
-Six commands, in two groups. From the deploy workflow, with the DEPLOY_HOST, DEPLOY_USER and
+Seven commands, in three groups. From the deploy workflows, with the DEPLOY_HOST, DEPLOY_USER and
 DEPLOY_KEY secrets in the environment:
 
   prepare   Write the key file and make sure the target directories exist on the box.
             The workflow's rsync step then copies the install directory into current/.
   install   Copy the systemd unit and this script to the box and run `remote` there.
   logs      Fetch the unit's journal into a file, for the failure artifact.
+  nginx     Push every site in deploy/nginx/ whose certificate exists, `nginx -t`, reload.
+  site      Rsync site/ (the pages of gains.gerra.sh) to the web root, smoke test /privacy.
 
 On the box itself, run by `install` over ssh:
 
@@ -16,7 +18,8 @@ On the box itself, run by `install` over ssh:
 From a laptop, against the host alias in REMOTE (hetzner_gb by default):
 
   secrets   Push secrets/.env (never in git, never in the rsync) and restart the unit.
-  nginx     Push deploy/nginx/api.gains.gerra.sh.conf and reload nginx, if the certificate exists.
+
+`nginx` and `site` also run from a laptop the same way, when the workflow isn't wanted.
 
 Nothing here goes through a shell: every command is a list of arguments, so paths and secrets
 are never re-parsed. The remote side is this same file, run with the box's python3.
@@ -26,6 +29,8 @@ import argparse
 import json
 import os
 import pathlib
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -42,8 +47,15 @@ UNIT = "gains-server"
 UNIT_FILE = ROOT / "deploy" / f"{UNIT}.service"
 DATA_DIR = pathlib.Path("/var/lib/gains")
 HEALTH = "http://127.0.0.1:5003/health"
-VHOST = "api.gains.gerra.sh"
-VHOST_FILE = ROOT / "deploy" / "nginx" / f"{VHOST}.conf"
+
+# nginx: each deploy/nginx/<name>.conf becomes sites-available/<name>, linked from sites-enabled.
+NGINX_DIR = ROOT / "deploy" / "nginx"
+CERTIFICATE = re.compile(r"^\s*ssl_certificate\s+/etc/letsencrypt/live/([^/\s]+)/", re.MULTILINE)
+
+# The site: static files, no build step. nginx (www-data) reads them, so not under /root.
+SITE_DIR = ROOT / "site"
+SITE_HOST = "gains.gerra.sh"
+WEB_ROOT = pathlib.Path("/var/www") / SITE_HOST
 
 
 # --- talking to the box ------------------------------------------------------
@@ -112,6 +124,34 @@ def logs(args):
     remote = Remote.from_environment()
     result = remote.ssh("journalctl", "-u", UNIT, "-n", "500", "--no-pager", check=False, capture=True)
     pathlib.Path(args.into).write_text(result.stdout + result.stderr)
+
+
+def site(args):
+    remote = Remote.from_environment()
+    remote.ssh("mkdir", "-p", str(WEB_ROOT))
+    run(*rsync_command(remote, SITE_DIR, WEB_ROOT))
+    status = fetch_status(f"https://{SITE_HOST}/privacy")
+    if status != 200:
+        fail(f"https://{SITE_HOST}/privacy answered {status or 'nothing'}; is the vhost pushed (`nginx`)?")
+    print(f"smoke test: https://{SITE_HOST}/privacy answers 200.")
+
+
+def rsync_command(remote, source, destination):
+    """rsync of a directory's contents, deleting what is gone, readable by nginx's worker."""
+    command = ["rsync", "-rltvz", "--delete", "--chmod=D755,F644"]
+    if remote.options():
+        command += ["-e", shlex.join(["ssh", *remote.options()])]
+    return command + [f"{source}/", f"{remote.target}:{destination}/"]
+
+
+def fetch_status(url):
+    try:
+        with urllib.request.urlopen(url, timeout=10) as response:
+            return response.status
+    except urllib.error.HTTPError as error:
+        return error.code
+    except (urllib.error.URLError, OSError):
+        return 0
 
 
 # --- on the box ----------------------------------------------------------------
@@ -190,19 +230,35 @@ def secrets(args):
 
 
 def nginx(args):
+    """Push each site in deploy/nginx/ whose certificate exists, then test and reload nginx."""
     remote = Remote.from_environment()
-    certificate = f"/etc/letsencrypt/live/{VHOST}/fullchain.pem"
-    if remote.ssh("test", "-f", certificate, check=False).returncode != 0:
-        fail(
-            f"no certificate for {VHOST}; issue it first (needs the DNS record): "
-            f"ssh {remote.target} 'certbot certonly --nginx -d {VHOST}'"
-        )
-    available = f"/etc/nginx/sites-available/{VHOST}"
-    remote.scp(VHOST_FILE, available)
-    remote.ssh("ln", "-sfn", available, f"/etc/nginx/sites-enabled/{VHOST}")
+    pushed = []
+    for path in sorted(NGINX_DIR.glob("*.conf")):
+        site_name = path.stem
+        missing = [
+            domain for domain in certificates(path.read_text())
+            if remote.ssh("test", "-f", f"/etc/letsencrypt/live/{domain}/fullchain.pem", check=False).returncode != 0
+        ]
+        if missing:
+            print(
+                f"skipping {site_name}: no certificate; issue it first (needs the DNS record): "
+                + "; ".join(f"ssh {remote.target} 'certbot certonly --nginx -d {domain}'" for domain in missing)
+            )
+            continue
+        available = f"/etc/nginx/sites-available/{site_name}"
+        remote.scp(path, available)
+        remote.ssh("ln", "-sfn", available, f"/etc/nginx/sites-enabled/{site_name}")
+        pushed.append(site_name)
+    if not pushed:
+        fail("nothing pushed")
     remote.ssh("nginx", "-t")
     remote.ssh("systemctl", "reload", "nginx")
-    print(f"pushed {VHOST}; nginx reloaded.")
+    print(f"pushed {', '.join(pushed)}; nginx reloaded.")
+
+
+def certificates(config):
+    """The Let's Encrypt names a site's configuration needs a certificate for."""
+    return sorted(set(CERTIFICATE.findall(config)))
 
 
 # --- entry point ---------------------------------------------------------------
@@ -216,7 +272,8 @@ def main(argv=None):
         ("install", install, "CI: copy the unit and this script to the box and run `remote` there"),
         ("remote", remote, "on the box: JDK, unit, restart, smoke test"),
         ("secrets", secrets, "laptop: push secrets/.env and restart the unit"),
-        ("nginx", nginx, "laptop: push the vhost and reload nginx"),
+        ("nginx", nginx, "CI or laptop: push every site in deploy/nginx/ and reload nginx"),
+        ("site", site, "CI or laptop: rsync site/ to the web root on the box"),
     ]:
         commands.add_parser(name, help=help_text).set_defaults(handler=handler)
     logs_parser = commands.add_parser("logs", help="CI: fetch the unit's journal into a file")

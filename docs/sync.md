@@ -52,7 +52,7 @@ The server is a Gradle module in this repository rather than a repository of its
 | [`shared/src/commonMain/kotlin/app/gains/sync/`](../shared/src/commonMain/kotlin/app/gains/sync) | The wire format (`Protocol.kt`, `Documents.kt`), the client engine (`SyncEngine.kt`, `SyncApi.kt`) and the change log it reads (`SyncStore.kt`). Compiled into the app and into the server. |
 | [`shared/src/commonMain/sqldelight/app/gains/db/Sync.sq`](../shared/src/commonMain/sqldelight/app/gains/db/Sync.sq) | The `sync_change` and `sync_state` tables and the triggers that fill the first. |
 | [`server/`](../server) | The Ktor server: sign-in, the document feed, photo blobs, its own SQLDelight schema. Depends on `:shared`'s JVM target, so the two ends serialize with the same classes. |
-| [`deploy/`](../deploy) | The systemd unit and the nginx server block, installed by the deploy workflow and `tools/deploy_server.py nginx`. |
+| [`deploy/`](../deploy) | The systemd unit, installed by the deploy workflow, and the nginx sites (the API and `gains.gerra.sh`), installed by `tools/deploy_server.py nginx`. |
 | [`tools/deploy_server.py`](../tools/deploy_server.py) | Every deploy step as Python, like the release tooling: what the workflow runs, what runs on the box, and the two laptop commands (`secrets`, `nginx`). |
 | [`secrets/`](../secrets) | `.env.example` and what each variable is; the real `.env` is never committed and reaches the server only through `tools/deploy_server.py secrets`. |
 
@@ -267,15 +267,21 @@ The same playbook as taxes and www, on the same Hetzner box:
   `tools/deploy_server.py install`, which copies the unit and itself to the box and runs there:
   JDK 17 if the box lacks one, the unit installed, restart, smoke test of `/health`. No shell
   anywhere in it, the same way the release workflows run `tools/release.py`.
-- nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`; push it with
-  `python3 tools/deploy_server.py nginx` after the certificate exists
-  (`certbot certonly --nginx -d api.gains.gerra.sh`).
+- nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`.
+  `python3 tools/deploy_server.py nginx` pushes every file in `deploy/nginx/` (this one and the
+  site's `gains.gerra.sh.conf`), then runs `nginx -t` and reloads. The
+  [Deploy site and nginx workflow](../.github/workflows/deploy-site.yml) runs it on a push to
+  `main` that touches `deploy/nginx/`. A site whose certificate doesn't exist yet is skipped,
+  with the `certbot certonly --nginx -d <name>` line to run on the box first; that is the one
+  step left by hand.
 - Secrets: `python3 tools/deploy_server.py secrets` copies `secrets/.env` to the box and
   restarts the unit.
 - Data: `/var/lib/gains/gains-server.db`, outside the synced tree; back it up by copying the file.
-- The host is `api.gains.gerra.sh` rather than `gains.gerra.sh` on purpose: the bare name is kept
-  for the app's own page, which App Store Connect needs for the privacy policy and support
-  links, and the API stays on an origin of its own.
+- The host is `api.gains.gerra.sh` rather than `gains.gerra.sh` on purpose: the bare name is the
+  app's own site ([`site/`](../site): landing page, `/privacy`, `/support`), which App Store
+  Connect needs for the privacy policy and support links, and the API stays on an origin of its
+  own. The same workflow rsyncs `site/` to `/var/www/gains.gerra.sh` on a push to `main` that
+  touches it, and smoke tests `https://gains.gerra.sh/privacy`.
 - Logs: `journalctl -u gains-server`, also on gerra.sh/status.
 
 The workflow needs the repository secrets `DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_KEY`, the same

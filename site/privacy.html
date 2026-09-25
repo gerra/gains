@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy policy — Gains</title>
+  <meta name="description" content="What the Gains app keeps on your device, what a signed-in account sends to our server, and how to delete it.">
+  <meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f3f4f8" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="/img/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="wrap top">
+    <a class="brand" href="/"><img src="/img/logo.png" alt="" width="36" height="36">Gains</a>
+    <nav>
+      <a href="/privacy" aria-current="page">Privacy</a>
+      <a href="/support">Support</a>
+    </nav>
+  </header>
+
+  <!--
+    Keep this page true to the app. The list of what a signed-in account sends is the same as
+    iosApp/iosApp/PrivacyInfo.xcprivacy and the App Store Connect privacy answers, and "What is
+    synced" in docs/sync.md is the source for the table. A change to either changes this page.
+  -->
+  <main class="wrap narrow doc">
+    <h1>Privacy policy</h1>
+    <p class="updated">Last updated 25 September 2026</p>
+
+    <div class="summary">
+      <p><strong>The short version.</strong> Without an account, nothing you log in Gains leaves
+        your device. If you sign in, your training data is sent to our own server so that it can
+        sync between your devices, and for nothing else. There are no ads, no analytics, no
+        tracking and no third-party SDKs, and we never sell or share your data.</p>
+      <p>Delete your account in the app (Settings → Delete account) and everything on the server
+        goes with it.</p>
+    </div>
+
+    <h2 id="who">Who we are</h2>
+    <p>Gains is an independent app, built and run by one developer. "We" on this page means the
+      people who run Gains, and "the server" means <code>api.gains.gerra.sh</code>, which we
+      run ourselves. Questions about this policy or your data go to
+      <a href="mailto:gains@gerra.sh">gains@gerra.sh</a>.</p>
+
+    <h2 id="guest">Using Gains without an account</h2>
+    <p>You can use every part of Gains as a guest. Then everything stays in a database on your
+      device and is never sent to us:</p>
+    <ul>
+      <li>Workouts you log or import. A CSV file you import from Liftoff, Strong, Hevy or another
+        app is read on the device.</li>
+      <li>Body weight, programs, custom exercises and your settings.</li>
+      <li>Photos you add to a workout. Gains copies the photo you pick into its own storage and
+        only asks for the photos you choose.</li>
+      <li>Streak reminders, which are notifications scheduled on the device.</li>
+    </ul>
+    <p>Your device's own backups (iCloud or Google) may include the app's data, under Apple's or
+      Google's terms. Deleting the app deletes its data from the device.</p>
+
+    <h2 id="account">Signing in</h2>
+    <p>Signing in is optional. It lets you keep your data when you change phones and sync it
+      between devices. You sign in with Apple or Google. We receive the identity token they
+      issue, and from it:</p>
+    <ul>
+      <li>an account identifier from Apple or Google, which is how we recognise you;</li>
+      <li>your email address (with Sign in with Apple, this can be a private relay address);</li>
+      <li>your name, if you share it.</li>
+    </ul>
+    <p>We never see your Apple or Google password. Apple's and Google's own privacy policies cover
+      what they do when you sign in with them.</p>
+
+    <h3>What a signed-in account sends to the server</h3>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Sent</th><th>Not sent</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Workouts: exercises, sets, weights, reps, times, captions, and the program day
+              they came from</td>
+            <td>A workout still in progress</td>
+          </tr>
+          <tr><td>Workout photos</td><td>Any other photo in your library</td></tr>
+          <tr><td>Body weight entries</td><td></td></tr>
+          <tr>
+            <td>Custom exercises, custom programs, and how imported exercise names map to
+              exercises</td>
+            <td>Built-in exercises and programs, which ship with the app</td>
+          </tr>
+          <tr>
+            <td>Training settings: weight unit, bar weight, warm-ups, your goal and active
+              program</td>
+            <td>Theme, language and the streak reminder</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Body weight and workout data are fitness and health information, so we treat all of it as
+      sensitive. If you were a guest before signing in, what is already on the device is uploaded
+      when you link the account.</p>
+
+    <h2 id="use">How we use it</h2>
+    <p>Only to run the app: to keep your account, store your data and send it back to your other
+      devices. We don't use it for advertising, we don't build profiles, we don't track you across
+      apps or websites, and we don't sell, rent or share it with anyone. Gains contains no
+      analytics or advertising code.</p>
+    <p>The data is sent over HTTPS and only your account can read it back. It is not end-to-end
+      encrypted, so the server stores it in a form we could technically read. We only look at it
+      when you ask us to, for example to help with a problem you've written to us about.</p>
+
+    <h2 id="where">Where it is stored</h2>
+    <p>On a server we run ourselves, rented from the hosting company Hetzner Online GmbH. Nobody
+      else processes your data for us. Like any web server, it records the requests it receives
+      (IP address, time, the address requested) in logs that we use to keep it running and
+      secure, and that are rotated out automatically.</p>
+
+    <h2 id="retention">How long we keep it</h2>
+    <p>As long as your account exists. Workouts or photos you delete in the app are deleted on
+      the server at the next sync.</p>
+
+    <h2 id="delete">Deleting your account</h2>
+    <p>In the app, open <strong>Settings → Delete account</strong>. This removes your account,
+      its Apple and Google sign-ins, every workout, setting and photo from the server, straight
+      away. The data on your device stays, and you keep using Gains as a guest; delete the app
+      to remove that too.</p>
+    <!-- When docs/launch-plan.md item 6 ships, add: "If you used Sign in with Apple, deleting
+         the account also revokes Gains' access to your Apple ID." -->
+    <p>You can also stop using your Apple ID with Gains from your iPhone's Settings → [your name]
+      → Sign in with Apple, and remove Gains' access to your Google account at
+      <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>.
+      If you can't reach the app, email us from the address on your account and we'll delete it
+      for you.</p>
+
+    <h2 id="guest-list">The guest list</h2>
+    <p>If you email us to join the guest list, we keep your email address to tell you when Gains
+      launches, and for nothing else. Ask us and we'll remove it; we delete the list after the
+      launch.</p>
+
+    <h2 id="rights">Your rights</h2>
+    <p>You can ask us for a copy of the data we hold about you, to correct it or to delete it.
+      Email <a href="mailto:gains@gerra.sh">gains@gerra.sh</a> and we'll answer within 30 days.
+      If you are in the EU or the UK, you can also complain to your data protection
+      authority.</p>
+
+    <h2 id="children">Children</h2>
+    <p>Gains is not directed at children under 13, and we don't knowingly hold data about
+      them.</p>
+
+    <h2 id="changes">Changes</h2>
+    <p>If this policy changes, we'll update it here and change the date at the top. We won't
+      start using data you've already given us in a new way without asking you first.</p>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Gains · <a href="mailto:gains@gerra.sh">gains@gerra.sh</a></span>
+      <nav>
+        <a href="/privacy">Privacy policy</a>
+        <a href="/support">Support</a>
+        <a href="https://github.com/gerra/gains">Source on GitHub</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

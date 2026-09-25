@@ -1,0 +1,42 @@
+name: Deploy site and nginx
+
+# Ships gains.gerra.sh to the Hetzner box on a push to main that touches it: first the nginx
+# vhosts in deploy/nginx/ (the API's and the site's; copied, `nginx -t`, reloaded), then site/,
+# the static pages (landing page, privacy policy, support), rsynced into
+# /var/www/gains.gerra.sh, then a smoke test of https://gains.gerra.sh/privacy. Nothing to
+# build. Uses the same DEPLOY_* secrets as deploy.yml. A certificate is the one step left by
+# hand: `certbot certonly --nginx -d <name>` on the box, before the vhost that needs it lands.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "deploy/nginx/**"
+      - "tools/deploy_server.py"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+  DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+  DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+
+jobs:
+  deploy:
+    name: Push nginx and site/ to Hetzner
+    runs-on: ubuntu-latest
+    environment: default
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the pages and the deploy script
+        run: python3 -m unittest discover -s tools -p 'test_deploy_server.py'
+      # The vhost only needs its certificate to exist, not the pages, so it goes first and
+      # the smoke test at the end of `site` sees the finished result.
+      - name: Push the nginx vhosts and reload
+        run: python3 tools/deploy_server.py nginx
+      - name: Rsync the pages to the box and smoke test
+        run: python3 tools/deploy_server.py site

@@ -114,8 +114,9 @@ checks that what the repositories write is what the triggers record.
 [Deploy server workflow](../.github/workflows/deploy.yml) on a push to `main` that touches it:
 tests, `installDist`, rsync to the Hetzner box, the systemd unit from `deploy/`, a smoke test.
 The steps are [`tools/deploy_server.py`](../tools/deploy_server.py), which also runs on the
-box for the install itself; from a laptop, `python3 tools/deploy_server.py nginx` pushes the
-nginx block and `python3 tools/deploy_server.py secrets` the secrets
+box for the install itself. The [Deploy site and nginx workflow](../.github/workflows/deploy-site.yml)
+pushes `deploy/nginx/` and `site/` (gains.gerra.sh) the same way; from a laptop,
+`python3 tools/deploy_server.py secrets` pushes the secrets
 ([secrets/README.md](../secrets/README.md) lists them). A server-only change cuts no release branch. Design and routes: [docs/sync.md](sync.md).
 
 **Pruning branches.** `python3 tools/prune_branches.py list` shows the branches on origin whose
