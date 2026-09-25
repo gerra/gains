@@ -70,3 +70,7 @@ data class UserInfo(
 
 @Serializable
 data class ErrorResponse(val error: String)
+
+/** A request to join the launch guest list, sent by the form on gains.gerra.sh, not by the app. */
+@Serializable
+data class GuestListRequest(val email: String)

@@ -1,0 +1,6 @@
+-- The launch guest list (docs/launch-plan.md, item 3): addresses left on gains.gerra.sh by
+-- people who want a note when Gains launches. Not tied to any user.
+CREATE TABLE guest_list (
+  email TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+  created_at TEXT NOT NULL
+);

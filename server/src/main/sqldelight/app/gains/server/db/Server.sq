@@ -1,5 +1,5 @@
--- The sync server's five tables (docs/sync.md, "The server"). One SQLite file per box; every
--- row belongs to a user and nothing is shared between users.
+-- The sync server's tables (docs/sync.md, "The server"). One SQLite file per box; every row
+-- but the guest list's belongs to a user, and nothing is shared between users.
 
 CREATE TABLE user (
   id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -53,6 +53,13 @@ CREATE TABLE counter (
 );
 
 INSERT INTO counter(name, value) VALUES ('seq', 0);
+
+-- Addresses left on gains.gerra.sh to hear when Gains launches (migrations/2.sqm). Not tied to
+-- a user; one row per address, whatever its case.
+CREATE TABLE guest_list (
+  email TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+  created_at TEXT NOT NULL
+);
 
 -- users and identities
 
@@ -128,3 +135,14 @@ DELETE FROM blob WHERE user_id = ? AND kind = ? AND id = ?;
 
 deleteBlobsForUser:
 DELETE FROM blob WHERE user_id = ?;
+
+-- guest list
+
+insertGuest:
+INSERT OR IGNORE INTO guest_list(email, created_at) VALUES (?, ?);
+
+selectGuest:
+SELECT email FROM guest_list WHERE email = ?;
+
+countGuests:
+SELECT COUNT(*) FROM guest_list;

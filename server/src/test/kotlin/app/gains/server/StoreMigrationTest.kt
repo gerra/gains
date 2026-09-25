@@ -6,9 +6,11 @@ import kotlin.io.path.createTempDirectory
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
-/** A database file from before `email_verified` (schema 1) opens, migrates and keeps its users. */
+/** A database file from before `email_verified` (schema 1) opens, migrates to the latest schema and keeps its users. */
 class StoreMigrationTest {
     private val dir = createTempDirectory("gains-store").toFile()
 
@@ -44,6 +46,11 @@ class StoreMigrationTest {
         val after = store.signIn("google", "g-2", "same@x.y", emailVerified = true, name = null)
         assertEquals(1L, after.id)
         assertEquals(listOf("apple", "google"), after.providers)
+
+        // migrations/2.sqm added the guest list.
+        assertTrue(store.joinGuestList("ada@example.com", limit = 1))
+        assertTrue(store.joinGuestList("ADA@example.com", limit = 1))
+        assertFalse(store.joinGuestList("grace@example.com", limit = 1))
     }
 
     private companion object {
