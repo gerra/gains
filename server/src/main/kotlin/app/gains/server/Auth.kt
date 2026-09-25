@@ -10,8 +10,18 @@ import java.security.interfaces.RSAPublicKey
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-/** Who a provider says the person is: its stable subject, plus the email when it told us. */
-data class VerifiedIdentity(val provider: String, val subject: String, val email: String?, val name: String?)
+/**
+ * Who a provider says the person is: its stable subject, plus the email when it told us.
+ * [emailVerified] is the provider's `email_verified` claim; only a verified email may join this
+ * identity to another one ([Store.signIn]).
+ */
+data class VerifiedIdentity(
+    val provider: String,
+    val subject: String,
+    val email: String?,
+    val name: String?,
+    val emailVerified: Boolean = false,
+)
 
 class InvalidTokenException(message: String) : Exception(message)
 
@@ -61,7 +71,11 @@ class JwksIdentityVerifier(
         val email = decoded.getClaim("email").asString()?.takeIf { it.isNotBlank() }
         // Google carries the name in the ID token; Apple hands it to the app, which passes it along separately.
         val name = decoded.getClaim("name").asString()?.takeIf { it.isNotBlank() }
-        return VerifiedIdentity(provider, decoded.subject ?: throw InvalidTokenException("no subject"), email, name)
+        // Google sends a boolean; Apple has sent both a boolean and the string "true". Anything
+        // else, including no claim at all, counts as unverified.
+        val verifiedClaim = decoded.getClaim("email_verified")
+        val emailVerified = email != null && (verifiedClaim.asBoolean() ?: verifiedClaim.asString()?.toBooleanStrictOrNull() ?: false)
+        return VerifiedIdentity(provider, decoded.subject ?: throw InvalidTokenException("no subject"), email, name, emailVerified)
     }
 
     companion object {

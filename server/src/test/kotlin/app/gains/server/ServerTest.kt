@@ -86,9 +86,9 @@ class ServerTest {
     @Test
     fun oneAccountAcrossProvidersByEmailAndAppleKeepsItsFirstName() = testApplication {
         application { gainsServer(testServices(google, apple)) }
-        val viaGoogle = client.signIn("google", google.token("g-1", GOOGLE_AUDIENCE, email = "same@x.y", name = "Ada"))
+        val viaGoogle = client.signIn("google", google.token("g-1", GOOGLE_AUDIENCE, email = "same@x.y", name = "Ada", emailVerified = true))
         // Apple's token has the email; the name came to the app separately and is passed along only the first time.
-        val viaApple = client.signIn("apple", apple.token("a-1", APPLE_AUDIENCE, email = "same@x.y"), name = "Ada L.")
+        val viaApple = client.signIn("apple", apple.token("a-1", APPLE_AUDIENCE, email = "same@x.y", emailVerified = "true"), name = "Ada L.")
         assertEquals(viaGoogle.user.id, viaApple.user.id)
         assertEquals(listOf("apple", "google"), viaApple.user.providers)
         assertEquals("Ada", viaApple.user.name, "the first name given is kept")
@@ -97,8 +97,41 @@ class ServerTest {
         assertEquals(viaGoogle.user.id, again.user.id)
         assertEquals("same@x.y", again.user.email, "a later token without the email does not blank it")
 
-        val other = client.signIn("apple", apple.token("a-2", APPLE_AUDIENCE, email = "other@x.y"))
+        val other = client.signIn("apple", apple.token("a-2", APPLE_AUDIENCE, email = "other@x.y", emailVerified = true))
         assertNotEquals(viaGoogle.user.id, other.user.id)
+    }
+
+    @Test
+    fun onlyVerifiedEmailsJoinAccounts() = testApplication {
+        application { gainsServer(testServices(google, apple)) }
+        val viaApple = client.signIn("apple", apple.token("a-1", APPLE_AUDIENCE, email = "same@x.y", emailVerified = "true"))
+
+        // An unverified Google identity with the same email gets an account of its own, and keeps its email.
+        for (claim in listOf<Any?>(false, "false", null, "yes")) {
+            val unverified = client.signIn("google", google.token("g-$claim", GOOGLE_AUDIENCE, email = "same@x.y", emailVerified = claim))
+            assertNotEquals(viaApple.user.id, unverified.user.id, "email_verified = $claim")
+            assertEquals(listOf("google"), unverified.user.providers)
+            assertEquals("same@x.y", unverified.user.email)
+        }
+
+        // A verified one joins, whatever the case of the address.
+        val verified = client.signIn("google", google.token("g-ok", GOOGLE_AUDIENCE, email = "Same@X.y", emailVerified = true))
+        assertEquals(viaApple.user.id, verified.user.id)
+        assertEquals(listOf("apple", "google"), verified.user.providers)
+    }
+
+    @Test
+    fun aVerifiedEmailNeverJoinsAnAccountThatOnlyClaimedIt() = testApplication {
+        application { gainsServer(testServices(google, apple)) }
+        val squatter = client.signIn("google", google.token("g-1", GOOGLE_AUDIENCE, email = "same@x.y", emailVerified = false))
+        val owner = client.signIn("apple", apple.token("a-1", APPLE_AUDIENCE, email = "same@x.y", emailVerified = true))
+        assertNotEquals(squatter.user.id, owner.user.id)
+
+        // Once its provider verifies the address, the next sign-in records it, and later identities join.
+        val nowVerified = client.signIn("google", google.token("g-1", GOOGLE_AUDIENCE, email = "same@x.y", emailVerified = true))
+        assertEquals(squatter.user.id, nowVerified.user.id, "an identity never moves between users")
+        val third = client.signIn("google", google.token("g-2", GOOGLE_AUDIENCE, email = "same@x.y", emailVerified = true))
+        assertEquals(minOf(squatter.user.id, owner.user.id), third.user.id, "the oldest verified user wins")
     }
 
     @Test

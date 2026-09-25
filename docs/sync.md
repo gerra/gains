@@ -94,7 +94,12 @@ OAuth state and no cookie, only an identity token the device already holds:
 Apple only sends the email and name on the first authorization, so the client passes the name it
 was given along with the token and the server keeps it. Accounts are keyed on the provider's
 stable subject, never on the email. The same person signing in with both providers gets two
-identities on one user when the emails match.
+identities on one user when the emails match, ignoring case, and **both** providers say the
+address is verified (the token's `email_verified` claim: a boolean from Google, a boolean or the
+string `"true"` from Apple). An unverified email is kept on its identity but never joins
+anything, in either direction: a verified newcomer doesn't join a user whose only claim to the
+address is unverified, and an unverified newcomer gets a user of its own. Each sign-in refreshes
+the identity's email and claim, which is how rows from before the claim was stored catch up.
 
 `DELETE /auth/account` removes the user, both identities, every document and every blob, which
 Apple requires of any app that offers Sign in with Apple. Settings offers it as "Delete account" on
@@ -242,7 +247,7 @@ keep the token in `sync_state`; the Android Keystore is still to do.
 
 ```sql
 user     (id, email, name, created_at)
-identity (provider, subject, user_id, email)     PRIMARY KEY (provider, subject)
+identity (provider, subject, user_id, email, email_verified)   PRIMARY KEY (provider, subject)
 document (user_id, kind, id, seq, updated_at, deleted, payload)   PRIMARY KEY (user_id, kind, id)
 blob     (user_id, kind, id, bytes)              PRIMARY KEY (user_id, kind, id)
 counter  (name, value)                           -- the one seq counter

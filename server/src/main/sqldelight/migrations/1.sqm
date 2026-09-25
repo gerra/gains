@@ -1,0 +1,4 @@
+-- Identities remember whether their provider verified the email (docs/launch-plan.md, item 2).
+-- Rows from before this are unverified until their next sign-in, which carries the claim and
+-- updates them: never merging on a stale guess is worth one extra sign-in.
+ALTER TABLE identity ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0;

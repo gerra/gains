@@ -21,20 +21,31 @@ class Store(private val db: ServerDatabase) {
     // --- users ------------------------------------------------------------------------------
 
     /**
-     * The user behind a provider's subject, created on first sight. A new identity whose email
-     * matches an existing user's joins that user, so one person with both providers is one account.
+     * The user behind a provider's subject, created on first sight. A new identity whose email is
+     * verified joins an existing user one of whose identities has the same verified email
+     * (compared ignoring case), so one person with both providers is one account. An unverified
+     * email is stored on the identity but never merged on, on either side: otherwise anyone who
+     * could get a provider to issue a token for an unconfirmed address could walk into, or be
+     * joined by, the account that owns it.
      */
-    fun signIn(provider: String, subject: String, email: String?, name: String?): UserInfo = db.transactionWithResult {
+    fun signIn(provider: String, subject: String, email: String?, emailVerified: Boolean, name: String?): UserInfo = db.transactionWithResult {
+        val verifiedEmail = email?.takeIf { emailVerified }
+        val verified = if (verifiedEmail != null) 1L else 0L
         val existing = q.selectIdentity(provider, subject).executeAsOneOrNull()
         val userId = when {
-            existing != null -> existing.user_id
+            existing != null -> {
+                // Keep the claim current, so rows from before migrations/1.sqm catch up; a token
+                // without an email leaves the row as it was.
+                if (email != null) q.updateIdentityEmail(email, verified, provider, subject)
+                existing.user_id
+            }
             else -> {
-                val byEmail = email?.let { q.selectUserByEmail(it).executeAsOneOrNull() }
-                val id = byEmail?.id ?: run {
+                val byEmail = verifiedEmail?.let { q.selectUserIdByVerifiedEmail(it).executeAsOneOrNull() }
+                val id = byEmail ?: run {
                     q.insertUser(email, name, Instant.now().toString())
                     q.lastInsertedId().executeAsOne()
                 }
-                q.insertIdentity(provider, subject, id, email)
+                q.insertIdentity(provider, subject, id, email, verified)
                 id
             }
         }
