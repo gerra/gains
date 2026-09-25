@@ -42,7 +42,7 @@ The same rules as `auth-plan.md`:
 | 3 | Landing page and privacy policy on `gains.gerra.sh` | iOS launch | Agent + Owner | — | [ ] |
 | 4 | Contact email alias | iOS launch | Owner | — | [ ] |
 | 5 | Google sign-in in production | iOS launch | Owner | 3, 4 | [ ] |
-| 6 | Revoke the Apple token when an account is deleted | iOS launch | Agent + Owner | — | [ ] |
+| 6 | Revoke the Apple token when an account is deleted | iOS launch | Agent + Owner | — | [x] |
 | 7 | Submit iOS for App Review | iOS launch | Owner | 1–6, test plan | [ ] |
 | 8 | Android package name and Play Console app | Android launch | Owner + Agent | — | [ ] |
 | 9 | Android: Sign in with Google | Android launch | Agent + Owner | 8 | [ ] |
@@ -139,7 +139,7 @@ API's certificate, which shows a certificate warning.
      stored and who emails it. If it stores emails on our server, it needs a route and a table,
      and the privacy policy must cover it. A link to a form hosted elsewhere avoids both.
      *Decided:* an email field on `/` that posts `{"email"}` to `POST /guest-list` on our own
-     server (the `guest_list` table, `migrations/2.sqm`). The site's vhost proxies that one path
+     server (the `guest_list` table, `migrations/3.sqm`). The site's vhost proxies that one path
      to the server, so the form is same-origin and needs no CORS, and rate-limits it per IP;
      the server answers 204 whether the address is new or already listed, and 503 once the list
      holds 10,000. Without JavaScript the section falls back to the `mailto:` link.
@@ -195,7 +195,9 @@ API's certificate, which shows a certificate warning.
 
 ### 6. Revoke the Apple token when an account is deleted
 
-- [ ] Done
+- [x] Done
+  Done in #77. The owner's step 1 (the key in `secrets/.env`) switches it on; until then the
+  server ignores the codes and logs `apple revoke off` at start.
 
 **Milestone:** iOS launch. **Depends on:** nothing.
 

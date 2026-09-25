@@ -103,7 +103,28 @@ the identity's email and claim, which is how rows from before the claim was stor
 
 `DELETE /auth/account` removes the user, both identities, every document and every blob, which
 Apple requires of any app that offers Sign in with Apple. Settings offers it as "Delete account" on
-a signed-in account, behind a confirmation. The device keeps its workouts. Only after the server
+a signed-in account, behind a confirmation.
+
+Apple also asks that deleting the account revoke the person's Sign in with Apple tokens, which
+removes Gains from their Apple ID. Revoking takes a refresh token, and the only way to get one is
+to exchange the authorization code the app receives with the identity token, within five minutes
+and only once. So an Apple sign-in sends that code along (`SignInRequest.authorizationCode`, from
+`ASAuthorizationAppleIDCredential.authorizationCode`; a server from before it skips the field),
+and the server trades it at `appleid.apple.com/auth/token`
+([`AppleTokens`](../server/src/main/kotlin/app/gains/server/AppleTokens.kt)) for a refresh token,
+which it keeps on the `identity` row with the client id it was issued to (the identity token's
+audience: the bundle id here, the Services ID for a web flow). Both calls authenticate with a
+client secret the server signs itself: an ES256 JWT from the Sign in with Apple key
+(`APPLE_KEY_ID`, `APPLE_TEAM_ID`, `APPLE_PRIVATE_KEY`), good for five minutes. The token is kept
+only if the `id_token` in Apple's answer has the subject that just signed in, so nobody can pin
+someone else's code to their own account. A later Apple sign-in replaces it. A failed exchange is
+logged and the sign-in goes ahead.
+
+On `DELETE /auth/account`, the server posts each stored Apple refresh token to
+`appleid.apple.com/auth/revoke` **before** deleting the rows. A failed revoke is logged, and the
+deletion goes ahead anyway: Apple being unreachable must never keep anyone's data on our server.
+Identities from before this, and servers without the key, have no refresh token, so deleting them
+removes our data but can't revoke; the next Apple sign-in stores one. The device keeps its workouts. Only after the server
 confirms does it sign out and forget the feed's user and cursor, so a later sign-in, to any
 account, uploads everything again. If the call fails, the person stays signed in and can retry.
 
@@ -248,7 +269,8 @@ keep the token in `sync_state`; the Android Keystore is still to do.
 
 ```sql
 user     (id, email, name, created_at)
-identity (provider, subject, user_id, email, email_verified)   PRIMARY KEY (provider, subject)
+identity (provider, subject, user_id, email, email_verified,
+          refresh_token, refresh_client_id)                PRIMARY KEY (provider, subject)
 document (user_id, kind, id, seq, updated_at, deleted, payload)   PRIMARY KEY (user_id, kind, id)
 blob     (user_id, kind, id, bytes)              PRIMARY KEY (user_id, kind, id)
 counter  (name, value)                           -- the one seq counter
@@ -262,7 +284,9 @@ tests hand the server a key pair of their own and sign real tokens with it.
 Configuration is read from the environment, with `secrets/.env` under the working directory
 loaded first when it exists (the systemd unit deliberately has no `EnvironmentFile`, for the
 reason noted in www's unit): `JWT_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS`,
-`GAINS_DATA_DIR`, `PORT`. Without a provider's ids that provider's route answers 503.
+`APPLE_KEY_ID`, `APPLE_TEAM_ID`, `APPLE_PRIVATE_KEY`, `GAINS_DATA_DIR`, `PORT`. Without a
+provider's ids that provider's route answers 503. Without the Apple key, sign-in codes are ignored
+and nothing is revoked; the start-up log line says `apple revoke on` or `off`.
 
 ## Deploying
 
@@ -301,10 +325,6 @@ three taxes uses.
 - **End-to-end encryption.** Because the payload is opaque to the server, sealing it on the
   device is a client-side change with the same routes, the way fintrack's E2E note describes it.
 - **Multi-user features.** One user sees one user's documents. Nothing is shared.
-- **Revoking the Sign in with Apple token on deletion.** Apple recommends that deleting an account
-  also call `POST https://appleid.apple.com/auth/revoke`. That needs the authorization code from
-  the client and a `.p8` key on the server, so for now deleting removes our data but leaves the
-  app listed under the person's Apple ID until they remove it there.
 - **Native sign-in buttons beyond iOS.** Sign in with Apple and with Google work on iOS
   (`IosIdentityProvider`, the `com.apple.developer.applesignin` entitlement, and the server URL
   and Google client from `GAINS_SERVER_URL` and `GOOGLE_IOS_CLIENT_ID` in `Config.xcconfig`);

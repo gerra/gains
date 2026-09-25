@@ -1,6 +1,5 @@
--- The launch guest list (docs/launch-plan.md, item 3): addresses left on gains.gerra.sh by
--- people who want a note when Gains launches. Not tied to any user.
-CREATE TABLE guest_list (
-  email TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
-  created_at TEXT NOT NULL
-);
+-- Apple's refresh token for an identity, so deleting the account can revoke it
+-- (docs/launch-plan.md, item 6). Rows from before this have none until their next Apple sign-in;
+-- deleting before then removes our data but can't revoke.
+ALTER TABLE identity ADD COLUMN refresh_token TEXT;
+ALTER TABLE identity ADD COLUMN refresh_client_id TEXT;

@@ -63,8 +63,41 @@ class FakeProvider(val issuer: String, val keyId: String = "test-key") {
 const val GOOGLE_AUDIENCE = "123.apps.googleusercontent.com"
 const val APPLE_AUDIENCE = "app.gains.Gains"
 
+/**
+ * Apple's token endpoints as the tests want them: each code in [codes] is exchanged for
+ * `refresh-<code>` issued to the subject it maps to, and every call is recorded. [onRevoke] runs
+ * inside each revoke, before it succeeds or fails, so a test can look at the database then.
+ */
+class FakeAppleTokens(
+    val codes: Map<String, String> = emptyMap(),
+    var revokeFails: Boolean = false,
+    var onRevoke: () -> Unit = {},
+) : AppleTokens {
+    val exchanged = mutableListOf<Pair<String, String>>()
+    val revoked = mutableListOf<Pair<String, String>>()
+
+    override val enabled = true
+
+    override fun exchange(code: String, clientId: String): AppleGrant {
+        exchanged += code to clientId
+        val subject = codes[code] ?: throw AppleTokenException("/auth/token answered 400: {\"error\":\"invalid_grant\"}")
+        return AppleGrant("refresh-$code", subject)
+    }
+
+    override fun revoke(refreshToken: String, clientId: String) {
+        onRevoke()
+        if (revokeFails) throw AppleTokenException("appleid.apple.com unreachable")
+        revoked += refreshToken to clientId
+    }
+}
+
 /** A server with an in-memory database and both providers backed by [google] and [apple]. */
-fun testServices(google: FakeProvider, apple: FakeProvider, appleEnabled: Boolean = true) = Services(
+fun testServices(
+    google: FakeProvider,
+    apple: FakeProvider,
+    appleEnabled: Boolean = true,
+    appleTokens: AppleTokens = NoAppleTokens,
+) = Services(
     store = Store.open(null),
     tokens = SessionTokens("a-test-secret-that-is-long-enough-for-hmac-256"),
     verifier = JwksIdentityVerifier(
@@ -73,5 +106,6 @@ fun testServices(google: FakeProvider, apple: FakeProvider, appleEnabled: Boolea
         googleKeys = google.jwks,
         appleKeys = apple.jwks,
     ),
+    appleTokens = appleTokens,
     maxBlobBytes = 1024,
 )

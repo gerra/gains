@@ -50,8 +50,13 @@ class AuthNotConfiguredException(val provider: AccountKind) :
  */
 class SignInCancelledException : Exception("Sign-in was cancelled.")
 
-/** What a platform's sign-in sheet hands back: the provider's identity token and, when it was given, the person's name. */
-data class IdentityAssertion(val token: String, val name: String? = null)
+/**
+ * What a platform's sign-in sheet hands back: the provider's identity token and, when it was given,
+ * the person's name. [authorizationCode] is Apple's one-time code, which the server exchanges for
+ * the refresh token it revokes when the account is deleted; it expires in five minutes, so it is
+ * sent with the sign-in and never stored.
+ */
+data class IdentityAssertion(val token: String, val name: String? = null, val authorizationCode: String? = null)
 
 /**
  * The platform's native sign-in: Sign in with Apple through AuthenticationServices on iOS, Google
@@ -102,7 +107,7 @@ class AccountRepository(
 
     private suspend fun signIn(kind: AccountKind) {
         val assertion = identity.signIn(kind)
-        val response = api.signIn(kind, assertion.token, assertion.name)
+        val response = api.signIn(kind, assertion.token, assertion.name, assertion.authorizationCode)
         writing.withLock {
             store.setToken(response.token)
             store.setTokenIssuedAt(Clock.System.now().toString())

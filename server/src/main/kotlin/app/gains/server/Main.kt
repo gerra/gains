@@ -14,11 +14,13 @@ fun main() {
         store = store,
         tokens = SessionTokens(config.jwtSecret),
         verifier = JwksIdentityVerifier(config.googleClientIds, config.appleClientIds),
+        appleTokens = config.appleKey?.let { AppleTokenClient(it.keyId, it.teamId, it.privateKey) } ?: NoAppleTokens,
     )
     log.info(
-        "gains-server on port {} (data {}; google {}; apple {})",
+        "gains-server on port {} (data {}; google {}; apple {}; apple revoke {})",
         config.port, config.dataDir.absolutePath,
         if (config.googleClientIds.isEmpty()) "off" else "on", if (config.appleClientIds.isEmpty()) "off" else "on",
+        if (services.appleTokens.enabled) "on" else "off",
     )
     embeddedServer(CIO, port = config.port, host = "127.0.0.1") { gainsServer(services) }.start(wait = true)
 }

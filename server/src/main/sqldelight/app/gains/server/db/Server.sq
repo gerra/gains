@@ -11,13 +11,17 @@ CREATE TABLE user (
 -- A sign-in provider's stable subject, pointing at the user it belongs to. The same person
 -- with both providers has two rows here and one in `user`. `email_verified` is the provider's
 -- word that the address belongs to this person; only such an email may join two identities
--- (migrations/1.sqm).
+-- (migrations/1.sqm). `refresh_token` is Apple's, from the code the app sent at its latest
+-- sign-in, kept only so deleting the account can revoke it; `refresh_client_id` is the client id
+-- it was issued to (migrations/2.sqm).
 CREATE TABLE identity (
   provider TEXT NOT NULL,
   subject TEXT NOT NULL,
   user_id INTEGER NOT NULL REFERENCES user(id),
   email TEXT,
   email_verified INTEGER NOT NULL DEFAULT 0,
+  refresh_token TEXT,
+  refresh_client_id TEXT,
   PRIMARY KEY (provider, subject)
 );
 
@@ -54,7 +58,7 @@ CREATE TABLE counter (
 
 INSERT INTO counter(name, value) VALUES ('seq', 0);
 
--- Addresses left on gains.gerra.sh to hear when Gains launches (migrations/2.sqm). Not tied to
+-- Addresses left on gains.gerra.sh to hear when Gains launches (migrations/3.sqm). Not tied to
 -- a user; one row per address, whatever its case.
 CREATE TABLE guest_list (
   email TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
@@ -88,6 +92,13 @@ UPDATE identity SET email = ?, email_verified = ? WHERE provider = ? AND subject
 
 updateUserDetails:
 UPDATE user SET email = COALESCE(email, ?), name = COALESCE(name, ?) WHERE id = ?;
+
+updateIdentityRefreshToken:
+UPDATE identity SET refresh_token = ?, refresh_client_id = ? WHERE provider = ? AND subject = ?;
+
+selectRefreshTokensForUser:
+SELECT refresh_token, refresh_client_id FROM identity
+WHERE user_id = ? AND provider = ? AND refresh_token IS NOT NULL AND refresh_client_id IS NOT NULL;
 
 selectProvidersForUser:
 SELECT provider FROM identity WHERE user_id = ? ORDER BY provider;

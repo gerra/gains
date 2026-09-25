@@ -10,7 +10,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-/** A database file from before `email_verified` (schema 1) opens, migrates to the latest schema and keeps its users. */
+/** A database file from before `email_verified` (schema 1) opens, migrates through every later migration and keeps its users. */
 class StoreMigrationTest {
     private val dir = createTempDirectory("gains-store").toFile()
 
@@ -47,10 +47,24 @@ class StoreMigrationTest {
         assertEquals(1L, after.id)
         assertEquals(listOf("apple", "google"), after.providers)
 
-        // migrations/2.sqm added the guest list.
+        // migrations/3.sqm added the guest list.
         assertTrue(store.joinGuestList("ada@example.com", limit = 1))
         assertTrue(store.joinGuestList("ADA@example.com", limit = 1))
         assertFalse(store.joinGuestList("grace@example.com", limit = 1))
+    }
+
+    @Test
+    fun appleIdentitiesFromBeforeHaveNoRefreshTokenUntilTheirNextSignIn() {
+        val file = File(dir, "gains.db")
+        schemaOneWith(file, listOf(
+            "INSERT INTO user(email, name, created_at) VALUES ('a@x.y', 'Ada', '2026-09-01T00:00:00Z')",
+            "INSERT INTO identity(provider, subject, user_id, email) VALUES ('apple', 'a-1', 1, 'a@x.y')",
+        ))
+        val store = Store.open(file)
+        assertEquals(emptyList(), store.refreshTokens(1, "apple"))
+
+        store.setRefreshToken("apple", "a-1", "rt-1", "app.gains.Gains")
+        assertEquals(listOf("rt-1" to "app.gains.Gains"), store.refreshTokens(1, "apple"))
     }
 
     private companion object {
