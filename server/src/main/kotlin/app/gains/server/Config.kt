@@ -18,7 +18,14 @@ data class Config(
     /** Where the SQLite file lives. */
     val dataDir: File,
     val port: Int,
+    /** The Sign in with Apple key that revokes a deleted account's Apple tokens; null leaves them be. */
+    val appleKey: AppleKey? = null,
 ) {
+    /** A key from developer.apple.com → Keys with Sign in with Apple enabled. [privateKey] is the `.p8` file's contents. */
+    data class AppleKey(val keyId: String, val teamId: String, val privateKey: String) {
+        override fun toString() = "AppleKey(keyId=$keyId, teamId=$teamId)"
+    }
+
     companion object {
         fun fromEnvironment(env: Map<String, String> = System.getenv(), workingDir: File = File(".")): Config {
             val values = HashMap<String, String>()
@@ -27,12 +34,18 @@ data class Config(
             values.putAll(env)
             val secret = values["JWT_SECRET"].orEmpty()
             require(secret.length >= 32) { "JWT_SECRET must be set to at least 32 characters (see secrets/README.md)" }
+            // The key's newlines are written as \n, since a dotenv value is one line.
+            val appleKeyParts = listOf("APPLE_KEY_ID", "APPLE_TEAM_ID", "APPLE_PRIVATE_KEY").map { values[it].orEmpty().trim().replace("\\n", "\n") }
+            require(appleKeyParts.all { it.isEmpty() } || appleKeyParts.none { it.isEmpty() }) {
+                "APPLE_KEY_ID, APPLE_TEAM_ID and APPLE_PRIVATE_KEY go together: set all three or none (see secrets/README.md)"
+            }
             return Config(
                 jwtSecret = secret,
                 googleClientIds = values["GOOGLE_CLIENT_IDS"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
                 appleClientIds = values["APPLE_CLIENT_IDS"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
                 dataDir = File(values["GAINS_DATA_DIR"]?.ifBlank { null } ?: "data"),
                 port = values["PORT"]?.toIntOrNull() ?: 5003,
+                appleKey = appleKeyParts.takeIf { parts -> parts.none { it.isEmpty() } }?.let { (id, team, key) -> AppleKey(id, team, key) },
             )
         }
 

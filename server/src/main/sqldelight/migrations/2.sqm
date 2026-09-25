@@ -1,0 +1,5 @@
+-- Apple's refresh token for an identity, so deleting the account can revoke it
+-- (docs/launch-plan.md, item 6). Rows from before this have none until their next Apple sign-in;
+-- deleting before then removes our data but can't revoke.
+ALTER TABLE identity ADD COLUMN refresh_token TEXT;
+ALTER TABLE identity ADD COLUMN refresh_client_id TEXT;

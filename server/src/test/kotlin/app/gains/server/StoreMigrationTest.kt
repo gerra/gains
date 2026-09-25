@@ -8,7 +8,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
-/** A database file from before `email_verified` (schema 1) opens, migrates and keeps its users. */
+/** A database file from before `email_verified` (schema 1) opens, migrates through every later migration and keeps its users. */
 class StoreMigrationTest {
     private val dir = createTempDirectory("gains-store").toFile()
 
@@ -44,6 +44,20 @@ class StoreMigrationTest {
         val after = store.signIn("google", "g-2", "same@x.y", emailVerified = true, name = null)
         assertEquals(1L, after.id)
         assertEquals(listOf("apple", "google"), after.providers)
+    }
+
+    @Test
+    fun appleIdentitiesFromBeforeHaveNoRefreshTokenUntilTheirNextSignIn() {
+        val file = File(dir, "gains.db")
+        schemaOneWith(file, listOf(
+            "INSERT INTO user(email, name, created_at) VALUES ('a@x.y', 'Ada', '2026-09-01T00:00:00Z')",
+            "INSERT INTO identity(provider, subject, user_id, email) VALUES ('apple', 'a-1', 1, 'a@x.y')",
+        ))
+        val store = Store.open(file)
+        assertEquals(emptyList(), store.refreshTokens(1, "apple"))
+
+        store.setRefreshToken("apple", "a-1", "rt-1", "app.gains.Gains")
+        assertEquals(listOf("rt-1" to "app.gains.Gains"), store.refreshTokens(1, "apple"))
     }
 
     private companion object {
