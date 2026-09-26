@@ -86,6 +86,9 @@ import androidx.compose.ui.unit.dp
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
 import app.gains.analysis.PreviousSets
+import app.gains.analysis.RecordHolder
+import app.gains.analysis.RecordKind
+import app.gains.analysis.Records
 import app.gains.analysis.TrainingData
 import app.gains.analysis.TrainingSnapshot
 import app.gains.analysis.UnitLabels
@@ -225,6 +228,8 @@ internal data class EditorState(
     val hints: Map<String, Progression.Hint> = emptyMap(),
     /** exercise id -> the exercise's most recent session before this one, for the PREV column of its set table. */
     val previous: Map<String, ExerciseEntry> = emptyMap(),
+    /** exercise id -> its standing records before this workout, for the star on a set that beats one. */
+    val standing: Map<String, Map<RecordKind, RecordHolder>> = emptyMap(),
     /** exercise id -> program note */
     val notes: Map<String, String> = emptyMap(),
     /** Exercises whose weights were borrowed from a session outside this slot's scheme; the card offers to clear them. */
@@ -337,6 +342,13 @@ internal class SessionEditorModel(
         /** The exercise's last session before this workout, for the PREV column; null when it has never been trained. */
         fun previousFor(exerciseId: String): ExerciseEntry? =
             PreviousSets.lastEntry(snapshot, exerciseId, before = editing?.timestamp, excludeSessionId = editing?.id)
+
+        /** Every lift's standing records before this workout, so a set can be starred as it is ticked. */
+        val standing: Map<String, Map<RecordKind, RecordHolder>> by lazy {
+            val before = editing
+            val past = if (before == null) snapshot.sessions else snapshot.sessions.filter { it.id != before.id && it.timestamp < before.timestamp }
+            Records.standing(past, snapshot.exercisesById)
+        }
     }
     private var context: Context? = null
     private var persistJob: Job? = null
@@ -465,7 +477,7 @@ internal class SessionEditorModel(
 
     /** The PREV column's data for every exercise in the editor. */
     private fun EditorState.withPrevious(ctx: Context): EditorState =
-        copy(previous = exercises.mapNotNull { e -> ctx.previousFor(e.exercise.id)?.let { e.exercise.id to it } }.toMap())
+        copy(previous = exercises.mapNotNull { e -> ctx.previousFor(e.exercise.id)?.let { e.exercise.id to it } }.toMap(), standing = ctx.standing)
 
     private fun update(f: (EditorState) -> EditorState) { _state.value = f(_state.value) }
 
@@ -881,6 +893,7 @@ internal fun SessionEditorScreen(
                     tier = state.tiers[draft.exercise.id],
                     warmupsCollapsed = draft.exercise.id in state.collapsedWarmups,
                     previous = state.previous[draft.exercise.id],
+                    standing = state.standing[draft.exercise.id],
                     editable = state.editable,
                     count = state.exercises.size,
                     onPickWeight = { setIndex -> weightTarget = exerciseIndex to setIndex },
@@ -1226,6 +1239,8 @@ private fun ExerciseCard(
     source: Progression.Source? = null, tier: Gzclp.Tier? = null, warmupsCollapsed: Boolean = false,
     /** The exercise's last session, whose sets fill the PREV column row by row. */
     previous: ExerciseEntry? = null,
+    /** The exercise's standing records, for the star on a ticked set that beats one. Null when it has none. */
+    standing: Map<RecordKind, RecordHolder>? = null,
     /** False while a timed workout has not started: every control of the plan waits for Start, shown disabled. */
     editable: Boolean = true,
     /** How many exercises the workout has, so the menu knows whether the card can move up or down. */
@@ -1317,13 +1332,18 @@ private fun ExerciseCard(
             // A ticked row keeps its place in the table: the number and the check turn green and the cells take a tint,
             // so a glance shows how far the workout has got without the row turning into a card of its own.
             val done = set.done
+            // A ticked work set that beats one of the lift's standing records takes a star in place of
+            // its number, the moment it is ticked, as Hevy stamps a medal on the set. Warm-ups never do.
+            val record = done && !set.isWarmup && standing != null && set.toSet(setIndex, unit)?.let { Records.beats(it, modality, standing) } == true
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
                 val labelColor by animateColorAsState(
                     when { done -> palette.volt; set.isWarmup -> muted; else -> MaterialTheme.colorScheme.onSurface },
                     Motion.standard(), label = "set-label",
                 )
+                val recordDescription = setRecordText(label)
                 Text(
-                    label, Modifier.width(LABEL_WIDTH),
+                    if (record) "★" else label,
+                    Modifier.width(LABEL_WIDTH).then(if (record) Modifier.semantics { contentDescription = recordDescription } else Modifier),
                     style = if (set.isWarmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
                     color = labelColor,
                 )

@@ -136,6 +136,7 @@ import app.gains.ui.screens.ProgramEditorScreen
 import app.gains.ui.screens.ProgramsScreen
 import app.gains.ui.screens.SettingsScreen
 import app.gains.ui.screens.SignInScreen
+import app.gains.ui.screens.TrophiesScreen
 import app.gains.ui.screens.VolumeScreen
 import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.GainsTheme
@@ -372,6 +373,11 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenProgram = { navigator.push(Screen.ProgramDetail(it)) },
                 onStartDay = { navigator.push(Screen.EditSession(null, it, live = true)) },
+                onOpenTrophies = { navigator.push(Screen.Trophies) },
+            )
+            Screen.Trophies -> TrophiesScreen(
+                onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
+                onOpenSession = { navigator.push(Screen.EditSession(it)) },
             )
             Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
             Screen.Volume -> VolumeScreen()

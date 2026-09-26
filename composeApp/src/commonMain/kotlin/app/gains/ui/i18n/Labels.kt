@@ -189,14 +189,14 @@ internal val WeightUnit.res: StringResource get() = when (this) { WeightUnit.KG 
 internal fun unitLabels(): UnitLabels = UnitLabels(
     kg = stringResource(Res.string.unit_kg), lbs = stringResource(Res.string.unit_lbs),
     second = stringResource(Res.string.second_abbrev), minute = stringResource(Res.string.minute_abbrev), hour = stringResource(Res.string.hour_abbrev),
-    km = stringResource(Res.string.km_abbrev), reps = stringResource(Res.string.reps_suffix),
+    km = stringResource(Res.string.km_abbrev), reps = stringResource(Res.string.reps_suffix), tonne = stringResource(Res.string.tonne_abbrev),
 )
 
 /** [unitLabels] for a screen model, which lives outside the composition. */
 internal suspend fun resolvedUnitLabels(texts: Texts): UnitLabels = UnitLabels(
     kg = texts.get(Res.string.unit_kg), lbs = texts.get(Res.string.unit_lbs),
     second = texts.get(Res.string.second_abbrev), minute = texts.get(Res.string.minute_abbrev), hour = texts.get(Res.string.hour_abbrev),
-    km = texts.get(Res.string.km_abbrev), reps = texts.get(Res.string.reps_suffix),
+    km = texts.get(Res.string.km_abbrev), reps = texts.get(Res.string.reps_suffix), tonne = texts.get(Res.string.tonne_abbrev),
 )
 
 @Composable internal fun weightText(kg: Double, unit: WeightUnit, decimals: Int = if (unit == WeightUnit.KG) 2 else 1): String = Format.weight(kg, unit, unitLabels(), decimals)
@@ -237,6 +237,13 @@ internal fun clockHour(hour: Int): String = hour.toString().padStart(2, '0') + "
 @Composable internal fun daysAWeekText(n: Int): String = pluralStringResource(Res.plurals.days_a_week, n, n)
 @Composable internal fun daysText(n: Int): String = pluralStringResource(Res.plurals.days, n, n)
 @Composable internal fun restWeeksText(n: Int): String = pluralStringResource(Res.plurals.rest_weeks, n, n)
+/** "4 weeks" after "a run of", "out of": the genitive in languages that have one. */
+@Composable internal fun weeksGenitive(n: Int): String = pluralStringResource(Res.plurals.weeks_genitive, n, n)
+@Composable internal fun recordsText(n: Int): String = pluralStringResource(Res.plurals.records_count, n, n)
+@Composable internal fun pointsText(n: Int): String = pluralStringResource(Res.plurals.points, n, n)
+/** "points" after a number shown on its own. */
+@Composable internal fun pointsWord(n: Int): String = pluralStringResource(Res.plurals.points_word, n)
+@Composable internal fun platesText(n: Int): String = pluralStringResource(Res.plurals.plates, n, n)
 /** The words under the streak's number: "week streak", declined for the number in languages that decline it. */
 @Composable internal fun weekStreakLabel(n: Int): String = pluralStringResource(Res.plurals.week_streak_label, n)
 
@@ -288,6 +295,9 @@ internal fun weightForSetText(set: String, value: String?): String = stringResou
 
 @Composable
 internal fun previousSetText(set: String, value: String?): String = stringResource(Res.string.previous_set, set, value ?: stringResource(Res.string.none_value))
+
+@Composable
+internal fun setRecordText(set: String): String = stringResource(Res.string.set_record, set)
 
 @Composable
 internal fun setDoneText(set: String, done: Boolean): String = stringResource(if (done) Res.string.set_done else Res.string.set_not_done, set)
