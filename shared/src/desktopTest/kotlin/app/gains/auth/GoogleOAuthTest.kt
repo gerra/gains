@@ -94,6 +94,37 @@ class GoogleOAuthTest {
         assertEquals("4/0Ab", form["code"])
         assertEquals("v".repeat(43), form["code_verifier"])
         assertEquals("$scheme:/oauth2redirect", form["redirect_uri"])
+        assertEquals(null, form["client_secret"], "an iOS client has no secret")
+    }
+
+    @Test
+    fun theLoopbackRedirectIsThePortOn127001() {
+        assertEquals("http://127.0.0.1:53682", GoogleOAuth.loopbackRedirectUri(53682))
+        assertFailsWith<IllegalArgumentException> { GoogleOAuth.loopbackRedirectUri(0) }
+        assertFailsWith<IllegalArgumentException> { GoogleOAuth.loopbackRedirectUri(65536) }
+    }
+
+    /** A Desktop app client: the loopback redirect in both calls, and its secret in the exchange. */
+    @Test
+    fun aDesktopClientUsesTheLoopbackRedirectAndItsSecret() = runBlocking {
+        val desktopId = "95741411455-desktop.apps.googleusercontent.com"
+        val redirect = GoogleOAuth.loopbackRedirectUri(53682)
+        val url = GoogleOAuth.authorizationUrl(desktopId, codeChallenge = "c", state = "s", redirectUri = redirect)
+        assertTrue("redirect_uri=http%3A%2F%2F127.0.0.1%3A53682&" in url, url)
+        assertEquals(redirect, parseQueryString(url.substringAfter('?'))["redirect_uri"])
+        assertEquals("4/0Ab", GoogleOAuth.parseCallback("$redirect/?state=s&code=4%2F0Ab&scope=email", "s"))
+
+        var seen: HttpRequestData? = null
+        val client = HttpClient(MockEngine { request ->
+            seen = request
+            respond("""{"id_token":"eyJ.desktop"}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        })
+        val token = GoogleOAuth.exchange(client, desktopId, "4/0Ab", "v".repeat(43), redirectUri = redirect, clientSecret = "GOCSPX-test")
+        assertEquals("eyJ.desktop", token)
+        val form = (seen!!.body as FormDataContent).formData
+        assertEquals(desktopId, form["client_id"])
+        assertEquals(redirect, form["redirect_uri"])
+        assertEquals("GOCSPX-test", form["client_secret"])
     }
 
     @Test

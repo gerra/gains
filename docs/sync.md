@@ -82,7 +82,13 @@ OAuth state and no cookie, only an identity token the device already holds:
    GoogleSignIn SDK does inside; doing it directly keeps a Swift package and a bridge out of the
    Xcode project and leaves the flow in Kotlin, where CI compiles it and the desktop tests check
    it. The iOS client needs no secret, and its id (`GOOGLE_IOS_CLIENT_ID` in `Config.xcconfig`)
-   is the token's audience. Desktop has no native provider and stays a guest.
+   is the token's audience. The desktop runs the same flow in the person's own browser with a
+   **Desktop app** client: the app listens on `127.0.0.1` on a port the OS picks
+   ([`LoopbackRedirect`](../shared/src/desktopMain/kotlin/app/gains/auth/LoopbackRedirect.kt)),
+   Google redirects there with the code, the tab shows "you can close this tab", and the code is
+   traded with the client's secret, which Google documents as not secret for installed apps
+   ([`DesktopIdentityProvider`](../composeApp/src/desktopMain/kotlin/app/gains/DesktopIdentityProvider.kt)).
+   A closed tab can't be noticed, so the wait ends after five minutes as a cancel.
 2. The app posts that token to `POST /auth/google` or `POST /auth/apple`.
 3. The server checks the token's signature against the provider's published keys (Google's
    `oauth2/v3/certs`, Apple's `auth/keys`), its issuer, its expiry and that its audience is one
@@ -372,7 +378,10 @@ three taxes uses.
 - **Native sign-in buttons beyond iOS.** Sign in with Apple and with Google work on iOS
   (`IosIdentityProvider`, the `com.apple.developer.applesignin` entitlement, and the server URL
   and Google client from `GAINS_SERVER_URL` and `GOOGLE_IOS_CLIENT_ID` in `Config.xcconfig`);
-  Apple's audience is the bundle id, Google's the iOS client id. Android is next; the server
-  side of Apple's web flow for Android and the desktop is in place (above). Until a
-  provider is wired up its button stays hidden, or disabled when neither is, and Android and
-  desktop keep `NoIdentityProvider`.
+  Apple's audience is the bundle id, Google's the iOS client id. The desktop has Google
+  (`DesktopIdentityProvider`, with the server URL and the Desktop app client from the Gradle
+  properties `gains.serverUrl`, `gains.googleDesktopClientId` and
+  `gains.googleDesktopClientSecret`); its Apple button waits for item 16 of the
+  [launch plan](launch-plan.md). Android is next; the server side of Apple's web flow for
+  Android and the desktop is in place (above). Until a provider is wired up its button stays
+  hidden, or disabled when neither is, and Android keeps `NoIdentityProvider`.

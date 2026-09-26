@@ -1,5 +1,7 @@
 package app.gains
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,6 +18,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.isTraySupported
 import androidx.compose.ui.window.rememberWindowState
+import app.gains.auth.IdentityProvider
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.DesktopDriverFactory
 import app.gains.di.initKoin
@@ -29,20 +32,36 @@ import app.gains.platform.ResumeRequests
 import app.gains.platform.SkipRestRequests
 import app.gains.resources.Res
 import app.gains.resources.*
+import app.gains.sync.SyncController
 import app.gains.ui.i18n.Texts
 import app.gains.ui.i18n.rememberTexts
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.compose.resources.stringResource
 import org.koin.dsl.module
+import org.koin.mp.KoinPlatform
 import java.awt.FileDialog
 import java.awt.Frame
 import java.awt.Window as AwtWindow
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
 import java.io.File
 
 fun main(args: Array<String>) {
-    initKoin(module { single<DatabaseDriverFactory> { DesktopDriverFactory() } })
+    initKoin(
+        module {
+            single<DatabaseDriverFactory> { DesktopDriverFactory() }
+            // Loaded after the shared module, so these replace its guest-only defaults.
+            single { desktopAuthConfig() }
+            single<IdentityProvider> {
+                // Sign-in starts from the window, so its strings are there by the time a page is needed.
+                DesktopIdentityProvider(get(), desktopGoogleClientSecret(), get(), page = { donePage(windowTexts.filterNotNull().first()) })
+            }
+        },
+    )
     // `gains a.csv b.csv` opens straight into the import preview with those files.
     IncomingFiles.offer(args.map(::File).filter { it.isFile }.map { PickedFile(it.name, it.readText()) })
     application {
@@ -76,11 +95,33 @@ fun main(args: Array<String>) {
             state = windowState,
         ) {
             SideEffect { frame = window }
+            SyncOnFocus(window)
             val texts = rememberTexts()
+            SideEffect { windowTexts.value = texts }
             val filePicker = remember(texts) { DesktopFilePicker(texts) }
             val photoPicker = remember(texts) { DesktopPhotoPicker(texts) }
             App(filePicker = filePicker, notifier = notifier, photoPicker = photoPicker)
         }
+    }
+}
+
+/** The window's strings, for the sign-in page the browser shows, which is made outside the composition. */
+private val windowTexts = MutableStateFlow<Texts?>(null)
+
+/**
+ * A sync each time the window comes back to the front, as docs/sync.md promises and iOS does on
+ * foreground, so a workout logged on the phone shows up without "Sync now". The controller does
+ * nothing for a guest or without a server.
+ */
+@Composable
+private fun SyncOnFocus(window: AwtWindow) {
+    DisposableEffect(window) {
+        val sync = KoinPlatform.getKoin().get<SyncController>()
+        val listener = object : WindowAdapter() {
+            override fun windowGainedFocus(e: WindowEvent) = sync.requestSync()
+        }
+        window.addWindowFocusListener(listener)
+        onDispose { window.removeWindowFocusListener(listener) }
     }
 }
 

@@ -51,7 +51,7 @@ The same rules as `auth-plan.md`:
 | 12 | Android: keep the token in the Keystore | Android launch | Agent | — | [x] |
 | 13 | Android: release workflow and Play closed testing | Android launch | Agent + Owner | 8, 9 | [ ] |
 | 14 | Publish on Google Play | Android launch | Owner | 9–13, test plan | [ ] |
-| 15 | Desktop: Sign in with Google | Desktop (P1) | Agent + Owner | — | [ ] |
+| 15 | Desktop: Sign in with Google | Desktop (P1) | Agent + Owner | — | [x] |
 | 16 | Desktop: Sign in with Apple | Desktop (P1) | Agent | 10 | [ ] |
 | 17 | Desktop: keep the token in the OS keychain | Desktop (P1) | Agent | — | [ ] |
 | 18 | Email and password accounts | More sign-in | Agent + Owner | 2, 4 | [ ] |
@@ -391,7 +391,11 @@ Apply for production access, then promote the build. Add the store link to the l
 
 ### 15. Desktop: Sign in with Google
 
-- [ ] Done
+- [x] Done
+  Done in #83. The owner's step 1 switches it on: the Desktop app client's id in
+  `GOOGLE_CLIENT_IDS` and in `gradle.properties` (`gains.googleDesktopClientId`), and its secret
+  in `~/.gradle/gradle.properties` (`gains.googleDesktopClientSecret`). Until both are set the
+  desktop's Google button stays hidden.
 
 **Milestone:** Desktop (P1). **Depends on:** nothing.
 
