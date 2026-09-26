@@ -1,10 +1,7 @@
 package app.gains.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,7 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.AchievementStatus
@@ -52,8 +47,12 @@ import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.Meter
 import app.gains.ui.components.Pill
+import app.gains.ui.components.AchievementBadge
+import app.gains.ui.components.LevelRing
+import app.gains.ui.components.Metal
+import app.gains.ui.components.RecordMedal
 import app.gains.ui.components.RollingText
-import app.gains.ui.components.RoundedIconBox
+import app.gains.ui.components.metalFor
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SectionHeader
 import app.gains.ui.i18n.*
@@ -151,6 +150,8 @@ internal fun TrophiesScreen(onOpenExercise: (String) -> Unit, onOpenSession: (St
             val exercise = state.exercisesById[record.exerciseId]
             GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = { onOpenExercise(record.exerciseId) }, contentPadding = Dp16.Tight) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    RecordMedal(size = 22.dp)
+                    Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(exercise?.displayName() ?: record.exerciseId, style = MaterialTheme.typography.titleSmall)
                         Text(
@@ -167,23 +168,23 @@ internal fun TrophiesScreen(onOpenExercise: (String) -> Unit, onOpenSession: (St
     }
 }
 
-/** The level, large, with the meter to the next one and how the points come about. */
+/** The level in its ring, the points to the next one, and how the points come about. */
 @Composable
 internal fun LevelCard(level: Level, modifier: Modifier = Modifier) {
     val palette = GainsColors.palette
     GainsCard(modifier.fillMaxWidth(), brush = palette.heroBrush(), contentPadding = Dp16.Loose) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            RollingText(level.level.toString(), MaterialTheme.typography.displayLarge, palette.volt)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(Res.string.level_word).uppercase(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
-            Spacer(Modifier.weight(1f))
-            Text(stringResource(Res.string.points_in_total, pointsText(level.points)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LevelRing(level.level, level.fraction.toFloat(), size = 84.dp, style = MaterialTheme.typography.displaySmall)
+            Spacer(Modifier.width(18.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(Res.string.level_word).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(2.dp))
+                RollingText(stringResource(Res.string.points_in_total, pointsText(level.points)), MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.onSurface)
+                Spacer(Modifier.height(4.dp))
+                Text(stringResource(Res.string.level_to_next, pointsText(level.toNext), level.level + 1), style = MaterialTheme.typography.bodySmall, color = palette.volt)
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        Meter(level.fraction.toFloat(), palette.volt, Modifier.fillMaxWidth())
-        Spacer(Modifier.height(6.dp))
-        Text(stringResource(Res.string.level_to_next, pointsText(level.toNext), level.level + 1), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(14.dp))
         Text(
             stringResource(Res.string.score_note, Scoring.SHOW_UP, Scoring.PER_SET, Scoring.MAX_WORK, Scoring.PER_RECORD, Scoring.MAX_RECORDS),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -196,10 +197,11 @@ internal fun LevelCard(level: Level, modifier: Modifier = Modifier) {
 private fun LadderCard(ladder: Ladder, unit: WeightUnit, exercisesById: Map<String, Exercise>, today: kotlinx.datetime.LocalDate, onOpenSession: (String) -> Unit) {
     val palette = GainsColors.palette
     val first = ladder.rungs.first().achievement
-    val lit = ladder.earned > 0
+    // The card wears the highest rung climbed; with none, the outline of the first.
+    val top = ladder.rungs.lastOrNull { it.earned } ?: ladder.rungs.first()
     GainsCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Badge(ladder.track, lit, size = 40.dp)
+            AchievementBadge(ladder.track, metalFor(top.achievement.tier, ladder.rungs.size, top.earned), size = 48.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(achievementTitle(first, exercisesById), style = MaterialTheme.typography.titleMedium)
@@ -210,8 +212,8 @@ private fun LadderCard(ladder: Ladder, unit: WeightUnit, exercisesById: Map<Stri
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         for (status in ladder.shown) {
             Row(Modifier.fillMaxWidth().padding(top = 10.dp).alpha(if (status.earned) 1f else 0.7f), verticalAlignment = Alignment.CenterVertically) {
-                Rung(status.earned)
-                Spacer(Modifier.width(10.dp))
+                AchievementBadge(ladder.track, metalFor(status.achievement.tier, ladder.rungs.size, status.earned), size = 30.dp)
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(achievementTier(status.achievement, unit), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     val earnedIn = status.earnedIn
@@ -236,22 +238,4 @@ private fun LadderCard(ladder: Ladder, unit: WeightUnit, exercisesById: Map<Stri
             Text(stringResource(Res.string.more_rungs, ladder.further), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-}
-
-/** A rung: a filled dot once climbed, a ring while ahead. */
-@Composable
-private fun Rung(earned: Boolean) {
-    val palette = GainsColors.palette
-    Box(
-        Modifier.size(12.dp).clip(CircleShape)
-            .then(if (earned) Modifier.background(palette.volt) else Modifier.border(1.5.dp, MaterialTheme.colorScheme.onSurfaceVariant, CircleShape)),
-    )
-}
-
-/** The track's badge: its glyph in the accent when something on the ladder is earned, muted until then. */
-@Composable
-internal fun Badge(track: AchievementTrack, lit: Boolean, size: androidx.compose.ui.unit.Dp = 40.dp, color: Color? = null) {
-    val palette = GainsColors.palette
-    val tint = color ?: if (lit) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant
-    RoundedIconBox(tint, Modifier.size(size)) { Text(track.glyph(), style = MaterialTheme.typography.titleLarge, color = tint) }
 }

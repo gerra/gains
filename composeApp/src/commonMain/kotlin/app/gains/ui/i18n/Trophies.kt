@@ -114,13 +114,3 @@ internal fun achievementToGo(status: AchievementStatus, unit: WeightUnit): Strin
     }
     return stringResource(Res.string.achievement_to_go, amount)
 }
-
-/** The glyph on a track's badge; the app draws its badges with text, as it does its empty states. */
-internal fun AchievementTrack.glyph(): String = when (this) {
-    AchievementTrack.SESSIONS -> "✓"
-    AchievementTrack.STREAK -> "◷"
-    AchievementTrack.TONNAGE -> "▲"
-    AchievementTrack.RECORDS -> "★"
-    AchievementTrack.PLATES -> "●"
-    AchievementTrack.COMEBACK -> "↩"
-}

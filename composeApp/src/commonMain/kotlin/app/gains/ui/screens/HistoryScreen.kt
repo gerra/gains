@@ -55,6 +55,7 @@ import app.gains.ui.components.MetricTile
 import app.gains.ui.components.PickerSheet
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
+import app.gains.ui.components.RecordCountPill
 import app.gains.ui.components.ScreenTitle
 import app.gains.ui.components.SectionHeader
 import app.gains.resources.Res
@@ -277,7 +278,7 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                     // A star and the count for a session that set records: what the feed is scanned for.
                     if (records > 0) {
                         Spacer(Modifier.width(8.dp))
-                        Pill("★ $records", palette.volt)
+                        RecordCountPill(records)
                     }
                     Spacer(Modifier.width(8.dp))
                     Text(

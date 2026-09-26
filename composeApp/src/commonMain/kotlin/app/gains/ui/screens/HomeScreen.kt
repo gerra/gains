@@ -61,7 +61,7 @@ import app.gains.ui.ScreenModel
 import app.gains.ui.components.DeltaBadge
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
-import app.gains.ui.components.Meter
+import app.gains.ui.components.LevelRing
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.RoundedIconBox
@@ -375,17 +375,12 @@ private fun TrophiesCard(state: HomeState, onOpen: () -> Unit) {
     val level = state.level
     GainsCard(Modifier.fillMaxWidth(), onClick = onOpen) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            RoundedIconBox(palette.volt) { Text("★", style = MaterialTheme.typography.titleLarge, color = palette.volt) }
+            LevelRing(level.level, level.fraction.toFloat(), size = 56.dp, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RollingText(stringResource(Res.string.level_label, level.level), MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.onSurface)
-                    Spacer(Modifier.weight(1f))
-                    Text(stringResource(Res.string.level_to_next, pointsText(level.toNext), level.level + 1), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Spacer(Modifier.height(6.dp))
-                Meter(level.fraction.toFloat(), palette.volt, Modifier.fillMaxWidth())
-                Spacer(Modifier.height(6.dp))
+                RollingText(stringResource(Res.string.level_label, level.level), MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.onSurface)
+                Text(stringResource(Res.string.level_to_next, pointsText(level.toNext), level.level + 1), style = MaterialTheme.typography.bodySmall, color = palette.volt)
+                Spacer(Modifier.height(2.dp))
                 Text(
                     stringResource(Res.string.achievements_of, state.achievementsEarned, state.achievementsTotal) + " · " +
                         (if (state.recordsThisMonth > 0) stringResource(Res.string.records_this_month, recordsText(state.recordsThisMonth)) else stringResource(Res.string.no_records_this_month)),

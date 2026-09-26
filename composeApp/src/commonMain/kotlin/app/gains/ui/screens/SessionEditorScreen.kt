@@ -123,6 +123,7 @@ import app.gains.ui.components.DurationWheels
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
+import app.gains.ui.components.RecordMedal
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
 import app.gains.ui.components.TimePickerSheet
@@ -1341,12 +1342,17 @@ private fun ExerciseCard(
                     Motion.standard(), label = "set-label",
                 )
                 val recordDescription = setRecordText(label)
-                Text(
-                    if (record) "★" else label,
-                    Modifier.width(LABEL_WIDTH).then(if (record) Modifier.semantics { contentDescription = recordDescription } else Modifier),
-                    style = if (set.isWarmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
-                    color = labelColor,
-                )
+                if (record) {
+                    Box(Modifier.width(LABEL_WIDTH).semantics { contentDescription = recordDescription }, contentAlignment = Alignment.CenterStart) {
+                        RecordMedal(size = 18.dp)
+                    }
+                } else {
+                    Text(
+                        label, Modifier.width(LABEL_WIDTH),
+                        style = if (set.isWarmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
+                        color = labelColor,
+                    )
+                }
                 PreviousCell(previousLabels[setIndex], label)
                 // The keyboard's action key moves from the first field to the second, then closes the keyboard.
                 when (modality) {

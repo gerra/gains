@@ -86,9 +86,14 @@ import app.gains.ui.components.DurationPickerSheet
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.Meter
 import app.gains.ui.components.MetricTile
+import app.gains.ui.components.AchievementBadge
+import app.gains.ui.components.LevelRing
+import app.gains.ui.components.Metal
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
-import app.gains.ui.components.RoundedIconBox
+import app.gains.ui.components.RecordMedal
+import app.gains.ui.components.RecordMedalBox
+import app.gains.ui.components.metalFor
 import app.gains.ui.components.SectionHeader
 import app.gains.ui.components.WeightPickerSheet
 import app.gains.ui.components.WheelWeight
@@ -515,7 +520,7 @@ private fun RecordsSection(state: SummaryState, today: LocalDate) {
     }
     GainsCard(Modifier.fillMaxWidth(), brush = palette.heroBrush()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            RoundedIconBox(palette.volt) { Text("★", style = MaterialTheme.typography.titleLarge, color = palette.volt) }
+            RecordMedalBox()
             Spacer(Modifier.width(14.dp))
             Text(recordsText(state.records.size), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
         }
@@ -528,7 +533,9 @@ private fun RecordsSection(state: SummaryState, today: LocalDate) {
             for (record in records) {
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.Top) {
-                    Text(record.kind.label(), Modifier.width(120.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    RecordMedal(Modifier.padding(top = 2.dp), size = 16.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(record.kind.label(), Modifier.width(110.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Column(Modifier.weight(1f)) {
                         Text(recordText(record, exercise.modality, unit), style = MaterialTheme.typography.titleSmall, color = palette.volt)
                         Text(
@@ -566,13 +573,14 @@ private fun ScoreSection(score: SessionScore, level: Level, p: Float) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.level_label, level.level), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Text(stringResource(Res.string.points_in_total, pointsText(level.points)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LevelRing(level.level, level.fraction.toFloat(), size = 52.dp, style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(Res.string.level_label, level.level), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.points_in_total, pointsText(level.points)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.level_to_next, pointsText(level.toNext), level.level + 1), style = MaterialTheme.typography.bodySmall, color = palette.volt)
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        Meter(level.fraction.toFloat(), palette.volt, Modifier.fillMaxWidth())
-        Spacer(Modifier.height(6.dp))
-        Text(stringResource(Res.string.level_to_next, pointsText(level.toNext), level.level + 1), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -593,7 +601,7 @@ private fun UnlockedSection(unlocked: List<AchievementStatus>, unit: WeightUnit,
         unlocked.forEachIndexed { i, status ->
             if (i > 0) Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Badge(status.achievement.track, lit = true)
+                AchievementBadge(status.achievement.track, metalFor(status.achievement.tier, ladderSize(status.achievement.track), earned = true), size = 48.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(achievementTitle(status.achievement, exercisesById), style = MaterialTheme.typography.titleMedium)
@@ -603,6 +611,16 @@ private fun UnlockedSection(unlocked: List<AchievementStatus>, unit: WeightUnit,
             }
         }
     }
+}
+
+/** How many rungs the track's ladder has, for the metal of a rung shown on its own. */
+private fun ladderSize(track: app.gains.analysis.AchievementTrack): Int = when (track) {
+    app.gains.analysis.AchievementTrack.SESSIONS -> Achievements.SESSIONS.size
+    app.gains.analysis.AchievementTrack.STREAK -> Achievements.STREAK_WEEKS.size
+    app.gains.analysis.AchievementTrack.TONNAGE -> Achievements.TONNAGE_KG.size
+    app.gains.analysis.AchievementTrack.RECORDS -> Achievements.RECORDS.size
+    app.gains.analysis.AchievementTrack.PLATES -> Achievements.MAX_PLATES
+    app.gains.analysis.AchievementTrack.COMEBACK -> 1
 }
 
 /** A passport-sized picture: enough to recognise the session by, small enough to sit on one row. */
