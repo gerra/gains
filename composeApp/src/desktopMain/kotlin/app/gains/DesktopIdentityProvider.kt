@@ -1,13 +1,16 @@
 package app.gains
 
 import app.gains.auth.AccountKind
+import app.gains.auth.AppleWebFlow
 import app.gains.auth.AuthConfig
 import app.gains.auth.AuthNotConfiguredException
+import app.gains.auth.ExchangeCode
 import app.gains.auth.GoogleOAuth
 import app.gains.auth.IdentityAssertion
 import app.gains.auth.IdentityProvider
 import app.gains.auth.LoopbackRedirect
 import app.gains.auth.SignInCancelledException
+import app.gains.auth.SignInProof
 import app.gains.resources.Res
 import app.gains.resources.browser_sign_in_done
 import app.gains.resources.browser_sign_in_done_title
@@ -24,11 +27,16 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
 /**
- * Sign-in on the desktop, in the person's own browser (docs/sync.md, "Signing in"). Google is
- * [GoogleOAuth]'s PKCE flow with a **Desktop app** client: the browser is sent back to a
- * [LoopbackRedirect] on `127.0.0.1`, and the code it carries is traded, with [clientSecret], for an
- * identity token whose audience is [AuthConfig.googleClientId]. Apple waits for item 16 of
- * docs/launch-plan.md. [http] is the app's client, used for the one call to Google's token endpoint.
+ * Sign-in on the desktop, in the person's own browser (docs/sync.md, "Signing in"). Both providers
+ * send the browser back to a [LoopbackRedirect] on `127.0.0.1`:
+ *
+ * - Google is [GoogleOAuth]'s PKCE flow with a **Desktop app** client. The code the browser brings
+ *   back is traded, with [clientSecret], for an identity token whose audience is
+ *   [AuthConfig.googleClientId]. [http] is the app's client, used for the one call to Google's
+ *   token endpoint.
+ * - Apple is [AppleWebFlow]: our server runs Apple's web flow and sends the browser back with a
+ *   one-time code, which `AccountRepository` trades for our token.
+ *
  * [page] is the HTML the tab shows once it has handed the app its answer ([donePage]).
  *
  * A browser tab can be closed without the app hearing of it, so the wait gives up after [timeout]
@@ -42,9 +50,10 @@ internal class DesktopIdentityProvider(
     private val browse: (URI) -> Unit = ::openInBrowser,
     private val timeout: Duration = 5.minutes,
 ) : IdentityProvider {
-    override suspend fun signIn(kind: AccountKind): IdentityAssertion = when (kind) {
+    override suspend fun signIn(kind: AccountKind): SignInProof = when (kind) {
         AccountKind.GOOGLE -> signInWithGoogle()
-        AccountKind.APPLE, AccountKind.GUEST -> throw AuthNotConfiguredException(kind)
+        AccountKind.APPLE -> signInWithApple()
+        AccountKind.GUEST -> throw AuthNotConfiguredException(kind)
     }
 
     /** The account chooser in the browser, then the code it redirects with traded for an identity token. The server reads the name from Google's token. */
@@ -53,30 +62,56 @@ internal class DesktopIdentityProvider(
         val verifier = GoogleOAuth.base64Url(randomBytes(32))
         val challenge = GoogleOAuth.base64Url(MessageDigest.getInstance("SHA-256").digest(verifier.encodeToByteArray()))
         val state = GoogleOAuth.base64Url(randomBytes(32))
+        val (redirect, redirectUri) = inBrowser(GoogleOAuth::loopbackRedirectUri) { redirectUri ->
+            GoogleOAuth.authorizationUrl(clientId, challenge, state, redirectUri)
+        }
+        val code = GoogleOAuth.parseCallback(redirect, state)
+        return IdentityAssertion(GoogleOAuth.exchange(http, clientId, code, verifier, redirectUri, clientSecret), name = null)
+    }
+
+    /**
+     * Apple's page through our server, which comes back with a one-time code. Apple sends the name
+     * to the server, which keeps it, so there is none to pass along here.
+     */
+    private suspend fun signInWithApple(): ExchangeCode {
+        if (!config.appleEnabled) throw AuthNotConfiguredException(AccountKind.APPLE)
+        val server = checkNotNull(config.serverBaseUrl)
+        val state = GoogleOAuth.base64Url(randomBytes(32))
+        val (redirect, _) = inBrowser(AppleWebFlow::loopbackCallback) { callback -> AppleWebFlow.startUrl(server, callback, state) }
+        return ExchangeCode(AppleWebFlow.parseCallback(redirect, state))
+    }
+
+    /**
+     * Opens a loopback listener, makes the address the browser should come back to from its port
+     * with [callback], opens the page [url] builds around it, and waits for the browser to arrive.
+     * Returns the URL the browser requested and the callback it was sent to.
+     */
+    private suspend fun inBrowser(callback: (port: Int) -> String, url: (callback: String) -> String): Pair<String, String> {
         val page = page()
-        val (redirect, redirectUri) = withContext(Dispatchers.IO) {
+        return withContext(Dispatchers.IO) {
             LoopbackRedirect.open().use { loopback ->
-                val redirectUri = GoogleOAuth.loopbackRedirectUri(loopback.port)
-                browse(URI(GoogleOAuth.authorizationUrl(clientId, challenge, state, redirectUri)))
+                val redirectUri = callback(loopback.port)
+                browse(URI(url(redirectUri)))
                 val redirect = withTimeoutOrNull(timeout) { loopback.receive(page) } ?: throw SignInCancelledException()
                 redirect to redirectUri
             }
         }
-        val code = GoogleOAuth.parseCallback(redirect, state)
-        return IdentityAssertion(GoogleOAuth.exchange(http, clientId, code, verifier, redirectUri, clientSecret), name = null)
     }
 }
 
 /**
  * The desktop's sign-in settings, as JVM system properties that the Gradle build passes to the
  * app from its own properties (`gains.serverUrl`, `gains.googleDesktopClientId`,
- * `gains.googleDesktopClientSecret`; see docs/development.md), so they change without touching
- * code. Google stays off until both its id and secret are there: the token endpoint refuses a
- * Desktop app client that sends no secret.
+ * `gains.googleDesktopClientSecret`, `gains.appleServicesId`; see docs/development.md), so they
+ * change without touching code. Google stays off until both its id and secret are there: the
+ * token endpoint refuses a Desktop app client that sends no secret. Apple stays off until the
+ * Services ID is there, which the owner sets once the server has `APPLE_SERVICES_ID`: before that
+ * `/auth/apple/start` answers 503, and the button would only open an error page.
  */
 internal fun desktopAuthConfig(): AuthConfig = AuthConfig(
     serverBaseUrl = systemProperty(SERVER_URL)?.trimEnd('/'),
     googleClientId = systemProperty(GOOGLE_CLIENT_ID)?.takeIf { desktopGoogleClientSecret() != null },
+    appleServiceId = systemProperty(APPLE_SERVICES_ID),
 )
 
 internal fun desktopGoogleClientSecret(): String? = systemProperty(GOOGLE_CLIENT_SECRET)
@@ -84,6 +119,7 @@ internal fun desktopGoogleClientSecret(): String? = systemProperty(GOOGLE_CLIENT
 internal const val SERVER_URL = "gains.serverUrl"
 internal const val GOOGLE_CLIENT_ID = "gains.googleDesktopClientId"
 internal const val GOOGLE_CLIENT_SECRET = "gains.googleDesktopClientSecret"
+internal const val APPLE_SERVICES_ID = "gains.appleServicesId"
 
 private fun systemProperty(name: String): String? = System.getProperty(name)?.trim()?.ifBlank { null }
 
@@ -128,5 +164,5 @@ private fun escapeHtml(text: String): String =
 
 private val random = SecureRandom()
 
-/** [count] bytes from the system's secure random source, for the PKCE verifier and the OAuth state. */
+/** [count] bytes from the system's secure random source, for the PKCE verifier and the states. */
 private fun randomBytes(count: Int): ByteArray = ByteArray(count).also(random::nextBytes)

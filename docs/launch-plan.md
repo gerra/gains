@@ -52,7 +52,7 @@ The same rules as `auth-plan.md`:
 | 13 | Android: release workflow and Play closed testing | Android launch | Agent + Owner | 8, 9 | [ ] |
 | 14 | Publish on Google Play | Android launch | Owner | 9–13, test plan | [ ] |
 | 15 | Desktop: Sign in with Google | Desktop (P1) | Agent + Owner | — | [x] |
-| 16 | Desktop: Sign in with Apple | Desktop (P1) | Agent | 10 | [ ] |
+| 16 | Desktop: Sign in with Apple | Desktop (P1) | Agent | 10 | [x] |
 | 17 | Desktop: keep the token in the OS keychain | Desktop (P1) | Agent | — | [ ] |
 | 18 | Email and password accounts | More sign-in | Agent + Owner | 2, 4 | [ ] |
 | 19 | Passkeys | More sign-in | Agent + Owner | 3, 18 | [ ] |
@@ -345,9 +345,10 @@ expires, and an unlisted redirect is refused.
    `/auth/apple/start` in a Custom Tab with an App Link (`https://gains.gerra.sh/auth/done`) or a
    custom scheme as the callback. Receive it in `MainActivity`, check the state, and call
    `/auth/exchange`.
-2. This flow ends with our token, not an identity token, so `AccountRepository` needs a second
-   entry point that takes a `SignInResponse` directly. Keep one code path for storing the token
-   and starting the feed.
+2. This flow ends with our token, not an identity token. Item 16 gave `AccountRepository` the
+   entry point: the provider returns an `ExchangeCode` (a `SignInProof`, like `IdentityAssertion`)
+   and the repository trades it at `/auth/exchange`, then stores the token on the same path.
+   `AppleWebFlow.startUrl` and `parseCallback` do the URL work.
 3. Cancelling (back out of the Custom Tab) must behave like `SignInCancelledException`: no
    error, and the buttons come back.
 
@@ -415,7 +416,9 @@ Apply for production access, then promote the build. Add the store link to the l
 
 ### 16. Desktop: Sign in with Apple
 
-- [ ] Done
+- [x] Done
+  Done in #PR. The button shows once `gains.appleServicesId` in `gradle.properties` is set to the
+  server's `APPLE_SERVICES_ID` (item 10's owner step); until then it stays hidden.
 
 **Milestone:** Desktop (P1). **Depends on:** 10.
 
@@ -640,6 +643,12 @@ build fails a check, open an issue and link it next to the box.
 
 - [ ] Google and Apple open the browser and come back signed in. Closing the tab times out
       quietly.
+- [ ] Item 16: with `gains.appleServicesId` set, "Sign in with Apple" opens Apple's page through
+      `api.gains.gerra.sh/auth/apple/start`; finishing it shows the "Back to Gains" tab and the
+      app is signed in with your name and email. The same Apple ID as on the iPhone is the same
+      account: its workouts arrive.
+- [ ] Item 16: "Cancel" on Apple's page brings the tab back and the app shows no error.
+- [ ] Item 16: without `gains.appleServicesId` the Apple button is not there.
 - [ ] A workout logged on the phone appears on the desktop, and the other way round.
 - [ ] The token is in the OS keychain, not in the database file.
 

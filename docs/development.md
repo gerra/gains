@@ -47,12 +47,15 @@ Pick **Continue as guest** on first launch, then import a file with the **+** bu
 workout from the Home tab. The database lives in `~/.gains/gains.db`.
 
 Sign-in on the desktop goes through the browser (docs/sync.md, "Signing in"). The build passes
-three Gradle properties to the app as system properties, for `run` and the installers alike:
+four Gradle properties to the app as system properties, for `run` and the installers alike:
 `gains.serverUrl` (the sync server, `https://api.gains.gerra.sh` in `gradle.properties`),
-`gains.googleDesktopClientId` (the **Desktop app** OAuth client, also in `gradle.properties`) and
-`gains.googleDesktopClientSecret`. The secret stays out of the repository even though Google
-documents it as not secret for installed apps: keep it in `~/.gradle/gradle.properties` or pass
-it with `-P`. **Sign in with Google** shows only when both the id and the secret are set.
+`gains.googleDesktopClientId` (the **Desktop app** OAuth client, also in `gradle.properties`),
+`gains.googleDesktopClientSecret` and `gains.appleServicesId`. The secret stays out of the
+repository even though Google documents it as not secret for installed apps: keep it in
+`~/.gradle/gradle.properties` or pass it with `-P`. **Sign in with Google** shows only when both
+the id and the secret are set. **Sign in with Apple** runs through the server's web flow and shows
+once `gains.appleServicesId` is set, to the server's `APPLE_SERVICES_ID`; set it in
+`gradle.properties` once the server has it, since until then `/auth/apple/start` answers 503.
 
 ```bash
 ./gradlew :composeApp:run -Pgains.android=false -Pgains.googleDesktopClientSecret=GOCSPX-…

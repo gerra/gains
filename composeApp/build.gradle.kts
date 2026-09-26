@@ -126,10 +126,10 @@ compose.desktop {
         mainClass = "app.gains.MainKt"
         // `./gradlew :composeApp:run -Pgains.openFile=a.csv,b.csv` opens straight into the import preview.
         project.findProperty("gains.openFile")?.toString()?.split(',')?.filter { it.isNotBlank() }?.let { args += it }
-        // The sync server and the Google Desktop app client (docs/development.md, "Desktop"), passed
-        // to the app as system properties, so `run` and the packaged installers both carry them.
-        // The secret is not in gradle.properties: pass it with -P or keep it in ~/.gradle/gradle.properties.
-        for (name in listOf("gains.serverUrl", "gains.googleDesktopClientId", "gains.googleDesktopClientSecret")) {
+        // The sync server, the Google Desktop app client and the Apple Services ID (docs/development.md,
+        // "Desktop"), passed to the app as system properties, so `run` and the packaged installers both
+        // carry them. The secret is not in gradle.properties: pass it with -P or keep it in ~/.gradle/gradle.properties.
+        for (name in listOf("gains.serverUrl", "gains.googleDesktopClientId", "gains.googleDesktopClientSecret", "gains.appleServicesId")) {
             project.findProperty(name)?.toString()?.takeIf { it.isNotBlank() }?.let { jvmArgs += "-D$name=$it" }
         }
         nativeDistributions {

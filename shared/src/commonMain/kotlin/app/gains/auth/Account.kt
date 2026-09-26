@@ -30,7 +30,8 @@ data class AuthConfig(
     /**
      * The audience Apple puts in the identity token, which the server checks against
      * `APPLE_CLIENT_IDS`. On iOS it is the app's bundle id, because the native flow signs tokens
-     * for the app itself; a web or Android flow would use a Services ID instead.
+     * for the app itself. Apple's web flow ([AppleWebFlow], on the desktop) uses the server's
+     * Services ID; the server holds it and runs that flow, so there it only switches the button on.
      */
     val appleServiceId: String? = null,
     /** Base URL of the sync server (see docs/sync.md), without a trailing slash. */
@@ -51,30 +52,44 @@ class AuthNotConfiguredException(val provider: AccountKind) :
 class SignInCancelledException : Exception("Sign-in was cancelled.")
 
 /**
+ * What a platform's sign-in hands to [AccountRepository], which trades it for our token. Most
+ * flows end with the provider's identity token ([IdentityAssertion]); Apple's web flow, on
+ * Android and the desktop, ends on our server instead and leaves the app an [ExchangeCode].
+ */
+sealed interface SignInProof
+
+/**
  * What a platform's sign-in sheet hands back: the provider's identity token and, when it was given,
  * the person's name. [authorizationCode] is Apple's one-time code, which the server exchanges for
  * the refresh token it revokes when the account is deleted; it expires in five minutes, so it is
  * sent with the sign-in and never stored.
  */
-data class IdentityAssertion(val token: String, val name: String? = null, val authorizationCode: String? = null)
+data class IdentityAssertion(val token: String, val name: String? = null, val authorizationCode: String? = null) : SignInProof
 
 /**
- * The platform's native sign-in: Sign in with Apple through AuthenticationServices on iOS, Google
+ * The end of a sign-in the server finished itself ([AppleWebFlow]): Apple posted the identity
+ * token to the server, which signed the person in and sent the browser back to the app with this
+ * one-time [code]. `POST /auth/exchange` trades it for our token, once and within a minute.
+ */
+data class ExchangeCode(val code: String) : SignInProof
+
+/**
+ * The platform's sign-in: Sign in with Apple through AuthenticationServices on iOS, Google
  * through Credential Manager on Android, and through [GoogleOAuth] in a browser sheet on iOS and
- * in the person's browser on the desktop. Each platform registers its own in Koin; the shared
- * module's default offers nothing.
+ * in the person's browser on the desktop, where Apple goes through [AppleWebFlow]. Each platform
+ * registers its own in Koin; the shared module's default offers nothing.
  */
 interface IdentityProvider {
     /**
-     * Shows the provider's sheet and returns its token. Throws [AuthNotConfiguredException] when
-     * the platform has no such sheet, and [SignInCancelledException] when the person closes it.
+     * Shows the provider's sheet and returns what it proved. Throws [AuthNotConfiguredException]
+     * when the platform has no such sheet, and [SignInCancelledException] when the person closes it.
      */
-    suspend fun signIn(kind: AccountKind): IdentityAssertion
+    suspend fun signIn(kind: AccountKind): SignInProof
 }
 
 /** Any platform that has not registered a provider yet, and the tests. */
 object NoIdentityProvider : IdentityProvider {
-    override suspend fun signIn(kind: AccountKind): IdentityAssertion = throw AuthNotConfiguredException(kind)
+    override suspend fun signIn(kind: AccountKind): SignInProof = throw AuthNotConfiguredException(kind)
 }
 
 /**
@@ -106,14 +121,23 @@ class AccountRepository(
         signIn(AccountKind.APPLE)
     }
 
+    /**
+     * One path for every sign-in: whatever the platform proved becomes our token, and storing it
+     * and starting the feed happen the same way. The web flow's name reaches the server from Apple
+     * directly, so only an [IdentityAssertion] has one to fall back on.
+     */
     private suspend fun signIn(kind: AccountKind) {
-        val assertion = identity.signIn(kind)
-        val response = api.signIn(kind, assertion.token, assertion.name, assertion.authorizationCode)
+        val proof = identity.signIn(kind)
+        val response = when (proof) {
+            is IdentityAssertion -> api.signIn(kind, proof.token, proof.name, proof.authorizationCode)
+            is ExchangeCode -> api.exchange(proof.code)
+        }
+        val name = response.user.name ?: (proof as? IdentityAssertion)?.name
         writing.withLock {
             store.setToken(response.token)
             store.setTokenIssuedAt(Clock.System.now().toString())
             store.startFeed(response.user.id)
-            settings.set(KEY_ACCOUNT, encode(Account(kind, response.user.name ?: assertion.name, response.user.email)))
+            settings.set(KEY_ACCOUNT, encode(Account(kind, name, response.user.email)))
         }
     }
 
