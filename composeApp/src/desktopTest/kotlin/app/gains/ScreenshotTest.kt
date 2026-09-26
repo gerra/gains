@@ -306,7 +306,8 @@ class ScreenshotTest {
         settle(1_500)
         shot("05-lifts")
         onAllNodes(text("Bench Press")).onFirst().performClick()
-        require(text("Estimated 1RM"))
+        // The records and rep maxes now sit above the chart, so the top of the page is what is waited for.
+        require(text("All-time best"))
         settle(1_500)
         shot("06-lift-detail")
 
@@ -536,7 +537,8 @@ class ScreenshotTest {
         tab("Lifts")
         require(text("Bench Press"))
         onAllNodes(text("Bench Press")).onFirst().performClick()
-        require(text("Estimated 1RM"))
+        // The records and rep maxes now sit above the chart, so the top of the page is what is waited for.
+        require(text("All-time best"))
         settle(1_500)
         shot("11-lift-detail-light")
         watchdog.interrupt()
