@@ -158,8 +158,8 @@ class RecordsTest {
         assertFalse(Records.beats(weighted(60.0, 5), bench.modality, standing))
         // More reps at the same weight: a better e1RM and a bigger set.
         assertTrue(Records.beats(weighted(60.0, 10), bench.modality, standing))
-        // A warm-up flag is the editor's to honour; the set itself is what is judged here.
-        assertTrue(Records.beats(weighted(62.5, 5, warmup = true), bench.modality, standing))
+        // A warm-up is never a record, however heavy.
+        assertFalse(Records.beats(weighted(62.5, 5, warmup = true), bench.modality, standing))
         // Nothing standing: nothing to beat.
         assertFalse(Records.beats(weighted(100.0, 5), bench.modality, emptyMap()))
     }
