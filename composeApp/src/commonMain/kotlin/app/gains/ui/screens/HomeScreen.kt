@@ -36,8 +36,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Dates
+import app.gains.analysis.Achievements
 import app.gains.analysis.Format
 import app.gains.analysis.GoalTuning
+import app.gains.analysis.Level
+import app.gains.analysis.Records
+import app.gains.analysis.Scoring
 import app.gains.analysis.Insight
 import app.gains.analysis.InsightEngine
 import app.gains.analysis.InsightKind
@@ -57,6 +61,7 @@ import app.gains.ui.ScreenModel
 import app.gains.ui.components.DeltaBadge
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
+import app.gains.ui.components.Meter
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.RoundedIconBox
@@ -97,6 +102,13 @@ internal data class HomeState(
     val upNext: ProgramDay? = null,
     /** Sessions of the active program this week. */
     val programSessionsThisWeek: Int = 0,
+    /** The score and the achievements are shown; off in Settings hides the card. */
+    val trophiesOn: Boolean = true,
+    val level: Level = Scoring.level(0),
+    val achievementsEarned: Int = 0,
+    val achievementsTotal: Int = 0,
+    /** Records set in the calendar month of today. */
+    val recordsThisMonth: Int = 0,
 )
 
 internal class HomeModel(
@@ -110,17 +122,24 @@ internal class HomeModel(
         settings.observeUnit(),
         programs.observeState(),
         sessions.observeProgramLinks(),
-        settings.observeStreakReminder(),
-    ) { snapshot, unit, programState, links, reminder ->
-        Inputs(snapshot, unit, programState, links, reminder)
+        combine(settings.observeStreakReminder(), settings.observeTrophies()) { reminder, trophies -> reminder to trophies },
+    ) { snapshot, unit, programState, links, (reminder, trophies) ->
+        Inputs(snapshot, unit, programState, links, reminder, trophies)
     }
-        .mapLatest { (snapshot, unit, programState, links, reminder) ->
+        .mapLatest { (snapshot, unit, programState, links, reminder, trophies) ->
             withContext(Dispatchers.Default) {
                 val today = Dates.today()
                 val weekStart = Dates.weekStart(today)
                 val goal = programState.profile?.goal
                 val active = programState.active
+                val statuses = if (trophies) Achievements.evaluate(snapshot.sessions, snapshot.exercisesById, unit, programState.weeklyGoal) else emptyList()
+                val records = Records.timeline(snapshot.sessions, snapshot.exercisesById)
                 HomeState(
+                    trophiesOn = trophies,
+                    level = if (trophies) Scoring.level(Scoring.total(Scoring.sessions(snapshot.sessions, snapshot.exercisesById).values)) else Scoring.level(0),
+                    achievementsEarned = statuses.count { it.earned },
+                    achievementsTotal = statuses.size,
+                    recordsThisMonth = records.count { it.date.year == today.year && it.date.month == today.month },
                     loading = false,
                     sessionCount = snapshot.sessions.size,
                     exerciseCount = snapshot.trainedExercises.size,
@@ -148,6 +167,7 @@ internal class HomeModel(
         val programs: app.gains.domain.ProgramState,
         val links: List<app.gains.domain.ProgramLink>,
         val reminder: Boolean?,
+        val trophies: Boolean,
     )
 }
 
@@ -163,6 +183,7 @@ internal fun HomeScreen(
     onOpenPrograms: () -> Unit = {},
     onOpenProgram: (String) -> Unit = {},
     onStartDay: (ProgramDayRef) -> Unit = {},
+    onOpenTrophies: () -> Unit = {},
 ) {
     val model = rememberScreenModel { HomeModel() }
     val state by model.state.collectAsState()
@@ -214,6 +235,10 @@ internal fun HomeScreen(
                     onRemindMe = if (!state.reminderAnswered && state.streak.weeks >= REMIND_FROM_WEEKS) model::enableReminder else null,
                 ) {
                     HeroStats(state)
+                }
+                if (state.trophiesOn) {
+                    Spacer(Modifier.height(12.dp))
+                    TrophiesCard(state, onOpenTrophies)
                 }
             }
             item {
@@ -336,6 +361,38 @@ private fun HeroStats(state: HomeState) {
         HeroStat(stringResource(Res.string.hero_lifts), state.exerciseCount.toString())
         HeroStat(stringResource(Res.string.hero_up), progress.toString(), palette.progress)
         HeroStat(stringResource(Res.string.hero_down), regressions.toString(), if (regressions > 0) palette.regression else null)
+    }
+}
+
+/**
+ * The level and what feeds it, a tap from the Trophies screen: the points to the next level, the
+ * achievements earned, and the records this month, which is the one number here that can be zero
+ * without meaning anything went wrong.
+ */
+@Composable
+private fun TrophiesCard(state: HomeState, onOpen: () -> Unit) {
+    val palette = GainsColors.palette
+    val level = state.level
+    GainsCard(Modifier.fillMaxWidth(), onClick = onOpen) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RoundedIconBox(palette.volt) { Text("★", style = MaterialTheme.typography.titleLarge, color = palette.volt) }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RollingText(stringResource(Res.string.level_label, level.level), MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.weight(1f))
+                    Text(stringResource(Res.string.level_to_next, pointsText(level.toNext), level.level + 1), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.height(6.dp))
+                Meter(level.fraction.toFloat(), palette.volt, Modifier.fillMaxWidth())
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    stringResource(Res.string.achievements_of, state.achievementsEarned, state.achievementsTotal) + " · " +
+                        (if (state.recordsThisMonth > 0) stringResource(Res.string.records_this_month, recordsText(state.recordsThisMonth)) else stringResource(Res.string.no_records_this_month)),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

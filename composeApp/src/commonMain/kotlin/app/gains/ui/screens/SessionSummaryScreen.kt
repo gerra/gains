@@ -50,8 +50,16 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.gains.analysis.AchievementStatus
+import app.gains.analysis.Achievements
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
+import app.gains.analysis.Level
+import app.gains.analysis.NearMiss
+import app.gains.analysis.Record
+import app.gains.analysis.Records
+import app.gains.analysis.Scoring
+import app.gains.analysis.SessionScore
 import app.gains.analysis.TrainingData
 import app.gains.analysis.VolumeAnalyzer
 import app.gains.data.BodyweightRepository
@@ -59,6 +67,7 @@ import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
 import app.gains.domain.BodyweightEntry
+import app.gains.domain.Exercise
 import app.gains.domain.MuscleGroup
 import app.gains.domain.Session
 import app.gains.domain.Units
@@ -77,7 +86,9 @@ import app.gains.ui.components.DurationPickerSheet
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.Meter
 import app.gains.ui.components.MetricTile
+import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
+import app.gains.ui.components.RoundedIconBox
 import app.gains.ui.components.SectionHeader
 import app.gains.ui.components.WeightPickerSheet
 import app.gains.ui.components.WheelWeight
@@ -128,6 +139,18 @@ internal data class SummaryState(
     val photo: ImageBitmap? = null,
     /** A photo is being shrunk and stored, or read back. */
     val photoBusy: Boolean = false,
+    /** The records this workout set, in the order of its exercises. */
+    val records: List<Record> = emptyList(),
+    /** With no records, the lift that came closest to one, if any did. */
+    val nearMiss: NearMiss? = null,
+    /** The score, the level and the achievements are shown; off in Settings leaves the records alone. */
+    val trophiesOn: Boolean = true,
+    val score: SessionScore? = null,
+    /** Where the running total stands with this workout in it. */
+    val level: Level = Scoring.level(0),
+    /** The achievements this workout earned. */
+    val unlocked: List<AchievementStatus> = emptyList(),
+    val exercisesById: Map<String, Exercise> = emptyMap(),
 ) {
     val weight: Double get() = WheelWeight.parse(weightText).value
     /** The heaviest group decides the shading, so one workout's spread reads even at a few sets a muscle. */
@@ -164,10 +187,33 @@ internal class SessionSummaryModel(
                 return@launch
             }
             val unit = settings.observeUnit().first()
+            val trophiesOn = settings.observeTrophies().first()
+            val goal = programs.observeState().first().weeklyGoal
             val entries = bodyweight.observe().first()
             val onDay = entries.firstOrNull { it.date == session.date }
             val last = onDay ?: entries.maxByOrNull { it.date }
+            // The records and the score are judged against everything before this workout, and the
+            // achievements against everything up to and including it: one pass over the history each.
+            val trophies = withContext(Dispatchers.Default) {
+                val records = Records.forSession(session, snapshot.sessions, snapshot.exercisesById)
+                val statuses = if (trophiesOn) Achievements.evaluate(snapshot.sessions, snapshot.exercisesById, unit, goal) else emptyList()
+                val total = if (trophiesOn) Scoring.total(Scoring.sessions(snapshot.sessions, snapshot.exercisesById).values) else 0
+                Trophies(
+                    records = records,
+                    nearMiss = if (records.isEmpty()) Records.nearMiss(session, snapshot.sessions, snapshot.exercisesById) else null,
+                    score = Scoring.session(session, records),
+                    level = Scoring.level(total),
+                    unlocked = Achievements.earnedIn(statuses, session.id),
+                )
+            }
             _state.value = SummaryState(
+                records = trophies.records,
+                nearMiss = trophies.nearMiss,
+                trophiesOn = trophiesOn,
+                score = trophies.score,
+                level = trophies.level,
+                unlocked = trophies.unlocked,
+                exercisesById = snapshot.exercisesById,
                 loading = false,
                 title = title(session),
                 date = session.date,
@@ -187,6 +233,8 @@ internal class SessionSummaryModel(
             writeWhileEditing()
         }
     }
+
+    private data class Trophies(val records: List<Record>, val nearMiss: NearMiss?, val score: SessionScore, val level: Level, val unlocked: List<AchievementStatus>)
 
     /** "GZCLP · A1" for a workout started from a program day, else the plain word. */
     private suspend fun title(session: Session): String {
@@ -335,6 +383,19 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
             }
         } }
         item { Column(Modifier.enterOnce(1)) {
+            RecordsSection(state, today)
+        } }
+        if (state.trophiesOn) {
+            item { Column(Modifier.enterOnce(2)) {
+                state.score?.let { ScoreSection(it, state.level, if (counted) 1f else p) }
+            } }
+            if (state.unlocked.isNotEmpty()) {
+                item { Column(Modifier.enterOnce(3)) {
+                    UnlockedSection(state.unlocked, unit, state.exercisesById)
+                } }
+            }
+        }
+        item { Column(Modifier.enterOnce(4)) {
             SectionHeader(stringResource(Res.string.bodyweight_title))
             // One number and one word to put it on record: the wheel on the left, Save beside it.
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
@@ -367,7 +428,7 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                 )
             }
         } }
-        item { Column(Modifier.enterOnce(2)) {
+        item { Column(Modifier.enterOnce(5)) {
             SectionHeader(stringResource(Res.string.caption_and_photo))
             // One row, as Liftoff has it: a small picture on the left and the line about the
             // session beside it, so the two read as one note rather than two sections.
@@ -392,7 +453,7 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                 }
             }
         } }
-        item { Column(Modifier.enterOnce(3)) {
+        item { Column(Modifier.enterOnce(6)) {
             SectionHeader(stringResource(Res.string.muscles_trained))
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 if (state.muscles.isEmpty()) {
@@ -414,7 +475,7 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                 }
             }
         } }
-        item { Column(Modifier.enterOnce(4)) {
+        item { Column(Modifier.enterOnce(7)) {
             Spacer(Modifier.height(20.dp))
             PrimaryButton(stringResource(Res.string.done), onDone, Modifier.fillMaxWidth())
         } }
@@ -427,6 +488,121 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
         onPick = model::setWeightText, onDismiss = { weightPickerOpen = false },
         clearable = false, steps = WheelWeight.bodyweightSteps(unit),
     )
+}
+
+/**
+ * The records the workout set, each named exactly — the kind, the set that did it and what it
+ * beat — grouped by lift. With none, one quiet line, and the lift that came closest if one did:
+ * the next target named rather than the miss dwelt on.
+ */
+@Composable
+private fun RecordsSection(state: SummaryState, today: LocalDate) {
+    val palette = GainsColors.palette
+    val unit = state.unit
+    SectionHeader(stringResource(Res.string.records_section))
+    if (state.records.isEmpty()) {
+        Text(stringResource(Res.string.no_records_this_time), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val miss = state.nearMiss
+        val exercise = miss?.let { state.exercisesById[it.exerciseId] }
+        if (miss != null && exercise != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(Res.string.record_near_miss, exercise.displayName(), weightText(miss.liftedKg, unit), weightText(miss.shortByKg, unit)),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+    GainsCard(Modifier.fillMaxWidth(), brush = palette.heroBrush()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RoundedIconBox(palette.volt) { Text("★", style = MaterialTheme.typography.titleLarge, color = palette.volt) }
+            Spacer(Modifier.width(14.dp))
+            Text(recordsText(state.records.size), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+        }
+        for ((exerciseId, records) in state.records.groupBy { it.exerciseId }) {
+            val exercise = state.exercisesById[exerciseId] ?: continue
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(10.dp))
+            Text(exercise.displayName(), style = MaterialTheme.typography.titleMedium)
+            for (record in records) {
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.Top) {
+                    Text(record.kind.label(), Modifier.width(120.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(Modifier.weight(1f)) {
+                        Text(recordText(record, exercise.modality, unit), style = MaterialTheme.typography.titleSmall, color = palette.volt)
+                        Text(
+                            stringResource(Res.string.record_was, recordValueText(record.kind, record.previous, unit)) + " · " + dateContextual(record.previousDate, today),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * What the workout scored and from what, counted up with the other figures, then where the running
+ * total now stands. The three parts are shown as they are so the number is never a mystery.
+ */
+@Composable
+private fun ScoreSection(score: SessionScore, level: Level, p: Float) {
+    val palette = GainsColors.palette
+    SectionHeader(stringResource(Res.string.score_section))
+    GainsCard(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("+" + (score.total * p).roundToInt(), style = MaterialTheme.typography.displayMedium, color = palette.volt)
+            Spacer(Modifier.width(8.dp))
+            Text(pointsWord(score.total), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            ScorePart(stringResource(Res.string.score_showed_up), score.showedUp)
+            ScorePart(stringResource(Res.string.score_work), score.work)
+            ScorePart(stringResource(Res.string.score_records), score.records)
+        }
+        Spacer(Modifier.height(14.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(Res.string.level_label, level.level), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(stringResource(Res.string.points_in_total, pointsText(level.points)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(8.dp))
+        Meter(level.fraction.toFloat(), palette.volt, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(6.dp))
+        Text(stringResource(Res.string.level_to_next, pointsText(level.toNext), level.level + 1), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun ScorePart(label: String, points: Int) {
+    Column {
+        Text("+$points", style = MaterialTheme.typography.titleMedium, color = if (points > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** The achievements this workout earned, each with its badge, name and what it was for. */
+@Composable
+private fun UnlockedSection(unlocked: List<AchievementStatus>, unit: WeightUnit, exercisesById: Map<String, Exercise>) {
+    val palette = GainsColors.palette
+    SectionHeader(stringResource(Res.string.unlocked))
+    GainsCard(Modifier.fillMaxWidth()) {
+        unlocked.forEachIndexed { i, status ->
+            if (i > 0) Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Badge(status.achievement.track, lit = true)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(achievementTitle(status.achievement, exercisesById), style = MaterialTheme.typography.titleMedium)
+                    Text(achievementTier(status.achievement, unit), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Pill(stringResource(Res.string.unlocked), palette.volt, filled = true)
+            }
+        }
+    }
 }
 
 /** A passport-sized picture: enough to recognise the session by, small enough to sit on one row. */

@@ -16,6 +16,8 @@ data class UnitLabels(
     val km: String,
     /** "reps" after a count of repetitions. */
     val reps: String,
+    /** "t" after a tonnage in metric tonnes. */
+    val tonne: String = "t",
 ) {
     fun unit(unit: WeightUnit): String = when (unit) { WeightUnit.KG -> kg; WeightUnit.LBS -> lbs }
 }

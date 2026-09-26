@@ -33,6 +33,7 @@ import app.gains.analysis.ConsistencyStats
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
 import app.gains.analysis.InsightEngine
+import app.gains.analysis.Records
 import app.gains.analysis.Streak
 import app.gains.analysis.StreakEngine
 import app.gains.analysis.TrainingData
@@ -104,6 +105,8 @@ internal data class HistoryState(
     val streak: Streak = Streak(),
     /** program day id -> day name, for the badge on sessions started from a program. */
     val dayNames: Map<String, String> = emptyMap(),
+    /** session id -> records it set, for the star on its row. */
+    val recordCounts: Map<String, Int> = emptyMap(),
 )
 
 internal class HistoryModel(texts: Texts, trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
@@ -122,6 +125,7 @@ internal class HistoryModel(texts: Texts, trainingData: TrainingData = inject(),
                 weeks = ConsistencyAnalyzer.sessionsPerWeek(snapshot.sessions, today),
                 stats = InsightEngine().consistencyStats(snapshot.sessions, today),
                 streak = StreakEngine.compute(snapshot.sessions, today, programState.weeklyGoal),
+                recordCounts = Records.bySession(snapshot.sessions, snapshot.exercisesById).mapValues { it.value.size },
             )
         }
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), HistoryState())
@@ -200,7 +204,7 @@ internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
             for (month in year.months) {
                 item(key = "month-${year.year}-${month.month.ordinal}", contentType = "month") { MonthHeader(month) }
                 items(month.sessions, key = { it.id }, contentType = { "session" }) { session ->
-                    SessionRow(session, state.exercisesById, today, state.dayNames[session.program?.dayId], onClick = { onOpen(session.id) })
+                    SessionRow(session, state.exercisesById, today, state.dayNames[session.program?.dayId], onClick = { onOpen(session.id) }, records = state.recordCounts[session.id] ?: 0)
                 }
             }
         }
@@ -210,6 +214,7 @@ internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
             day, state.sessionsByDay[day].orEmpty(), state.exercisesById, state.dayNames, today,
             onOpen = { pickedDay = null; onOpen(it) },
             onDismiss = { pickedDay = null },
+            recordCounts = state.recordCounts,
         )
     }
 }
@@ -224,11 +229,12 @@ private fun DaySessionsSheet(
     today: LocalDate,
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
+    recordCounts: Map<String, Int> = emptyMap(),
 ) {
     PickerSheet(dateWithWeekday(day, today), subtitle = sessionsText(sessions.size), onDismiss = onDismiss) {
         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
             for (session in sessions) {
-                SessionRow(session, exercisesById, today, dayNames[session.program?.dayId], onClick = { onOpen(session.id) })
+                SessionRow(session, exercisesById, today, dayNames[session.program?.dayId], onClick = { onOpen(session.id) }, records = recordCounts[session.id] ?: 0)
             }
         }
     }
@@ -257,7 +263,7 @@ private fun MonthHeader(month: MonthGroup) {
 }
 
 @Composable
-private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, today: LocalDate, dayName: String?, onClick: () -> Unit) {
+private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, today: LocalDate, dayName: String?, onClick: () -> Unit, records: Int = 0) {
     val palette = GainsColors.palette
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = onClick, contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -267,6 +273,11 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                     if (dayName != null) {
                         Spacer(Modifier.width(8.dp))
                         Pill(dayName, palette.cyan)
+                    }
+                    // A star and the count for a session that set records: what the feed is scanned for.
+                    if (records > 0) {
+                        Spacer(Modifier.width(8.dp))
+                        Pill("★ $records", palette.volt)
                     }
                     Spacer(Modifier.width(8.dp))
                     Text(

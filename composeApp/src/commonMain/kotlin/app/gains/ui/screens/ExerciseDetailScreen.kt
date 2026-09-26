@@ -1,5 +1,6 @@
 package app.gains.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,6 +32,9 @@ import app.gains.analysis.ExerciseAnalysis
 import app.gains.analysis.ExerciseSessionPoint
 import app.gains.analysis.ExerciseSummary
 import app.gains.analysis.Format
+import app.gains.analysis.RecordHolder
+import app.gains.analysis.RecordKind
+import app.gains.analysis.Records
 import app.gains.analysis.TrainingData
 import app.gains.analysis.WorkingSets
 import app.gains.data.ExerciseRepository
@@ -50,6 +54,7 @@ import app.gains.ui.components.DeltaBadge
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
+import app.gains.ui.components.KeyValueRow
 import app.gains.ui.components.MetricTile
 import app.gains.ui.components.Pill
 import app.gains.ui.components.SectionHeader
@@ -84,6 +89,10 @@ internal data class ExerciseDetailState(
     val summary: ExerciseSummary? = null,
     val workingSetRatio: Double = WorkingSets.DEFAULT_RATIO,
     val hasOverride: Boolean = false,
+    /** The standing records, in the order the lift keeps them. */
+    val records: List<RecordHolder> = emptyList(),
+    /** The heaviest set for at least 1, 2, 3, 5… reps, for a weighted lift. */
+    val repMaxes: Map<Int, RecordHolder> = emptyMap(),
 )
 
 internal class ExerciseDetailModel(
@@ -112,6 +121,8 @@ internal class ExerciseDetailModel(
                 summary = ExerciseSummary.of(all, today),
                 workingSetRatio = ratios[exerciseId] ?: WorkingSets.DEFAULT_RATIO,
                 hasOverride = ratios.containsKey(exerciseId),
+                records = Records.standing(snapshot.sessions, snapshot.exercisesById)[exerciseId]?.let { standing -> Records.kinds(exercise.modality).mapNotNull { standing[it] } }.orEmpty(),
+                repMaxes = if (exercise.modality == Modality.WEIGHTED) Records.repMaxes(snapshot.sessions, exerciseId) else emptyMap(),
             )
         }
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), ExerciseDetailState())
@@ -188,6 +199,35 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
                     gap == null -> {}
                     gap <= 0.0 -> Pill(stringResource(Res.string.at_your_best), palette.volt, filled = true)
                     else -> { DeltaBadge(-gap); Spacer(Modifier.padding(4.dp)); Text(stringResource(Res.string.from_all_time_best), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
+        }
+        if (state.records.isNotEmpty()) {
+            item {
+                SectionHeader(stringResource(Res.string.records_section))
+                GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+                    for (holder in state.records) {
+                        KeyValueRow(
+                            holder.kind.label(),
+                            stringResource(Res.string.record_since, recordText(holder, exercise.modality, unit), dateContextual(holder.date, today)),
+                            Modifier.clickable { onOpenSession(holder.sessionId) },
+                            valueColor = palette.volt,
+                        )
+                    }
+                }
+                if (state.repMaxes.isNotEmpty()) {
+                    SectionHeader(stringResource(Res.string.rep_maxes))
+                    GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
+                        Text(stringResource(Res.string.rep_maxes_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
+                        for ((reps, holder) in state.repMaxes.entries.sortedBy { it.key }) {
+                            KeyValueRow(
+                                stringResource(Res.string.rep_max_label, reps),
+                                stringResource(Res.string.record_since, weightText(holder.value, unit), dateContextual(holder.date, today)),
+                                Modifier.clickable { onOpenSession(holder.sessionId) },
+                            )
+                        }
+                    }
                 }
             }
         }
