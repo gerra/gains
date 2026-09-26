@@ -417,7 +417,7 @@ Apply for production access, then promote the build. Add the store link to the l
 ### 16. Desktop: Sign in with Apple
 
 - [x] Done
-  Done in #PR. The button shows once `gains.appleServicesId` in `gradle.properties` is set to the
+  Done in #86. The button shows once `gains.appleServicesId` in `gradle.properties` is set to the
   server's `APPLE_SERVICES_ID` (item 10's owner step); until then it stays hidden.
 
 **Milestone:** Desktop (P1). **Depends on:** 10.
