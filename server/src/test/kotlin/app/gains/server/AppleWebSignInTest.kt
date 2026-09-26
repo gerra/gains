@@ -1,10 +1,22 @@
 package app.gains.server
 
+import app.gains.auth.Account
+import app.gains.auth.AccountKind
+import app.gains.auth.AccountRepository
+import app.gains.auth.AppleWebFlow
+import app.gains.auth.AuthConfig
+import app.gains.auth.ExchangeCode
+import app.gains.auth.IdentityProvider
+import app.gains.auth.SignInProof
+import app.gains.data.DesktopDriverFactory
+import app.gains.data.SettingsRepository
+import app.gains.db.GainsDatabase
 import app.gains.sync.ExchangeRequest
 import app.gains.sync.SignInResponse
 import app.gains.sync.SyncApi
 import app.gains.sync.SyncException
 import app.gains.sync.SyncJson
+import app.gains.sync.SyncStore
 import io.ktor.client.HttpClient
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
@@ -20,13 +32,17 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.Url
 import io.ktor.http.contentType
+import io.ktor.http.formUrlEncode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -116,6 +132,39 @@ class AppleWebSignInTest {
 
         val again = assertFailsWith<SyncException> { api.exchange(code) }
         assertTrue(again.unauthorized, "a code works once")
+    }
+
+    /**
+     * The desktop's Apple sign-in as the app runs it (launch plan item 16): the provider hands
+     * [AccountRepository] the one-time code from its loopback callback, and the repository trades
+     * it and stores the account the same way it does after a native sign-in.
+     */
+    @Test
+    fun theAppSignsInWithTheCodeLikeWithANativeToken() = testApplication {
+        application { gainsServer(testServices(google, apple, appleWeb = web)) }
+        val browser = noRedirects()
+        val db = GainsDatabase(DesktopDriverFactory(file = null).createDriver())
+        val settings = SettingsRepository(db, Dispatchers.Unconfined)
+        val store = SyncStore(db, Dispatchers.Unconfined)
+        val config = AuthConfig(appleServiceId = APPLE_SERVICES_ID, serverBaseUrl = "https://api.example")
+        val desktop = object : IdentityProvider {
+            override suspend fun signIn(kind: AccountKind): SignInProof {
+                val authorize = browser.start(state = "desktop-state")
+                val back = browser.callback(
+                    "state" to authorize["state"]!!,
+                    "id_token" to apple.token("a-1", APPLE_SERVICES_ID, email = "ada@example.com", emailVerified = "true", nonce = authorize["nonce"]),
+                    "user" to """{"name":{"firstName":"Ada","lastName":"Lovelace"}}""",
+                ).appCallback()
+                return ExchangeCode(AppleWebFlow.parseCallback("$desktopCallback?${back.formUrlEncode()}", "desktop-state"))
+            }
+        }
+        val accounts = AccountRepository(settings, config, SyncApi(client, baseUrl = "", token = { store.token() }), store, desktop)
+
+        accounts.signInWithApple()
+        assertEquals(Account(AccountKind.APPLE, "Ada Lovelace", "ada@example.com"), accounts.observeAccount().first())
+        val token = assertNotNull(store.token())
+        assertNotNull(store.userId(), "the feed has started")
+        assertEquals(HttpStatusCode.OK, client.get("/auth/me") { header("Authorization", "Bearer $token") }.status)
     }
 
     @Test
