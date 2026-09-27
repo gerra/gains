@@ -342,7 +342,7 @@ expires, and an unlisted redirect is refused.
 ### 11. Android: Sign in with Apple
 
 - [x] Done
-  Done in #PR_NUMBER
+  Done in #95
   Steps 1–3 are in. The owner's step 4 switches it on (`gains.appleServicesId`) and step 5 makes
   the App Link verified; until step 5 the site's `/auth/done` page finishes the sign-in with its
   "Open Gains" button. Android is not compiled in CI: build it in Android Studio and run the test
