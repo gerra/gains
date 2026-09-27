@@ -18,10 +18,10 @@ class InsightEngineTest {
     private val engine = InsightEngine()
 
     @Test
-    fun regressionReportsCurrentAndAllTimeBestWithNumbers() {
+    fun regressionReportsCurrentAndPreviousBestWithNumbers() {
         val sessions = listOf(
-            session(LocalDate(2026, 2, 10), entry(TestData.dbPress, weighted(14.0, 12))),
-            session(LocalDate(2026, 5, 10), entry(TestData.dbPress, weighted(13.0, 10))),
+            session(LocalDate(2026, 6, 10), entry(TestData.dbPress, weighted(14.0, 12))),
+            session(LocalDate(2026, 7, 10), entry(TestData.dbPress, weighted(13.0, 10))),
             session(LocalDate(2026, 8, 20), entry(TestData.dbPress, weighted(12.0, 10))),
             session(LocalDate(2026, 8, 27), entry(TestData.dbPress, weighted(12.0, 9))),
         )
@@ -31,11 +31,37 @@ class InsightEngineTest {
         val detail = regression.detail as InsightDetail.Regression
         assertEquals(12.0 to 10, detail.current.set.weightKg to detail.current.set.reps)
         assertEquals(14.0 to 12, detail.best.set.weightKg to detail.best.set.reps)
-        assertEquals(LocalDate(2026, 2, 10), detail.bestDate)
+        assertEquals(LocalDate(2026, 6, 10), detail.bestDate)
         assertEquals(0.18, detail.drop, 0.005)
         assertEquals(TestData.dbPress.id, regression.exerciseId)
         assertTrue(regression === insights.first(), "regression should sort first")
         assertNull(insights.firstOrNull { it.kind == InsightKind.STALL && it.exerciseId == TestData.dbPress.id })
+    }
+
+    @Test
+    fun regressionIgnoresBestsOlderThanTheLookback() {
+        // The February best is outside the 12 weeks before the 30-day window and must not be the baseline.
+        val sessions = listOf(
+            session(LocalDate(2026, 2, 10), entry(TestData.dbPress, weighted(14.0, 12))),
+            session(LocalDate(2026, 7, 10), entry(TestData.dbPress, weighted(13.0, 10))),
+            session(LocalDate(2026, 8, 20), entry(TestData.dbPress, weighted(12.0, 10))),
+        )
+        val regression = engine.regression(TestData.dbPress, ExerciseAnalysis.history(sessions, TestData.dbPress), today)
+        assertNotNull(regression)
+        val detail = regression.detail as InsightDetail.Regression
+        assertEquals(13.0 to 10, detail.best.set.weightKg to detail.best.set.reps)
+        assertEquals(LocalDate(2026, 7, 10), detail.bestDate)
+        assertEquals(0.077, detail.drop, 0.005)
+        assertEquals(listOf(LocalDate(2026, 8, 20), LocalDate(2026, 7, 10)), regression.sessions.map { it.date })
+    }
+
+    @Test
+    fun noRegressionWhenTheOnlyEarlierSessionsAreOlderThanTheLookback() {
+        val sessions = listOf(
+            session(LocalDate(2026, 2, 10), entry(TestData.dbPress, weighted(14.0, 12))),
+            session(LocalDate(2026, 8, 20), entry(TestData.dbPress, weighted(12.0, 10))),
+        )
+        assertNull(engine.regression(TestData.dbPress, ExerciseAnalysis.history(sessions, TestData.dbPress), today))
     }
 
     @Test
@@ -153,9 +179,25 @@ class InsightEngineTest {
     }
 
     @Test
+    fun progressIgnoresBestsOlderThanTheLookback() {
+        // A heavier February session would otherwise hide the gain over June.
+        val sessions = listOf(
+            session(LocalDate(2026, 2, 5), entry(TestData.bench, weighted(70.0, 8))),
+            session(LocalDate(2026, 6, 5), entry(TestData.bench, weighted(60.0, 8))),
+            session(LocalDate(2026, 8, 20), entry(TestData.bench, weighted(62.5, 8))),
+        )
+        val progress = engine.progress(TestData.bench, ExerciseAnalysis.history(sessions, TestData.bench), today)
+        assertNotNull(progress)
+        val detail = progress.detail as InsightDetail.Progress
+        assertEquals(60.0 to 8, detail.previous.set.weightKg to detail.previous.set.reps)
+        assertEquals(LocalDate(2026, 6, 5), detail.previousDate)
+        assertEquals(0.04, detail.gain, 0.005)
+    }
+
+    @Test
     fun isometricRegressionUsesSeconds() {
         val sessions = listOf(
-            session(LocalDate(2026, 5, 5), entry(TestData.plank, SetEntry(0, SetType.ISOMETRIC, seconds = 120))),
+            session(LocalDate(2026, 5, 15), entry(TestData.plank, SetEntry(0, SetType.ISOMETRIC, seconds = 120))),
             session(LocalDate(2026, 8, 25), entry(TestData.plank, SetEntry(0, SetType.ISOMETRIC, seconds = 60))),
         )
         val r = engine.regression(TestData.plank, ExerciseAnalysis.history(sessions, TestData.plank), today)
@@ -163,7 +205,7 @@ class InsightEngineTest {
         val detail = r.detail as InsightDetail.Regression
         assertEquals(60, detail.current.set.seconds)
         assertEquals(120, detail.best.set.seconds)
-        assertEquals(LocalDate(2026, 5, 5), detail.bestDate)
+        assertEquals(LocalDate(2026, 5, 15), detail.bestDate)
         assertEquals(0.5, detail.drop, 1e-9)
     }
 
