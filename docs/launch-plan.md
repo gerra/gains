@@ -68,6 +68,14 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
 - [ ] Google Auth Platform in production (item 5). Until then it stays in **Testing**, and
       only accounts under Audience → Test users can sign in with Google.
 - [ ] Contact email alias (item 4), then the [contact email table](#contact-email-where-it-is-used).
+- [ ] Android Sign in with Apple (item 11): `gains.appleServicesId` for the Android build, in
+      `gradle.properties` or the release workflow, the same Services ID as `APPLE_SERVICES_ID`.
+- [ ] Android Sign in with Apple (item 11): the SHA-256 fingerprints of the Play App Signing key
+      and the upload key (Play Console → App integrity; the debug key's too, from
+      `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`)
+      into `site/.well-known/assetlinks.json`, then `python3 tools/deploy_server.py nginx` (the
+      vhost gained a location for that file) and `python3 tools/deploy_server.py site`.
+      `adb shell pm get-app-links app.gains` then says `verified`.
 
 ---
 
