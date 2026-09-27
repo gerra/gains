@@ -53,7 +53,7 @@ The same rules as `auth-plan.md`:
 | 14 | Publish on Google Play | Android launch | Owner | 9–13, test plan | [ ] |
 | 15 | Desktop: Sign in with Google | Desktop (P1) | Agent + Owner | — | [x] |
 | 16 | Desktop: Sign in with Apple | Desktop (P1) | Agent | 10 | [x] |
-| 17 | Desktop: keep the token in the OS keychain | Desktop (P1) | Agent | — | [ ] |
+| 17 | Desktop: keep the token in the OS keychain | Desktop (P1) | Agent | — | [x] |
 | 18 | Email and password accounts | More sign-in | Agent + Owner | 2, 4 | [ ] |
 | 19 | Passkeys | More sign-in | Agent + Owner | 3, 18 | [ ] |
 
@@ -427,7 +427,8 @@ and then `/auth/exchange`. Use the same `AccountRepository` entry point as item 
 
 ### 17. Desktop: keep the token in the OS keychain
 
-- [ ] Done
+- [x] Done
+  Done in #90
 
 **Milestone:** Desktop (P1). **Depends on:** nothing.
 
@@ -436,6 +437,11 @@ Credential Manager and libsecret) or calling the OS tools directly (`security` o
 `secret-tool` on Linux, DPAPI through JNA on Windows). Either way, add a `TokenVault` in
 `desktopMain` and fall back to `SqliteTokenVault` when no keychain is available (a headless
 Linux box).
+*Decided:* the OS tools, with no new dependency: `security` on macOS, `secret-tool` on Linux and
+DPAPI through PowerShell (not JNA) on Windows, each behind `Keyring` in `desktopMain` with the
+token on standard input or output only. `Keyring.detect()` picks one at start, probing the Linux
+Secret Service with an item that never exists, and `main.kt` registers `SqliteTokenVault` when it
+finds none. See docs/sync.md, "What the client does".
 
 ### 18. Email and password accounts
 
@@ -650,7 +656,19 @@ build fails a check, open an issue and link it next to the box.
 - [ ] Item 16: "Cancel" on Apple's page brings the tab back and the app shows no error.
 - [ ] Item 16: without `gains.appleServicesId` the Apple button is not there.
 - [ ] A workout logged on the phone appears on the desktop, and the other way round.
-- [ ] The token is in the OS keychain, not in the database file.
+- [ ] Item 17: once signed in, `sqlite3 ~/.gains/gains.db "SELECT key FROM sync_state"` lists no
+      `token` row. On macOS, Keychain Access shows a `Gains` item with account `token`, and
+      `security find-generic-password -s app.gains.sync -a token -w` prints the token without a
+      prompt. On Linux, `secret-tool lookup service app.gains.sync account token` prints it. On
+      Windows, `~/.gains/token.dpapi` holds a Base64 blob, not the token.
+- [ ] Item 17: quit and reopen: still signed in, and "Sync now" works. Sign out: the item above
+      is gone.
+- [ ] Item 17: a build from before this item that is signed in (the `token` row is in
+      `sync_state`) opens with this build still signed in, and the row is gone.
+- [ ] Item 17: delete `~/.gains/gains.db` and open the app: the sign-in screen shows, and the
+      keyring item is gone afterwards.
+- [ ] Item 17: on Linux with `secret-tool` missing (or `DBUS_SESSION_BUS_ADDRESS` unset), signing
+      in still works and the `token` row is in `sync_state`.
 
 ### Email and password (18), passkeys (19)
 

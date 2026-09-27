@@ -32,7 +32,11 @@ import app.gains.platform.ResumeRequests
 import app.gains.platform.SkipRestRequests
 import app.gains.resources.Res
 import app.gains.resources.*
+import app.gains.sync.Keyring
+import app.gains.sync.KeyringTokenVault
+import app.gains.sync.SqliteTokenVault
 import app.gains.sync.SyncController
+import app.gains.sync.TokenVault
 import app.gains.ui.i18n.Texts
 import app.gains.ui.i18n.rememberTexts
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +60,8 @@ fun main(args: Array<String>) {
             single<DatabaseDriverFactory> { DesktopDriverFactory() }
             // Loaded after the shared module, so these replace its guest-only defaults.
             single { desktopAuthConfig() }
+            // The OS keyring when this machine has one; a headless box keeps the token in the database.
+            single<TokenVault> { Keyring.detect()?.let { KeyringTokenVault(it) } ?: SqliteTokenVault(get()) }
             single<IdentityProvider> {
                 // Sign-in starts from the window, so its strings are there by the time a page is needed.
                 DesktopIdentityProvider(get(), desktopGoogleClientSecret(), get(), page = { donePage(windowTexts.filterNotNull().first()) })
