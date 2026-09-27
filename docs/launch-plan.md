@@ -45,7 +45,7 @@ The same rules as `auth-plan.md`:
 | 6 | Revoke the Apple token when an account is deleted | iOS launch | Agent + Owner | — | [x] |
 | 7 | Submit iOS for App Review | iOS launch | Owner | 1–6, test plan | [ ] |
 | 8 | Android package name and Play Console app | Android launch | Owner + Agent | — | [ ] |
-| 9 | Android: Sign in with Google | Android launch | Agent + Owner | 8 | [ ] |
+| 9 | Android: Sign in with Google | Android launch | Agent + Owner | 8 | [x] |
 | 10 | Server: Apple web sign-in (Services ID) | Android launch | Agent + Owner | — | [x] |
 | 11 | Android: Sign in with Apple | Android launch | Agent | 8, 10 | [ ] |
 | 12 | Android: keep the token in the Keystore | Android launch | Agent | — | [x] |
@@ -281,7 +281,11 @@ taken on Play. **Choose before the first upload: Play never lets you change it.*
 
 ### 9. Android: Sign in with Google
 
-- [ ] Done
+- [x] Done
+  Agent steps 2–5 are in #94. The owner's step 1 switches it on: the web client id in
+  `gains.googleWebClientId` (`gradle.properties`, compiled into `BuildConfig`) and in the server's
+  `GOOGLE_CLIENT_IDS`. Until then the Android Google button stays hidden. Android is not compiled
+  in CI: build it in Android Studio and run the test plan's Android section.
 
 **Milestone:** Android launch. **Depends on:** 8.
 
@@ -633,6 +637,15 @@ build fails a check, open an issue and link it next to the box.
 
 - [ ] Install from the Play closed test track.
 - [ ] Google: the account chooser → signed in. Cancelling is silent.
+- [ ] Item 9: with `gains.googleWebClientId` empty, only the guest button shows and the app
+      still works as a guest.
+- [ ] Item 9: with it set, "Sign in with Google" opens Play services' account chooser listing
+      every Google account on the phone; picking one lands in the app signed in with your name
+      and email. Settings then shows the account card.
+- [ ] Item 9: swiping the chooser away shows no error, and the buttons come back.
+- [ ] Item 9: a phone with no Google account shows the "sign-in failed" line rather than a crash.
+- [ ] Item 9: log a set on the iPhone, then bring the Android app back to the front: the set
+      arrives without "Sync now".
 - [ ] Apple: the Custom Tab → Apple → back in the app, signed in. Backing out is silent.
 - [ ] The whole "iOS sign-in" section above, on Android: linking, delete, sync status, 401.
 - [ ] Sync between an iPhone and an Android phone on one account, both ways, including a

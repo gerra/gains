@@ -72,6 +72,11 @@ kotlin {
                 implementation(libs.compose.ui.tooling.preview)
                 implementation(libs.android.activity.compose)
                 implementation(libs.koin.android)
+                // Sign in with Google through Credential Manager (AndroidIdentityProvider). The
+                // play-services artifact is the provider that actually shows the account chooser.
+                implementation(libs.androidx.credentials)
+                implementation(libs.androidx.credentials.play.services)
+                implementation(libs.googleid)
             }
         }
         val desktopMain by getting {

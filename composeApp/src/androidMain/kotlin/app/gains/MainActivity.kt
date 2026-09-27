@@ -15,6 +15,8 @@ import app.gains.platform.IncomingFiles
 import app.gains.platform.PhotoPicker
 import app.gains.platform.PickedFile
 import app.gains.platform.ResumeRequests
+import app.gains.sync.SyncController
+import org.koin.mp.KoinPlatform
 
 class MainActivity : ComponentActivity() {
     private var pendingPick: ((List<PickedFile>) -> Unit)? = null
@@ -67,6 +69,16 @@ class MainActivity : ComponentActivity() {
                 nudges = nudges,
             )
         }
+    }
+
+    /**
+     * A sync each time the app comes back to the front, as docs/sync.md promises and iOS does on
+     * foreground, so a workout logged elsewhere shows up without "Sync now". The one activity's
+     * resume is the app's, and the controller does nothing for a guest or without a server.
+     */
+    override fun onResume() {
+        super.onResume()
+        KoinPlatform.getKoin().get<SyncController>().requestSync()
     }
 
     override fun onNewIntent(intent: Intent) {

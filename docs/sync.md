@@ -74,8 +74,11 @@ The mobile flow is not the web flow used by taxes and fintrack. The server sees 
 OAuth state and no cookie, only an identity token the device already holds:
 
 1. The app asks the platform for an identity token: Sign in with Apple through
-   `ASAuthorizationController` on iOS, Google through Credential Manager on Android. Google on
-   iOS is an OAuth 2.0 authorization-code flow with PKCE in an `ASWebAuthenticationSession`
+   `ASAuthorizationController` on iOS, Google through Credential Manager on Android
+   ([`AndroidIdentityProvider`](../composeApp/src/androidMain/kotlin/app/gains/AndroidIdentityProvider.kt)):
+   Play services' account chooser, asked for a token for the **Web application** client
+   (`GetGoogleIdOption.serverClientId`, the Gradle property `gains.googleWebClientId` compiled into
+   `BuildConfig`), which is the token's audience. Google on iOS is an OAuth 2.0 authorization-code flow with PKCE in an `ASWebAuthenticationSession`
    ([`GoogleOAuth`](../shared/src/commonMain/kotlin/app/gains/auth/GoogleOAuth.kt)): the sheet
    shows Google's account chooser, redirects to the iOS client's reversed-id scheme with a code,
    and the app trades the code at Google's token endpoint for an identity token. That is what the
@@ -395,13 +398,14 @@ three taxes uses.
 - **End-to-end encryption.** Because the payload is opaque to the server, sealing it on the
   device is a client-side change with the same routes, the way fintrack's E2E note describes it.
 - **Multi-user features.** One user sees one user's documents. Nothing is shared.
-- **Native sign-in buttons beyond iOS.** Sign in with Apple and with Google work on iOS
+- **Sign in with Apple on Android.** Sign in with Apple and with Google work on iOS
   (`IosIdentityProvider`, the `com.apple.developer.applesignin` entitlement, and the server URL
   and Google client from `GAINS_SERVER_URL` and `GOOGLE_IOS_CLIENT_ID` in `Config.xcconfig`);
   Apple's audience is the bundle id, Google's the iOS client id. The desktop has both
   (`DesktopIdentityProvider`, with the server URL, the Desktop app client and the Services ID
   from the Gradle properties `gains.serverUrl`, `gains.googleDesktopClientId`,
   `gains.googleDesktopClientSecret` and `gains.appleServicesId`), Apple through the server's web
-  flow (above). Android is next (items 9 and 11 of the [launch plan](launch-plan.md)). Until a
-  provider is wired up its button stays hidden, or disabled when neither is, and Android keeps
-  `NoIdentityProvider`.
+  flow (above). Android has Google (`AndroidIdentityProvider`, with the server URL and the Web
+  application client from `gains.serverUrl` and `gains.googleWebClientId`, through `BuildConfig`);
+  Apple through the same web flow is item 11 of the [launch plan](launch-plan.md). Until a
+  provider is wired up its button stays hidden, or disabled when neither is.
