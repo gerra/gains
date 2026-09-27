@@ -14,7 +14,12 @@ import kotlinx.datetime.LocalDate
 data class InsightThresholds(
     /** "Current best" is the best performance within this many days. */
     val regressionWindowDays: Int = 30,
-    /** A drop smaller than this fraction of the all-time best is noise, not a regression. */
+    /**
+     * Progress and regression compare the current best against the best in this many weeks before
+     * the [regressionWindowDays] window. Anything older is a different training phase, not a baseline.
+     */
+    val comparisonLookbackWeeks: Int = 12,
+    /** A drop smaller than this fraction of the previous best is noise, not a regression. */
     val regressionMinDropFraction: Double = 0.05,
     /** Top working weight unchanged for at least this long is a stall… */
     val stallWeeks: Int = 6,
@@ -138,10 +143,8 @@ class InsightEngine(private val thresholds: InsightThresholds = InsightThreshold
         val recent = points.filter { it.date >= windowStart }
         if (recent.isEmpty()) return null
         val current = recent.maxBy { it.best!!.value }
-        val earlier = points.filter { it.date < windowStart }
-        if (earlier.isEmpty()) return null
-        val allTime = earlier.maxBy { it.best!!.value }
-        val best = allTime.best!!.value
+        val previousBest = baseline(points, windowStart) ?: return null
+        val best = previousBest.best!!.value
         if (best <= 0) return null
         val drop = (best - current.best!!.value) / best
         if (drop < thresholds.regressionMinDropFraction) return null
@@ -149,11 +152,21 @@ class InsightEngine(private val thresholds: InsightThresholds = InsightThreshold
             kind = InsightKind.REGRESSION,
             severity = 100 + drop * 100,
             subject = InsightSubject.Lift(exercise),
-            detail = InsightDetail.Regression(current.best, allTime.best, allTime.date, drop),
+            detail = InsightDetail.Regression(current.best, previousBest.best, previousBest.date, drop),
             exerciseId = exercise.id,
             delta = -drop,
-            sessions = listOf(current.ref(), allTime.ref()),
+            sessions = listOf(current.ref(), previousBest.ref()),
         )
+    }
+
+    /**
+     * The best performance in the [InsightThresholds.comparisonLookbackWeeks] before [windowStart]:
+     * what progress and regression are measured against. Older bests are ignored so that a personal
+     * record from months ago does not keep a lift flagged forever.
+     */
+    private fun baseline(points: List<ExerciseSessionPoint>, windowStart: LocalDate): ExerciseSessionPoint? {
+        val lookbackStart = windowStart.minusDays(thresholds.comparisonLookbackWeeks * 7)
+        return points.filter { it.date < windowStart && it.date >= lookbackStart }.maxByOrNull { it.best!!.value }
     }
 
     // ---- Stall ------------------------------------------------------------------------------
@@ -269,9 +282,7 @@ class InsightEngine(private val thresholds: InsightThresholds = InsightThreshold
         val recent = points.filter { it.date >= windowStart }
         if (recent.isEmpty()) return null
         val current = recent.maxBy { it.best!!.value }
-        val earlier = points.filter { it.date < windowStart }
-        if (earlier.isEmpty()) return null
-        val previousBest = earlier.maxBy { it.best!!.value }
+        val previousBest = baseline(points, windowStart) ?: return null
         val base = previousBest.best!!.value
         if (base <= 0) return null
         val gain = (current.best!!.value - base) / base
