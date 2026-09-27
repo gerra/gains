@@ -10,6 +10,10 @@ android-activity = "1.10.1"
 android-compileSdk = "35"
 android-minSdk = "26"
 android-targetSdk = "35"
+# Sign in with Google on Android (docs/launch-plan.md, item 9): Credential Manager and Google's
+# id-token option for it.
+androidx-credentials = "1.5.0"
+googleid = "1.1.1"
 ktor = "3.6.0"
 kotlinx-serialization = "1.11.0"
 java-jwt = "4.6.1"
@@ -36,6 +40,9 @@ sqldelight-sqlite = { module = "app.cash.sqldelight:sqlite-driver", version.ref 
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 android-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "android-activity" }
+androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "androidx-credentials" }
+androidx-credentials-play-services = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "androidx-credentials" }
+googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }

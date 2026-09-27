@@ -76,6 +76,20 @@ Open the project in Android Studio and run the `composeApp` configuration, or bu
 The app registers as a handler for CSV files, so exports shared from other apps open directly in
 the import preview. Several files can be shared at once.
 
+Sign-in on Android goes through Credential Manager (docs/sync.md, "Signing in"). The build
+compiles two Gradle properties into `BuildConfig` (`composeApp/android.gradle`):
+`gains.serverUrl` (the sync server) and `gains.googleWebClientId`, the Google **Web application**
+OAuth client, which is Credential Manager's `serverClientId` and the audience of the tokens the
+phone sends, so the server lists it in `GOOGLE_CLIENT_IDS` too. **Sign in with Google** shows only
+once it is set, in `gradle.properties` or with `-P`. The Google Cloud project also needs an
+**Android** client with the package name `app.gains` and the SHA-1 of every signing key the app is
+built with (debug, upload, Play App Signing), or the chooser refuses the app. **Sign in with
+Apple** on Android is still to come (docs/launch-plan.md, item 11).
+
+```bash
+./gradlew :composeApp:assembleDebug -Pgains.googleWebClientId=…apps.googleusercontent.com
+```
+
 ### iOS
 
 ```bash
@@ -192,8 +206,9 @@ in `iosApp/iosApp/Info.plist`.
 - The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request,
   but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
   hosted macOS runner for this).
-- Sign-in is wired up on iOS (Apple and Google) and the desktop (Google); Android runs as a
-  guest, so its data stays on the device. [docs/launch-plan.md](launch-plan.md) has the rest.
+- Sign-in is wired up on iOS (Apple and Google), the desktop (Apple and Google) and Android
+  (Google only, once `gains.googleWebClientId` is set). [docs/launch-plan.md](launch-plan.md) has
+  the rest.
 
 ## Roadmap
 

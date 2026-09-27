@@ -11,6 +11,15 @@ android {
         targetSdk libs.versions.android.targetSdk.get().toInteger()
         versionCode 1
         versionName "1.0"
+        // The sync server and the Google Web application client (docs/development.md, "Android"),
+        // from the Gradle properties so they change without touching code, like the desktop's
+        // system properties. Empty leaves the app a guest with Google's button hidden.
+        buildConfigField "String", "SERVER_URL", "\"${project.findProperty('gains.serverUrl') ?: ''}\""
+        buildConfigField "String", "GOOGLE_WEB_CLIENT_ID", "\"${project.findProperty('gains.googleWebClientId') ?: ''}\""
+    }
+    buildFeatures {
+        // AGP no longer generates BuildConfig unless asked; androidAuthConfig() reads the two fields above.
+        buildConfig true
     }
     packaging {
         resources {
