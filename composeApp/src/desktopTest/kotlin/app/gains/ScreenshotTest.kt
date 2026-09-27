@@ -306,7 +306,8 @@ class ScreenshotTest {
         settle(1_500)
         shot("05-lifts")
         onAllNodes(text("Bench Press")).onFirst().performClick()
-        require(text("Estimated 1RM"))
+        // The records and rep maxes now sit above the chart, so the top of the page is what is waited for.
+        require(text("All-time best"))
         settle(1_500)
         shot("06-lift-detail")
 
@@ -507,6 +508,19 @@ class ScreenshotTest {
         require(text("What's moving"), 60_000)
         settle(1_000)
         check(!exists(text("Resume"))) { "The resume bar is still showing after the session was ended" }
+        // 9c. The level under the streak opens the trophies: every ladder with the rung ahead, and
+        // the records lately set. The imported history has earned a few rungs already.
+        onNode(text("Level ") and hasClickAction()).performClick()
+        require(text("Trophies"), 60_000)
+        require(text("Achievements"))
+        settle(1_500)
+        shot("19-trophies")
+        scrollUntil(text("Achievements"), text("Recent records"))
+        scrollIntoView(text("Recent records"))
+        settle(1_000)
+        shot("19b-trophies-records")
+        onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        require(text("What's moving"), 60_000)
         // The ended workout is an ordinary logged session in history, tagged with its day. The session
         // rows sit below the calendar and the weekly chart, past the end of the list's first viewport.
         tab("History")
@@ -523,7 +537,8 @@ class ScreenshotTest {
         tab("Lifts")
         require(text("Bench Press"))
         onAllNodes(text("Bench Press")).onFirst().performClick()
-        require(text("Estimated 1RM"))
+        // The records and rep maxes now sit above the chart, so the top of the page is what is waited for.
+        require(text("All-time best"))
         settle(1_500)
         shot("11-lift-detail-light")
         watchdog.interrupt()

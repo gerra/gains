@@ -1071,6 +1071,79 @@
     <string name="photo_pill">Photo</string>
     <string name="save">Save</string>
     <string name="saved">Saved</string>
+    <!-- Records, the score and the achievements: the summary's celebration, the Trophies screen and the Home card. -->
+    <string name="records_section">Records</string>
+    <plurals name="records_count">
+        <item quantity="one">%1$d record</item>
+        <item quantity="other">%1$d records</item>
+    </plurals>
+    <string name="record_kind_weight">Heaviest</string>
+    <string name="record_kind_e1rm">Best e1RM</string>
+    <string name="record_kind_set_volume">Best set</string>
+    <string name="record_kind_session_volume">Session volume</string>
+    <string name="record_kind_reps">Most reps</string>
+    <string name="record_kind_hold">Longest hold</string>
+    <string name="record_kind_distance">Longest distance</string>
+    <string name="record_was">was %1$s</string>
+    <string name="record_since">%1$s · since %2$s</string>
+    <string name="no_records_this_time">No records this time.</string>
+    <string name="record_near_miss">%1$s: %2$s, %3$s short of your best.</string>
+    <string name="set_record">Set %1$s, a record</string>
+    <string name="rep_maxes">Rep maxes</string>
+    <string name="rep_max_label">%1$dRM</string>
+    <string name="rep_maxes_note">The most lifted for at least that many reps. Tracked, never celebrated.</string>
+    <string name="score_section">Score</string>
+    <plurals name="points">
+        <item quantity="one">%1$d point</item>
+        <item quantity="other">%1$d points</item>
+    </plurals>
+    <plurals name="points_word">
+        <item quantity="one">point</item>
+        <item quantity="other">points</item>
+    </plurals>
+    <string name="score_showed_up">Showed up</string>
+    <string name="score_work">Work</string>
+    <string name="score_records">Records</string>
+    <string name="score_note">%1$d for the workout, %2$d a working set up to %3$d, %4$d a record up to %5$d. Everything on record counts, imports included.</string>
+    <string name="level_label">Level %1$d</string>
+    <string name="level_to_next">%1$s to level %2$d</string>
+    <string name="points_in_total">%1$s in total</string>
+    <string name="achievements_section">Achievements</string>
+    <string name="unlocked">Unlocked</string>
+    <string name="achievements_of">%1$d of %2$d achievements</string>
+    <string name="achievement_earned_on">Earned %1$s</string>
+    <string name="achievement_to_go">%1$s to go</string>
+    <string name="track_sessions">Showed up</string>
+    <string name="track_sessions_tier">%1$s on record</string>
+    <string name="track_streak">Kept at it</string>
+    <string name="track_streak_tier">%1$s in a row</string>
+    <string name="track_tonnage">Tonnage</string>
+    <string name="track_tonnage_tier">%1$s lifted in total</string>
+    <string name="track_records">Record breaker</string>
+    <string name="track_records_tier">%1$s set</string>
+    <string name="track_plates_tier">%1$s a side · %2$s</string>
+    <plurals name="plates">
+        <item quantity="one">%1$d plate</item>
+        <item quantity="other">%1$d plates</item>
+    </plurals>
+    <string name="track_comeback">Comeback</string>
+    <string name="track_comeback_tier">Back after four weeks or more away</string>
+    <plurals name="weeks_genitive">
+        <item quantity="one">%1$d week</item>
+        <item quantity="other">%1$d weeks</item>
+    </plurals>
+    <string name="tonne_abbrev">t</string>
+    <string name="level_word">Level</string>
+    <string name="more_rungs">%1$d more ahead</string>
+    <string name="trophies_title">Trophies</string>
+    <string name="trophies_subtitle">Level %1$d · %2$s</string>
+    <string name="recent_records">Recent records</string>
+    <string name="no_records_yet">No records yet. A record needs a previous best to beat, so the first session of a lift sets the bar.</string>
+    <string name="records_this_month">%1$s this month</string>
+    <string name="no_records_this_month">No records this month</string>
+    <string name="score_and_achievements">Score and achievements</string>
+    <string name="show_score_and_achievements">Show score and achievements</string>
+    <string name="score_and_achievements_note">Records are always kept. Off hides the score, the level and the achievements from the summary and Home.</string>
     <string-array name="months_short">
         <item>Jan</item>
         <item>Feb</item>

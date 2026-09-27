@@ -63,4 +63,24 @@ object Format {
     }
 
     fun km(km: Double, labels: UnitLabels): String = number(km, 2) + " " + labels.km
+
+    /**
+     * A lifetime's lifting: "10 t" or "1 250 t" in metric, "25 000 lbs" in pounds, where a tonne is
+     * a round thing and a thousand kilograms is not. Under a tonne it is a plain weight.
+     */
+    fun tonnage(kg: Double, unit: WeightUnit, labels: UnitLabels): String = when (unit) {
+        WeightUnit.KG -> if (kg < 1000) weight(kg, unit, labels, 0) else grouped(kg / 1000, if (kg < 10_000) 1 else 0) + " " + labels.tonne
+        WeightUnit.LBS -> grouped(Units.kgToLbs(kg), 0) + " " + labels.lbs
+    }
+
+    /** [number] with a thin space every three digits: "1 250", "25 000". */
+    fun grouped(value: Double, decimals: Int): String {
+        val text = number(value, decimals)
+        val sign = if (text.startsWith("-")) "-" else ""
+        val body = text.removePrefix("-")
+        val whole = body.substringBefore('.')
+        val frac = if ('.' in body) "." + body.substringAfter('.') else ""
+        val groupedWhole = whole.reversed().chunked(3).joinToString("\u202F").reversed()
+        return sign + groupedWhole + frac
+    }
 }

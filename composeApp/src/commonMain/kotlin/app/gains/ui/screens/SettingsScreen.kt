@@ -93,6 +93,8 @@ internal data class SettingsState(
     val barWeightKg: Double = Gzclp.DEFAULT_BAR_KG,
     /** The streak reminder may be sent. Off until asked for. */
     val streakReminder: Boolean = false,
+    /** The score, the level and the achievements are shown. */
+    val trophies: Boolean = true,
     /** The hour it would arrive at: the one they usually train. */
     val reminderHour: Int = StreakEngine.REMINDER_HOURS.first,
 )
@@ -121,11 +123,12 @@ internal class SettingsModel(
             settings.observeAutoWarmups(),
             settings.observeBarWeightKg(),
         ) { u, (t, l), a, w, b -> Prefs(u, t, l, a, w, b) },
-        combine(trainingData.snapshot, settings.observeStreakReminder()) { snapshot, reminder -> snapshot to reminder },
+        combine(trainingData.snapshot, settings.observeStreakReminder(), settings.observeTrophies()) { snapshot, reminder, trophies -> Triple(snapshot, reminder, trophies) },
         exercises.observeAliases(), exercises.observeWorkingSetRatios(), programs.observeState(),
-    ) { prefs, (snapshot, reminder), aliases, overrides, programState ->
+    ) { prefs, (snapshot, reminder, trophies), aliases, overrides, programState ->
         SettingsState(
             streakReminder = reminder == true,
+            trophies = trophies,
             reminderHour = StreakEngine.usualHour(snapshot.sessions),
             profile = programState.profile,
             activeProgramName = programState.active?.resolvedName(texts),
@@ -157,6 +160,7 @@ internal class SettingsModel(
     fun setLanguage(language: AppLanguage) { scope.launch { settings.setLanguage(language) } }
     fun setAutoWarmups(on: Boolean) { scope.launch { settings.setAutoWarmups(on) } }
     fun setStreakReminder(on: Boolean) { scope.launch { settings.setStreakReminder(on) } }
+    fun setTrophies(on: Boolean) { scope.launch { settings.setTrophies(on) } }
     fun setBarWeightKg(kg: Double) { scope.launch { settings.setBarWeightKg(kg) } }
     fun signOut() { scope.launch { accounts.signOut() } }
 
@@ -347,6 +351,15 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                     if (state.streakReminder) stringResource(Res.string.streak_reminder_note, clockHour(state.reminderHour)) else stringResource(Res.string.streak_reminder_note_off),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            SectionHeader(stringResource(Res.string.score_and_achievements))
+            GainsCard(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(Res.string.show_score_and_achievements), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    ChipRow(listOf(true, false), state.trophies, { if (it) stringResource(Res.string.on) else stringResource(Res.string.off) }, { model.setTrophies(it) })
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(stringResource(Res.string.score_and_achievements_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             SectionHeader(stringResource(Res.string.warm_ups))
             GainsCard(Modifier.fillMaxWidth()) {

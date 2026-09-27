@@ -119,6 +119,44 @@ restored after a reboot, and the desktop has nowhere to put one. Every plan repl
 whole, so saving a workout on Saturday morning takes the evening's reminder down before it is ever
 shown.
 
+## Records, the score and the achievements
+
+All three are worked out from the session history, like the streak, and nothing is stored: editing
+an old workout, deleting one or importing years of history give the records and the trophies that
+history deserves, with nothing to migrate and nothing that can drift out of step with the log.
+
+[`Records.kt`](../shared/src/commonMain/kotlin/app/gains/analysis/Records.kt) is one forward pass
+carrying the standing best per lift and kind. A session's records are judged against what came
+before it in time, not in list order, so a backdated workout is measured against its own past.
+
+| Rule | |
+|------|--|
+| **Kinds** | Weighted: heaviest weight, best e1RM, best set volume, best session volume. Bodyweight: most reps, most added load. Holds: longest. Cardio: furthest. Most reps at a weight is tracked as a rep-max table and never celebrated. |
+| **Working sets only** | The warm-up rule runs before the records do, so changing it on a lift re-decides its records. |
+| **Margin** | A record clears the old one by at least 0.5%: weights are stored to a quarter kilo and e1RM is an estimate. |
+| **e1RM** | From sets of ten reps or fewer; Epley flatters past that. |
+| **Baseline** | The first session of a lift sets nothing. An import is the bar, not a trophy. |
+| **Live** | As a set is ticked in the editor it is judged on its own against the standing records a single set can hold, and starred if it beats one; the summary judges the whole workout. |
+| **Near miss** | With no records, the lift whose top set came within 5% of its standing weight record is named, once. |
+
+The score ([`Score.kt`](../shared/src/commonMain/kotlin/app/gains/analysis/Score.kt)) is deliberately
+simple enough to add up by hand: 10 for the workout, 1 a working set to a cap of 20, 5 a record to
+a cap of 20. Level *n* starts at 50·*n*·(*n*−1) points. It measures training done, not strength;
+the records and the e1RM chart measure that.
+
+The achievements ([`Achievements.kt`](../shared/src/commonMain/kotlin/app/gains/analysis/Achievements.kt))
+are six ladders climbed in the same forward pass — sessions, streak milestones, tonnage, records,
+plates a side on the four barbell lifts, and a comeback after 28 days away — each rung credited to
+the session that reached it. The tonnage and plate rungs are round numbers in the lifter's unit
+(10 t or 25 000 lb; a 20 kg bar with 20 kg plates or a 45 lb bar with 45 lb plates), so they follow
+the unit chosen. None is earned by anything but training; there is no rung for opening the app.
+
+What was taken from other apps and from what lifters say they want: Hevy's four celebrated kinds
+with rep records tracked but quiet; a summary per session rather than confetti per set; tiers with a
+visible next step (Apple Fitness, Peloton, Duolingo); weekly, forgiving streaks; a score that is
+explained rather than a rank that is not; comparison with yourself only, no leaderboard; and an
+off switch for the whole thing in Settings, which leaves the records alone.
+
 ## Architecture
 
 ```mermaid

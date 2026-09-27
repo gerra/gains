@@ -72,6 +72,30 @@ The long version of the list in the [README](../README.md).
   Nothing on the card moves on its own except the ring around today, and only on the two days it
   means something; a session logged since you last looked fills its day in and rolls the number up,
   once. See [Streaks and the nudge](how-it-works.md#streaks-and-the-nudge).
+- **Records, named exactly.** Ending a workout shows the personal records it set, each with the
+  kind, the set that did it and what it beat: `Bench Press · Heaviest 100 kg × 3 · was 97.5 kg`. A
+  weighted lift keeps four kinds, as Hevy and Strong do — heaviest weight, best estimated 1RM, best
+  set by weight × reps and most volume in one session; bodyweight movements keep most reps and most
+  added load, holds the longest hold, cardio the longest distance. Only working sets count, a record
+  must clear the old one by half a percent, e1RM records come from sets of ten reps or fewer, and the
+  first session of a lift sets a baseline rather than a record, so an imported history arrives as
+  the bar to beat and never as a wall of trophies. While the workout runs, a ticked set that beats one
+  of the lift's standing records takes a star in place of its number, the moment it is ticked. With
+  no records the summary says so in one line and names the lift that came closest. Every lift's page lists its standing records and its rep
+  maxes (the most lifted for at least 1, 2, 3, 5, 8, 10 and 12 reps), tracked but never celebrated;
+  History stars the sessions that set records.
+- **A score you can add up yourself.** Each workout scores 10 for happening, 1 a working set up to
+  20, and 5 a record up to 20; the summary shows the three parts and the total, and the total over
+  everything on record — imports included — makes a level that comes quickly at first and then
+  further apart (100, 300, 600, 1 000 points…). Home shows the level with the points to the next.
+- **Achievements for training, not for using the app.** Six ladders: workouts on record (1, 10, 25…
+  1 000), week streaks reached (4, 8, 12, 26, 52, 104), tonnage lifted in round numbers of your own
+  unit (10 t or 25 000 lb and up), records set, plates a side on the squat, bench, deadlift and
+  press (60 kg or 135 lb a bar, on up), and a comeback after four weeks or more away. Each is earned
+  by the session that reached it, shown with the date, and the next rung says how far there is to
+  go. Nothing is stored: delete a workout and its trophies go with it. The **Trophies** screen has
+  the level, every ladder and the recent records; Settings can hide the score and the achievements,
+  and the records stay either way.
 - **Per-lift analysis.** Estimated 1RM (Epley) over working sets, top set weight, volume per
   session and best set per session, over 3-month, 6-month, 1-year or all-time windows.
 - **Weekly volume by muscle group.** Working sets per week with primary and secondary credit,
@@ -150,9 +174,13 @@ tab, so the pictures cannot drift from the code.
   </tr>
   <tr>
     <td align="center"><img src="screenshots/17d-summary-muscles.png" alt="Muscles the workout trained" width="230"><br><sub>What it trained</sub></td>
+    <td align="center"><img src="screenshots/19-trophies.png" alt="Trophies: the level and the achievement ladders" width="230"><br><sub>Level and achievements</sub></td>
     <td align="center"><img src="screenshots/17b-summary-duration.png" alt="Changing the duration on the summary" width="230"><br><sub>Duration on the wheels</sub></td>
     <td align="center"><img src="screenshots/10-home-light.png" alt="Home, light theme" width="230"><br><sub>Light theme</sub></td>
+  </tr>
+  <tr>
     <td align="center"><img src="screenshots/11-lift-detail-light.png" alt="Lift detail, light theme" width="230"><br><sub>Lift detail, light</sub></td>
+    <td align="center"><img src="screenshots/19b-trophies-records.png" alt="Trophies: the records lately set" width="230"><br><sub>Recent records</sub></td>
   </tr>
 </table>
 

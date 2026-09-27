@@ -34,6 +34,7 @@ Website, privacy policy and support: **https://gains.gerra.sh**
 - **Timed workouts** with a rest timer, and a summary with a photo when you finish.
 - **Charts**: estimated 1RM, weekly volume on a body map, bodyweight.
 - **Week streaks** that survive a rest week.
+- **Records, a score and achievements**: every record the workout set, named exactly; a score you can add up yourself; six ladders earned by training alone.
 - **Local first.** Data lives on the device; Sign in with Apple on iOS syncs it through a self-hosted server.
 - **English and Russian.**
 

@@ -39,6 +39,9 @@ internal sealed interface Screen {
      * muscles it trained, the body weight of the day, how long it took and a caption with a photo.
      */
     data class SessionSummary(val sessionId: String) : Screen
+
+    /** The level, every achievement with where the lifter stands on it, and the records lately set. */
+    data object Trophies : Screen
 }
 
 internal enum class Tab(val root: Screen) {

@@ -328,6 +328,16 @@ class SettingsRepository(
 
     suspend fun setStreakReminder(on: Boolean) = withContext(io) { q.upsert(KEY_STREAK_REMINDER, if (on) "1" else "0") }
 
+    /**
+     * Whether the score, the level and the achievements are shown. On unless switched off; the
+     * records are part of the log and stay whatever this says.
+     */
+    fun observeTrophies(): Flow<Boolean> = q.selectValue(KEY_TROPHIES).asFlow().map { query ->
+        query.executeAsOneOrNull() != "0"
+    }.flowOn(io)
+
+    suspend fun setTrophies(on: Boolean) = withContext(io) { q.upsert(KEY_TROPHIES, if (on) "1" else "0") }
+
     companion object {
         const val KEY_UNIT = "weight_unit"
         const val KEY_THEME = "theme_mode"
@@ -335,6 +345,7 @@ class SettingsRepository(
         const val KEY_BAR_WEIGHT = "bar_weight_kg"
         const val KEY_AUTO_WARMUPS = "auto_warmups"
         const val KEY_STREAK_REMINDER = "streak_reminder"
+        const val KEY_TROPHIES = "trophies"
     }
 }
 
