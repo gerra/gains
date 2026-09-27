@@ -409,7 +409,7 @@ class ScreenshotTest {
             hold(1_800)
         }
         require(hasContentDescription("Set 1 done"))
-        // Ticking inserted the rest countdown above the row, so bring the ticked row back into view.
+        // The clock's card keeps its height when the rest starts, so the ticked row is where it was; make sure of it anyway.
         scrollIntoView(hasContentDescription("Set 1 done"))
         settle(1_000)
         shot("14-program-day")
