@@ -48,6 +48,25 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <!-- Where Sign in with Apple's browser tab ends (docs/sync.md, "Sign in with Apple without
+             Apple's sheet"): the App Link https://gains.gerra.sh/auth/done, verified against
+             site/.well-known/assetlinks.json so that only this app, signed with our key, receives
+             the one-time code in it. No UI: it hands the URL on and returns to MainActivity. -->
+        <activity
+            android:name=".SignInCallbackActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="gains.gerra.sh" />
+                <data android:path="/auth/done" />
+            </intent-filter>
+        </activity>
         <!-- "Skip rest" on the workout notification; see SkipRestReceiver. -->
         <receiver
             android:name=".SkipRestReceiver"

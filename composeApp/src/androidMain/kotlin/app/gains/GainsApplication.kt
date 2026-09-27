@@ -15,8 +15,8 @@ import org.koin.dsl.module
 class GainsApplication : Application() {
     /**
      * The activity in front, for the sheets that must be shown from one: Credential Manager's
-     * account chooser ([AndroidIdentityProvider]). Null while none is resumed, as when the app is
-     * in the background.
+     * account chooser and the Custom Tab ([AndroidIdentityProvider]). Null while none is resumed,
+     * as when the app is in the background.
      */
     private var foreground: Activity? = null
 
@@ -36,9 +36,16 @@ class GainsApplication : Application() {
         }
     }
 
-    /** Keeps [foreground] pointed at the resumed activity; the other callbacks are not needed. */
+    /**
+     * Keeps [foreground] pointed at the resumed activity, and tells [WebSignIn] when the app's own
+     * screen is back in front, which ends a sign-in whose browser tab was backed out of. The other
+     * callbacks are not needed.
+     */
     private inner class Foreground : ActivityLifecycleCallbacks {
-        override fun onActivityResumed(activity: Activity) { foreground = activity }
+        override fun onActivityResumed(activity: Activity) {
+            foreground = activity
+            if (activity is MainActivity) WebSignIn.onAppResumed()
+        }
         override fun onActivityPaused(activity: Activity) { if (foreground === activity) foreground = null }
         override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
         override fun onActivityStarted(activity: Activity) {}

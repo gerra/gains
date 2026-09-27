@@ -224,7 +224,9 @@ class AppleWebSignInTest {
             }
             assertEquals(HttpStatusCode.BadRequest, response.status, redirect)
         }
-        browser.start(redirect = "https://gains.gerra.sh/auth/done")
+        // The Android app's App Link, the one URL the app, the site and the server agree on.
+        assertEquals("https://gains.gerra.sh/auth/done", AppleWebFlow.ANDROID_CALLBACK)
+        browser.start(redirect = AppleWebFlow.ANDROID_CALLBACK)
         browser.start(redirect = "http://127.0.0.1:1234/")
         val noState = browser.get("/auth/apple/start") { parameter("redirect", desktopCallback) }
         assertEquals(HttpStatusCode.BadRequest, noState.status)

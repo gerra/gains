@@ -14,6 +14,8 @@ android-targetSdk = "35"
 # id-token option for it.
 androidx-credentials = "1.5.0"
 googleid = "1.1.1"
+# Sign in with Apple on Android (item 11): the Custom Tab the server's web flow opens in.
+androidx-browser = "1.8.0"
 ktor = "3.6.0"
 kotlinx-serialization = "1.11.0"
 java-jwt = "4.6.1"
@@ -43,6 +45,7 @@ android-activity-compose = { module = "androidx.activity:activity-compose", vers
 androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "androidx-credentials" }
 androidx-credentials-play-services = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "androidx-credentials" }
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
+androidx-browser = { module = "androidx.browser:browser", version.ref = "androidx-browser" }
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }

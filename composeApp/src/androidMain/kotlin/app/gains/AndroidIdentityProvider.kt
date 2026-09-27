@@ -2,19 +2,25 @@ package app.gains
 
 import android.app.Activity
 import android.content.Context
+import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import app.gains.auth.AccountKind
+import app.gains.auth.AppleWebFlow
 import app.gains.auth.AuthConfig
 import app.gains.auth.AuthNotConfiguredException
+import app.gains.auth.ExchangeCode
+import app.gains.auth.GoogleOAuth
 import app.gains.auth.IdentityAssertion
 import app.gains.auth.IdentityProvider
 import app.gains.auth.SignInCancelledException
 import app.gains.auth.SignInProof
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import java.security.SecureRandom
 
 /**
  * Sign-in on Android (docs/sync.md, "Signing in"). Google goes through Credential Manager's
@@ -24,9 +30,13 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
  * activity in front to be shown from, which [activity] supplies at the moment of the tap; the
  * application context alone can't host it.
  *
- * Closing the sheet is a [SignInCancelledException], so the screen stays quiet. Sign in with Apple
- * has no native sheet on Android and waits for the server's web flow (docs/launch-plan.md, item
- * 11); until then it is [AuthNotConfiguredException], and its button stays hidden anyway.
+ * Sign in with Apple has no native sheet on Android, so it is [AppleWebFlow]: the server's start
+ * page opens in a Custom Tab (the browser's own tab drawn over the app, with its cookies, so an
+ * Apple ID already signed in there is offered), Apple posts to the server, and the server sends the
+ * tab to the App Link `https://gains.gerra.sh/auth/done` with a one-time code. [WebSignIn] carries
+ * that URL back here, and the code goes to `AccountRepository` as an [ExchangeCode].
+ *
+ * Closing either sheet is a [SignInCancelledException], so the screen stays quiet.
  */
 internal class AndroidIdentityProvider(
     private val config: AuthConfig,
@@ -35,7 +45,8 @@ internal class AndroidIdentityProvider(
 ) : IdentityProvider {
     override suspend fun signIn(kind: AccountKind): SignInProof = when (kind) {
         AccountKind.GOOGLE -> signInWithGoogle()
-        AccountKind.APPLE, AccountKind.GUEST -> throw AuthNotConfiguredException(kind)
+        AccountKind.APPLE -> signInWithApple()
+        AccountKind.GUEST -> throw AuthNotConfiguredException(kind)
     }
 
     /** The account chooser, then the token it returns. The server reads the name from Google's token. */
@@ -62,15 +73,42 @@ internal class AndroidIdentityProvider(
         }
         return IdentityAssertion(GoogleIdTokenCredential.createFrom(credential.data).idToken, name = null)
     }
+
+    /**
+     * Apple's page through our server in a Custom Tab, which comes back with a one-time code. Apple
+     * sends the name to the server, which keeps it, so there is none to pass along here. The wait
+     * ends with the callback, or as a cancel when the app comes back to the front without one.
+     * The callback's state is checked before the code is trusted: a link that answers another
+     * request says nothing about this one.
+     */
+    private suspend fun signInWithApple(): ExchangeCode {
+        if (!config.appleEnabled) throw AuthNotConfiguredException(AccountKind.APPLE)
+        val server = checkNotNull(config.serverBaseUrl)
+        val host = activity() ?: error("No activity to open the browser from")
+        val state = GoogleOAuth.base64Url(ByteArray(32).also(random::nextBytes))
+        val callback = WebSignIn.expect()
+        // From the activity, so the tab joins its task: coming back then only has to clear the
+        // tab off the top (SignInCallbackActivity), and backing out lands on the same screen.
+        CustomTabsIntent.Builder().build().launchUrl(host, Uri.parse(AppleWebFlow.startUrl(server, AppleWebFlow.ANDROID_CALLBACK, state)))
+        return ExchangeCode(AppleWebFlow.parseCallback(callback.await(), state))
+    }
+
+    private companion object {
+        val random = SecureRandom()
+    }
 }
 
 /**
  * The Android app's sign-in settings, from `BuildConfig`, which the build fills from the Gradle
- * properties `gains.serverUrl` and `gains.googleWebClientId` (`composeApp/android.gradle`; see
- * docs/development.md, "Android"), so they change without touching code. Google stays off until
- * the web client id is there, and its button stays hidden. Apple waits for item 11.
+ * properties `gains.serverUrl`, `gains.googleWebClientId` and `gains.appleServicesId`
+ * (`composeApp/android.gradle`; see docs/development.md, "Android"), so they change without
+ * touching code. Google stays off until the web client id is there, and its button stays hidden.
+ * Apple stays off until the Services ID is there, which the owner sets once the server has
+ * `APPLE_SERVICES_ID`: before that `/auth/apple/start` answers 503, and the button would only
+ * open an error page.
  */
 internal fun androidAuthConfig(): AuthConfig = AuthConfig(
     serverBaseUrl = BuildConfig.SERVER_URL.trim().trimEnd('/').ifBlank { null },
     googleClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim().ifBlank { null },
+    appleServiceId = BuildConfig.APPLE_SERVICES_ID.trim().ifBlank { null },
 )
