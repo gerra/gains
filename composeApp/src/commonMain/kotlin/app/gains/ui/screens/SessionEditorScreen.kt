@@ -1178,22 +1178,27 @@ private fun SessionClock(startedAtMs: Long, rest: RestTimer?, onSkipRest: () -> 
             ) { Text(stringResource(Res.string.end), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
         }
         // How much of the rest is left, running down between the clock's ticks. The only thing here
-        // that moves on its own, because it is the thing being waited for.
-        if (rest != null && remaining != null && remaining > 0) {
-            val left = ((rest.endsAtMs - now).coerceAtLeast(0L).toFloat() / (rest.totalSeconds * 1000f).coerceAtLeast(1f)).coerceIn(0f, 1f)
-            val bar = remember(rest) { Animatable(left) }
-            LaunchedEffect(rest, now) {
-                // Glide to where it will be at the next tick, so the bar moves smoothly rather than in steps.
-                val next = ((rest.endsAtMs - now - 500).coerceAtLeast(0L).toFloat() / (rest.totalSeconds * 1000f).coerceAtLeast(1f)).coerceIn(0f, 1f)
-                if (reduce) bar.snapTo(left) else { bar.snapTo(left); bar.animateTo(next, tween(500, easing = LinearEasing)) }
-            }
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.fillMaxWidth().height(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-                Box(Modifier.fillMaxWidth(bar.value).height(3.dp).clip(CircleShape).background(palette.cyan))
-            }
+        // that moves on its own, because it is the thing being waited for. Its track is always drawn,
+        // so ticking a set does not grow the card and shove the workout down: only the fill comes and goes.
+        val running = rest != null && remaining != null && remaining > 0
+        val left = if (rest != null && running) rest.fractionLeft(now) else 0f
+        val bar = remember(rest) { Animatable(left) }
+        LaunchedEffect(rest, now) {
+            if (rest == null || !running) { bar.snapTo(0f); return@LaunchedEffect }
+            // Glide to where it will be at the next tick, so the bar moves smoothly rather than in steps.
+            val next = rest.fractionLeft(now + 500)
+            if (reduce) bar.snapTo(left) else { bar.snapTo(left); bar.animateTo(next, tween(500, easing = LinearEasing)) }
+        }
+        Spacer(Modifier.height(8.dp))
+        Box(Modifier.fillMaxWidth().height(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
+            Box(Modifier.fillMaxWidth(bar.value).height(3.dp).clip(CircleShape).background(palette.cyan))
         }
     }
 }
+
+/** The share of the rest still to go at [atMs], 1 at its start and 0 once it is over. */
+private fun RestTimer.fractionLeft(atMs: Long): Float =
+    ((endsAtMs - atMs).coerceAtLeast(0L).toFloat() / (totalSeconds * 1000f).coerceAtLeast(1f)).coerceIn(0f, 1f)
 
 /**
  * Which program day the workout counts towards. Tagging a free workout with a day makes it part of
