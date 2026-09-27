@@ -282,7 +282,7 @@ taken on Play. **Choose before the first upload: Play never lets you change it.*
 ### 9. Android: Sign in with Google
 
 - [x] Done
-  Agent steps 2–5 are in #PR_NUMBER. The owner's step 1 switches it on: the web client id in
+  Agent steps 2–5 are in #94. The owner's step 1 switches it on: the web client id in
   `gains.googleWebClientId` (`gradle.properties`, compiled into `BuildConfig`) and in the server's
   `GOOGLE_CLIENT_IDS`. Until then the Android Google button stays hidden. Android is not compiled
   in CI: build it in Android Studio and run the test plan's Android section.
