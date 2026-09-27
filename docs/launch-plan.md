@@ -428,7 +428,7 @@ and then `/auth/exchange`. Use the same `AccountRepository` entry point as item 
 ### 17. Desktop: keep the token in the OS keychain
 
 - [x] Done
-  Done in #PR_NUMBER
+  Done in #90
 
 **Milestone:** Desktop (P1). **Depends on:** nothing.
 
