@@ -44,7 +44,11 @@ Android SDK when you pass `-Pgains.android=false`.
 ```
 
 Pick **Continue as guest** on first launch, then import a file with the **+** button or log a
-workout from the Home tab. The database lives in `~/.gains/gains.db`.
+workout from the Home tab. The database lives in `~/.gains/gains.db`. A signed-in account's token
+is not in it but in the OS keyring (docs/sync.md, "What the client does"): the macOS login
+keychain, the Secret Service on Linux (`secret-tool`, from `libsecret-tools` on Debian and Ubuntu)
+or DPAPI on Windows (`~/.gains/token.dpapi`). Without one, on a headless box, it stays in the
+database.
 
 Sign-in on the desktop goes through the browser (docs/sync.md, "Signing in"). The build passes
 four Gradle properties to the app as system properties, for `run` and the installers alike:

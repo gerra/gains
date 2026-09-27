@@ -317,7 +317,18 @@ preferences file `app.gains.sync.xml`. That file is excluded from backups and de
 A value the key can't open is dropped and read as no token, so a signed-in account restored
 without it sees "Signed out on the server" and signs in again. The same move from `sync_state`
 happens on the first read. The key and the file go with the app, so a reinstall starts clean.
-The desktop still keeps the token in `sync_state`.
+On the desktop it is [`KeyringTokenVault`](../shared/src/desktopMain/kotlin/app/gains/sync/KeyringTokenVault.kt)
+in front of the OS keyring ([`Keyring`](../shared/src/desktopMain/kotlin/app/gains/sync/Keyring.kt)),
+driven through the OS's own tool rather than a library: on macOS a generic password in the login
+keychain, service `app.gains.sync`, account `token`, through `security` (written in its
+interactive mode, so the token never goes on a command line); on Linux the Secret Service (GNOME
+Keyring, or KWallet through its bridge) through `secret-tool`; on Windows DPAPI through
+PowerShell, with the ciphertext, which only that Windows account on that machine can open, in
+`~/.gains/token.dpapi`. The keyring is read once per run and the token kept in memory after that,
+since each call starts a process. The same move from `sync_state` happens on the first read, and
+the keyring outlives the database like the iOS Keychain does, so the orphan check at start
+applies. A machine without a keyring (a headless Linux box, or one without `secret-tool` or a
+Secret Service on its session bus, probed at start) keeps the token in `sync_state` as before.
 
 ## The server
 
