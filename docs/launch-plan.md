@@ -58,7 +58,7 @@ The same rules as `auth-plan.md`:
 | 19 | Passkeys | More sign-in | Agent + Owner | 3, 18 | [ ] |
 | 20 | Every authenticated route checks that the account still exists | iOS launch | Agent | — | [x] |
 | 21 | Android: target API 36 (Android 16) | Android launch | Agent + Owner | — | [x] |
-| 22 | Server: run as an unprivileged user, with systemd hardening | Hardening (P1) | Agent + Owner | — | [ ] |
+| 22 | Server: run as an unprivileged user, with systemd hardening | Hardening (P1) | Agent + Owner | — | [x] |
 | 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [ ] |
 | 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [ ] |
 | 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [ ] |
@@ -697,7 +697,9 @@ Tests: the existing JVM tests on the new SDK; the manual checks in the test plan
 
 ### 22. Server: run as an unprivileged user, with systemd hardening
 
-- [ ] Done
+- [x] Done
+  Done in #103. `SystemCallFilter=@system-service` is not in the unit yet: try it by hand on the
+  box first (step 3). Left: the owner's removal of `/root/Projects/gains-server`.
 
 **Milestone:** Hardening (P1). **Depends on:** nothing. The deploy does all of it; the owner
 watches the first one and removes the old tree afterwards.
