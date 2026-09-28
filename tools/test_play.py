@@ -53,33 +53,34 @@ class Recorder:
 
 
 class SettingsTest(unittest.TestCase):
-    def test_the_application_id_is_read_out_of_android_gradle(self):
+    def test_the_application_id_is_read_out_of_the_app_build_file(self):
         self.assertEqual("app.gains", play.application_id(play.ANDROID_GRADLE.read_text()))
+        self.assertEqual("sh.gerra.gains", play.application_id('        applicationId = "sh.gerra.gains"\n'))
         self.assertEqual("sh.gerra.gains", play.application_id('    applicationId "sh.gerra.gains"\n'))
 
     def test_a_gradle_file_without_one_stops_the_step(self):
         with self.assertRaises(SystemExit):
-            play.application_id('namespace "app.gains"\n')
+            play.application_id('namespace = "app.gains"\n')
 
     def test_the_version_is_the_ios_one(self):
         self.assertRegex(play.setting("MARKETING_VERSION"), r"^\d+\.\d+$")
 
     def test_the_bundle_is_where_the_android_gradle_plugin_writes_it(self):
         self.assertEqual(
-            "composeApp/build/outputs/bundle/release/composeApp-release.aab",
+            "androidApp/build/outputs/bundle/release/androidApp-release.aab",
             str(play.BUNDLE.relative_to(ROOT)),
         )
 
     def test_the_mapping_is_where_r8_writes_it(self):
         self.assertEqual(
-            "composeApp/build/outputs/mapping/release/mapping.txt",
+            "androidApp/build/outputs/mapping/release/mapping.txt",
             str(play.MAPPING.relative_to(ROOT)),
         )
 
     def test_the_release_build_is_shrunk_so_there_is_a_mapping_to_send(self):
         release = play.ANDROID_GRADLE.read_text().split("release {", 1)[1]
-        self.assertRegex(release, r"minifyEnabled true")
-        self.assertRegex(release, r"shrinkResources true")
+        self.assertRegex(release, r"isMinifyEnabled = true")
+        self.assertRegex(release, r"isShrinkResources = true")
 
 
 class AssertionTest(unittest.TestCase):
@@ -242,13 +243,13 @@ class GradlePropertiesTest(unittest.TestCase):
         self.assertEqual([], [p for p in properties if p.startswith("-Pgains.appleServicesId")])
 
     def test_the_gradle_file_reads_what_is_passed(self):
-        """Each property the script passes is one android.gradle looks up, and the other way round."""
+        """Each property the script passes is one the app's build file looks up, and the other way round."""
         gradle = play.ANDROID_GRADLE.read_text()
         looked_up = set(re.findall(r'findProperty\([\'"](gains\.[A-Za-z]+)[\'"]\)', gradle))
         environment = dict(self.ENVIRONMENT, GOOGLE_WEB_CLIENT_ID="g", APPLE_SERVICES_ID="a", PASSWORD_SIGN_IN="true")
         passed = {p[2:].split("=", 1)[0] for p in play.gradle_properties(environment)}
-        self.assertEqual(set(), passed - looked_up, "passed to Gradle but not read by android.gradle")
-        self.assertEqual({"gains.serverUrl"}, looked_up - passed, "read by android.gradle but not passed")
+        self.assertEqual(set(), passed - looked_up, "passed to Gradle but not read by the app's build file")
+        self.assertEqual({"gains.serverUrl"}, looked_up - passed, "read by the app's build file but not passed")
 
 
 class CheckSecretsTest(unittest.TestCase):

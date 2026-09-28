@@ -1,11 +1,12 @@
 [versions]
-agp = "8.13.2"
+agp = "9.4.1"
 kotlin = "2.4.20"
-# Not 1.12: its Android artifacts (Jetpack Compose 1.12) need compileSdk 37 and AGP 9.1, and AGP
-# stays on 8.x until :composeApp is split (docs/launch-plan.md, item 27, step 3).
-compose-multiplatform = "1.11.1"
-# Material 3 has its own version line since Compose Multiplatform 1.9; 1.9.0 is the one the
-# Compose 1.11.1 plugin itself pairs with.
+# 1.12's Android artifacts (Jetpack Compose 1.12) need compileSdk 37 and AGP 9.1, which the
+# :androidApp split made possible (docs/launch-plan.md, item 38).
+compose-multiplatform = "1.12.1"
+# Material 3 has its own version line since Compose Multiplatform 1.9. 1.9.0 is its last stable
+# release: 1.10, 1.11 and the 1.12.0-alpha03 that the Compose 1.12.1 release notes list are all
+# alphas, and the 1.12 plugin no longer has a `compose.material3` accessor that names one.
 compose-material3 = "1.9.0"
 # The icons no longer ship with Compose Multiplatform, and 1.7.3 is their last release.
 compose-material-icons = "1.7.3"
@@ -14,7 +15,9 @@ koin = "4.2.2"
 kotlinx-datetime = "0.8.0"
 kotlinx-coroutines = "1.11.0"
 android-activity = "1.13.0"
-android-compileSdk = "36"
+# compileSdk 37 builds against Android 17's APIs. targetSdk stays at 36: raising it opts the app
+# into Android 17's runtime behaviour, which is its own item, as item 21 was for 36.
+android-compileSdk = "37"
 android-minSdk = "26"
 android-targetSdk = "36"
 # Sign in with Google on Android (docs/launch-plan.md, item 9): Credential Manager and Google's
@@ -24,10 +27,6 @@ googleid = "1.2.1"
 # Sign in with Apple on Android (item 11): the Custom Tab the server's web flow opens in.
 androidx-browser = "1.10.0"
 ktor = "3.6.0"
-# Held below what Ktor's OkHttp engine asks for: okhttp 5.5.0 needs compileSdk 37, and AGP 8.13,
-# the last 8.x, supports up to 36.1; 5.4.0 is the last at 36. Ktor 3.6.0's engine calls nothing
-# 5.4.0 lacks. Drop the pin with the move to AGP 9 (docs/launch-plan.md, item 38).
-okhttp = "5.4.0"
 kotlinx-serialization = "1.11.0"
 java-jwt = "4.6.1"
 jwks-rsa = "0.24.1"
@@ -35,6 +34,9 @@ logback = "1.6.4"
 # Email and password accounts (docs/launch-plan.md, item 18): Argon2id for the password hashes,
 # which the JDK has no implementation of.
 bouncycastle = "1.86"
+# Only to lift AGP's older copies past their advisories (build.gradle.kts).
+commons-lang3 = "3.20.0"
+httpclient = "4.5.14"
 
 [libraries]
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
@@ -82,6 +84,8 @@ java-jwt = { module = "com.auth0:java-jwt", version.ref = "java-jwt" }
 jwks-rsa = { module = "com.auth0:jwks-rsa", version.ref = "jwks-rsa" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
+httpclient = { module = "org.apache.httpcomponents:httpclient", version.ref = "httpclient" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

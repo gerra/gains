@@ -44,26 +44,18 @@ updates:
         patterns: ["*"]
     ignore:
       # Kotlin and Compose Multiplatform move together, and a minor of either is a deliberate
-      # pass like item 27 (the Compose compiler ships with Kotlin; Compose 1.12's Android
-      # artifacts need AGP 9 and compileSdk 37, item 38). Only their patches come in here.
+      # pass like items 27 and 38 (the Compose compiler ships with Kotlin; a Compose minor's
+      # Android artifacts can ask for a newer AGP and compileSdk, as 1.12's did). Only their
+      # patches come in here.
       - dependency-name: "org.jetbrains.kotlin:*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "org.jetbrains.kotlin.*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "org.jetbrains.compose*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      # Majors of Koin and the Android Gradle Plugin are their own passes too. AGP 9 needs the
-      # app module split first (item 38).
+      # Majors of Koin and the Android Gradle Plugin are their own passes too, as AGP 9 was
+      # (item 38).
       - dependency-name: "io.insert-koin:*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "com.android.tools.build:gradle"
         update-types: ["version-update:semver-major"]
-      # Gradle 9.6 and newer refuse AGP 8.x (it uses a Gradle internal API they removed), so the
-      # wrapper stays on 8.x until AGP 9 lands with item 38, which picks the Gradle it asks for.
-      # Drop this with item 38.
-      - dependency-name: "gradle-wrapper"
-        update-types: ["version-update:semver-major"]
-      # Held at 5.4.0 on purpose: 5.5.0 needs compileSdk 37, which AGP 8.13 can't build
-      # (the okhttp comment in gradle/libs.versions.toml). Drop this with item 38.
-      - dependency-name: "com.squareup.okhttp3:okhttp"
-        versions: [">= 5.5.0"]

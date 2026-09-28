@@ -8,7 +8,7 @@ does it for iOS:
                    the step's `configured` output turns the rest of the job off, so a release
                    round still ships to TestFlight while the Play Console is being set up.
   paths            Where the upload key, the service account key and the bundle live on this runner.
-  settings         Read the application id out of android.gradle and MARKETING_VERSION out of
+  settings         Read the application id out of androidApp/build.gradle.kts and MARKETING_VERSION out of
                    Config.xcconfig; the bundle carries the same version as the iOS build.
   install-signing  Write the upload keystore and the service account key out of the secrets.
   bundle           `gradle bundleRelease`, signed with the upload key and stamped with the
@@ -37,11 +37,13 @@ import gha
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "iosApp/Configuration/Config.xcconfig"
-ANDROID_GRADLE = ROOT / "composeApp/android.gradle"
-BUNDLE = ROOT / "composeApp/build/outputs/bundle/release/composeApp-release.aab"
+# The Android application module (docs/launch-plan.md, item 38): the application id, the version
+# and the signing are in its build file, and the bundle is its output.
+ANDROID_GRADLE = ROOT / "androidApp/build.gradle.kts"
+BUNDLE = ROOT / "androidApp/build/outputs/bundle/release/androidApp-release.aab"
 # R8's map from the obfuscated names back to the real ones (docs/launch-plan.md, item 30). Play
 # keeps it with the bundle's versionCode and uses it to make Play Console's stack traces read.
-MAPPING = ROOT / "composeApp/build/outputs/mapping/release/mapping.txt"
+MAPPING = ROOT / "androidApp/build/outputs/mapping/release/mapping.txt"
 
 SECRETS = [
     "ANDROID_UPLOAD_KEYSTORE_BASE64",
@@ -78,8 +80,8 @@ def setting(name):
 
 
 def application_id(gradle_text):
-    """The applicationId in android.gradle: what Play knows the app as."""
-    found = re.search(r'^\s*applicationId\s+"([^"]+)"', gradle_text, flags=re.M)
+    """The applicationId in the app's build file: what Play knows the app as."""
+    found = re.search(r'^\s*applicationId\s*=?\s*"([^"]+)"', gradle_text, flags=re.M)
     if not found:
         gha.fail(f"applicationId is not set in {ANDROID_GRADLE.relative_to(ROOT)}")
     return found.group(1)
@@ -336,7 +338,7 @@ def bundle(args):
     # Not echoed: the key passwords travel on the command line, like the certificate
     # password in tools/testflight.py.
     gha.run(
-        str(ROOT / "gradlew"), ":composeApp:bundleRelease", "--no-daemon",
+        str(ROOT / "gradlew"), ":androidApp:bundleRelease", "--no-daemon",
         *gradle_properties(os.environ),
         cwd=ROOT, show=False,
     )

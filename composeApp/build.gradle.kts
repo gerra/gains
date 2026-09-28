@@ -1,5 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.time.Duration
 
 plugins {
@@ -10,24 +11,18 @@ plugins {
 
 val androidEnabled = rootProject.extra["androidEnabled"] as Boolean
 
+// Before the kotlin { } block: android.gradle creates the Android target that androidMain belongs
+// to. This module is an Android library; the application is :androidApp. The lint plugin gives
+// the library a lint model, without which :androidApp:lintDebug (checkDependencies) skips this
+// module, where all the app's code is.
 if (androidEnabled) {
-    apply(plugin = "com.android.application")
+    apply(plugin = "com.android.kotlin.multiplatform.library")
+    apply(plugin = "com.android.lint")
+    apply(from = "android.gradle")
 }
 
 kotlin {
-    if (androidEnabled) {
-        androidTarget {
-            compilerOptions {
-                jvmTarget.set(JvmTarget.JVM_17)
-            }
-        }
-    }
-
-    jvm("desktop") {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-        }
-    }
+    jvm("desktop")
 
     listOf(
         iosArm64(),
@@ -80,13 +75,13 @@ kotlin {
                 implementation(libs.androidx.browser)
             }
         }
-        val desktopMain by getting {
+        getByName("desktopMain") {
             dependencies {
                 implementation(compose.desktop.currentOs)
                 implementation(libs.kotlinx.coroutines.swing)
             }
         }
-        val desktopTest by getting {
+        getByName("desktopTest") {
             dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.compose.ui.test.junit4)
@@ -153,6 +148,8 @@ compose.desktop {
     }
 }
 
-if (androidEnabled) {
-    apply(from = "android.gradle")
+// Java 17 bytecode on the desktop and Android targets alike. Set on the tasks, since the Android
+// library plugin's target has no compilerOptions block of its own to say it in.
+tasks.withType<KotlinJvmCompile>().configureEach {
+    compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
 }

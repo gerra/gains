@@ -18,8 +18,8 @@ CI does on runners without an SDK. Everything else is unaffected.
 
 ## Running it
 
-Requirements: JDK 17 or newer. Android additionally needs Android Studio with SDK 36 (Narwhal 3
-Feature Drop, 2025.1.3, or newer, for AGP 8.13), iOS needs
+Requirements: JDK 17 or newer. Android additionally needs Android Studio with SDK 37 (Quail 4,
+2026.1.4, or newer, for AGP 9.4), iOS needs
 Xcode on a Mac (Xcode 26 to upload to App Store Connect, which only takes builds made with the
 current iOS SDK).
 
@@ -71,26 +71,31 @@ once `gains.appleServicesId` is set, to the server's `APPLE_SERVICES_ID`; set it
 
 ### Android
 
-Open the project in Android Studio and run the `composeApp` configuration, or build an APK:
+Open the project in Android Studio and run the `androidApp` configuration, or build an APK:
 
 ```bash
-./gradlew :composeApp:assembleDebug
+./gradlew :androidApp:assembleDebug
 ```
+
+`androidApp` is the application: the application id, the version, signing, R8 and lint, and no
+code of its own. The Kotlin, the manifest and the resources are in `composeApp`, an Android
+library it wraps (AGP 9 no longer builds an application in a Kotlin Multiplatform module).
 
 A debug build carries version code 1 and the version name from `MARKETING_VERSION` in
 `iosApp/Configuration/Config.xcconfig`, the same one the iOS build shows. Release bundles for
 Play come from the release workflow, signed with the upload key and stamped with the run
 number: [docs/play.md](play.md). A release build runs R8, which a debug build doesn't, so a
 crash only the release build has is usually a missing keep rule for
-`composeApp/proguard-rules.pro`; CI's Android job builds the release bundle on every pull
+`androidApp/proguard-rules.pro`; CI's Android job builds the release bundle on every pull
 request, so an R8 error shows there.
 
 The app registers as a handler for CSV files, so exports shared from other apps open directly in
 the import preview. Several files can be shared at once.
 
 Sign-in on Android goes through Credential Manager for Google and the server's web flow for Apple
-(docs/sync.md, "Signing in"). The build compiles four Gradle properties into `BuildConfig`
-(`composeApp/android.gradle`): `gains.serverUrl` (the sync server), `gains.googleWebClientId`,
+(docs/sync.md, "Signing in"). The build turns four Gradle properties into string resources
+(`resValue` in `androidApp/build.gradle.kts`, over the empty defaults in `composeApp`'s
+`res/values/sign_in_config.xml`): `gains.serverUrl` (the sync server), `gains.googleWebClientId`,
 the Google **Web application** OAuth client, which is Credential Manager's `serverClientId` and
 the audience of the tokens the phone sends, so the server lists it in `GOOGLE_CLIENT_IDS` too,
 `gains.appleServicesId`, the same Services ID as the desktop's, which the server has as
@@ -101,7 +106,7 @@ with `-P`. The Google Cloud project also needs an **Android** client with the pa
 Signing), or the chooser refuses the app.
 
 ```bash
-./gradlew :composeApp:assembleDebug -Pgains.googleWebClientId=…apps.googleusercontent.com -Pgains.appleServicesId=app.gains.Gains.web
+./gradlew :androidApp:assembleDebug -Pgains.googleWebClientId=…apps.googleusercontent.com -Pgains.appleServicesId=app.gains.Gains.web
 ```
 
 **Sign in with Apple** ends on the App Link `https://gains.gerra.sh/auth/done`. Android opens it
@@ -184,8 +189,9 @@ pushes `deploy/nginx/` and `site/` (gains.gerra.sh) the same way; from a laptop,
 `python3 tools/deploy_server.py secrets` pushes the secrets
 ([secrets/README.md](../secrets/README.md) lists them). A server-only change cuts no release branch. Design and routes: [docs/sync.md](sync.md).
 
-**Modules.** Four: `protocol` (the sync wire format), `shared` (everything below the UI),
-`composeApp` (the UI and the entry points) and `server`. Don't split `composeApp` or `shared` into
+**Modules.** Five: `protocol` (the sync wire format), `shared` (everything below the UI),
+`composeApp` (the UI and the entry points), `androidApp` (the Android application around
+`composeApp`, no code of its own) and `server`. Don't split `composeApp` or `shared` into
 feature modules by taste or by screen count. Split when one of these is seen concretely, and say
 which in the pull request:
 - a feature with an owner of its own, or reused outside this app;
@@ -194,7 +200,9 @@ which in the pull request:
 - a feature whose tests need a large unrelated graph (the whole database and Koin) to run.
 
 `protocol` was split out for the second reason ([launch-plan item 37](launch-plan.md#37-module-boundaries-a-wire-protocol-module-and-when-to-split-features)):
-every change to the app's `shared` code rebuilt and redeployed the server.
+every change to the app's `shared` code rebuilt and redeployed the server. `androidApp` is not a
+feature split but a build one ([launch-plan item 38](launch-plan.md#38-android-an-app-module-of-its-own-then-agp-9-and-compilesdk-37)):
+AGP 9 refuses `com.android.application` in a Kotlin Multiplatform module.
 
 **Dependencies and actions.** Every `uses:` in `.github/workflows/` names a full commit SHA, with
 the version it is as a trailing comment (`actions/checkout@<sha> # v4.4.0`), because a tag can be
@@ -212,7 +220,7 @@ pull requests, on `main` and weekly, into Security → Code scanning.
 `ktor`, `kotlinx`, `everything-else`), so a round is a few pull requests, each reviewed by CI.
 Kotlin and Compose Multiplatform get patches only, and Koin and AGP no majors: those are
 deliberate passes like [launch-plan item 27](launch-plan.md#27-a-dependency-modernization-pass).
-okhttp is held below 5.5.0 until item 38. To take one of those anyway, change the version in
+To take one of those anyway, change the version in
 `gradle/libs.versions.toml` by hand; to hold something else back, add an `ignore` entry there.
 There is no Gradle dependency verification (`gradle/verification-metadata.xml`): Dependabot
 doesn't regenerate that file, so every Gradle pull request from it would fail until someone
@@ -311,8 +319,8 @@ plus the iOS compile and the `tools/` tests listed under [the commands at the to
 - The README layout borrows from the projects collected in [awesome-readme](https://github.com/matiassingers/awesome-readme)
 
 The versions live in `gradle/libs.versions.toml`. The last deliberate pass over them was
-[launch-plan item 27](launch-plan.md#27-a-dependency-modernization-pass): Kotlin 2.4.20, Compose
-Multiplatform 1.11.1, Koin 4.2.2, AGP 8.13.2 on Gradle 8.14.5. AGP stays on 8.x until
-`:composeApp` is split into its own Android app module, which AGP 9 requires, and Compose
-Multiplatform on 1.11 with it: 1.12's Android artifacts need AGP 9.1 and compileSdk 37. That split
-and the bump are [launch-plan item 38](launch-plan.md#38-android-an-app-module-of-its-own-then-agp-9-and-compilesdk-37).
+[launch-plan item 27](launch-plan.md#27-a-dependency-modernization-pass): Kotlin 2.4.20, Koin
+4.2.2. [Item 38](launch-plan.md#38-android-an-app-module-of-its-own-then-agp-9-and-compilesdk-37)
+split the Android application into `:androidApp`, which AGP 9 requires, and moved to AGP 9.4.1
+on Gradle 9.8.0, compileSdk 37 (`targetSdk` stays 36) and Compose Multiplatform 1.12.1. Material 3
+stays on 1.9.0, its last stable release.

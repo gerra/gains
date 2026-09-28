@@ -79,7 +79,7 @@ The same rules as `auth-plan.md`:
 | 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [x] |
 | 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [x] |
 | 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [x] |
-| 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [ ] |
+| 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [x] |
 | 39 | Open source under MPL-2.0: the license, its scope, the notices, no personal data | iOS launch | Agent + Owner | — | [ ] |
 
 **Blockers, P1, P2.** Items 20, 21 and 39 are launch blockers: item 7 (App Review) depends on 20
@@ -143,6 +143,9 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
   Until the graph is on, GitHub refuses the snapshot, so CI's Dependency review job and the
   Dependency graph workflow fail.
 - [ ] Backup decision (item 31), before item 14 if possible.
+- [ ] Android app module (item 38): Android Studio Quail 4 (2026.1.4) or newer with SDK 37, then
+      one release round to closed testing and the test plan's item 38 checks on a phone that has
+      the previous build.
 - [ ] License decisions (item 39), before its pull request: the copyright holder's name, the
       treatment of the name and logo, the license for docs and site text, the notices tool,
       whose workouts `liftoff_workout_data.csv` and the site's images hold, and whether the
@@ -343,13 +346,13 @@ sections passed on a TestFlight build containing them.
 
 **Milestone:** Android launch. **Depends on:** nothing.
 
-The application id is `app.gains` today (`composeApp/android.gradle`), which may already be
+The application id is `app.gains` today (`androidApp/build.gradle.kts` since item 38), which may already be
 taken on Play. **Choose before the first upload: Play never lets you change it.**
 
 1. **Owner:** pick the id. `sh.gerra.gains` follows the domain you own. Check that no Play
    listing uses it. *Decided:* keep `app.gains`. Play refuses the first upload if the
    id is taken; if that happens, come back here and pick another before retrying.
-2. Change `applicationId` in `composeApp/android.gradle`. `namespace` and the Kotlin packages
+2. Change `applicationId` in `androidApp/build.gradle.kts`. `namespace` and the Kotlin packages
    can stay `app.gains`, since only the application id is public. Check `AndroidManifest.xml`
    and the notification / receiver code for any hard-coded `app.gains` that means the
    application id.
@@ -1075,7 +1078,8 @@ build, if step 2 stays.
   `composeApp/proguard-rules.pro` (every library that reflects ships its own rules, and the app's
   serializers are called by name), `bundleRelease` in CI's Android job, and `tools/play.py`
   sending `mapping.txt` as the bundle's deobfuscation file. Left: the owner's device pass in
-  step 3, which is the test plan's item 30 check.
+  step 3, which is the test plan's item 30 check. Item 38 moved the release build type and the
+  rules file to the app module: `androidApp/build.gradle.kts` and `androidApp/proguard-rules.pro`.
 
 **Milestone:** Hardening (P2). **Depends on:** 21, 25 (a release build in CI to try it on).
 
@@ -1478,7 +1482,10 @@ classpath from step 1 measured again in the pull request.
 
 ### 38. Android: an app module of its own, then AGP 9 and compileSdk 37
 
-- [ ] Done
+- [x] Done
+  Done in #129. Steps 1–5 are in, in two commits (the move on AGP 8.13, then the bump): AGP 9.4.1
+  on Gradle 9.8.0, compileSdk 37, Compose Multiplatform 1.12.1; Material 3 stays on 1.9.0, its
+  last stable. Left: the owner's step 6 and the test plan's item 38 checks.
 
 **Milestone:** Maintenance (P2). **Depends on:** 25, 26 (CI builds Android and Xcode, which is
 how this item is checked), 27 (it left AGP on 8.x for this). Items 30 and 31 edit the Android
@@ -2151,7 +2158,8 @@ On the first Monday after item 29 is on `main`:
 - [ ] Insights → Dependency graph → Dependabot lists both `github-actions` and `gradle` as
       checked, with no error on either.
 - [ ] Its pull requests come grouped (one for the actions, at most one per Gradle group), and
-      none proposes a Kotlin or Compose minor, a Koin or AGP major, or okhttp 5.5.0 or newer.
+      none proposes a Kotlin or Compose minor, or a Koin or AGP major. (okhttp was held below
+      5.5.0 too until item 38.)
 - [ ] CI runs on them and goes green, or goes red for a reason in the bump itself.
 
 ### Android app module (item 38)
@@ -2166,6 +2174,11 @@ On the first closed-testing build from `:androidApp`:
 - [ ] The workout notification (with "Skip rest"), a streak reminder, and the reminders after a
       reboot.
 - [ ] The launcher icon and name, and the app in Russian (Settings → Language).
+- [ ] With `GAINS_PASSWORD_SIGN_IN` set for the build, the email form shows on the sign-in screen,
+      and without it, it doesn't: the four sign-in settings are string resources now, not
+      `BuildConfig`.
+- [ ] Compose Multiplatform 1.12: Home, a workout in progress with the keyboard up, the exercise
+      picker sheet, the charts and Settings look and scroll as on the previous build.
 
 ---
 

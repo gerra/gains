@@ -80,8 +80,8 @@ without Apple's sheet" below):
    `ASAuthorizationController` on iOS, Google through Credential Manager on Android
    ([`AndroidIdentityProvider`](../composeApp/src/androidMain/kotlin/app/gains/AndroidIdentityProvider.kt)):
    Play services' account chooser, asked for a token for the **Web application** client
-   (`GetGoogleIdOption.serverClientId`, the Gradle property `gains.googleWebClientId` compiled into
-   `BuildConfig`), which is the token's audience. Google on iOS is an OAuth 2.0 authorization-code flow with PKCE in an `ASWebAuthenticationSession`
+   (`GetGoogleIdOption.serverClientId`, the Gradle property `gains.googleWebClientId`, a string
+   resource `:androidApp` sets), which is the token's audience. Google on iOS is an OAuth 2.0 authorization-code flow with PKCE in an `ASWebAuthenticationSession`
    ([`GoogleOAuth`](../shared/src/commonMain/kotlin/app/gains/auth/GoogleOAuth.kt)): the sheet
    shows Google's account chooser, redirects to the iOS client's reversed-id scheme with a code,
    and the app trades the code at Google's token endpoint for an identity token. That is what the
@@ -509,7 +509,7 @@ three taxes uses.
   `gains.googleDesktopClientSecret` and `gains.appleServicesId`), Apple through the server's web
   flow (above). Android has both too (`AndroidIdentityProvider`, with the server URL, the Web
   application client and the Services ID from `gains.serverUrl`, `gains.googleWebClientId` and
-  `gains.appleServicesId`, through `BuildConfig`), Apple through the same web flow in a Custom
+  `gains.appleServicesId`, as string resources `:androidApp` sets), Apple through the same web flow in a Custom
   Tab. An email address and a password work on all three (above), once `gains.passwordSignIn`
   or `GAINS_PASSWORD_SIGN_IN` is set with the server's mail account. Passkeys are item 19 of the
   [launch plan](launch-plan.md). Until a provider is wired up its button stays hidden, or Google

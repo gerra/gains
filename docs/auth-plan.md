@@ -26,8 +26,11 @@ compile:
 ```
 ./gradlew :shared:desktopTest :composeApp:desktopTest :server:test -Pgains.android=false --no-daemon
 ./gradlew :shared:compileKotlinIosArm64 :composeApp:compileKotlinIosArm64 -Pgains.android=false --no-daemon
-./gradlew :composeApp:assembleDebug :composeApp:lintDebug :shared:testDebugUnitTest --no-daemon
+./gradlew :androidApp:assembleDebug :androidApp:lintDebug :shared:testAndroidHostTest --no-daemon
 ```
+
+The Android line names `:androidApp`, the application module, since launch-plan item 38; lint
+follows it into `:composeApp`, and `testAndroidHostTest` is what `testDebugUnitTest` became.
 
 The last line needs the Android SDK; CI's `android` job runs it on every pull request. The
 Xcode project is built for the iOS Simulator by the `ios` job (`.github/workflows/ios.yml`,

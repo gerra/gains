@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Android app's sign-in settings (androidAuthConfig, docs/development.md, "Android"). Empty
+     here, which leaves the app a guest with every sign-in button hidden. :androidApp overrides them
+     with resValue from the Gradle properties gains.serverUrl, gains.googleWebClientId,
+     gains.appleServicesId and gains.passwordSignIn: an application's resource wins over a
+     library's of the same name, so this module needs no knowledge of the app. Resources rather
+     than BuildConfig, which the Kotlin Multiplatform library plugin doesn't generate
+     (docs/launch-plan.md, item 38). Not text anyone reads, so not translated. -->
+<resources>
+    <string name="gains_server_url" translatable="false"></string>
+    <string name="gains_google_web_client_id" translatable="false"></string>
+    <string name="gains_apple_services_id" translatable="false"></string>
+    <string name="gains_password_sign_in" translatable="false"></string>
+</resources>

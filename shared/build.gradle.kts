@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -8,24 +9,14 @@ plugins {
 
 val androidEnabled = rootProject.extra["androidEnabled"] as Boolean
 
+// Before the kotlin { } block: android.gradle creates the Android target that androidMain belongs to.
 if (androidEnabled) {
-    apply(plugin = "com.android.library")
+    apply(plugin = "com.android.kotlin.multiplatform.library")
+    apply(from = "android.gradle")
 }
 
 kotlin {
-    if (androidEnabled) {
-        androidTarget {
-            compilerOptions {
-                jvmTarget.set(JvmTarget.JVM_17)
-            }
-        }
-    }
-
-    jvm("desktop") {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-        }
-    }
+    jvm("desktop")
 
     listOf(
         iosArm64(),
@@ -68,13 +59,13 @@ kotlin {
             implementation(libs.sqldelight.native)
             implementation(libs.ktor.client.darwin)
         }
-        val desktopMain by getting {
+        getByName("desktopMain") {
             dependencies {
                 implementation(libs.sqldelight.sqlite)
                 implementation(libs.ktor.client.cio)
             }
         }
-        val desktopTest by getting {
+        getByName("desktopTest") {
             dependencies {
                 implementation(libs.sqldelight.sqlite)
                 // GoogleOAuthTest answers the token exchange without a network.
@@ -98,17 +89,8 @@ tasks.withType<Test>().configureEach {
     systemProperty("gains.composeResourcesDir", rootProject.file("composeApp/src/commonMain/composeResources").absolutePath)
 }
 
-if (androidEnabled) {
-    apply(from = "android.gradle")
-
-    // Ktor's OkHttp engine brings okhttp 5.5.0, whose AAR metadata requires compileSdk 37 and
-    // fails :composeApp:checkDebugAarMetadata. The version catalog says why 5.4.0.
-    dependencies {
-        constraints {
-            add("androidMainImplementation", "com.squareup.okhttp3:okhttp") {
-                version { strictly(libs.versions.okhttp.get()) }
-                because("okhttp 5.5.0 needs compileSdk 37; see okhttp in gradle/libs.versions.toml")
-            }
-        }
-    }
+// Java 17 bytecode on the desktop and Android targets alike. Set on the tasks, since the Android
+// library plugin's target has no compilerOptions block of its own to say it in.
+tasks.withType<KotlinJvmCompile>().configureEach {
+    compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
 }
