@@ -24,10 +24,10 @@ The same rules as `auth-plan.md`:
 2. Run the checks from [`auth-plan.md`](auth-plan.md#checks-every-item-must-pass) before
    pushing. They still apply: both `strings.xml` files, KDoc that says why, Koin for wiring,
    `docs/sync.md` kept true.
-3. **Android is not compiled in CI** (no Android SDK on the runner; see
-   [Known limitations](development.md#known-limitations)) until item 25 lands. Keep Android
-   work small and list every Android file you touched in the pull request body so the owner can
-   build it in Android Studio.
+3. **Android is compiled and linted in CI; a device is still needed for the test plan.** The
+   `android` job in `ci.yml` builds the debug app, runs lint and the shared tests on the Android
+   JVM (item 25). List every Android file you touched in the pull request body so the owner
+   knows what to check on a device.
 4. Steps marked **Owner** are console or account work. Agents assume they are done or in
    progress and don't block on them.
 5. Manual checks go in the [test plan](#test-plan), under the item's number. An item that
@@ -61,7 +61,7 @@ The same rules as `auth-plan.md`:
 | 22 | Server: run as an unprivileged user, with systemd hardening | Hardening (P1) | Agent + Owner | — | [ ] |
 | 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [x] |
 | 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [ ] |
-| 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [ ] |
+| 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [x] |
 | 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [ ] |
 | 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [ ] |
 | 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [ ] |
@@ -821,7 +821,8 @@ line says so.
 
 ### 25. Android in CI: build, lint and the JVM tests
 
-- [ ] Done
+- [x] Done
+  Done in #105.
 
 **Milestone:** CI (P1). **Depends on:** nothing.
 
@@ -875,7 +876,7 @@ XCUITest, no screenshots, no scenario runs.
    with `paths-ignore` for `docs/**`, `site/**`, `server/**`, `deploy/**` and `tools/**`; a
    path-filtered job must not be a required check, or it hangs the merge. Not on the two-hourly
    release branches, which archive anyway.
-4. Then the second bullet under `docs/development.md` Known limitations says the simulator build
+4. Then the iOS bullet under `docs/development.md` Known limitations says the simulator build
    runs in CI and only archiving needs the signing material, and `auth-plan.md`'s "No Mac or
    Xcode is available to the agent" becomes "CI builds the Xcode project; the agent still can't
    run it".

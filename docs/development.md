@@ -220,10 +220,6 @@ in `iosApp/iosApp/Info.plist`.
 
 ## Known limitations
 
-- The Android source set is written against the standard APIs but is not compiled by the CI
-  workflow, which runs without an Android SDK. Open the project in Android Studio to build it.
-  The [Google Play workflow](play.md) does build it, on each release round once its secrets
-  are set.
 - The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request,
   but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
   hosted macOS runner for this).

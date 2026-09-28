@@ -24,7 +24,10 @@ compile:
 ```
 ./gradlew :shared:desktopTest :composeApp:desktopTest :server:test -Pgains.android=false --no-daemon
 ./gradlew :shared:compileKotlinIosArm64 :composeApp:compileKotlinIosArm64 -Pgains.android=false --no-daemon
+./gradlew :composeApp:assembleDebug :composeApp:lintDebug :shared:testDebugUnitTest --no-daemon
 ```
+
+The last line needs the Android SDK; CI's `android` job runs it on every pull request.
 
 - No Mac or Xcode is available to the agent. **Keep iOS work in Kotlin (`iosMain`)** wherever
   possible, since that compiles above. Swift, `project.pbxproj`, `.plist` and `.entitlements`
