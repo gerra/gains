@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.LocalReduceMotion
 import app.gains.ui.theme.Motion
@@ -173,8 +176,10 @@ internal fun MetricTile(
         Spacer(Modifier.height(6.dp))
         val style = if (large) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall
         val color = accent ?: MaterialTheme.colorScheme.onSurface
-        if (roll) RollingText(value, style, color)
-        else Text(value, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // The figure shrinks to fit its tile rather than losing its end: "1 h 23 min" in a third of a
+        // phone's width must still read as the whole time.
+        if (roll) RollingText(value, style, color, fit = true)
+        else FitText(value, style, color)
         if (caption != null) {
             Spacer(Modifier.height(2.dp))
             Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -317,14 +322,28 @@ internal fun RoundedIconBox(color: Color, modifier: Modifier = Modifier, content
  * Shown for the first time, it simply is there.
  */
 @Composable
-internal fun RollingText(value: String, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
+internal fun RollingText(value: String, style: TextStyle, color: Color, modifier: Modifier = Modifier, fit: Boolean = false) {
     val reduce = LocalReduceMotion.current
     val previous = rememberPreviouslyShown(value)
     val state = remember { MutableTransitionState(previous) }
     state.targetState = value
     rememberTransition(state, label = "roll").AnimatedContent(modifier, transitionSpec = { roll(reduce) }) { shown ->
-        Text(shown, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (fit) FitText(shown, style, color)
+        else Text(shown, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
+}
+
+/** One line of [style] that steps its size down, to no less than [minScale] of it, until it fits. */
+@Composable
+private fun FitText(value: String, style: TextStyle, color: Color, minScale: Float = 0.55f) {
+    BasicText(
+        value,
+        style = style.copy(color = color),
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
+        autoSize = TextAutoSize.StepBased(minFontSize = style.fontSize * minScale, maxFontSize = style.fontSize, stepSize = 1.sp),
+    )
 }
 
 /**
