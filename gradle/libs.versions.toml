@@ -7,20 +7,20 @@ compose-multiplatform = "1.12.1"
 compose-material3 = "1.9.0"
 # The icons no longer ship with Compose Multiplatform, and 1.7.3 is their last release.
 compose-material-icons = "1.7.3"
-sqldelight = "2.3.2"
+sqldelight = "2.4.0"
 koin = "4.2.2"
 kotlinx-datetime = "0.8.0"
 kotlinx-coroutines = "1.11.0"
-android-activity = "1.10.1"
+android-activity = "1.13.0"
 android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
 # Sign in with Google on Android (docs/launch-plan.md, item 9): Credential Manager and Google's
 # id-token option for it.
-androidx-credentials = "1.5.0"
-googleid = "1.1.1"
+androidx-credentials = "1.6.0"
+googleid = "1.2.1"
 # Sign in with Apple on Android (item 11): the Custom Tab the server's web flow opens in.
-androidx-browser = "1.8.0"
+androidx-browser = "1.10.0"
 ktor = "3.6.0"
 # Held below what Ktor's OkHttp engine asks for: okhttp 5.5.0 needs compileSdk 37, and AGP 8.13,
 # the last 8.x, supports up to 36.1; 5.4.0 is the last at 36. Ktor 3.6.0's engine calls nothing
@@ -29,10 +29,10 @@ okhttp = "5.4.0"
 kotlinx-serialization = "1.11.0"
 java-jwt = "4.6.1"
 jwks-rsa = "0.24.1"
-logback = "1.5.38"
+logback = "1.6.4"
 # Email and password accounts (docs/launch-plan.md, item 18): Argon2id for the password hashes,
 # which the JDK has no implementation of.
-bouncycastle = "1.82"
+bouncycastle = "1.86"
 
 [libraries]
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
