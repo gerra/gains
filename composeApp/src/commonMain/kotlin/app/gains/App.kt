@@ -86,10 +86,13 @@ import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
 import app.gains.domain.LiveSession
-import app.gains.domain.ProgramDayRef
-import app.gains.program.Rotation
 import app.gains.root.LiveSessionNotices
+import app.gains.root.RootGate
+import app.gains.root.RootState
 import app.gains.root.StreakReminders
+import app.gains.root.UpNext
+import app.gains.root.openImportFor
+import app.gains.root.findUpNext
 import app.gains.sync.SyncController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -213,22 +216,18 @@ private fun AppBody(
 
     // Files shared into the app open the import screen.
     val incoming by IncomingFiles.pending.collectAsState()
-    LaunchedEffect(incoming) { if (incoming.isNotEmpty() && navigator.current != Screen.Import) navigator.push(Screen.Import) }
-    val accounts = remember { inject<AccountRepository>() }
-    // null = still loading the preference; Optional-ish wrapper keeps "no account" distinct from "unknown".
-    val accountState by accounts.observeAccount().collectAsState(initial = AccountLoading)
-    systemBack(navigator.canGoBack) { navigator.pop() }
-
+    LaunchedEffect(incoming) { navigator.openImportFor(incoming) }
     val programs = remember { inject<ProgramRepository>() }
     val sessions = remember { inject<SessionRepository>() }
-    // null = not read yet; false = the goal questions have never been answered or skipped.
-    val onboardingDone by programs.observeOnboardingDone().collectAsState(initial = null)
+    // Sign-in, the goal questions or the app; nothing until the account and onboarding have been read.
+    val gate = remember { RootGate(inject<AccountRepository>(), programs) }
+    val rootState by gate.state.collectAsState(initial = RootState.Loading)
+    systemBack(navigator.canGoBack) { navigator.pop() }
+
     // The active program's next day, for the "+" menu.
     val texts = rememberTexts()
     val upNext by remember(texts) {
-        combine(programs.observeState(), sessions.observeProgramLinks()) { state, links ->
-            state.active?.let { p -> Rotation.nextDay(p, links)?.let { UpNext(ProgramDayRef(p.id, it.id), it.resolvedName(texts)) } }
-        }
+        combine(programs.observeState(), sessions.observeProgramLinks()) { state, links -> findUpNext(state, links, texts) }
     }.collectAsState(initial = null)
     // The workout in progress, if any: shown as a resume bar on every screen but its own.
     val liveSessions = remember { inject<LiveSessionRepository>() }
@@ -239,11 +238,25 @@ private fun AppBody(
     // The streak reminders, re-worded when the texts change.
     val reminders = remember { StreakReminders(sessions, programs, settings, nudges) }
     LaunchedEffect(texts) { reminders.run(texts) }
+    when (rootState) {
+        RootState.Loading -> Unit
+        RootState.SignIn -> SignInScreen()
+        RootState.Onboarding -> OnboardingScreen(onDone = {})
+        RootState.Main -> Main(navigator, stateHolder, filePicker, photoPicker, upNext, live)
+    }
+}
+
+/** The app past its gates: the top bar, the screen on top of [navigator]'s stack, the workout bar and the tabs. */
+@Composable
+private fun Main(
+    navigator: Navigator,
+    stateHolder: SaveableStateHolder,
+    filePicker: CsvFilePicker,
+    photoPicker: PhotoPicker,
+    upNext: UpNext?,
+    live: LiveSession?,
+) {
     val screen = navigator.current
-    if (accountState === AccountLoading) return
-    if (accountState == null) { SignInScreen(); return }
-    if (onboardingDone == null) return
-    if (onboardingDone == false) { OnboardingScreen(onDone = {}); return }
     // Tapping outside a text field anywhere in the app puts the keyboard away.
     Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
         TopBar(navigator, screen, upNext)
@@ -281,9 +294,6 @@ private fun AppBody(
         BottomNav(navigator)
     }
 }
-
-/** The active program's next day, shown in the "+" menu. */
-private data class UpNext(val ref: ProgramDayRef, val dayName: String)
 
 /**
  * One screen of the stack. Opaque, so it can slide over the screen beneath it during a swipe back
@@ -514,9 +524,6 @@ private fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
         Text(stringResource(Res.string.resume_chevron), style = MaterialTheme.typography.labelSmall, color = onAccent)
     }
 }
-
-/** Sentinel for "account preference not read yet", so the sign-in screen does not flash on launch. */
-private val AccountLoading = app.gains.auth.Account(app.gains.auth.AccountKind.GUEST, displayName = "__loading__")
 
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.HOME -> Icons.Default.Home

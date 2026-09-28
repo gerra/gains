@@ -1256,7 +1256,9 @@ Steps:
   `suspend fun run(texts)`; `nudgeWords` goes with it. Tests: reminder off → an empty plan
   (which cancels); on → the plan from `StreakEngine` with its words; a week already trained →
   empty; a change of texts re-words the plan.
-- [ ] **3. What the root shows.** One small state holder that turns the account and the
+- [x] **3. What the root shows.** Done in #121: `app.gains.root.RootGate` with `RootState`,
+  `Navigator.openImportFor` beside it and `findUpNext` in `root/UpNext.kt`, with `RootGateTest`
+  and `UpNextTest`. One small state holder that turns the account and the
   onboarding preference into `Loading`, `SignIn`, `Onboarding` or `Main`, replacing the
   `AccountLoading` sentinel and the four early `return`s; the incoming-files rule (push Import
   unless it is on top) next to it or in a two-line helper, whichever reads better. The next
