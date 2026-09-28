@@ -435,10 +435,19 @@ The same playbook as taxes and www, on the same Hetzner box:
 
 - Push to `main` touching `server/`, `shared/src/commonMain/`, `deploy/` or the workflow runs
   [`deploy.yml`](../.github/workflows/deploy.yml): `:server:test`, `:server:installDist`, rsync
-  of the install directory to `/root/Projects/gains-server/current/`, then
+  of the install directory to `/opt/gains-server/current/`, then
   `tools/deploy_server.py install`, which copies the unit and itself to the box and runs there:
-  JDK 17 if the box lacks one, the unit installed, restart, smoke test of `/health`. No shell
+  JDK 17 if the box lacks one, the `gains-server` system user if it is missing, the unit
+  installed, the data directory handed to that user, restart, smoke test of `/health`. No shell
   anywhere in it, the same way the release workflows run `tools/release.py`.
+- The server runs as `gains-server`, not root, sandboxed by
+  [`deploy/gains-server.service`](../deploy/gains-server.service): the whole file system is
+  read-only to it except `/var/lib/gains` (its own, mode 750, new files 600), `/root` and `/home`
+  are hidden, and it holds no capabilities. `current/` is root's and world-readable; `secrets/`
+  is `root:gains-server` 750 and `secrets/.env` 640, so the server reads it and nobody else does.
+  `systemd-analyze security gains-server` scores the unit 3.0 ("OK"), from 9.4 as root. The JVM
+  rules out `MemoryDenyWriteExecute=` (the JIT), and `SystemCallFilter=@system-service` is still
+  to be tried by hand on the box before it goes in the unit (docs/launch-plan.md, item 22).
 - nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`; the site's vhost
   proxies `/guest-list` and the two password routes its pages post to, rate limited per IP.
   `python3 tools/deploy_server.py nginx` pushes every file in `deploy/nginx/` (this one and the
@@ -447,8 +456,9 @@ The same playbook as taxes and www, on the same Hetzner box:
   `main` that touches `deploy/nginx/`. A site whose certificate doesn't exist yet is skipped,
   with the `certbot certonly --nginx -d <name>` line to run on the box first; that is the one
   step left by hand.
-- Secrets: `python3 tools/deploy_server.py secrets` copies `secrets/.env` to the box and
-  restarts the unit.
+- Secrets: `python3 tools/deploy_server.py secrets` copies `secrets/.env` to the box, gives it
+  those modes and restarts the unit. It needs the `gains-server` user, so a new box gets a
+  deploy first.
 - Data: `/var/lib/gains/gains-server.db`, outside the synced tree; back it up by copying the file.
 - The host is `api.gains.gerra.sh` rather than `gains.gerra.sh` on purpose: the bare name is the
   app's own site ([`site/`](../site): landing page, `/privacy`, `/support`), which App Store

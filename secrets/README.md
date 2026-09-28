@@ -1,8 +1,8 @@
 # Secrets
 
 `secrets/.env` is never in git and never in the CI rsync: it reaches the server only through
-`python3 tools/deploy_server.py secrets`, which copies it to `/root/Projects/gains-server/secrets/.env` and
-restarts the unit. The server reads it from its working directory at start
+`python3 tools/deploy_server.py secrets`, which copies it to `/opt/gains-server/secrets/.env` (`root:gains-server`,
+mode 640: the server's user reads it, nobody else does) and restarts the unit. The server reads it from its working directory at start
 ([`Config.kt`](../server/src/main/kotlin/app/gains/server/Config.kt)); a variable set in the
 environment wins over the file.
 

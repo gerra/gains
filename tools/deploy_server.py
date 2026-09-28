@@ -13,7 +13,8 @@ DEPLOY_KEY secrets in the environment:
 
 On the box itself, run by `install` over ssh:
 
-  remote    Install a JDK if there is none, install the unit, restart, smoke test /health.
+  remote    Install a JDK if there is none, create the server's user, install the unit,
+            restart, smoke test /health.
 
 From a laptop, against the host alias in REMOTE (hetzner_gb by default):
 
@@ -40,11 +41,19 @@ import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-HOME = pathlib.Path("/root/Projects/gains-server")
+# Under /opt rather than /root: the unit's ProtectHome= hides /root, and the server's user can't
+# read it anyway. current/ is root's and world-readable (jars are not secret); secrets/ is
+# readable by the server's group only.
+HOME = pathlib.Path("/opt/gains-server")
 CURRENT = HOME / "current"
 SECRETS = HOME / "secrets"
+# Where the install lived while the server ran as root, before item 22 of docs/launch-plan.md.
+# Only read, for the secrets the first install at the new path carries over.
+OLD_HOME = pathlib.Path("/root/Projects/gains-server")
 UNIT = "gains-server"
 UNIT_FILE = ROOT / "deploy" / f"{UNIT}.service"
+# The system user the unit runs as (User= in the unit), with a group of the same name.
+USER = "gains-server"
 DATA_DIR = pathlib.Path("/var/lib/gains")
 HEALTH = "http://127.0.0.1:5003/health"
 
@@ -158,13 +167,21 @@ def fetch_status(url):
 
 
 def remote(args):
-    """Runs as root on the box: the unit, the JDK, the restart and the smoke test."""
+    """Runs as root on the box: the JDK, the user, the unit, the restart and the smoke test."""
     try:
         if shutil.which("java") is None:
             print("--- installing a JDK")
             run("apt-get", "update", "-qq")
             run("apt-get", "install", "-y", "-qq", "openjdk-17-jre-headless")
         run("java", "-version")
+        ensure_user()
+        # The directory first, so a copied .env is never in one that others can read.
+        SECRETS.mkdir(parents=True, exist_ok=True)
+        for command in secrets_permissions(include_file=False):
+            run(*command)
+        carry_over_secrets(OLD_HOME / "secrets" / ".env", SECRETS / ".env")
+        for command in secrets_permissions(include_file=(SECRETS / ".env").is_file()):
+            run(*command)
         if not (SECRETS / ".env").is_file():
             print(
                 "WARNING: secrets/.env is missing; run `python3 tools/deploy_server.py secrets` "
@@ -174,7 +191,12 @@ def remote(args):
         run("install", "-m", "644", str(HOME / UNIT_FILE.name), f"/etc/systemd/system/{UNIT}.service")
         run("systemctl", "daemon-reload")
         run("systemctl", "enable", UNIT, check=False)
-        run("systemctl", "restart", UNIT)
+        # Stopped while the data changes hands, so a server still running as root can't add a
+        # file the new one then can't open.
+        run("systemctl", "stop", UNIT, check=False)
+        for command in data_permissions():
+            run(*command)
+        run("systemctl", "start", UNIT)
         status, body = wait_for_health()
         print(f"smoke test: HTTP {status} {body}")
         if not healthy(status, body):
@@ -185,6 +207,49 @@ def remote(args):
         run("journalctl", "-u", UNIT, "-n", "150", "--no-pager", check=False)
         run("systemctl", "status", UNIT, "--no-pager", check=False)
         sys.exit(1)
+
+
+def ensure_user():
+    """Create the server's system user (and its group) unless the box already has it."""
+    if run("id", "-u", USER, check=False, capture=True).returncode == 0:
+        return
+    print(f"--- creating the system user {USER}")
+    run(*create_user_command())
+
+
+def create_user_command():
+    """A system user with no shell and no login, whose home is the data directory."""
+    return [
+        "useradd", "--system", "--user-group",
+        "--home-dir", str(DATA_DIR), "--no-create-home", "--shell", "/usr/sbin/nologin", USER,
+    ]
+
+
+def carry_over_secrets(old, new):
+    """Copy secrets/.env from the old install when the new one has none, so moving needs no laptop step.
+
+    True when it copied. The old file stays where it is; the owner removes the old tree once the
+    server answers from the new path.
+    """
+    if new.is_file() or not old.is_file():
+        return False
+    new.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(old, new)
+    print(f"--- copied {old} to {new}")
+    return True
+
+
+def secrets_permissions(include_file=True):
+    """secrets/ and its .env: root's, readable by the server's group and nobody else."""
+    commands = [["chown", f"root:{USER}", str(SECRETS)], ["chmod", "750", str(SECRETS)]]
+    if include_file:
+        commands += [["chown", f"root:{USER}", str(SECRETS / ".env")], ["chmod", "640", str(SECRETS / ".env")]]
+    return commands
+
+
+def data_permissions():
+    """The data directory and everything in it (the database, its -wal and -shm) to the server's user."""
+    return [["chown", "-R", f"{USER}:{USER}", str(DATA_DIR)], ["chmod", "750", str(DATA_DIR)]]
 
 
 def wait_for_health(attempts=10, pause=1.0):
@@ -222,9 +287,13 @@ def secrets(args):
         fail("secrets/.env not found — copy secrets/.env.example first (secrets/README.md)")
     destination = SECRETS / ".env"
     stamp = time.strftime("%Y%m%d%H%M%S")
+    if remote.ssh("id", "-u", USER, check=False, capture=True).returncode != 0:
+        fail(f"the box has no {USER} user yet; deploy the server first (the Deploy server workflow)")
     remote.ssh("mkdir", "-p", str(SECRETS))
-    remote.ssh("test", "!", "-f", str(destination), "||", "cp", str(destination), f"{destination}.bak.{stamp}")
+    remote.ssh("test", "!", "-f", str(destination), "||", "cp", "-p", str(destination), f"{destination}.bak.{stamp}")
     remote.scp(source, destination)
+    for command in secrets_permissions():
+        remote.ssh(*command)
     remote.ssh("systemctl", "restart", UNIT, check=False)
     print("Secrets deployed; service restarted (if installed).")
 

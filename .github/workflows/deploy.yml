@@ -54,12 +54,14 @@ jobs:
 
       # The install directory is self-contained: bin/gains-server plus every jar under lib/.
       # `--delete` keeps stale jars from piling up; data and secrets live outside `current/`.
+      # Not -a: without -o and -g the files are owned by the box's root rather than by the
+      # runner's uid, and `go-w` keeps them read-only for the server's user.
       - name: Rsync the build to the box
         uses: burnett01/rsync-deployments@6.0.0
         with:
-          switches: -avz --delete
+          switches: -rlptvz --delete --chmod=go-w
           path: server/build/install/gains-server/
-          remote_path: /root/Projects/gains-server/current/
+          remote_path: /opt/gains-server/current/
           remote_host: ${{ secrets.DEPLOY_HOST }}
           remote_user: ${{ secrets.DEPLOY_USER }}
           remote_key: ${{ secrets.DEPLOY_KEY }}

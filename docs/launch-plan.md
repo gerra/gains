@@ -1188,9 +1188,12 @@ build fails a check, open an issue and link it next to the box.
 **22–24. Server hardening**
 - [ ] Item 22, after the deploy: `systemctl show gains-server -p User` says `gains-server`;
       `/health` answers; a sign-in, a sync and a photo upload work from a device;
-      `ls -l /var/lib/gains` shows `gains-server` owning the files, mode 600; `journalctl -u
-      gains-server` has no permission error; `systemd-analyze security gains-server` scores
-      better than before the item.
+      `ls -l /var/lib/gains` shows `gains-server` owning the directory (750) and the files (new
+      ones 600; the existing database becomes 600 with item 24); `ls -l /opt/gains-server/secrets`
+      shows `.env` as `root gains-server`, 640; `journalctl -u gains-server` has no `EACCES` or
+      `Read-only file system`; `systemd-analyze security gains-server` scores about 3.0, from 9.4.
+      A second deploy and `deploy_server.py secrets` both come back healthy, and
+      `sqlite3 /var/lib/gains/gains-server.db 'SELECT count(*) FROM guest_list'` still works as root.
 - [ ] Item 23: twenty quick `POST /auth/google` with `{"token":"x"}` end in **429** after the
       burst, and so do twenty to `api.gains.gerra.sh/guest-list`. A first sync of a long
       history with photos still completes, and a throttled device shows "Couldn't sync", not
