@@ -280,6 +280,47 @@ class ServerTest {
     }
 
     @Test
+    fun aDeletedAccountsTokenOpensNoRoute() = testApplication {
+        val services = testServices(google, apple)
+        application { gainsServer(services) }
+        val signedIn = client.signIn("google", google.token("a", GOOGLE_AUDIENCE))
+        val a = signedIn.token
+        assertEquals(HttpStatusCode.NoContent, client.delete("/auth/account") { header("Authorization", "Bearer $a") }.status)
+
+        // Every protected route, for the deleted account's token and for one minted for an id
+        // that never existed. The second device's copy of the token is the case that matters:
+        // it must not write the deleted data back.
+        val never = services.tokens.issue(999)
+        for (token in listOf(a, never)) {
+            val auth = "Bearer $token"
+            val responses = mapOf(
+                "GET /auth/me" to client.get("/auth/me") { header("Authorization", auth) },
+                "POST /auth/refresh" to client.post("/auth/refresh") { header("Authorization", auth) },
+                "DELETE /auth/account" to client.delete("/auth/account") { header("Authorization", auth) },
+                "POST /sync/push" to client.post("/sync/push") {
+                    header("Authorization", auth)
+                    contentType(ContentType.Application.Json)
+                    setBody(SyncJson.encodeToString(PushRequest.serializer(), PushRequest(listOf(SyncDocument(SyncKinds.BODYWEIGHT, "d", "2026-09-20T10:00:00.000Z", payload = "{\"kg\":1}")))))
+                },
+                "GET /sync/pull" to client.get("/sync/pull?since=0") { header("Authorization", auth) },
+                "PUT /sync/blobs" to client.put("/sync/blobs/session_photo/x") {
+                    header("Authorization", auth); header(SyncApi.HEADER_UPDATED_AT, "2026-09-20T10:00:00.000Z"); setBody(ByteArray(10))
+                },
+                "GET /sync/blobs" to client.get("/sync/blobs/session_photo/x") { header("Authorization", auth) },
+            )
+            for ((route, response) in responses) {
+                assertEquals(HttpStatusCode.Unauthorized, response.status, "$route: ${response.bodyAsText()}")
+            }
+        }
+
+        // The push and the upload wrote nothing under either id.
+        for (id in listOf(signedIn.user.id, 999L)) {
+            assertEquals(emptyList(), services.store.pull(id, 0, SyncApi.PAGE).first)
+            assertEquals(null, services.store.blob(id, SyncKinds.SESSION_PHOTO, "x"))
+        }
+    }
+
+    @Test
     fun theGuestListTakesEachAddressOnceAndStopsWhenFull() = testApplication {
         val services = testServices(google, apple).let { Services(it.store, it.tokens, it.verifier, maxGuestList = 2) }
         application { gainsServer(services) }

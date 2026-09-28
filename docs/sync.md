@@ -99,6 +99,11 @@ OAuth state and no cookie, only an identity token the device already holds:
    behind it, and answers with a signed token of its own.
 4. Every later request carries `Authorization: Bearer <token>`. Tokens live 30 days;
    `POST /auth/refresh` swaps a valid one for a fresh one, which the client does once a week.
+   The token is stateless, so every bearer route also loads its `user` row and answers 401
+   `no such user` once the account is gone: a deleted account's tokens stop working at once, on
+   every device, and a second device still signed in can't push the deleted data back. The app
+   already treats that 401 as "Signed out on the server". Rotating `JWT_SECRET` signs everyone
+   out; there is no per-token revocation.
 
 Apple only sends the email and name on the first authorization, so the client passes the name it
 was given along with the token and the server keeps it. Accounts are keyed on the provider's
@@ -312,7 +317,7 @@ responses over a kilobyte.
 | `POST /auth/password/signin` | `{email, password}` → `{token, user}`; 401 wrong, 403 right but unconfirmed, 429 too many |
 | `POST /auth/password/reset-request` | `{email}` → 204 either way, a reset mail when known |
 | `POST /auth/password/reset` | `{token, password}` → 204; 400 as above. Posted by the site's `/reset` page |
-| `POST /auth/refresh` | bearer → `{token, user}` |
+| `POST /auth/refresh` | bearer → `{token, user}`. Every bearer route answers 401 when the token is invalid, expired or its account is gone |
 | `GET /auth/me` | bearer → `user` |
 | `DELETE /auth/account` | bearer → 204, everything gone |
 | `POST /sync/push` | `{documents: [{kind, id, updatedAt, deleted, payload}]}` → `{results: [{kind, id, seq, accepted}]}` |

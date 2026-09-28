@@ -605,6 +605,7 @@ delete must not come back, and a token for a deleted account must be worth nothi
    is no "sign out everywhere" button). A `token_version` column on `user`, carried as a claim
    and compared on the same lookup, is the one-line path to per-account revocation when a screen
    wants it; it is listed under [After launch](#after-launch), not here.
+   *Decided:* keep the 30-day stateless token, with the lookup on every request.
 3. `docs/sync.md` "Signing in", step 4: a request is also refused once its account is gone, so a
    deleted account's tokens stop working at once, on every device. The client already treats a
    401 as "Signed out on the server" (`SyncApi`'s `unauthorized`), so nothing changes in the app.
