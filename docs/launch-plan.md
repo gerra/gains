@@ -490,7 +490,7 @@ finds none. See docs/sync.md, "What the client does".
 ### 18. Email and password accounts
 
 - [x] Done
-  Done in #PR_NUMBER
+  Done in #98
   Steps 2–5 are in. The owner's step 1 switches it on: the mail account in `secrets/.env` and
   the form's switch in each app (the owner action above). Until then the five routes answer 503,
   the server logs `email off`, and the form stays hidden. The mails go out over plain SMTP
