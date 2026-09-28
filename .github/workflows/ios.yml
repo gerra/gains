@@ -1,0 +1,70 @@
+name: iOS
+
+# Builds the Xcode project for the iOS Simulator (docs/launch-plan.md, item 26): the Swift,
+# project.pbxproj, Info.plist, the entitlements, Config.xcconfig, the asset catalogue and the
+# link against the Kotlin framework, which the Linux klib compile in ci.yml never touches.
+# Unsigned and without a device: no simulator boot, no UI tests, no screenshots. Before this,
+# the TestFlight archive after the release branch was cut was the first to see those files.
+#
+# A workflow of its own rather than a job in ci.yml because Actions filters paths only per
+# workflow, and macOS minutes cost ten times Linux ones on a private repository: a change
+# only to the docs, the site, the server, the deploy files or the release scripts can't break
+# the Xcode build, so it doesn't start one. Being path-filtered, this must not be a required
+# check, or a pull request that skips it waits on it forever. Not run on the release
+# branches, which archive anyway.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!site/**"
+      - "!server/**"
+      - "!deploy/**"
+      - "!tools/**"
+      # The one script this workflow runs, and its helper. Later patterns win.
+      - "tools/testflight.py"
+      - "tools/gha.py"
+  # The same list: tools/test_testflight.py checks that the two stay equal.
+  pull_request:
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!site/**"
+      - "!server/**"
+      - "!deploy/**"
+      - "!tools/**"
+      - "tools/testflight.py"
+      - "tools/gha.py"
+  workflow_dispatch:
+
+# A newer push to the same pull request makes the older build moot; stop paying for it.
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ios:
+    name: iOS simulator build
+    # The image the TestFlight workflow archives with, so both see the same Xcode.
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      # Xcode's "Compile Kotlin Framework" phase runs Gradle, which finds the JDK above and
+      # the cache this sets up.
+      - uses: gradle/actions/setup-gradle@v4
+      # The Kotlin/Native compiler, LLVM and Apple sysroots (over a gigabyte), keyed as in
+      # testflight.yml.
+      - name: Cache the Kotlin/Native toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
+      - name: Build for the iOS Simulator
+        run: python3 tools/testflight.py build-simulator
