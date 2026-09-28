@@ -73,7 +73,7 @@ The same rules as `auth-plan.md`:
 | 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [x] |
 | 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [x] |
 | 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
-| 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [ ] |
+| 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [x] |
 | 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [ ] |
 | 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [ ] |
 | 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [ ] |
@@ -1130,7 +1130,14 @@ Tests: the manual check in step 3.
 
 ### 32. Navigation lifecycle: pin its invariants in tests
 
-- [ ] Done
+- [x] Done
+  Done in #PR. Steps 1–6 are tests in `NavigationTest.kt`: a seeded replay of 300 random moves
+  (five seeds) checking after each one that exactly the entries off both the stack and the
+  screen are released, each once, with only the kept ones' models active; an entry hosted twice;
+  a tab switch with screens still attached, and one to the tab already shown; the push of the
+  screen on top; unique ids; the language change against a `SaveableStateHolder`; and the
+  skip-rest lookup. One behaviour looks wrong and is pinned as it is today, for a separate fix
+  (see "Found by the tests" below).
 
 **Milestone:** Maintenance (P1). **Depends on:** nothing. Item 33 depends on it.
 
@@ -1178,6 +1185,16 @@ current behaviour that looks wrong, keep the test asserting today's behaviour, m
 comment, and write it down here for a separate fix.
 
 Tests: the above, in `:composeApp:desktopTest`.
+
+**Found by the tests, for a separate fix:** a change of language loses the saved UI state
+(`rememberSaveable`: scroll positions and the like) of the screen being drawn, in practice
+Settings, where the language is picked. Covered entries keep theirs. `InLanguage`'s
+`key(language)` composes the screen again, and `SaveableStateProvider` makes the new registry
+from what the holder has saved during that composition, while the old registry only saves in
+its `onDispose`, after it. The test marked "Looks wrong" in
+`aChangeOfLanguageRemakesTheModelAndKeepsTheEntryAndItsSavedState` asserts today's behaviour;
+the fix turns its `0` into the value set before the change. One way: keep each screen's
+`SaveableStateProvider` outside the `key(language)`, so only what is inside it is composed again.
 
 ### 33. `App.kt`: move the root's coordination into small, tested pieces
 
