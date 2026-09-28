@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.java.jwt)
     implementation(libs.jwks.rsa)
     implementation(libs.logback.classic)
+    implementation(libs.bouncycastle)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.ktor.server.test.host)

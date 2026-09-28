@@ -27,7 +27,7 @@
   -->
   <main class="wrap narrow doc">
     <h1>Privacy policy</h1>
-    <p class="updated">Last updated 25 September 2026</p>
+    <p class="updated">Last updated 28 September 2026</p>
 
     <div class="summary">
       <p><strong>The short version.</strong> Without an account, nothing you log in Gains leaves
@@ -60,8 +60,8 @@
 
     <h2 id="account">Signing in</h2>
     <p>Signing in is optional. It lets you keep your data when you change phones and sync it
-      between devices. You sign in with Apple or Google. We receive the identity token they
-      issue, and from it:</p>
+      between devices. You sign in with Apple, with Google, or with an email address and a
+      password. With Apple or Google we receive the identity token they issue, and from it:</p>
     <ul>
       <li>an account identifier from Apple or Google, which is how we recognise you;</li>
       <li>your email address (with Sign in with Apple, this can be a private relay address);</li>
@@ -71,6 +71,13 @@
     </ul>
     <p>We never see your Apple or Google password. Apple's and Google's own privacy policies cover
       what they do when you sign in with them.</p>
+    <p id="email-account">With an email account we store your address and a salted hash of your
+      password, never the password itself. We send that address two kinds of mail and nothing
+      else: a link to confirm it when you sign up, and a link to set a new password when you ask
+      for one. Both links work once and expire. An address is joined to an existing Apple or
+      Google sign-in with the same address only once it is confirmed, and only if that provider
+      confirmed it too. The mails go out through a mail provider we use for sending only; it
+      sees the address and the mail, and nothing about your training.</p>
 
     <h3>What a signed-in account sends to the server</h3>
     <div class="table-scroll">
@@ -124,8 +131,8 @@
 
     <h2 id="delete">Deleting your account</h2>
     <p>In the app, open <strong>Settings → Delete account</strong>. This removes your account,
-      its Apple and Google sign-ins, every workout, setting and photo from the server, straight
-      away. The data on your device stays, and you keep using Gains as a guest; delete the app
+      its Apple, Google and email sign-ins (the address and the password hash included), every
+      workout, setting and photo from the server, straight away. The data on your device stays, and you keep using Gains as a guest; delete the app
       to remove that too.</p>
     <p>If you used Sign in with Apple, deleting the account also revokes Gains' access to your
       Apple ID.</p>

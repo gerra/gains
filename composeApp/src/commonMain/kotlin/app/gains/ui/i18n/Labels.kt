@@ -142,6 +142,7 @@ internal val MuscleGroup.res: StringResource get() = when (this) {
     AccountKind.GUEST -> Res.string.account_guest
     AccountKind.GOOGLE -> Res.string.account_google
     AccountKind.APPLE -> Res.string.account_apple
+    AccountKind.EMAIL -> Res.string.account_email
 })
 
 @Composable internal fun InsightKind.label(): String = stringResource(when (this) {

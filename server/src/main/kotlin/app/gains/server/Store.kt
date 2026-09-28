@@ -74,12 +74,57 @@ class Store(private val db: ServerDatabase) {
             token to clientId
         }
 
-    /** Removes the user, their identities, every document and every blob. */
+    /** Removes the user, their identities and password, every document and every blob. */
     fun deleteUser(id: Long) = db.transaction {
+        for (email in q.selectCredentialEmailsForUser(id).executeAsList()) q.deleteEmailTokensForEmail(email)
+        q.deleteCredentialsForUser(id)
         q.deleteBlobsForUser(id)
         q.deleteDocumentsForUser(id)
         q.deleteIdentitiesForUser(id)
         q.deleteUser(id)
+    }
+
+    // --- password credentials ---------------------------------------------------------------
+
+    /** An email sign-up: [userId] is null until the address is confirmed ([confirmCredential]). */
+    data class Credential(val email: String, val hash: String, val userId: Long?)
+
+    fun credential(email: String): Credential? =
+        q.selectCredential(email).executeAsOneOrNull()?.let { Credential(it.email, it.hash, it.user_id) }
+
+    fun createCredential(email: String, hash: String, createdAt: String) = q.insertCredential(email, hash, createdAt)
+
+    fun setCredentialHash(email: String, hash: String) = q.updateCredentialHash(hash, email)
+
+    /**
+     * Gives a confirmed address its user, through [signIn] with the provider `password` and the
+     * address as subject, so that the verified-email rule decides whether it joins an existing
+     * account. Already confirmed: the same user again. Null when there is no such sign-up.
+     */
+    fun confirmCredential(email: String): UserInfo? = db.transactionWithResult {
+        val credential = credential(email) ?: return@transactionWithResult null
+        credential.userId?.let { return@transactionWithResult user(it) }
+        val user = signIn(Providers.PASSWORD, credential.email.lowercase(), credential.email, emailVerified = true, name = null)
+        q.updateCredentialUser(user.id, credential.email)
+        user
+    }
+
+    /**
+     * Stores a mailed link's token (hashed) with its expiry. One link per address and purpose: a
+     * new one replaces the last, so a repeated sign-up or reset request leaves the earlier mail
+     * dead. The tokens that have expired by [now] are dropped on the way.
+     */
+    fun putEmailToken(tokenHash: String, email: String, purpose: String, expiresAt: Long, now: Long) = db.transaction {
+        q.deleteExpiredEmailTokens(now)
+        q.deleteEmailTokensForPurpose(email, purpose)
+        q.insertEmailToken(tokenHash, email, purpose, expiresAt)
+    }
+
+    /** The address a token was mailed to, once: the row goes whether or not it was still good. Null when unknown, used, expired or for another [purpose]. */
+    fun takeEmailToken(tokenHash: String, purpose: String, now: Long): String? = db.transactionWithResult {
+        val row = q.selectEmailToken(tokenHash).executeAsOneOrNull() ?: return@transactionWithResult null
+        q.deleteEmailToken(tokenHash)
+        row.email.takeIf { row.purpose == purpose && row.expires_at > now }
     }
 
     // --- documents --------------------------------------------------------------------------

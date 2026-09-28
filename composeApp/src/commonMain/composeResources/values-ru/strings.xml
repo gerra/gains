@@ -45,6 +45,24 @@
     <string name="sign_in_with_google">Войти с аккаунтом Google</string>
     <string name="link_with_apple">Продолжить с Apple</string>
     <string name="link_with_google">Продолжить с Google</string>
+    <!-- Аккаунты с почтой и паролем (docs/launch-plan.md, пункт 18). -->
+    <string name="sign_in_with_email">Войти по эл. почте</string>
+    <string name="link_with_email">Продолжить по эл. почте</string>
+    <string name="email_field">Эл. почта</string>
+    <string name="password_field">Пароль</string>
+    <string name="email_password_hint">Не короче 8 символов</string>
+    <string name="email_sign_in">Войти</string>
+    <string name="email_create_account">Создать аккаунт</string>
+    <string name="email_send_reset">Отправить ссылку для сброса</string>
+    <string name="email_no_account">Впервые здесь? Создать аккаунт</string>
+    <string name="email_have_account">У меня уже есть аккаунт</string>
+    <string name="email_forgot">Забыли пароль?</string>
+    <string name="email_check_inbox">Проверьте почту: мы отправили ссылку для подтверждения адреса. После подтверждения войдите здесь.</string>
+    <string name="email_reset_sent">Если у этого адреса есть аккаунт, мы отправили на него ссылку для смены пароля.</string>
+    <string name="email_wrong">Неверная почта или пароль.</string>
+    <string name="email_not_confirmed">Сначала подтвердите адрес: ссылка у вас в почте.</string>
+    <string name="email_invalid">Проверьте адрес; пароль должен быть не короче 8 символов.</string>
+    <string name="email_too_many">Слишком много попыток. Подождите несколько минут и попробуйте снова.</string>
     <string name="link_note">Тренировки с этого устройства загрузятся в аккаунт и объединятся с тем, что там уже есть.</string>
     <string name="continue_as_guest">Продолжить как гость</string>
     <string name="guest_note_with_sync">В режиме гостя всё хранится на этом устройстве. Войдите позже, чтобы сделать резервную копию и синхронизацию.</string>
@@ -233,7 +251,7 @@
     <string name="delete_account_title">Удалить аккаунт?</string>
     <string name="delete_account_body">Аккаунт и всё, что с ним синхронизировано, будут удалены с сервера. Тренировки на этом устройстве останутся.</string>
     <string name="delete_account_failed">Не удалось удалить аккаунт. Проверьте подключение и попробуйте ещё раз.</string>
-    <string name="sign_in_not_configured_note">Вход через Google и Apple пока не настроен; сервер синхронизации появится позже.</string>
+    <string name="sign_in_not_configured_note">Вход пока не настроен; сервер синхронизации появится позже.</string>
     <string name="training_goal">Цель тренировок</string>
     <string name="days_a_week_label">Дней в неделю</string>
     <string name="active_program">Активная программа</string>
@@ -523,6 +541,7 @@
     <string name="account_guest">Гость</string>
     <string name="account_google">Google</string>
     <string name="account_apple">Apple</string>
+    <string name="account_email">Эл. почта</string>
     <string name="insight_regression">Регресс</string>
     <string name="insight_stall">Застой</string>
     <string name="insight_neglect">Заброшено</string>

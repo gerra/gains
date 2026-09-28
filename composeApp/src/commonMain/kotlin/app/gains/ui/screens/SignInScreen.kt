@@ -27,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -90,6 +91,10 @@ internal class SignInModel(
     fun signInWithGoogle() = attempt.google()
 
     fun signInWithApple() = attempt.apple()
+
+    /** The email form, shown in place of the buttons while [emailOpen]. */
+    val email = EmailSignIn(scope, accounts)
+    var emailOpen by mutableStateOf(false)
 }
 
 /**
@@ -135,13 +140,15 @@ internal class SignInAttempt(private val scope: CoroutineScope, private val acco
 }
 
 /**
- * The sign-in buttons to offer, Apple first as its guidelines ask. Only the enabled providers are
- * shown, so an iOS build with Apple alone has no dead Google button; empty when neither is enabled,
- * and the screen then shows both disabled as a sign of what is coming.
+ * The sign-in buttons to offer, Apple first as its guidelines ask, email last since it opens a
+ * form. Only the enabled providers are shown, so an iOS build with Apple alone has no dead Google
+ * button; empty when none is enabled, and the screen then shows Google and Apple disabled as a
+ * sign of what is coming.
  */
 internal fun signInButtons(config: AuthConfig): List<AccountKind> = buildList {
     if (config.appleEnabled) add(AccountKind.APPLE)
     if (config.googleEnabled) add(AccountKind.GOOGLE)
+    if (config.passwordEnabled) add(AccountKind.EMAIL)
 }
 
 /**
@@ -174,14 +181,22 @@ internal fun SignInScreen() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(if (compact) 12.dp else 18.dp))
-            HeroPreview(chartHeight = if (compact) 52.dp else 68.dp)
-            if (!compact) {
+            // The email form takes the hero's room on a short display, so the keyboard leaves the fields in view.
+            if (!(compact && model.emailOpen)) HeroPreview(chartHeight = if (compact) 52.dp else 68.dp)
+            if (!compact && !model.emailOpen) {
                 Spacer(Modifier.height(12.dp))
                 FeatureRow()
             }
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(12.dp))
 
+            if (model.emailOpen) {
+                EmailSignInForm(model.email, Modifier.fillMaxWidth())
+                TextButton(onClick = { model.emailOpen = false }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    Text(stringResource(Res.string.back), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                return@Column
+            }
             val buttons = signInButtons(model.config)
             if (buttons.isEmpty()) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -194,6 +209,7 @@ internal fun SignInScreen() {
                 when (kind) {
                     AccountKind.APPLE -> AppleSignInButton(Modifier.fillMaxWidth()) { model.signInWithApple() }
                     AccountKind.GOOGLE -> ProviderButton(stringResource(Res.string.sign_in_with_google), enabled = true, Modifier.fillMaxWidth()) { model.signInWithGoogle() }
+                    AccountKind.EMAIL -> ProviderButton(stringResource(Res.string.sign_in_with_email), enabled = true, Modifier.fillMaxWidth()) { model.emailOpen = true }
                     AccountKind.GUEST -> Unit
                 }
                 Spacer(Modifier.height(10.dp))

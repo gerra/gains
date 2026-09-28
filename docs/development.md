@@ -51,15 +51,18 @@ or DPAPI on Windows (`~/.gains/token.dpapi`). Without one, on a headless box, it
 database.
 
 Sign-in on the desktop goes through the browser (docs/sync.md, "Signing in"). The build passes
-four Gradle properties to the app as system properties, for `run` and the installers alike:
+five Gradle properties to the app as system properties, for `run` and the installers alike:
 `gains.serverUrl` (the sync server, `https://api.gains.gerra.sh` in `gradle.properties`),
 `gains.googleDesktopClientId` (the **Desktop app** OAuth client, also in `gradle.properties`),
-`gains.googleDesktopClientSecret` and `gains.appleServicesId`. The secret stays out of the
+`gains.googleDesktopClientSecret`, `gains.appleServicesId` and `gains.passwordSignIn`. The secret stays out of the
 repository even though Google documents it as not secret for installed apps: keep it in
 `~/.gradle/gradle.properties` or pass it with `-P`. **Sign in with Google** shows only when both
 the id and the secret are set. **Sign in with Apple** runs through the server's web flow and shows
 once `gains.appleServicesId` is set, to the server's `APPLE_SERVICES_ID`; set it in
 `gradle.properties` once the server has it, since until then `/auth/apple/start` answers 503.
+**Sign in with email** (an email address and a password) shows once `gains.passwordSignIn` is
+`true`; set it once the server has its mail account (`SMTP_*` in `secrets/.env`, see
+`secrets/README.md`), since until then its routes answer 503.
 
 ```bash
 ./gradlew :composeApp:run -Pgains.android=false -Pgains.googleDesktopClientSecret=GOCSPX-…
@@ -82,12 +85,13 @@ The app registers as a handler for CSV files, so exports shared from other apps 
 the import preview. Several files can be shared at once.
 
 Sign-in on Android goes through Credential Manager for Google and the server's web flow for Apple
-(docs/sync.md, "Signing in"). The build compiles three Gradle properties into `BuildConfig`
+(docs/sync.md, "Signing in"). The build compiles four Gradle properties into `BuildConfig`
 (`composeApp/android.gradle`): `gains.serverUrl` (the sync server), `gains.googleWebClientId`,
 the Google **Web application** OAuth client, which is Credential Manager's `serverClientId` and
-the audience of the tokens the phone sends, so the server lists it in `GOOGLE_CLIENT_IDS` too, and
+the audience of the tokens the phone sends, so the server lists it in `GOOGLE_CLIENT_IDS` too,
 `gains.appleServicesId`, the same Services ID as the desktop's, which the server has as
-`APPLE_SERVICES_ID`. Each button shows only once its property is set, in `gradle.properties` or
+`APPLE_SERVICES_ID`, and `gains.passwordSignIn`, `true` once the server has its mail account
+for the email form. Each button shows only once its property is set, in `gradle.properties` or
 with `-P`. The Google Cloud project also needs an **Android** client with the package name
 `app.gains` and the SHA-1 of every signing key the app is built with (debug, upload, Play App
 Signing), or the chooser refuses the app.
@@ -224,7 +228,8 @@ in `iosApp/iosApp/Info.plist`.
   but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
   hosted macOS runner for this).
 - Sign-in is wired up on iOS, the desktop and Android, Apple and Google on each (Android once
-  `gains.googleWebClientId` and `gains.appleServicesId` are set). [docs/launch-plan.md](launch-plan.md)
+  `gains.googleWebClientId` and `gains.appleServicesId` are set), and an email address and
+  password on all three once the server has a mail account. [docs/launch-plan.md](launch-plan.md)
   has the rest.
 
 ## Roadmap

@@ -51,6 +51,18 @@ class StoreMigrationTest {
         assertTrue(store.joinGuestList("ada@example.com", limit = 1))
         assertTrue(store.joinGuestList("ADA@example.com", limit = 1))
         assertFalse(store.joinGuestList("grace@example.com", limit = 1))
+
+        // migrations/4.sqm added email accounts: a confirmed address joins the verified user.
+        store.createCredential("same@x.y", "hash", "2026-09-28T00:00:00Z")
+        assertEquals(null, store.credential("SAME@x.y")!!.userId)
+        assertEquals(1L, store.confirmCredential("same@x.y")!!.id)
+        assertEquals(1L, store.credential("same@x.y")!!.userId)
+        assertEquals(listOf("apple", "google", "password"), store.user(1)!!.providers)
+        store.putEmailToken("t1", "same@x.y", "reset", expiresAt = 2_000, now = 1_000)
+        assertEquals(null, store.takeEmailToken("t1", "verify", now = 1_500), "another purpose")
+        assertEquals(null, store.takeEmailToken("t1", "reset", now = 1_500), "and taken once, good or not")
+        store.deleteUser(1)
+        assertEquals(null, store.credential("same@x.y"))
     }
 
     @Test

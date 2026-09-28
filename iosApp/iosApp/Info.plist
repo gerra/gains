@@ -34,6 +34,10 @@
 	     No CFBundleURLTypes entry: ASWebAuthenticationSession catches the redirect itself. -->
 	<key>GainsGoogleClientID</key>
 	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
+	<!-- Email and password sign-in, from GAINS_PASSWORD_SIGN_IN in Configuration/Config.xcconfig.
+	     Read by iosAuthConfig() in MainViewController.kt; anything but YES keeps the form hidden. -->
+	<key>GainsPasswordSignIn</key>
+	<string>$(GAINS_PASSWORD_SIGN_IN)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<!-- Export compliance: a signed-in account syncs to api.gains.gerra.sh over HTTPS, using only

@@ -53,7 +53,8 @@ internal class DesktopIdentityProvider(
     override suspend fun signIn(kind: AccountKind): SignInProof = when (kind) {
         AccountKind.GOOGLE -> signInWithGoogle()
         AccountKind.APPLE -> signInWithApple()
-        AccountKind.GUEST -> throw AuthNotConfiguredException(kind)
+        // An email account has no sheet: AccountRepository posts the password itself.
+        AccountKind.GUEST, AccountKind.EMAIL -> throw AuthNotConfiguredException(kind)
     }
 
     /** The account chooser in the browser, then the code it redirects with traded for an identity token. The server reads the name from Google's token. */
@@ -102,8 +103,8 @@ internal class DesktopIdentityProvider(
 /**
  * The desktop's sign-in settings, as JVM system properties that the Gradle build passes to the
  * app from its own properties (`gains.serverUrl`, `gains.googleDesktopClientId`,
- * `gains.googleDesktopClientSecret`, `gains.appleServicesId`; see docs/development.md), so they
- * change without touching code. Google stays off until both its id and secret are there: the
+ * `gains.googleDesktopClientSecret`, `gains.appleServicesId`, `gains.passwordSignIn`; see
+ * docs/development.md), so they change without touching code. Google stays off until both its id and secret are there: the
  * token endpoint refuses a Desktop app client that sends no secret. Apple stays off until the
  * Services ID is there, which the owner sets once the server has `APPLE_SERVICES_ID`: before that
  * `/auth/apple/start` answers 503, and the button would only open an error page.
@@ -112,6 +113,7 @@ internal fun desktopAuthConfig(): AuthConfig = AuthConfig(
     serverBaseUrl = systemProperty(SERVER_URL)?.trimEnd('/'),
     googleClientId = systemProperty(GOOGLE_CLIENT_ID)?.takeIf { desktopGoogleClientSecret() != null },
     appleServiceId = systemProperty(APPLE_SERVICES_ID),
+    passwordSignIn = systemProperty(PASSWORD_SIGN_IN).toBoolean(),
 )
 
 internal fun desktopGoogleClientSecret(): String? = systemProperty(GOOGLE_CLIENT_SECRET)
@@ -120,6 +122,8 @@ internal const val SERVER_URL = "gains.serverUrl"
 internal const val GOOGLE_CLIENT_ID = "gains.googleDesktopClientId"
 internal const val GOOGLE_CLIENT_SECRET = "gains.googleDesktopClientSecret"
 internal const val APPLE_SERVICES_ID = "gains.appleServicesId"
+/** `true` once the server has a mail account for the confirmation links (`SMTP_*`); until then the email form would only get 503s. */
+internal const val PASSWORD_SIGN_IN = "gains.passwordSignIn"
 
 private fun systemProperty(name: String): String? = System.getProperty(name)?.trim()?.ifBlank { null }
 

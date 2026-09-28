@@ -183,6 +183,10 @@ internal class SettingsModel(
     fun relinkGoogle() { link.google().invokeOnCompletion { syncNow() } }
     fun relinkApple() { link.apple().invokeOnCompletion { syncNow() } }
 
+    /** The email form under the link buttons, opened by its own button; a sign-in through it asks for a sync like a relink. */
+    val email = EmailSignIn(scope, accounts, onSignedIn = { syncNow() })
+    var emailOpen by mutableStateOf(false)
+
     /** Deletes the account on the server; see [AccountDeletion]. */
     val deletion = AccountDeletion(scope, accounts)
     fun deleteAccount() = deletion.run()
@@ -293,7 +297,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                     Spacer(Modifier.height(12.dp))
                     LinkButtons(providers, model, onApple = { model.linkApple() }, onGoogle = { model.linkGoogle() }, note = true)
                 }
-                if (!model.authConfig.googleEnabled && !model.authConfig.appleEnabled) {
+                if (signInButtons(model.authConfig).isEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     Text(stringResource(Res.string.sign_in_not_configured_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -464,9 +468,14 @@ private fun LinkButtons(providers: List<AccountKind>, model: SettingsModel, onAp
         when (kind) {
             AccountKind.APPLE -> AppleSignInButton(Modifier.fillMaxWidth(), label = stringResource(Res.string.link_with_apple), height = 40.dp, enabled = !model.linking, onClick = onApple)
             AccountKind.GOOGLE -> ProviderButton(stringResource(Res.string.link_with_google), enabled = !model.linking, Modifier.fillMaxWidth(), height = 40.dp, onClick = onGoogle)
+            AccountKind.EMAIL -> ProviderButton(stringResource(Res.string.link_with_email), enabled = !model.linking, Modifier.fillMaxWidth(), height = 40.dp, onClick = { model.emailOpen = !model.emailOpen })
             AccountKind.GUEST -> Unit
         }
         Spacer(Modifier.height(8.dp))
+    }
+    if (model.emailOpen && AccountKind.EMAIL in providers) {
+        EmailSignInForm(model.email, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(4.dp))
     }
     val error = model.link.error
     val message = when {

@@ -95,6 +95,9 @@ class JwksIdentityVerifier(
 object Providers {
     const val GOOGLE = "google"
     const val APPLE = "apple"
+
+    /** An email and password account ([PasswordSignIn]); its identity's subject is the address. */
+    const val PASSWORD = "password"
 }
 
 /** The tokens this server issues: HS256 with [secret], the user id as subject, [TTL_DAYS] to live. */

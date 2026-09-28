@@ -62,7 +62,8 @@ internal class IosIdentityProvider(private val config: AuthConfig, private val h
     override suspend fun signIn(kind: AccountKind): IdentityAssertion = when (kind) {
         AccountKind.APPLE -> withContext(Dispatchers.Main) { signInWithApple() }
         AccountKind.GOOGLE -> signInWithGoogle()
-        AccountKind.GUEST -> throw AuthNotConfiguredException(kind)
+        // An email account has no sheet: AccountRepository posts the password itself.
+        AccountKind.GUEST, AccountKind.EMAIL -> throw AuthNotConfiguredException(kind)
     }
 
     /**

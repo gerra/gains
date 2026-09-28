@@ -95,5 +95,7 @@ class SignInModelTest {
         assertEquals(listOf(AccountKind.APPLE), signInButtons(apple))
         assertEquals(listOf(AccountKind.APPLE, AccountKind.GOOGLE), signInButtons(apple.copy(googleClientId = "id")))
         assertEquals(listOf(AccountKind.GOOGLE), signInButtons(apple.copy(appleServiceId = null, googleClientId = "id")))
+        assertEquals(listOf(AccountKind.APPLE, AccountKind.EMAIL), signInButtons(apple.copy(passwordSignIn = true)))
+        assertEquals(emptyList(), signInButtons(AuthConfig(passwordSignIn = true)), "the switch alone, without a server, offers nothing")
     }
 }
