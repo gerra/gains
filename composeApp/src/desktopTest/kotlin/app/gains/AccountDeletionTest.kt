@@ -11,6 +11,7 @@ import app.gains.db.GainsDatabase
 import app.gains.sync.SyncApi
 import app.gains.sync.SyncStore
 import app.gains.sync.createHttpClient
+import app.gains.ui.reportingHandler
 import app.gains.ui.screens.AccountDeletion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,11 +43,13 @@ class AccountDeletionTest {
         store.setToken("t")
         store.startFeed(userId = 7)
 
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val reporter = RecordingReporter()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + reportingHandler(reporter))
         val deletion = AccountDeletion(scope, accounts)
         deletion.run().join()
         assertFalse(deletion.running)
         assertTrue(deletion.failed)
+        assertEquals(1, reporter.reported.size)
         assertEquals(me, accounts.observeAccount().first())
         assertEquals("t", store.token())
         assertEquals(7L, store.userId())

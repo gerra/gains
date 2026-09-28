@@ -44,7 +44,7 @@ jobs:
       version: ${{ steps.pick.outputs.version }}
       sha: ${{ steps.pick.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       # When the branch already shipped this also publishes its GitHub release if it is
@@ -97,7 +97,7 @@ jobs:
       SHA: ${{ needs.pick.outputs.sha }}
       BUILD: ${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.pick.outputs.sha }}
           fetch-depth: 0

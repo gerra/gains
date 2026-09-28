@@ -27,7 +27,7 @@ class GainsApplication : Application() {
             module {
                 single<DatabaseDriverFactory> { AndroidDriverFactory(this@GainsApplication) }
                 // Loaded after the shared module, so these replace its guest-only defaults.
-                single { androidAuthConfig() }
+                single { androidAuthConfig(this@GainsApplication) }
                 single<IdentityProvider> { AndroidIdentityProvider(get(), this@GainsApplication) { foreground } }
                 single<TokenVault> { KeystoreTokenVault(this@GainsApplication) }
             },

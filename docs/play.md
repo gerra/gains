@@ -50,10 +50,10 @@ to the **closed testing** track on Play, with the same build number.
 
 | Value | Where it comes from | Meaning |
 |-------|---------------------|---------|
-| `versionName` | `MARKETING_VERSION` in [`iosApp/Configuration/Config.xcconfig`](../iosApp/Configuration/Config.xcconfig), read by [`composeApp/android.gradle`](../composeApp/android.gradle) | The version testers see, the same one as on TestFlight. The release branch bumps it, so an Android Studio build of `main` carries the last released version. |
+| `versionName` | `MARKETING_VERSION` in [`iosApp/Configuration/Config.xcconfig`](../iosApp/Configuration/Config.xcconfig), read by [`androidApp/build.gradle.kts`](../androidApp/build.gradle.kts) | The version testers see, the same one as on TestFlight. The release branch bumps it, so an Android Studio build of `main` carries the last released version. |
 | `versionCode` | `-Pgains.versionCode`, which the workflow sets to its run number; `1` without it | Play refuses any upload whose code is not above every one it has seen. The Release workflow's run number is the TestFlight build number too, so a version's builds on both stores carry one number. |
 
-A local `./gradlew :composeApp:assembleDebug` gets code 1, which is fine for a phone over USB.
+A local `./gradlew :androidApp:assembleDebug` gets code 1, which is fine for a phone over USB.
 An upload by hand needs a code above the last workflow run number, and re-releases of a
 version belong on the *Release* workflow rather than on *Google Play → Run workflow*, whose own
 run number may be lower.
@@ -101,21 +101,29 @@ CI runs on every pull request:
 python3 -m unittest discover -s tools -p 'test_*.py'
 ```
 
-The bundle is kept as a run artifact (`play-bundle-<number>`) for 90 days, and the key
-material is removed from the runner at the end whether or not the upload worked.
+Release builds are shrunk and obfuscated by R8 (`isMinifyEnabled` in `androidApp/build.gradle.kts`,
+[launch-plan item 30](launch-plan.md#30-android-r8-for-release-builds)), so the upload also sends
+R8's `mapping.txt` as the bundle's deobfuscation file, and Play Console's crash reports show the
+real class and method names. The bundle and its mapping file are kept as a run artifact
+(`play-bundle-<number>`) for 90 days, and the key material is removed from the runner at the end
+whether or not the upload worked.
 
 ## Upload by hand
 
 A signed bundle from the command line, for the console's **Create new release** page:
 
 ```bash
-./gradlew :composeApp:bundleRelease \
+./gradlew :androidApp:bundleRelease \
   -Pgains.versionCode=1234 \
   -Pgains.uploadKeystore=/path/to/upload.jks \
   -Pgains.uploadKeystorePassword=… -Pgains.uploadKeyAlias=upload -Pgains.uploadKeyPassword=… \
   -Pgains.googleWebClientId=… -Pgains.appleServicesId=…
-# → composeApp/build/outputs/bundle/release/composeApp-release.aab
+# → androidApp/build/outputs/bundle/release/androidApp-release.aab
+# → androidApp/build/outputs/mapping/release/mapping.txt
 ```
+
+Upload the mapping file with the bundle (the release's **App bundle explorer → Downloads →
+ReTrace mapping file**), or the crash reports for that version stay obfuscated.
 
 Without `gains.uploadKeystore` the release bundle is unsigned, which is what Android Studio's
 **Build → Generate Signed App Bundle** expects: it signs with the key you point it at.
@@ -137,7 +145,7 @@ Without `gains.uploadKeystore` the release bundle is unsigned, which is what And
 
 ## What the repository already takes care of
 
-- **Version name from one place.** `android.gradle` reads `MARKETING_VERSION` out of
+- **Version name from one place.** `androidApp/build.gradle.kts` reads `MARKETING_VERSION` out of
   `Config.xcconfig`, so the Play release and the TestFlight build of a branch never disagree.
 - **Signing only when asked.** The upload key is used when `gains.uploadKeystore` is passed;
   nothing about it lives in the repository, and a build without it is a normal unsigned
@@ -161,5 +169,7 @@ Without `gains.uploadKeystore` the release bundle is unsigned, which is what And
 | `… answered 400: Version code N has already been used` | The upload's version code is not above every earlier one. Let the Release workflow upload (its run number only climbs), or pass a higher `build_number` to a manual run. |
 | `… answered 400: … signed with a key that is not the upload key` | The keystore in the secret is not the key Play registered from the first upload. Use the same `upload.jks`, or reset the upload key under App integrity. |
 | `… answered 404: Track not found` | `PLAY_TRACK` names a track that does not exist. The first closed track is `alpha`; a custom one goes by its own name. |
+| `bundleRelease` fails with R8 *Missing class* | A library references a class nothing ships. `androidApp/build/outputs/mapping/release/missing_rules.txt` holds the `-dontwarn` lines R8 asks for; copy only those into `androidApp/proguard-rules.pro`, with a comment naming the library. CI's Android job catches this on the pull request. |
+| The release build crashes where the debug build doesn't (`ClassNotFoundException`, a serializer "not found") | R8 removed or renamed something reached by reflection: a missing keep rule in `androidApp/proguard-rules.pro`. The mapping file turns the stack trace back into names (`retrace` in the SDK's `cmdline-tools`). |
 | `bundleRelease` fails with *SDK location not found* | Only on a machine without the Android SDK; the Ubuntu runner has it. Locally, install Android Studio or set `ANDROID_HOME`. |
 | The upload succeeds but testers see nothing | Play processes a bundle for minutes to hours, and testers must have accepted the opt-in link. Check the track's page in the console. |

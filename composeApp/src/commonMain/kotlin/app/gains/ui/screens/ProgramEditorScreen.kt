@@ -48,6 +48,7 @@ import app.gains.domain.ProgramDay
 import app.gains.domain.ProgressionRule
 import app.gains.domain.RepTarget
 import app.gains.importer.ExerciseResolver
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
 import app.gains.ui.components.Dp16
@@ -61,12 +62,12 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 /** The progression choices a user can set on a slot. Ladders from duplicated built-ins are kept as-is. */
 internal enum class ProgressionChoice {
@@ -158,15 +159,16 @@ internal class ProgramEditorModel(
     private val programId: String?,
     /** Names new days ("Day 1"). */
     private val texts: Texts,
-    private val programs: ProgramRepository = inject(),
-    private val exercises: ExerciseRepository = inject(),
-    trainingData: TrainingData = inject(),
-) : ScreenModel() {
+    private val programs: ProgramRepository,
+    private val exercises: ExerciseRepository,
+    trainingData: TrainingData,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val _state = MutableStateFlow(ProgramEditorState())
     val state: StateFlow<ProgramEditorState> = _state
 
     init {
-        scope.launch {
+        scope.launchAction {
             val snapshot = trainingData.snapshot.first()
             val programState = programs.observeState().first()
             val existing = programId?.let { id -> programState.programs.firstOrNull { it.id == id && !it.isBuiltIn } }
@@ -187,7 +189,7 @@ internal class ProgramEditorModel(
     fun setName(v: String) = update { it.copy(name = v) }
     fun setDescription(v: String) = update { it.copy(description = v) }
     fun addDay() {
-        scope.launch {
+        scope.launchAction {
             val name = texts.get(Res.string.day_n, _state.value.days.size + 1)
             update { s -> s.copy(days = s.days + DayDraft(ProgramRepository.newDayId(s.id ?: "new", s.days.size), name, emptyList())) }
         }
@@ -206,7 +208,7 @@ internal class ProgramEditorModel(
 
     fun createExercise(name: String): Exercise {
         val exercise = ExerciseResolver(_state.value.catalogue, emptyMap()).resolve(name, emptyList())
-        scope.launch { exercises.insertIfMissing(listOf(exercise)) }
+        scope.launchAction { exercises.insertIfMissing(listOf(exercise)) }
         update { it.copy(catalogue = (it.catalogue + exercise).distinctBy { e -> e.id }.sortedBy { e -> e.name }) }
         return exercise
     }
@@ -220,7 +222,7 @@ internal class ProgramEditorModel(
         if (target !in d.slots.indices) d else d.copy(slots = d.slots.toMutableList().apply { add(target, removeAt(slotIndex)) })
     }
 
-    fun save() { scope.launch { saveNow() } }
+    fun save() { scope.launchAction { saveNow() } }
 
     private suspend fun saveNow() {
         val s = _state.value
@@ -255,7 +257,7 @@ internal class ProgramEditorModel(
 @Composable
 internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
     val texts = rememberTexts()
-    val model = rememberScreenModel(programId) { ProgramEditorModel(programId, texts) }
+    val model = rememberScreenModel(programId) { ProgramEditorModel(programId, texts, inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerFor by remember { mutableStateOf<Int?>(null) }

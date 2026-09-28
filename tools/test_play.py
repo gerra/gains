@@ -53,22 +53,34 @@ class Recorder:
 
 
 class SettingsTest(unittest.TestCase):
-    def test_the_application_id_is_read_out_of_android_gradle(self):
+    def test_the_application_id_is_read_out_of_the_app_build_file(self):
         self.assertEqual("app.gains", play.application_id(play.ANDROID_GRADLE.read_text()))
+        self.assertEqual("sh.gerra.gains", play.application_id('        applicationId = "sh.gerra.gains"\n'))
         self.assertEqual("sh.gerra.gains", play.application_id('    applicationId "sh.gerra.gains"\n'))
 
     def test_a_gradle_file_without_one_stops_the_step(self):
         with self.assertRaises(SystemExit):
-            play.application_id('namespace "app.gains"\n')
+            play.application_id('namespace = "app.gains"\n')
 
     def test_the_version_is_the_ios_one(self):
         self.assertRegex(play.setting("MARKETING_VERSION"), r"^\d+\.\d+$")
 
     def test_the_bundle_is_where_the_android_gradle_plugin_writes_it(self):
         self.assertEqual(
-            "composeApp/build/outputs/bundle/release/composeApp-release.aab",
+            "androidApp/build/outputs/bundle/release/androidApp-release.aab",
             str(play.BUNDLE.relative_to(ROOT)),
         )
+
+    def test_the_mapping_is_where_r8_writes_it(self):
+        self.assertEqual(
+            "androidApp/build/outputs/mapping/release/mapping.txt",
+            str(play.MAPPING.relative_to(ROOT)),
+        )
+
+    def test_the_release_build_is_shrunk_so_there_is_a_mapping_to_send(self):
+        release = play.ANDROID_GRADLE.read_text().split("release {", 1)[1]
+        self.assertRegex(release, r"isMinifyEnabled = true")
+        self.assertRegex(release, r"isShrinkResources = true")
 
 
 class AssertionTest(unittest.TestCase):
@@ -152,13 +164,21 @@ class AssertionTest(unittest.TestCase):
 
 
 class PlayApiTest(unittest.TestCase):
-    def test_a_release_is_an_edit_a_bundle_a_track_and_a_commit(self):
+    def test_a_release_is_an_edit_a_bundle_its_mapping_a_track_and_a_commit(self):
         with tempfile.TemporaryDirectory() as temp:
             bundle = pathlib.Path(temp) / "app.aab"
             bundle.write_bytes(b"PK\x03\x04bundle")
-            request = Recorder([{"id": "edit-1"}, {"versionCode": 57, "sha256": "x"}, {"track": "alpha"}, {"id": "edit-1"}])
+            mapping = pathlib.Path(temp) / "mapping.txt"
+            mapping.write_bytes(b"app.gains.MainActivity -> app.gains.MainActivity:\n")
+            request = Recorder([
+                {"id": "edit-1"},
+                {"versionCode": 57, "sha256": "x"},
+                {"deobfuscationFile": {"symbolType": "proguard"}},
+                {"track": "alpha"},
+                {"id": "edit-1"},
+            ])
             api = play.PlayApi("ya29.token", "app.gains", request=request)
-            self.assertEqual(57, api.release(bundle, "alpha", "1.9"))
+            self.assertEqual(57, api.release(bundle, mapping, "alpha", "1.9"))
 
         base = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/app.gains"
         methods_and_urls = [(method, url) for method, url, *_ in request.calls]
@@ -166,6 +186,8 @@ class PlayApiTest(unittest.TestCase):
             [
                 ("POST", f"{base}/edits"),
                 ("POST", "https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/app.gains/edits/edit-1/bundles?uploadType=media"),
+                # The mapping goes under the versionCode Play read out of the bundle.
+                ("POST", "https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/app.gains/edits/edit-1/deobfuscationFiles/57/proguard?uploadType=media"),
                 ("PUT", f"{base}/edits/edit-1/tracks/alpha"),
                 ("POST", f"{base}/edits/edit-1:commit"),
             ],
@@ -175,6 +197,11 @@ class PlayApiTest(unittest.TestCase):
         _, _, body, content_type, _ = request.calls[1]
         self.assertEqual(("application/octet-stream", b"PK\x03\x04bundle"), (content_type, body))
         _, _, body, content_type, _ = request.calls[2]
+        self.assertEqual(
+            ("application/octet-stream", b"app.gains.MainActivity -> app.gains.MainActivity:\n"),
+            (content_type, body),
+        )
+        _, _, body, content_type, _ = request.calls[3]
         self.assertEqual("application/json", content_type)
         self.assertEqual(
             {"track": "alpha", "releases": [{"name": "1.9 (57)", "versionCodes": ["57"], "status": "completed"}]},
@@ -216,13 +243,13 @@ class GradlePropertiesTest(unittest.TestCase):
         self.assertEqual([], [p for p in properties if p.startswith("-Pgains.appleServicesId")])
 
     def test_the_gradle_file_reads_what_is_passed(self):
-        """Each property the script passes is one android.gradle looks up, and the other way round."""
+        """Each property the script passes is one the app's build file looks up, and the other way round."""
         gradle = play.ANDROID_GRADLE.read_text()
         looked_up = set(re.findall(r'findProperty\([\'"](gains\.[A-Za-z]+)[\'"]\)', gradle))
         environment = dict(self.ENVIRONMENT, GOOGLE_WEB_CLIENT_ID="g", APPLE_SERVICES_ID="a", PASSWORD_SIGN_IN="true")
         passed = {p[2:].split("=", 1)[0] for p in play.gradle_properties(environment)}
-        self.assertEqual(set(), passed - looked_up, "passed to Gradle but not read by android.gradle")
-        self.assertEqual({"gains.serverUrl"}, looked_up - passed, "read by android.gradle but not passed")
+        self.assertEqual(set(), passed - looked_up, "passed to Gradle but not read by the app's build file")
+        self.assertEqual({"gains.serverUrl"}, looked_up - passed, "read by the app's build file but not passed")
 
 
 class CheckSecretsTest(unittest.TestCase):
@@ -258,6 +285,12 @@ class WorkflowTest(unittest.TestCase):
         workflow = WORKFLOW.read_text()
         positions = [workflow.index(f"python3 tools/play.py {command}") for command in play.COMMANDS]
         self.assertEqual(sorted(positions), positions)
+
+    def test_the_run_keeps_the_mapping_next_to_the_bundle(self):
+        workflow = WORKFLOW.read_text()
+        keep = workflow[workflow.index("name: Keep the bundle"):]
+        self.assertIn("${{ env.BUNDLE_PATH }}", keep)
+        self.assertIn("${{ env.MAPPING_PATH }}", keep)
 
     def test_the_release_round_ships_to_play_next_to_testflight(self):
         release = RELEASE_WORKFLOW.read_text()

@@ -10,6 +10,7 @@ import app.gains.db.GainsDatabase
 import app.gains.sync.SyncApi
 import app.gains.sync.SyncStore
 import app.gains.sync.createHttpClient
+import app.gains.ui.reportingHandler
 import app.gains.ui.screens.EmailSignIn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,9 +37,11 @@ class EmailSignInTest {
         return AccountRepository(SettingsRepository(db), config, SyncApi(createHttpClient(), config.serverBaseUrl!!, token = { store.token() }), store, NoIdentityProvider)
     }
 
+    private val reporter = RecordingReporter()
+
     @Test
     fun whatIsPlainlyWrongNeverLeavesTheDevice() = runBlocking {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + reportingHandler(reporter))
         val form = EmailSignIn(scope, accounts(passwordSignIn = true))
         form.email = "not an address"; form.password = "correct horse"
         form.submit().join()
@@ -52,12 +55,13 @@ class EmailSignInTest {
         form.submit().join()
         assertEquals(EmailSignIn.Outcome.Failed, form.outcome, "reached for the server and found none")
         assertFalse(form.running)
+        assertEquals(1, reporter.reported.size, "only the call that went out and failed is reported")
         scope.cancel()
     }
 
     @Test
     fun withoutTheSwitchTheFormSaysSoAndOfflineItFails() = runBlocking {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + reportingHandler(reporter))
         val off = EmailSignIn(scope, accounts(passwordSignIn = false))
         off.email = "ada@example.com"; off.password = "correct horse"
         off.submit().join()
@@ -72,6 +76,7 @@ class EmailSignInTest {
         assertEquals(EmailSignIn.Mode.SIGN_UP, on.mode, "still on the form that failed")
         assertEquals("correct horse", on.password, "nothing typed is lost")
         assertNull(accounts.observeAccount().first())
+        assertEquals(1, reporter.reported.size, "a build without the switch is expected, the offline server is not")
         scope.cancel()
     }
 }

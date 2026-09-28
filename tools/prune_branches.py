@@ -18,9 +18,9 @@ about ancestry catches that case; asking the pull request does not.
 The ancestry test needs the real history, so a shallow clone is deepened first — on a
 truncated history the grafted commits have no parents and branches look unmerged.
 
-release/* is never deleted even once merged: release.py reads those refs back to work out
-the next version number (see release_versions there), so removing them would change what
-the next release is called.
+release/* goes like any other branch once merged: release.py falls back on the
+testflight/<version>/<build> tags for a release whose branch is gone (see release_refs
+there), so the next version number and the next cut's comparison stay the same.
 """
 
 import argparse
@@ -31,9 +31,8 @@ import gha
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-# Branches that stay whatever their ancestry says. The default branch for the obvious
-# reason; release/* because release.py counts versions from it.
-PROTECTED = re.compile(r"^(main|master|HEAD|release/.*)$")
+# Branches that stay whatever their ancestry says: the default branch.
+PROTECTED = re.compile(r"^(main|master|HEAD)$")
 
 # Deleting refs one push at a time is a request each; all of them in one push is a single
 # oversized request. Ten is small enough to retry cheaply.

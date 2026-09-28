@@ -45,6 +45,7 @@ import app.gains.domain.WeightUnit
 import app.gains.program.Gzclp
 import app.gains.program.Progression
 import app.gains.program.Rotation
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
@@ -57,13 +58,13 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
 internal data class ProgramDetailState(
@@ -83,11 +84,12 @@ internal data class ProgramDetailState(
 
 internal class ProgramDetailModel(
     private val programId: String,
-    private val programs: ProgramRepository = inject(),
-    sessions: SessionRepository = inject(),
-    trainingData: TrainingData = inject(),
-    settings: SettingsRepository = inject(),
-) : ScreenModel() {
+    private val programs: ProgramRepository,
+    sessions: SessionRepository,
+    trainingData: TrainingData,
+    settings: SettingsRepository,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private var navigateTo by mutableStateOf<String?>(null)
     private var deleted by mutableStateOf(false)
 
@@ -108,24 +110,24 @@ internal class ProgramDetailModel(
     val pendingNavigation: String? get() = navigateTo
     val wasDeleted: Boolean get() = deleted
 
-    fun activate() { scope.launch { programs.setActive(programId) } }
-    fun deactivate() { scope.launch { programs.setActive(null) } }
+    fun activate() { scope.launchAction { programs.setActive(programId) } }
+    fun deactivate() { scope.launchAction { programs.setActive(null) } }
 
     /** Copies the program as [newName] so it can be edited; the caller opens the editor on the new id. */
     fun duplicate(source: Program, newName: String) {
-        scope.launch {
+        scope.launchAction {
             val copy = programs.duplicate(source, newName)
             programs.upsert(copy)
             navigateTo = copy.id
         }
     }
 
-    fun delete() { scope.launch { programs.delete(programId); deleted = true } }
+    fun delete() { scope.launchAction { programs.delete(programId); deleted = true } }
 }
 
 @Composable
 internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) -> Unit, onEdit: (String) -> Unit, onDeleted: () -> Unit) {
-    val model = rememberScreenModel(programId) { ProgramDetailModel(programId) }
+    val model = rememberScreenModel(programId) { ProgramDetailModel(programId, inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var confirmDelete by remember { mutableStateOf(false) }

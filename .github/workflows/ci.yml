@@ -10,27 +10,80 @@ jobs:
     name: Shared tests and desktop build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       # The release scripts in tools/ decide which branch gets cut and what version it
       # carries, so their arithmetic is tested here rather than discovered at 08:00 UTC.
       - name: Release script tests
         run: python3 -m unittest discover -s tools -p 'test_*.py'
       # No Android SDK on the runner: build the shared module, the desktop target and the sync
-      # server (which runs against :shared's JVM build) only.
+      # server (built on :protocol, its tests run against :shared's JVM build) only.
       - run: ./gradlew :shared:desktopTest :composeApp:desktopTest :server:test -Pgains.android=false --no-daemon
       # The tests run on the JVM, so a JVM-only call in commonMain (putIfAbsent, String.format,
       # java.*) passes them and only fails once Xcode builds the framework. Compiling the iOS
       # klibs catches that here; klib cross-compilation is enabled in gradle.properties.
       - name: Compile the iOS klibs
         run: ./gradlew :shared:compileKotlinIosArm64 :composeApp:compileKotlinIosArm64 -Pgains.android=false --no-daemon
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: screenshots
           path: composeApp/build/screenshots
           if-no-files-found: ignore
+
+  # The job above builds with -Pgains.android=false, so nothing there touches androidMain. This
+  # one compiles the Android app, lints it and runs the shared tests on the Android JVM
+  # (docs/launch-plan.md, item 25): no emulator, no instrumented tests. The SDK is on the
+  # ubuntu-latest image, and the Android Gradle Plugin fetches a platform or build-tools version
+  # it lacks, as the Google Play workflow does. The sign-in properties stay empty, as in a
+  # local build.
+  android:
+    name: Android build, lint and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      # :androidApp is the application and :composeApp the library it wraps (item 38); lint
+      # follows the app into :composeApp. :composeApp has no tests of its own; :shared's
+      # commonTest runs as its Android host tests. bundleRelease runs R8 (item 30), unsigned, so a
+      # shrinking failure shows on the pull request rather than in the release round's Google Play job.
+      - run: ./gradlew :androidApp:assembleDebug :androidApp:lintDebug :shared:testAndroidHostTest :androidApp:bundleRelease --no-daemon --stacktrace
+      # On an R8 "Missing class" failure, missing_rules.txt holds the -dontwarn lines it asks for.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: android-reports
+          path: |
+            androidApp/build/reports/lint-results-debug.*
+            androidApp/build/outputs/mapping/release/missing_rules.txt
+          if-no-files-found: ignore
+
+  # What a pull request adds to the dependencies, checked against GitHub's advisory database
+  # before it merges (docs/launch-plan.md, item 28). GitHub can't read the Gradle build, so the
+  # job first submits this branch's dependency graph, as dependency-graph.yml does for main, and
+  # the review compares the two; it waits for the snapshot it just sent. Submitting needs a
+  # token that can write, which a pull request from a fork doesn't get, so those skip it.
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/dependency-submission@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          retry-on-snapshot-warnings: true

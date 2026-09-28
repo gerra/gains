@@ -3,7 +3,8 @@ name: Deploy server
 # Ships the sync server (server/, docs/sync.md) to the Hetzner box the way taxes and www are
 # shipped: tests, `installDist`, rsync of the install directory, the systemd unit from the
 # repository, restart, smoke test. Runs only for changes that reach the server: the module,
-# the shared code it is built from, the unit and this file. UI-only changes leave it alone.
+# the wire format it is built from (:protocol), the unit and this file. Changes to the app,
+# :shared included, leave it alone; CI runs the server's tests against them on the pull request.
 #
 # The steps are tools/deploy_server.py, not shell; the same file runs on the box for the
 # install itself. Needs the repository secrets DEPLOY_HOST, DEPLOY_USER and DEPLOY_KEY (the
@@ -14,8 +15,7 @@ on:
     branches: [main]
     paths:
       - "server/**"
-      - "shared/src/commonMain/**"
-      - "shared/build.gradle.kts"
+      - "protocol/**"
       - "gradle/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"
@@ -39,13 +39,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: default
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
-
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: Test and build the server
         run: ./gradlew :server:test :server:installDist -Pgains.android=false --no-daemon
 
@@ -54,17 +53,9 @@ jobs:
 
       # The install directory is self-contained: bin/gains-server plus every jar under lib/.
       # `--delete` keeps stale jars from piling up; data and secrets live outside `current/`.
-      # Not -a: without -o and -g the files are owned by the box's root rather than by the
-      # runner's uid, and `go-w` keeps them read-only for the server's user.
+      # The script's own rsync, so no third-party action ever holds DEPLOY_KEY.
       - name: Rsync the build to the box
-        uses: burnett01/rsync-deployments@6.0.0
-        with:
-          switches: -rlptvz --delete --chmod=go-w
-          path: server/build/install/gains-server/
-          remote_path: /opt/gains-server/current/
-          remote_host: ${{ secrets.DEPLOY_HOST }}
-          remote_user: ${{ secrets.DEPLOY_USER }}
-          remote_key: ${{ secrets.DEPLOY_KEY }}
+        run: python3 tools/deploy_server.py build
 
       - name: Install the unit, restart, smoke test
         id: remote_deploy
@@ -76,7 +67,7 @@ jobs:
 
       - name: Upload failure logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: gains-server-deploy-logs
           path: gains-server-journal.log

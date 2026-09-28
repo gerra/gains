@@ -8,7 +8,7 @@ import re
 import subprocess
 import tempfile
 import unittest
-from unittest import mock
+import unittest.mock
 
 import deploy_server
 
@@ -57,8 +57,6 @@ class UnprivilegedServerTest(unittest.TestCase):
         self.assertEqual(["/opt/gains-server"], self.directives("WorkingDirectory"))
         self.assertEqual(str(deploy_server.HOME), self.directives("WorkingDirectory")[0])
         self.assertEqual([f"{deploy_server.CURRENT}/bin/gains-server"], self.directives("ExecStart"))
-        workflow = (deploy_server.ROOT / ".github" / "workflows" / "deploy.yml").read_text()
-        self.assertEqual([f"{deploy_server.CURRENT}/"], re.findall(r"remote_path:\s*(\S+)", workflow))
         self.assertNotIn("/root", "\n".join(self.directives("WorkingDirectory") + self.directives("ExecStart")))
 
     def test_the_unit_runs_as_the_user_the_deploy_creates(self):
@@ -90,7 +88,7 @@ class UnprivilegedServerTest(unittest.TestCase):
             commands.append(list(command))
             return subprocess.CompletedProcess(command, 1 if command[0] == "id" else 0, "", "")
 
-        with mock.patch.object(deploy_server, "run", fake_run):
+        with unittest.mock.patch.object(deploy_server, "run", fake_run):
             deploy_server.ensure_user()
         self.assertEqual(
             [["id", "-u", "gains-server"],
@@ -106,7 +104,7 @@ class UnprivilegedServerTest(unittest.TestCase):
             commands.append(list(command))
             return subprocess.CompletedProcess(command, 0, "999\n", "")
 
-        with mock.patch.object(deploy_server, "run", fake_run):
+        with unittest.mock.patch.object(deploy_server, "run", fake_run):
             deploy_server.ensure_user()
         self.assertEqual([["id", "-u", "gains-server"]], commands)
 
@@ -157,7 +155,7 @@ class SiteSyncTest(unittest.TestCase):
             remote = deploy_server.Remote.from_environment({
                 "DEPLOY_HOST": "box.example", "DEPLOY_USER": "root", "DEPLOY_KEY": "KEY", "RUNNER_TEMP": temp,
             })
-            command = deploy_server.rsync_command(remote, pathlib.Path("/repo/site"), pathlib.Path("/var/www/x"))
+            command = deploy_server.rsync_command(remote, pathlib.Path("/repo/site"), pathlib.Path("/var/www/x"), deploy_server.SITE_SWITCHES)
             key = pathlib.Path(temp) / "deploy_key"
             self.assertEqual(
                 ["rsync", "-rltvz", "--delete", "--chmod=D755,F644",
@@ -170,8 +168,41 @@ class SiteSyncTest(unittest.TestCase):
         remote = deploy_server.Remote.from_environment({})
         self.assertEqual(
             ["rsync", "-rltvz", "--delete", "--chmod=D755,F644", "/repo/site/", "hetzner_gb:/var/www/x/"],
-            deploy_server.rsync_command(remote, pathlib.Path("/repo/site"), pathlib.Path("/var/www/x")),
+            deploy_server.rsync_command(remote, pathlib.Path("/repo/site"), pathlib.Path("/var/www/x"), deploy_server.SITE_SWITCHES),
         )
+
+
+class BuildSyncTest(unittest.TestCase):
+    """The server build goes up owned by the box's root, read-only to the server's user, stale jars deleted."""
+
+    def test_the_workflow_rsyncs_the_install_directory_into_current(self):
+        with tempfile.TemporaryDirectory() as temp:
+            remote = deploy_server.Remote.from_environment({
+                "DEPLOY_HOST": "box.example", "DEPLOY_USER": "root", "DEPLOY_KEY": "KEY", "RUNNER_TEMP": temp,
+            })
+            command = deploy_server.rsync_command(
+                remote, deploy_server.INSTALL_DIR, deploy_server.CURRENT, deploy_server.BUILD_SWITCHES,
+            )
+            key = pathlib.Path(temp) / "deploy_key"
+            self.assertEqual(
+                ["rsync", "-rlptvz", "--delete", "--chmod=go-w",
+                 "-e", f"ssh -i {key} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes",
+                 f"{deploy_server.ROOT}/server/build/install/gains-server/",
+                 "root@box.example:/opt/gains-server/current/"],
+                command,
+            )
+
+    def test_the_unit_runs_what_is_synced(self):
+        unit = deploy_server.UNIT_FILE.read_text()
+        self.assertIn(f"{deploy_server.CURRENT}/bin/{deploy_server.UNIT}", unit)
+
+    def test_without_an_install_directory_nothing_is_sent(self):
+        with tempfile.TemporaryDirectory() as temp, \
+                unittest.mock.patch.object(deploy_server, "INSTALL_DIR", pathlib.Path(temp)), \
+                unittest.mock.patch.object(deploy_server, "run") as run, \
+                self.assertRaises(SystemExit):
+            deploy_server.build(None)
+        run.assert_not_called()
 
 
 class NginxTest(unittest.TestCase):

@@ -32,6 +32,7 @@ import app.gains.analysis.VolumeAnalyzer
 import app.gains.analysis.VolumeStatus
 import app.gains.analysis.WeekVolume
 import app.gains.domain.MuscleGroup
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.BodyMap
 import app.gains.ui.charts.BodyMapLegend
@@ -72,7 +73,7 @@ internal data class VolumeState(
     val span: Int = 12,
 )
 
-internal class VolumeModel(trainingData: TrainingData = inject()) : ScreenModel() {
+internal class VolumeModel(trainingData: TrainingData, reporter: ErrorReporter) : ScreenModel(reporter) {
     private val span = MutableStateFlow(12)
     val state: StateFlow<VolumeState> = combine(trainingData.snapshot, span) { snapshot, span ->
         withContext(Dispatchers.Default) {
@@ -144,7 +145,7 @@ internal fun VolumeStatus.label(): String = when (this) {
 
 @Composable
 internal fun VolumeScreen() {
-    val model = rememberScreenModel { VolumeModel() }
+    val model = rememberScreenModel { VolumeModel(inject(), inject()) }
     val state by model.state.collectAsState()
     if (state.loading) return
     if (!state.hasData) {

@@ -128,8 +128,9 @@ The long version of the list in the [README](../README.md).
   figures up, numbers roll when they change and lists close up around what left them. Nothing
   loops that did not before, and everything is cut short when the device asks for reduced motion.
 - **Local first, sync optional.** Guest mode keeps everything on the device. Sign in with Apple or
-  Google on iOS syncs it through the self-hosted server at `api.gains.gerra.sh`; the other
-  platforms follow ([docs/launch-plan.md](launch-plan.md)).
+  Google, on iOS, Android or the desktop, syncs it through the self-hosted server at
+  `api.gains.gerra.sh`; an email address and a password join them once the server has a mail
+  account ([docs/sync.md](sync.md#signing-in)).
 - **English and Russian.** Settings → Language switches between them where you stand, with no
   relaunch, and follows the device while it is left on System. Down to the insight sentences, the
   progression hints, the built-in programs and every exercise in the catalogue. See

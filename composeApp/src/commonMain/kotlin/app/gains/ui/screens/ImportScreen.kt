@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.gains.ErrorReporter
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
 import app.gains.csv.CsvFormatException
@@ -55,12 +56,12 @@ import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 internal sealed interface ImportState {
     data object Idle : ImportState
@@ -72,7 +73,10 @@ internal sealed interface ImportState {
     data class Error(val problem: CsvProblem? = null, val cause: String? = null, val whileSaving: Boolean = false) : ImportState
 }
 
-internal class ImportModel(private val importService: ImportService = inject()) : ScreenModel() {
+internal class ImportModel(
+    private val importService: ImportService,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val _state = MutableStateFlow<ImportState>(ImportState.Idle)
     val state: StateFlow<ImportState> = _state
     private var lastFiles: List<PickedFile> = emptyList()
@@ -81,7 +85,7 @@ internal class ImportModel(private val importService: ImportService = inject()) 
         if (files.isEmpty()) return
         lastFiles = files
         _state.value = ImportState.Parsing(files.size)
-        scope.launch {
+        scope.launchAction(onFailure = { e -> _state.value = ImportState.Error(cause = e.message ?: e::class.simpleName) }) {
             try {
                 val csvFiles = files.map { CsvFile(it.name, it.content) }
                 val preview = importService.preview(csvFiles, unit)
@@ -89,8 +93,6 @@ internal class ImportModel(private val importService: ImportService = inject()) 
                 _state.value = ImportState.Preview(preview, emptySet(), shownUnit)
             } catch (e: CsvFormatException) {
                 _state.value = ImportState.Error(problem = e.problem)
-            } catch (e: Exception) {
-                _state.value = ImportState.Error(cause = e.message ?: e::class.simpleName)
             }
         }
     }
@@ -114,12 +116,8 @@ internal class ImportModel(private val importService: ImportService = inject()) 
     fun commit() {
         val s = _state.value as? ImportState.Preview ?: return
         _state.value = ImportState.Committing
-        scope.launch {
-            try {
-                _state.value = ImportState.Done(importService.commit(s.preview, s.confirmedOutliers))
-            } catch (e: Exception) {
-                _state.value = ImportState.Error(cause = e.message ?: e::class.simpleName, whileSaving = true)
-            }
+        scope.launchAction(onFailure = { e -> _state.value = ImportState.Error(cause = e.message ?: e::class.simpleName, whileSaving = true) }) {
+            _state.value = ImportState.Done(importService.commit(s.preview, s.confirmedOutliers))
         }
     }
 
@@ -128,7 +126,7 @@ internal class ImportModel(private val importService: ImportService = inject()) 
 
 @Composable
 internal fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
-    val model = rememberScreenModel { ImportModel() }
+    val model = rememberScreenModel { ImportModel(inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
 

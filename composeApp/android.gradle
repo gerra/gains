@@ -1,72 +1,22 @@
-// Android application configuration for :composeApp (applied only when gains.android=true).
-
-// The version Play shows is the iOS one: MARKETING_VERSION from Config.xcconfig, which the
-// release branch bumps, so the two stores never disagree about what 1.9 is. Read here rather
-// than passed in, so an Android Studio build carries it too.
-def marketingVersion() {
-    def config = rootProject.file("iosApp/Configuration/Config.xcconfig")
-    for (line in config.readLines()) {
-        def parts = line.split("=", 2)
-        if (parts.length == 2 && parts[0].trim() == "MARKETING_VERSION") return parts[1].trim()
-    }
-    throw new GradleException("MARKETING_VERSION is not set in " + config)
-}
-
-// The upload key, only when the release workflow supplies it (tools/play.py, docs/play.md).
-// Without it a release build stays unsigned, which is what Android Studio's own "Generate
-// Signed App Bundle" expects, and the key material never sits in the repository.
-def uploadKeystore = project.findProperty("gains.uploadKeystore")
-
-android {
-    namespace "app.gains"
-    compileSdk libs.versions.android.compileSdk.get().toInteger()
-
-    defaultConfig {
-        // Public on Google Play, and Play never lets it change after the first upload
-        // (docs/launch-plan.md, item 8). Kept as "app.gains" on purpose.
-        applicationId "app.gains"
-        minSdk libs.versions.android.minSdk.get().toInteger()
-        targetSdk libs.versions.android.targetSdk.get().toInteger()
-        // Play wants every upload's versionCode above the last one's: the release workflow passes
-        // its run number, the same number TestFlight gets as the build number, and a local build is 1.
-        versionCode (project.findProperty("gains.versionCode") ?: "1").toInteger()
-        versionName marketingVersion()
-        // The sync server, the Google Web application client and the Apple Services ID
-        // (docs/development.md, "Android"), from the Gradle properties so they change without
-        // touching code, like the desktop's system properties. An empty one leaves that provider's
-        // button hidden; empty all round leaves the app a guest.
-        buildConfigField "String", "SERVER_URL", "\"${project.findProperty('gains.serverUrl') ?: ''}\""
-        buildConfigField "String", "GOOGLE_WEB_CLIENT_ID", "\"${project.findProperty('gains.googleWebClientId') ?: ''}\""
-        buildConfigField "String", "APPLE_SERVICES_ID", "\"${project.findProperty('gains.appleServicesId') ?: ''}\""
-        buildConfigField "String", "PASSWORD_SIGN_IN", "\"${project.findProperty('gains.passwordSignIn') ?: ''}\""
-    }
-    buildFeatures {
-        // AGP no longer generates BuildConfig unless asked; androidAuthConfig() reads the four fields above.
-        buildConfig true
-    }
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+// Android target of :composeApp (applied only when gains.android=true), on the Kotlin
+// Multiplatform library plugin. AGP 9 no longer takes com.android.application next to the Kotlin
+// Multiplatform plugin, so the application is :androidApp, a thin module holding only what must
+// belong to one: the application id, the version, signing, the build types, R8 (docs/launch-plan.md,
+// item 38). The Kotlin, the manifest and the resources stay here: the Android code uses this
+// module's internal declarations, and the actuals in platform/ must stay with their expects.
+// Groovy, so the Kotlin DSL build file never names an AGP type, and applied before the kotlin { }
+// block there, which only exists once this creates the target.
+kotlin {
+    android {
+        // The manifest's relative names (.MainActivity, .GainsApplication) resolve against this,
+        // and so does R: app.gains.R. The application's namespace is a different one.
+        namespace = "app.gains"
+        compileSdk = libs.versions.android.compileSdk.get().toInteger()
+        minSdk = libs.versions.android.minSdk.get().toInteger()
+        // Off by default in the library plugin. The notification strings, the drawables, the
+        // layout and the sign-in config use R, and the Compose resources ship as Android assets.
+        androidResources {
+            enable = true
         }
-    }
-    signingConfigs {
-        if (uploadKeystore) {
-            upload {
-                storeFile rootProject.file(uploadKeystore)
-                storePassword project.findProperty("gains.uploadKeystorePassword")
-                keyAlias project.findProperty("gains.uploadKeyAlias")
-                keyPassword project.findProperty("gains.uploadKeyPassword")
-            }
-        }
-    }
-    buildTypes {
-        release {
-            minifyEnabled false
-            if (uploadKeystore) signingConfig signingConfigs.upload
-        }
-    }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
     }
 }

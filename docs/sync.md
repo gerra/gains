@@ -49,11 +49,12 @@ The server is a Gradle module in this repository rather than a repository of its
 
 | Path | What it is |
 |------|------------|
-| [`shared/src/commonMain/kotlin/app/gains/sync/`](../shared/src/commonMain/kotlin/app/gains/sync) | The wire format (`Protocol.kt`, `Documents.kt`), the client engine (`SyncEngine.kt`, `SyncApi.kt`) and the change log it reads (`SyncStore.kt`). Compiled into the app and into the server. |
+| [`protocol/`](../protocol) | The wire format: the request and response classes and `SyncJson` (`Protocol.kt`, with the `SyncProtocol` constants), the document kinds and the photo payload (`Kinds.kt`), and Android's callback for Apple's web flow (`AppleWebCallback.kt`). Kotlin Multiplatform with kotlinx-serialization and nothing else, compiled into the app (through `:shared`) and into the server. |
+| [`shared/src/commonMain/kotlin/app/gains/sync/`](../shared/src/commonMain/kotlin/app/gains/sync) | The payload of each kind (`Documents.kt`), the client engine (`SyncEngine.kt`, `SyncApi.kt`) and the change log it reads (`SyncStore.kt`). The app's only. |
 | [`shared/src/commonMain/sqldelight/app/gains/db/Sync.sq`](../shared/src/commonMain/sqldelight/app/gains/db/Sync.sq) | The `sync_change` and `sync_state` tables and the triggers that fill the first. |
-| [`server/`](../server) | The Ktor server: sign-in, the document feed, photo blobs, its own SQLDelight schema. Depends on `:shared`'s JVM target, so the two ends serialize with the same classes. |
+| [`server/`](../server) | The Ktor server: sign-in, the document feed, photo blobs, its own SQLDelight schema. Depends on `:protocol`, so the two ends serialize with the same classes, and on `:shared` only in its tests, which run the app's real sync client against the routes. |
 | [`deploy/`](../deploy) | The systemd unit, installed by the deploy workflow, and the nginx sites (the API and `gains.gerra.sh`), installed by `tools/deploy_server.py nginx`. |
-| [`tools/deploy_server.py`](../tools/deploy_server.py) | Every deploy step as Python, like the release tooling: what the workflow runs, what runs on the box, and the two laptop commands (`secrets`, `nginx`). |
+| [`tools/deploy_server.py`](../tools/deploy_server.py) | Every deploy step as Python, like the release tooling: what the workflows run, what runs on the box, and what a laptop can run (`secrets`, and `nginx` and `site` outside the workflow). |
 | [`secrets/`](../secrets) | `.env.example` and what each variable is; the real `.env` is never committed and reaches the server only through `tools/deploy_server.py secrets`. |
 
 One pull request changes the app, the server and the format between them, and one CI run checks
@@ -70,15 +71,17 @@ so a UI change does not restart the server.
 
 ## Signing in
 
-The mobile flow is not the web flow used by taxes and fintrack. The server sees no redirect, no
-OAuth state and no cookie, only an identity token the device already holds:
+The app's flow is not the web flow used by taxes and fintrack. For Google, and for Apple on iOS,
+the server sees no redirect, no OAuth state and no cookie, only an identity token the device
+already holds (Apple on Android and the desktop is the exception, under "Sign in with Apple
+without Apple's sheet" below):
 
 1. The app asks the platform for an identity token: Sign in with Apple through
    `ASAuthorizationController` on iOS, Google through Credential Manager on Android
    ([`AndroidIdentityProvider`](../composeApp/src/androidMain/kotlin/app/gains/AndroidIdentityProvider.kt)):
    Play services' account chooser, asked for a token for the **Web application** client
-   (`GetGoogleIdOption.serverClientId`, the Gradle property `gains.googleWebClientId` compiled into
-   `BuildConfig`), which is the token's audience. Google on iOS is an OAuth 2.0 authorization-code flow with PKCE in an `ASWebAuthenticationSession`
+   (`GetGoogleIdOption.serverClientId`, the Gradle property `gains.googleWebClientId`, a string
+   resource `:androidApp` sets), which is the token's audience. Google on iOS is an OAuth 2.0 authorization-code flow with PKCE in an `ASWebAuthenticationSession`
    ([`GoogleOAuth`](../shared/src/commonMain/kotlin/app/gains/auth/GoogleOAuth.kt)): the sheet
    shows Google's account chooser, redirects to the iOS client's reversed-id scheme with a code,
    and the app trades the code at Google's token endpoint for an identity token. That is what the
@@ -172,7 +175,7 @@ docs/development.md, "Desktop").
 
 On Android, `AndroidIdentityProvider` opens the start URL in a Custom Tab (the browser's own tab
 over the app, with its cookies, so an Apple ID already signed in there is offered) with the App
-Link `https://gains.gerra.sh/auth/done` (`AppleWebFlow.ANDROID_CALLBACK`) as the callback. An
+Link `https://gains.gerra.sh/auth/done` (`AppleWebCallback.ANDROID`) as the callback. An
 App Link rather than a custom scheme because any app can claim a scheme, while Android hands a
 verified link only to the app whose signing key `site/.well-known/assetlinks.json` lists. The
 server redirects the tab there; Android opens
@@ -252,7 +255,7 @@ Everything the person made, nothing the device decided:
 
 Theme and language are how this device is looked at; the streak reminder is tied to this
 device's notification permission. The synced setting keys are listed once, in
-[`SyncKinds.settingKeys`](../shared/src/commonMain/kotlin/app/gains/sync/Documents.kt), and the
+[`SyncedSettings.keys`](../shared/src/commonMain/kotlin/app/gains/sync/Documents.kt), and the
 trigger on the `setting` table names the same keys.
 
 The streak is not stored anywhere, so it needs nothing: it is recomputed from the sessions that
@@ -302,7 +305,7 @@ The feed stays small whatever the history holds.
 ## The protocol
 
 All bodies are JSON from the `@Serializable` classes in
-[`Protocol.kt`](../shared/src/commonMain/kotlin/app/gains/sync/Protocol.kt); the server gzips
+[`Protocol.kt`](../protocol/src/commonMain/kotlin/app/gains/sync/Protocol.kt); the server gzips
 responses over a kilobyte.
 
 | Route | Body → answer |
@@ -320,9 +323,9 @@ responses over a kilobyte.
 | `POST /auth/refresh` | bearer → `{token, user}`. Every bearer route answers 401 when the token is invalid, expired or its account is gone |
 | `GET /auth/me` | bearer → `user` |
 | `DELETE /auth/account` | bearer → 204, everything gone |
-| `POST /sync/push` | `{documents: [{kind, id, updatedAt, deleted, payload}]}` → `{results: [{kind, id, seq, accepted}]}` |
+| `POST /sync/push` | `{documents: [{kind, id, updatedAt, deleted, payload}]}` → `{results: [{kind, id, seq, accepted}]}`; 413 past the account's document ceiling, nothing written |
 | `GET /sync/pull?since=N&limit=500` | → `{documents: [...with seq], cursor, more}` |
-| `PUT /sync/blobs/{kind}/{id}` | bytes + `X-Updated-At` → `{seq}` |
+| `PUT /sync/blobs/{kind}/{id}` | bytes + `X-Updated-At` → `{seq}`; 409 a newer one is stored, 413 over 8 MB or past the document ceiling, 507 past the account's photo bytes |
 | `GET /sync/blobs/{kind}/{id}` | → bytes |
 | `POST /guest-list` | `{email}` → 204 (new or already listed), 400 not an address, 503 list full. No bearer: the form on gains.gerra.sh posts it, not the app |
 
@@ -332,6 +335,9 @@ Every accepted write takes the next value of a single counter, so `seq` is monot
 user. An overwrite moves the row to the front of the feed: a device that was away for a month sees
 each changed document once, in its latest state, and the cost of a pull is bounded by documents,
 not by edits.
+
+Any route can also answer **429** from nginx in front of the server, per client address (see
+[The server](#the-server)).
 
 ## What the client does
 
@@ -352,7 +358,8 @@ then pull:
 
 [`SyncController`](../shared/src/commonMain/kotlin/app/gains/sync/SyncController.kt) decides
 when: two seconds after `sync_change` last grew, every time the app comes to the foreground (on
-iOS, `UIApplicationWillEnterForegroundNotification` in `MainViewController.kt`), when the person
+iOS, `UIApplicationWillEnterForegroundNotification` in `MainViewController.kt`; on Android,
+`MainActivity.onResume`; on the desktop, the window gaining focus in `main.kt`), when the person
 taps "Sync now" in Settings and right after sign-in. Signing in on a device that already holds guest data marks every local
 document as changed and resets the cursor, so the first sync is a union of what is here and what
 is there. A guest does that from Settings: the account card offers the enabled providers' buttons
@@ -364,7 +371,9 @@ with "· 3 changes waiting" while the change log holds something, or that the la
 The engine's status is in memory, so the time of the last successful run is also kept in
 `sync_state` (`last_synced_at`) and still shows after a restart; it is cleared when the feed
 changes hands. A 401 from the server shows "Signed out on the server" with the provider buttons,
-which sign in again where the person stands and then ask for a sync.
+which sign in again where the person stands and then ask for a sync. Every other refusal, a 429
+from the rate limits or a 413 or 507 from the ceilings among them, is only "Couldn't sync": the
+change log keeps what didn't go up, and the next occasion tries again.
 
 The cursor, the user id and when the token was issued live in `sync_state`, inside the app's
 database; none of them is a secret. The bearer token goes through a
@@ -400,7 +409,9 @@ Secret Service on its session bus, probed at start) keeps the token in `sync_sta
 ## The server
 
 [`server/`](../server) is Ktor on the CIO engine, a single SQLite file under `GAINS_DATA_DIR`
-(WAL mode), SQLDelight for its tables:
+(WAL mode), SQLDelight for its tables. Of the app's code it ships only [`protocol/`](../protocol),
+so the app's database, Koin and HTTP client stay off its classpath, and a change to the app alone
+neither rebuilds nor redeploys it ([launch plan](launch-plan.md), item 37):
 
 ```sql
 user     (id, email, name, created_at)
@@ -418,6 +429,24 @@ Sign-in tokens are RS256 identity tokens checked with `jwks-rsa` against the pro
 (cached, rate limited); our own are HS256 with `JWT_SECRET`. The verifier is an interface so the
 tests hand the server a key pair of their own and sign real tokens with it.
 
+**Limits.** Two layers ([launch plan](launch-plan.md), item 23). nginx, where the client's address is the
+real one, limits each address:
+
+| Where | Limit | Past it |
+|-------|-------|---------|
+| `/auth/` (sign-in, exchange, refresh, deletion) | 10 a minute, a burst of 10 | 429 |
+| `/sync/` | 10 a second; a burst of 100 goes straight through, the next 100 are slowed to the rate | 429 only past 200 waiting, so one device syncing in sequence is never refused |
+| `/sync/blobs/` | as `/sync/`, and 8 at a time | 429 |
+| `/guest-list` (both hosts), and the site's two password routes | 6 a minute, a burst of 5 | 429 |
+
+Behind them the server bounds what one account can cost, whatever its token: **200,000 feed rows**
+(`Services.maxDocumentsPerUser`; tombstones and photos count, and a push that would pass it is
+refused whole with 413, though edits to what is already there always go through) and **2 GB of
+photo bytes** (`Services.maxBlobBytesPerUser`, about 7,000 photos; 507). Nobody logging workouts
+gets near either: a workout a day with a photo and a weigh-in is about a thousand rows and a
+hundred megabytes a year. The password routes also have their own per-address and per-IP limits
+([`RateLimit`](../server/src/main/kotlin/app/gains/server/RateLimit.kt)).
+
 Configuration is read from the environment, with `secrets/.env` under the working directory
 loaded first when it exists (the systemd unit deliberately has no `EnvironmentFile`, for the
 reason noted in www's unit): `JWT_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS`,
@@ -433,9 +462,11 @@ Without a mail account the password routes answer 503, and the log line says `em
 
 The same playbook as taxes and www, on the same Hetzner box:
 
-- Push to `main` touching `server/`, `shared/src/commonMain/`, `deploy/` or the workflow runs
-  [`deploy.yml`](../.github/workflows/deploy.yml): `:server:test`, `:server:installDist`, rsync
-  of the install directory to `/opt/gains-server/current/`, then
+- Push to `main` touching `server/`, `protocol/`, the Gradle build files,
+  `deploy/gains-server.service`, `tools/deploy_server.py` or the workflow runs
+  [`deploy.yml`](../.github/workflows/deploy.yml): `:server:test`, `:server:installDist`,
+  `tools/deploy_server.py build` (rsync of the install directory to
+  `/opt/gains-server/current/`), then
   `tools/deploy_server.py install`, which copies the unit and itself to the box and runs there:
   JDK 17 if the box lacks one, the `gains-server` system user if it is missing, the unit
   installed, the data directory handed to that user, restart, smoke test of `/health`. No shell
@@ -448,8 +479,10 @@ The same playbook as taxes and www, on the same Hetzner box:
   `systemd-analyze security gains-server` scores the unit 3.0 ("OK"), from 9.4 as root. The JVM
   rules out `MemoryDenyWriteExecute=` (the JIT), and `SystemCallFilter=@system-service` is still
   to be tried by hand on the box before it goes in the unit (docs/launch-plan.md, item 22).
-- nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`; the site's vhost
-  proxies `/guest-list` and the two password routes its pages post to, rate limited per IP.
+- nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`, with the rate limits
+  under "Limits" above (its zones are declared at the top of the file; the guest list's zone is
+  the site's, since nginx zones are global); the site's vhost proxies `/guest-list` and the two
+  password routes its pages post to, rate limited per IP.
   `python3 tools/deploy_server.py nginx` pushes every file in `deploy/nginx/` (this one and the
   site's `gains.gerra.sh.conf`), then runs `nginx -t` and reloads. The
   [Deploy site and nginx workflow](../.github/workflows/deploy-site.yml) runs it on a push to
@@ -486,7 +519,7 @@ three taxes uses.
   `gains.googleDesktopClientSecret` and `gains.appleServicesId`), Apple through the server's web
   flow (above). Android has both too (`AndroidIdentityProvider`, with the server URL, the Web
   application client and the Services ID from `gains.serverUrl`, `gains.googleWebClientId` and
-  `gains.appleServicesId`, through `BuildConfig`), Apple through the same web flow in a Custom
+  `gains.appleServicesId`, as string resources `:androidApp` sets), Apple through the same web flow in a Custom
   Tab. An email address and a password work on all three (above), once `gains.passwordSignIn`
   or `GAINS_PASSWORD_SIGN_IN` is set with the server's mail account. Passkeys are item 19 of the
   [launch plan](launch-plan.md). Until a provider is wired up its button stays hidden, or Google

@@ -34,6 +34,7 @@ import app.gains.data.SettingsRepository
 import app.gains.domain.Exercise
 import app.gains.domain.Modality
 import app.gains.domain.WeightUnit
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.Sparkline
 import app.gains.ui.components.Dp16
@@ -72,7 +73,7 @@ internal data class ExerciseRow(
 
 internal data class ExercisesState(val loading: Boolean = true, val rows: List<ExerciseRow> = emptyList())
 
-internal class ExercisesModel(texts: Texts, trainingData: TrainingData = inject(), settings: SettingsRepository = inject()) : ScreenModel() {
+internal class ExercisesModel(texts: Texts, trainingData: TrainingData, settings: SettingsRepository, reporter: ErrorReporter) : ScreenModel(reporter) {
     val state: StateFlow<ExercisesState> = combine(trainingData.snapshot, settings.observeUnit()) { s, u -> s to u }
         .mapLatest { (snapshot, unit) ->
             val labels = resolvedUnitLabels(texts)
@@ -100,7 +101,7 @@ internal class ExercisesModel(texts: Texts, trainingData: TrainingData = inject(
 @Composable
 internal fun ExercisesScreen(onOpen: (String) -> Unit) {
     val texts = rememberTexts()
-    val model = rememberScreenModel { ExercisesModel(texts) }
+    val model = rememberScreenModel { ExercisesModel(texts, inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     var query by remember { mutableStateOf("") }
     val today = Dates.today()

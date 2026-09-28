@@ -50,6 +50,7 @@ import app.gains.program.Gzclp
 import app.gains.sync.SyncController
 import app.gains.sync.SyncEngine
 import app.gains.sync.SyncStore
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
 import app.gains.ui.components.Dp16
@@ -65,16 +66,15 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 internal data class SettingsState(
     val account: Account? = null,
@@ -104,17 +104,18 @@ private data class Prefs(val unit: WeightUnit, val theme: ThemeMode, val languag
 
 internal class SettingsModel(
     texts: Texts,
-    private val settings: SettingsRepository = inject(),
-    private val accounts: AccountRepository = inject(),
-    val authConfig: AuthConfig = inject(),
-    private val exercises: ExerciseRepository = inject(),
-    private val sessions: SessionRepository = inject(),
-    private val programs: ProgramRepository = inject(),
-    trainingData: TrainingData = inject(),
-    syncEngine: SyncEngine = inject(),
-    syncStore: SyncStore = inject(),
-    private val syncController: SyncController = inject(),
-) : ScreenModel() {
+    private val settings: SettingsRepository,
+    private val accounts: AccountRepository,
+    val authConfig: AuthConfig,
+    private val exercises: ExerciseRepository,
+    private val sessions: SessionRepository,
+    private val programs: ProgramRepository,
+    trainingData: TrainingData,
+    syncEngine: SyncEngine,
+    syncStore: SyncStore,
+    private val syncController: SyncController,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     val state: StateFlow<SettingsState> = combine(
         combine(
             settings.observeUnit(),
@@ -155,14 +156,14 @@ internal class SettingsModel(
     /** "Sync now": the controller runs it after its usual short wait, never alongside another run. */
     fun syncNow() = syncController.requestSync()
 
-    fun setUnit(unit: WeightUnit) { scope.launch { settings.setUnit(unit) } }
-    fun setTheme(mode: ThemeMode) { scope.launch { settings.setThemeMode(mode) } }
-    fun setLanguage(language: AppLanguage) { scope.launch { settings.setLanguage(language) } }
-    fun setAutoWarmups(on: Boolean) { scope.launch { settings.setAutoWarmups(on) } }
-    fun setStreakReminder(on: Boolean) { scope.launch { settings.setStreakReminder(on) } }
-    fun setTrophies(on: Boolean) { scope.launch { settings.setTrophies(on) } }
-    fun setBarWeightKg(kg: Double) { scope.launch { settings.setBarWeightKg(kg) } }
-    fun signOut() { scope.launch { accounts.signOut() } }
+    fun setUnit(unit: WeightUnit) { scope.launchAction { settings.setUnit(unit) } }
+    fun setTheme(mode: ThemeMode) { scope.launchAction { settings.setThemeMode(mode) } }
+    fun setLanguage(language: AppLanguage) { scope.launchAction { settings.setLanguage(language) } }
+    fun setAutoWarmups(on: Boolean) { scope.launchAction { settings.setAutoWarmups(on) } }
+    fun setStreakReminder(on: Boolean) { scope.launchAction { settings.setStreakReminder(on) } }
+    fun setTrophies(on: Boolean) { scope.launchAction { settings.setTrophies(on) } }
+    fun setBarWeightKg(kg: Double) { scope.launchAction { settings.setBarWeightKg(kg) } }
+    fun signOut() { scope.launchAction { accounts.signOut() } }
 
     /**
      * Signs a guest in where they stand, without the sign-out that would drop them on the welcome
@@ -191,17 +192,17 @@ internal class SettingsModel(
     val deletion = AccountDeletion(scope, accounts)
     fun deleteAccount() = deletion.run()
 
-    fun merge(custom: Exercise, into: Exercise) { scope.launch { exercises.merge(custom.id, into.id, custom.name) } }
-    fun removeAlias(raw: String) { scope.launch { exercises.removeAlias(raw) } }
-    fun clearOverride(exerciseId: String) { scope.launch { exercises.setWorkingSetRatio(exerciseId, null) } }
-    fun deleteAllData() { scope.launch { sessions.deleteAll() } }
+    fun merge(custom: Exercise, into: Exercise) { scope.launchAction { exercises.merge(custom.id, into.id, custom.name) } }
+    fun removeAlias(raw: String) { scope.launchAction { exercises.removeAlias(raw) } }
+    fun clearOverride(exerciseId: String) { scope.launchAction { exercises.setWorkingSetRatio(exerciseId, null) } }
+    fun deleteAllData() { scope.launchAction { sessions.deleteAll() } }
 
     fun setGoal(goal: Goal) = updateProfile { it.copy(goal = goal) }
     fun setExperience(experience: Experience) = updateProfile { it.copy(experience = experience) }
     fun setDays(days: Int) = updateProfile { it.copy(daysPerWeek = days) }
     private fun updateProfile(f: (GoalProfile) -> GoalProfile) {
         val current = state.value.profile ?: GoalProfile(Goal.GENERAL_FITNESS, Experience.BEGINNER, 3)
-        scope.launch { programs.setProfile(f(current)) }
+        scope.launchAction { programs.setProfile(f(current)) }
     }
 }
 
@@ -222,13 +223,9 @@ internal class AccountDeletion(private val scope: CoroutineScope, private val ac
         if (running) return Job().apply { complete() }
         running = true
         failed = false
-        return scope.launch {
+        return scope.launchAction(onFailure = { failed = true }) {
             try {
                 accounts.deleteAccount()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                failed = true
             } finally {
                 running = false
             }
@@ -240,7 +237,7 @@ internal class AccountDeletion(private val scope: CoroutineScope, private val ac
 @Composable
 internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}) {
     val texts = rememberTexts()
-    val model = rememberScreenModel { SettingsModel(texts) }
+    val model = rememberScreenModel { SettingsModel(texts, inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val sync by model.sync.collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }

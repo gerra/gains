@@ -114,6 +114,7 @@ import app.gains.program.DayPlanner
 import app.gains.program.Gzclp
 import app.gains.program.PlanOptions
 import app.gains.program.Progression
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChooserRow
 import app.gains.ui.components.DatePickerSheet
@@ -135,6 +136,8 @@ import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
+import app.gains.ui.reportingHandler
 import app.gains.ui.nowMs
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
@@ -316,13 +319,14 @@ internal class SessionEditorModel(
     private val live: Boolean = false,
     /** The titles and day tags the model makes. */
     private val texts: Texts,
-    private val sessions: SessionRepository = inject(),
-    private val exercises: ExerciseRepository = inject(),
-    private val liveSessions: LiveSessionRepository = inject(),
-    settings: SettingsRepository = inject(),
-    trainingData: TrainingData = inject(),
-    private val programs: ProgramRepository = inject(),
-) : ScreenModel() {
+    private val sessions: SessionRepository,
+    private val exercises: ExerciseRepository,
+    private val liveSessions: LiveSessionRepository,
+    settings: SettingsRepository,
+    trainingData: TrainingData,
+    private val programs: ProgramRepository,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state
 
@@ -361,7 +365,7 @@ internal class SessionEditorModel(
     private var includeUntickedOnEnd = false
 
     init {
-        scope.launch {
+        scope.launchAction {
             val snapshot = trainingData.snapshot.first()
             val unit = settings.observeUnit().first()
             val planOptions = PlanOptions(barKg = settings.observeBarWeightKg().first(), warmups = settings.observeAutoWarmups().first())
@@ -404,7 +408,7 @@ internal class SessionEditorModel(
      * duration chosen here wins: that is an edit of its own, not yet saved.
      */
     private fun followStoredSummary(id: String) {
-        scope.launch {
+        scope.launchAction {
             sessions.observeRawSessions()
                 .map { list -> list.firstOrNull { it.id == id } }
                 .map { it?.let { s -> s.durationMinutes to s.caption } }
@@ -466,7 +470,7 @@ internal class SessionEditorModel(
 
     /** Writes the running workout to the database shortly after every change, so a kill loses at most a moment's typing. */
     private fun persistWhileRunning() {
-        persistJob = scope.launch {
+        persistJob = scope.launchAction {
             _state.map { it.toLive() }.distinctUntilChanged().collectLatest { snapshot ->
                 if (snapshot == null) return@collectLatest
                 delay(PERSIST_DELAY_MS)
@@ -501,7 +505,7 @@ internal class SessionEditorModel(
     fun start() {
         val s = _state.value
         if (!s.timed || s.isRunning || s.conflict != null) return
-        scope.launch {
+        scope.launchAction {
             val running = liveSessions.load()
             if (running != null) update { it.copy(conflict = running) }
             else update { it.copy(startedAtMs = nowMs(), error = false) }
@@ -525,7 +529,7 @@ internal class SessionEditorModel(
     fun createExercise(name: String): Exercise {
         val resolver = ExerciseResolver(_state.value.catalogue, emptyMap())
         val exercise = resolver.resolve(name, emptyList())
-        scope.launch { exercises.insertIfMissing(listOf(exercise)) }
+        scope.launchAction { exercises.insertIfMissing(listOf(exercise)) }
         update { it.copy(catalogue = (it.catalogue + exercise).distinctBy { e -> e.id }.sortedBy { e -> e.name }) }
         return exercise
     }
@@ -668,7 +672,7 @@ internal class SessionEditorModel(
             program = s.programDay,
             caption = s.caption,
         )
-        scope.launch {
+        scope.launchAction {
             // Ids are minute-precision timestamps; two workouts saved in the same minute must not replace each other.
             val id = s.id ?: uniqueId(timestamp.toString(), sessions.ids())
             sessions.upsert(session.copy(id = id))
@@ -708,7 +712,7 @@ internal class SessionEditorModel(
         val startedAt = Instant.fromEpochMilliseconds(started).toLocalDateTime(TimeZone.currentSystemDefault())
         val timestamp = LocalDateTime(startedAt.date, LocalTime(startedAt.hour, startedAt.minute))
         finished = true
-        scope.launch {
+        scope.launchAction {
             // Runs to the end even if the screen is left meanwhile: a session must never be stored
             // with its live copy still around. Any write in flight lands first.
             withContext(NonCancellable) {
@@ -725,7 +729,7 @@ internal class SessionEditorModel(
     /** Throws the timed workout away. */
     fun discardLive() {
         finished = true
-        scope.launch {
+        scope.launchAction {
             withContext(NonCancellable) {
                 persistJob?.cancelAndJoin()
                 liveSessions.clear()
@@ -743,7 +747,7 @@ internal class SessionEditorModel(
 
     /** Conflict dialog: drop the running workout and start the one that was asked for. */
     fun discardStoredAndStart() {
-        scope.launch {
+        scope.launchAction {
             liveSessions.clear()
             update { it.copy(conflict = null, startedAtMs = nowMs()) }
         }
@@ -757,7 +761,7 @@ internal class SessionEditorModel(
         val pending = persistJob
         val last = if (finished) null else _state.value.toLive()
         super.onCleared()
-        if (last != null) flushScope.launch { pending?.join(); liveSessions.save(last) }
+        if (last != null) flushScope.launch(reportingHandler(reporter)) { pending?.join(); liveSessions.save(last) }
     }
 
     companion object {
@@ -787,7 +791,7 @@ internal class SessionEditorModel(
 
     fun delete() {
         val id = _state.value.id ?: return
-        scope.launch { sessions.deleteSession(id); update { it.copy(saved = true) } }
+        scope.launchAction { sessions.deleteSession(id); update { it.copy(saved = true) } }
     }
 }
 
@@ -805,7 +809,7 @@ internal fun SessionEditorScreen(
     onOpenSummary: (String) -> Unit = {},
 ) {
     val texts = rememberTexts()
-    val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live, texts) }
+    val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live, texts, inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerOpen by remember { mutableStateOf(false) }

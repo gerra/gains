@@ -51,6 +51,7 @@ import app.gains.domain.Exercise
 import app.gains.domain.Modality
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
@@ -73,6 +74,7 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +83,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 
@@ -96,10 +97,11 @@ internal data class BodyweightState(
 )
 
 internal class BodyweightModel(
-    private val repo: BodyweightRepository = inject(),
-    trainingData: TrainingData = inject(),
-    settings: SettingsRepository = inject(),
-) : ScreenModel() {
+    private val repo: BodyweightRepository,
+    trainingData: TrainingData,
+    settings: SettingsRepository,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val overlay = MutableStateFlow<String?>(null)
 
     val state: StateFlow<BodyweightState> = combine(repo.observe(), trainingData.snapshot, settings.observeUnit(), overlay) { entries, snapshot, unit, overlayId ->
@@ -121,13 +123,13 @@ internal class BodyweightModel(
 
     fun setOverlay(exerciseId: String?) { overlay.value = exerciseId }
 
-    fun add(date: LocalDate, weightKg: Double) { scope.launch { repo.upsert(BodyweightEntry(date, weightKg)) } }
-    fun delete(date: LocalDate) { scope.launch { repo.delete(date) } }
+    fun add(date: LocalDate, weightKg: Double) { scope.launchAction { repo.upsert(BodyweightEntry(date, weightKg)) } }
+    fun delete(date: LocalDate) { scope.launchAction { repo.delete(date) } }
 }
 
 @Composable
 internal fun BodyweightScreen() {
-    val model = rememberScreenModel { BodyweightModel() }
+    val model = rememberScreenModel { BodyweightModel(inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     if (state.loading) return
     val today = Dates.today()

@@ -77,6 +77,7 @@ import app.gains.platform.decodeImage
 import app.gains.platform.shrinkPhoto
 import app.gains.resources.Res
 import app.gains.resources.*
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.BodyMap
 import app.gains.ui.charts.BodyMapLegend
@@ -99,6 +100,8 @@ import app.gains.ui.components.WeightPickerSheet
 import app.gains.ui.components.WheelWeight
 import app.gains.ui.i18n.*
 import app.gains.ui.inject
+import app.gains.ui.launchAction
+import app.gains.ui.reportingHandler
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.CoroutineScope
@@ -172,24 +175,25 @@ internal data class SummaryState(
 internal class SessionSummaryModel(
     private val sessionId: String,
     private val texts: Texts,
-    private val sessions: SessionRepository = inject(),
-    private val bodyweight: BodyweightRepository = inject(),
-    private val programs: ProgramRepository = inject(),
-    private val settings: SettingsRepository = inject(),
-    private val trainingData: TrainingData = inject(),
-) : ScreenModel() {
+    private val sessions: SessionRepository,
+    private val bodyweight: BodyweightRepository,
+    private val programs: ProgramRepository,
+    private val settings: SettingsRepository,
+    private val trainingData: TrainingData,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val _state = MutableStateFlow(SummaryState())
     val state: StateFlow<SummaryState> = _state
 
     private var writeJob: Job? = null
 
     init {
-        scope.launch {
+        scope.launchAction {
             val snapshot = trainingData.snapshot.first()
             val session = snapshot.sessions.firstOrNull { it.id == sessionId }
             if (session == null) {
                 _state.value = SummaryState(loading = false, missing = true)
-                return@launch
+                return@launchAction
             }
             val unit = settings.observeUnit().first()
             val trophiesOn = settings.observeTrophies().first()
@@ -250,7 +254,7 @@ internal class SessionSummaryModel(
     }
 
     private fun loadPhoto() {
-        scope.launch {
+        scope.launchAction(onFailure = { update { it.copy(photoBusy = false) } }) {
             update { it.copy(photoBusy = true) }
             val bytes = sessions.photo(sessionId)
             val bitmap = bytes?.let { withContext(Dispatchers.Default) { runCatching { decodeImage(it) }.getOrNull() } }
@@ -263,7 +267,7 @@ internal class SessionSummaryModel(
      * screen at any moment keeps what was typed without a write per keystroke.
      */
     private fun writeWhileEditing() {
-        writeJob = scope.launch {
+        writeJob = scope.launchAction {
             _state.map { it.durationMinutes to it.caption }.distinctUntilChanged().collectLatest { (minutes, caption) ->
                 delay(WRITE_DELAY_MS)
                 withContext(NonCancellable) { sessions.updateSummary(sessionId, minutes, caption) }
@@ -285,7 +289,7 @@ internal class SessionSummaryModel(
         val s = _state.value
         val date = s.date ?: return
         if (s.weight <= 0.0) return
-        scope.launch {
+        scope.launchAction {
             bodyweight.upsert(BodyweightEntry(date, Units.fromDisplay(s.weight, s.unit)))
             update { it.copy(weightSaved = true) }
         }
@@ -293,16 +297,17 @@ internal class SessionSummaryModel(
 
     /** A picked photo, shrunk to something a database can hold, or null to drop the one there is. */
     fun setPhoto(bytes: ByteArray?) {
-        scope.launch {
+        // A write that fails leaves the photo as it was, with the spinner gone rather than turning forever.
+        scope.launchAction(onFailure = { update { it.copy(photoBusy = false) } }) {
             update { it.copy(photoBusy = true) }
             if (bytes == null) {
                 sessions.setPhoto(sessionId, null)
                 update { it.copy(photo = null, photoBusy = false) }
-                return@launch
+                return@launchAction
             }
             val stored = withContext(Dispatchers.Default) { runCatching { shrinkPhoto(bytes) }.getOrDefault(bytes) }
             val bitmap = withContext(Dispatchers.Default) { runCatching { decodeImage(stored) }.getOrNull() }
-            if (bitmap == null) { update { it.copy(photoBusy = false) }; return@launch }
+            if (bitmap == null) { update { it.copy(photoBusy = false) }; return@launchAction }
             sessions.setPhoto(sessionId, stored)
             update { it.copy(photo = bitmap, photoBusy = false) }
         }
@@ -314,7 +319,7 @@ internal class SessionSummaryModel(
         val s = _state.value
         val write = !s.loading && !s.missing
         super.onCleared()
-        if (write) flushScope.launch { pending?.cancel(); sessions.updateSummary(sessionId, s.durationMinutes, s.caption) }
+        if (write) flushScope.launch(reportingHandler(reporter)) { pending?.cancel(); sessions.updateSummary(sessionId, s.durationMinutes, s.caption) }
     }
 
     companion object {
@@ -333,7 +338,7 @@ internal class SessionSummaryModel(
 @Composable
 internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone: () -> Unit) {
     val texts = rememberTexts()
-    val model = rememberScreenModel(sessionId) { SessionSummaryModel(sessionId, texts) }
+    val model = rememberScreenModel(sessionId) { SessionSummaryModel(sessionId, texts, inject(), inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var durationPickerOpen by remember { mutableStateOf(false) }

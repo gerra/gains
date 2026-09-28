@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -8,27 +9,16 @@ plugins {
 
 val androidEnabled = rootProject.extra["androidEnabled"] as Boolean
 
+// Before the kotlin { } block: android.gradle creates the Android target that androidMain belongs to.
 if (androidEnabled) {
-    apply(plugin = "com.android.library")
+    apply(plugin = "com.android.kotlin.multiplatform.library")
+    apply(from = "android.gradle")
 }
 
 kotlin {
-    if (androidEnabled) {
-        androidTarget {
-            compilerOptions {
-                jvmTarget.set(JvmTarget.JVM_17)
-            }
-        }
-    }
-
-    jvm("desktop") {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-        }
-    }
+    jvm("desktop")
 
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
@@ -49,8 +39,8 @@ kotlin {
             api(libs.koin.core)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
-            // The sync wire format (app.gains.sync) and the client that speaks it. The server
-            // module compiles the same classes, so both ends agree on every field.
+            // The sync wire format, shared with the server, and the client that speaks it.
+            api(project(":protocol"))
             api(libs.kotlinx.serialization.json)
             api(libs.ktor.client.core)
         }
@@ -69,13 +59,13 @@ kotlin {
             implementation(libs.sqldelight.native)
             implementation(libs.ktor.client.darwin)
         }
-        val desktopMain by getting {
+        getByName("desktopMain") {
             dependencies {
                 implementation(libs.sqldelight.sqlite)
                 implementation(libs.ktor.client.cio)
             }
         }
-        val desktopTest by getting {
+        getByName("desktopTest") {
             dependencies {
                 implementation(libs.sqldelight.sqlite)
                 // GoogleOAuthTest answers the token exchange without a network.
@@ -99,6 +89,8 @@ tasks.withType<Test>().configureEach {
     systemProperty("gains.composeResourcesDir", rootProject.file("composeApp/src/commonMain/composeResources").absolutePath)
 }
 
-if (androidEnabled) {
-    apply(from = "android.gradle")
+// Java 17 bytecode on the desktop and Android targets alike. Set on the tasks, since the Android
+// library plugin's target has no compilerOptions block of its own to say it in.
+tasks.withType<KotlinJvmCompile>().configureEach {
+    compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
 }

@@ -2,7 +2,9 @@
 
 > **Finished.** Items 1–7 shipped in release 1.5. Everything still open, including the owner
 > actions below, is in [`docs/launch-plan.md`](launch-plan.md). This file stays as the record of
-> how sign-in was built.
+> how sign-in was built. Its [Where things are](#where-things-are) table and the "iOS only" scope
+> were true at release 1.5; Android, the desktop and email accounts came later, and
+> [`docs/sync.md`](sync.md) describes sign-in as it is now.
 
 A queue of self-contained work items. **Each item is one branch, one pull request.** An agent
 starting from scratch should:
@@ -24,12 +26,21 @@ compile:
 ```
 ./gradlew :shared:desktopTest :composeApp:desktopTest :server:test -Pgains.android=false --no-daemon
 ./gradlew :shared:compileKotlinIosArm64 :composeApp:compileKotlinIosArm64 -Pgains.android=false --no-daemon
+./gradlew :androidApp:assembleDebug :androidApp:lintDebug :shared:testAndroidHostTest --no-daemon
 ```
 
-- No Mac or Xcode is available to the agent. **Keep iOS work in Kotlin (`iosMain`)** wherever
-  possible, since that compiles above. Swift, `project.pbxproj`, `.plist` and `.entitlements`
-  edits can't be checked. Keep them minimal, copy the exact formats already in those files,
-  and list each one in the pull request body so the owner can check it in Xcode.
+The Android line names `:androidApp`, the application module, since launch-plan item 38; lint
+follows it into `:composeApp`, and `testAndroidHostTest` is what `testDebugUnitTest` became.
+
+The last line needs the Android SDK; CI's `android` job runs it on every pull request. The
+Xcode project is built for the iOS Simulator by the `ios` job (`.github/workflows/ios.yml`,
+`python3 tools/testflight.py build-simulator`) on a macOS runner.
+
+- CI builds the Xcode project; the agent still can't run it. **Keep iOS work in Kotlin
+  (`iosMain`)** wherever possible, since that compiles above. Swift, `project.pbxproj`, `.plist`
+  and `.entitlements` edits are compiled and linked by the `ios` job, but nothing runs them.
+  Keep them minimal, copy the exact formats already in those files, and list each one in the
+  pull request body so the owner can check it on a device.
 - Every new user-facing string goes in **both**
   `composeApp/src/commonMain/composeResources/values/strings.xml` and `values-ru/strings.xml`.
   `LocalizationResourcesTest` fails otherwise.

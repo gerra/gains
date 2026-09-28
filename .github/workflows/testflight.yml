@@ -46,7 +46,7 @@ jobs:
     env:
       BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Empty for tag and manual runs, where the ref that started the run is checked out.
           ref: ${{ inputs.ref }}
@@ -54,7 +54,7 @@ jobs:
       # here. tools/testflight.py holds them, and exports them for the steps below.
       - name: Set paths
         run: python3 tools/testflight.py paths
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: 17
@@ -62,14 +62,14 @@ jobs:
       # Tag and manual runs are not on the default branch, where this action would only read
       # the cache and never write it, and the CI workflow writes from a Linux runner whose
       # cache a macOS runner cannot use. Write it here so the next upload starts warm.
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           cache-read-only: false
       # The Kotlin/Native compiler, LLVM and Apple sysroots that Gradle downloads into
       # ~/.konan on the first iOS build (over a gigabyte). Keyed on the version catalog, so a
       # Kotlin upgrade fetches a fresh toolchain and everything else reuses the old one.
       - name: Cache the Kotlin/Native toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.konan
           key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
@@ -111,7 +111,7 @@ jobs:
 
       - name: Keep export logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: testflight-export-${{ env.BUILD_NUMBER }}
           path: ${{ env.EXPORT_PATH }}

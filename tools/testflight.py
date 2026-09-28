@@ -13,6 +13,13 @@ One command per step of that workflow, in the order it runs them:
   upload           xcodebuild -exportArchive, sending the build to App Store Connect.
   cleanup          Remove every piece of signing material from the runner.
 
+And one for the `ios` job in .github/workflows/ci.yml, here so that the project and scheme
+are named in one place:
+
+  build-simulator  xcodebuild build for the iOS Simulator, unsigned: compiles the Swift,
+                   links the Kotlin framework and checks Info.plist, the entitlements,
+                   Config.xcconfig and the asset catalogue without any signing material.
+
 The secrets arrive through the environment, never on the command line, and the one command
 that must pass a secret to `security` is not echoed. One-time setup and the list of secrets:
 docs/testflight.md
@@ -30,6 +37,8 @@ import gha
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "iosApp/Configuration/Config.xcconfig"
+PROJECT = "iosApp/iosApp.xcodeproj"
+SCHEME = "iosApp"
 
 SECRETS = [
     "APP_STORE_CONNECT_API_KEY_ID",
@@ -162,8 +171,8 @@ def archive(args):
     )
     gha.run(
         "xcodebuild", "archive",
-        "-project", "iosApp/iosApp.xcodeproj",
-        "-scheme", "iosApp",
+        "-project", PROJECT,
+        "-scheme", SCHEME,
         "-configuration", "Release",
         "-destination", "generic/platform=iOS",
         "-archivePath", archive_path(),
@@ -222,6 +231,34 @@ def cleanup(args):
         shutil.rmtree(directory, ignore_errors=True)
 
 
+# --- the CI build -------------------------------------------------------------
+
+
+def simulator_build_command():
+    """The xcodebuild line for the CI check: everything the archive builds, but no signing.
+
+    The generic destination needs no simulator device to exist and boots nothing.
+    CODE_SIGNING_ALLOWED=NO skips signing, so the entitlements are still processed but no
+    certificate, profile or team is needed. ARCHS=arm64 builds the one slice the Apple
+    Silicon runner would run: the Kotlin side has no x86_64 simulator slice to link, since
+    Compose Multiplatform 1.11 dropped the iosX64 target (docs/launch-plan.md, item 27).
+    """
+    return [
+        "xcodebuild", "build",
+        "-project", PROJECT,
+        "-scheme", SCHEME,
+        "-configuration", "Debug",
+        "-destination", "generic/platform=iOS Simulator",
+        "CODE_SIGNING_ALLOWED=NO",
+        "ARCHS=arm64",
+    ]
+
+
+def build_simulator(args):
+    gha.run("xcodebuild", "-version")
+    gha.run(*simulator_build_command(), cwd=ROOT)
+
+
 COMMANDS = {
     "paths": paths,
     "check-secrets": check_secrets,
@@ -231,6 +268,7 @@ COMMANDS = {
     "archive": archive,
     "upload": upload,
     "cleanup": cleanup,
+    "build-simulator": build_simulator,
 }
 
 

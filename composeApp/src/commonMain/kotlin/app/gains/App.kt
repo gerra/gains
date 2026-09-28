@@ -1,145 +1,48 @@
 package app.gains
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.updateTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.SaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import app.gains.analysis.Dates
-import app.gains.platform.systemReducesMotion
-import app.gains.ui.components.indicatorSlot
-import app.gains.ui.components.rememberSlidingIndicator
-import app.gains.ui.components.slidingIndicator
-import app.gains.ui.theme.LocalReduceMotion
-import app.gains.ui.theme.Motion
-import app.gains.ui.theme.fadeThrough
-import app.gains.ui.theme.screenSlide
-import app.gains.analysis.Format
-import app.gains.analysis.StreakEngine
-import app.gains.resources.Res
-import app.gains.resources.*
-import app.gains.ui.i18n.*
-import org.jetbrains.compose.resources.stringResource
 import app.gains.auth.AccountRepository
 import app.gains.data.ExerciseRepository
 import app.gains.data.LiveSessionRepository
 import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
-import app.gains.domain.LiveSession
-import app.gains.domain.ProgramDayRef
-import app.gains.program.Rotation
-import app.gains.sync.SyncController
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Clock
 import app.gains.data.ThemeMode
-import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
-import app.gains.platform.LiveSessionNotice
 import app.gains.platform.LiveSessionNotifier
-import app.gains.platform.Nudge
 import app.gains.platform.NudgeScheduler
 import app.gains.platform.PhotoPicker
 import app.gains.platform.ResumeRequests
-import app.gains.platform.SkipRestRequests
-import app.gains.ui.components.GainsWordmark
-import app.gains.ui.components.dismissKeyboardOnTap
+import app.gains.platform.systemReducesMotion
+import app.gains.root.LiveSessionNotices
+import app.gains.root.RootGate
+import app.gains.root.RootState
+import app.gains.root.StreakReminders
+import app.gains.root.observeUpNext
+import app.gains.root.openImportFor
+import app.gains.sync.SyncController
+import app.gains.ui.i18n.InLanguage
+import app.gains.ui.i18n.rememberTexts
 import app.gains.ui.inject
-import app.gains.ui.nav.LocalNavEntry
-import app.gains.ui.nav.NavEntry
+import app.gains.ui.nav.AppFrame
 import app.gains.ui.nav.Navigator
-import app.gains.ui.nowMs
-import app.gains.ui.nav.Screen
-import app.gains.ui.nav.SwipeBack
-import app.gains.ui.nav.Tab
-import app.gains.ui.screens.BodyweightScreen
-import app.gains.ui.screens.HistoryScreen
-import app.gains.ui.screens.SessionEditorModel
-import app.gains.ui.screens.SessionEditorScreen
-import app.gains.ui.screens.SessionSummaryScreen
-import app.gains.ui.screens.ExerciseDetailScreen
-import app.gains.ui.screens.ExercisesScreen
-import app.gains.ui.screens.HomeScreen
-import app.gains.ui.screens.ImportScreen
 import app.gains.ui.screens.OnboardingScreen
-import app.gains.ui.screens.ProgramDetailScreen
-import app.gains.ui.screens.ProgramEditorScreen
-import app.gains.ui.screens.ProgramsScreen
-import app.gains.ui.screens.SettingsScreen
 import app.gains.ui.screens.SignInScreen
-import app.gains.ui.screens.TrophiesScreen
-import app.gains.ui.screens.VolumeScreen
-import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.GainsTheme
+import app.gains.ui.theme.LocalReduceMotion
+import app.gains.ui.theme.isDark
 
 /**
  * Root of the shared UI: the look it is drawn in, the language it is worded in, and [AppBody] with
@@ -171,18 +74,14 @@ internal fun App(
     nudges: NudgeScheduler = NudgeScheduler.None,
     systemBars: @Composable (dark: Boolean) -> Unit = {},
 ) {
-    val settings = remember { inject<SettingsRepository>() }
+    val graph = remember { RootGraph(inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
+    val settings = graph.settings
     // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
     // while the entry lives, so a screen comes back as it was left once the one covering it is popped.
     // The stack and that state sit above the language, so a change of it leaves the lifter where they were.
     val stateHolder = rememberSaveableStateHolder()
     val navigator = remember { Navigator(onReleased = { stateHolder.removeState(it.id) }) }
-    val themeMode by settings.observeThemeMode().collectAsState(ThemeMode.DARK)
-    val dark = when (themeMode) {
-        ThemeMode.DARK -> true
-        ThemeMode.LIGHT -> false
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-    }
+    val dark = settings.observeThemeMode().collectAsState(ThemeMode.DARK).value.isDark()
     val reduceMotion = remember { systemReducesMotion() }
     systemBars(dark)
     GainsTheme(darkTheme = dark) { CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
@@ -192,21 +91,40 @@ internal fun App(
             // been chosen. Nothing is drawn until that preference has been read — a moment, at
             // launch — so the app is never shown in one language and then another.
             val language = settings.observeLanguage().collectAsState(initial = null).value ?: return@Surface
-            InLanguage(language) { AppBody(navigator, stateHolder, filePicker, photoPicker, systemBack, notifier, nudges) }
+            InLanguage(language) { AppBody(graph, navigator, stateHolder, filePicker, photoPicker, systemBack, notifier, nudges) }
         }
     } }
 }
 
 /**
- * Everything under the look and the language: the screens on [navigator]'s back stack, the workout
- * in progress, and the way between them. Composed afresh whenever the language changes, which is
- * what puts every word on screen into the new one; the stack and [stateHolder] outlive that.
+ * What the root takes from the Koin graph, looked up once in [App] and handed down, so the root's
+ * lookups sit in one place and the pieces in `app.gains.root` are given theirs in their
+ * constructors. It sits above the language with the navigator; the pieces made from it are still
+ * made afresh under each language, as before.
+ */
+private class RootGraph(
+    val settings: SettingsRepository,
+    val accounts: AccountRepository,
+    val exercises: ExerciseRepository,
+    val programs: ProgramRepository,
+    val sessions: SessionRepository,
+    val liveSessions: LiveSessionRepository,
+    val sync: SyncController,
+)
+
+/**
+ * Everything under the look and the language: the gates, the pieces in `app.gains.root` that keep
+ * the app in step with its data, and [AppFrame] with the screens on [navigator]'s back stack.
+ * Composed afresh whenever the language changes, which is what puts every word on screen into the
+ * new one; the stack and [stateHolder] outlive that.
  *
- * The streak reminders are planned here too, so that a change of language re-words the ones still
- * to come: their text is settled when the plan is made, not when the platform shows them.
+ * Each piece is made with `remember` and run from a `LaunchedEffect` here, so none of them outlives
+ * the composition. The streak reminders are planned here too, so that a change of language re-words
+ * the ones still to come: their text is settled when the plan is made, not when the platform shows them.
  */
 @Composable
 private fun AppBody(
+    graph: RootGraph,
     navigator: Navigator,
     stateHolder: SaveableStateHolder,
     filePicker: CsvFilePicker,
@@ -215,374 +133,36 @@ private fun AppBody(
     notifier: LiveSessionNotifier,
     nudges: NudgeScheduler,
 ) {
-    val settings = remember { inject<SettingsRepository>() }
-    val exercises = remember { inject<ExerciseRepository>() }
-    LaunchedEffect(Unit) { exercises.seedCatalogue() }
+    LaunchedEffect(Unit) { graph.exercises.seedCatalogue() }
     // The sync runs for as long as the app does; it does nothing for a guest or without a server.
-    val sync = remember { inject<SyncController>() }
-    LaunchedEffect(Unit) { sync.start(this) }
+    LaunchedEffect(Unit) { graph.sync.start(this) }
 
     // Files shared into the app open the import screen.
     val incoming by IncomingFiles.pending.collectAsState()
-    LaunchedEffect(incoming) { if (incoming.isNotEmpty() && navigator.current != Screen.Import) navigator.push(Screen.Import) }
-    val accounts = remember { inject<AccountRepository>() }
-    // null = still loading the preference; Optional-ish wrapper keeps "no account" distinct from "unknown".
-    val accountState by accounts.observeAccount().collectAsState(initial = AccountLoading)
+    LaunchedEffect(incoming) { navigator.openImportFor(incoming) }
+    val programs = graph.programs
+    val sessions = graph.sessions
+    // Sign-in, the goal questions or the app; nothing until the account and onboarding have been read.
+    val gate = remember { RootGate(graph.accounts, programs) }
+    val rootState by gate.state.collectAsState(initial = RootState.Loading)
     systemBack(navigator.canGoBack) { navigator.pop() }
 
-    val programs = remember { inject<ProgramRepository>() }
-    val sessions = remember { inject<SessionRepository>() }
-    // null = not read yet; false = the goal questions have never been answered or skipped.
-    val onboardingDone by programs.observeOnboardingDone().collectAsState(initial = null)
     // The active program's next day, for the "+" menu.
     val texts = rememberTexts()
-    val upNext by remember(texts) {
-        combine(programs.observeState(), sessions.observeProgramLinks()) { state, links ->
-            state.active?.let { p -> Rotation.nextDay(p, links)?.let { UpNext(ProgramDayRef(p.id, it.id), it.resolvedName(texts)) } }
-        }
-    }.collectAsState(initial = null)
+    val upNext by remember(texts) { observeUpNext(programs, sessions, texts) }.collectAsState(initial = null)
     // The workout in progress, if any: shown as a resume bar on every screen but its own.
-    val liveSessions = remember { inject<LiveSessionRepository>() }
+    val liveSessions = graph.liveSessions
     val live by liveSessions.observe().collectAsState(initial = null)
-    // Keep the platform's tray in step with it. Only what the notice shows is watched, so typing a
-    // weight does not re-post it, and a rest countdown is re-posted without one once it is over.
-    LaunchedEffect(Unit) {
-        liveSessions.observe()
-            .map { it?.let { s -> LiveSessionNotice(s.title, s.startedAtMs, s.rest?.endsAtMs) } }
-            .distinctUntilChanged()
-            .collectLatest { notice ->
-                val restEnds = notice?.restEndsAtMs
-                if (restEnds != null && restEnds > nowMs()) {
-                    notifier.update(notice)
-                    delay(restEnds - nowMs())
-                }
-                notifier.update(notice?.copy(restEndsAtMs = null))
-            }
+    // Keep the platform's tray in step with it, and answer the notice's taps on "resume" and "skip rest".
+    val notices = remember { LiveSessionNotices(liveSessions, notifier, navigator) }
+    LaunchedEffect(Unit) { notices.run() }
+    // The streak reminders, re-worded when the texts change.
+    val reminders = remember { StreakReminders(sessions, programs, graph.settings, nudges) }
+    LaunchedEffect(texts) { reminders.run(texts) }
+    when (rootState) {
+        RootState.Loading -> Unit
+        RootState.SignIn -> SignInScreen()
+        RootState.Onboarding -> OnboardingScreen(onDone = {})
+        RootState.Main -> AppFrame(navigator, stateHolder, filePicker, photoPicker, upNext, live)
     }
-    // The streak reminder. Nothing is scheduled until the lifter has asked for it, and nothing is
-    // scheduled in a week they have already trained: the plan comes back empty and cancels itself.
-    LaunchedEffect(texts) {
-        combine(sessions.observeSessionTimes(), programs.observeState(), settings.observeStreakReminder()) { times, programState, on ->
-            if (on != true) emptyList() else {
-                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-                val streak = StreakEngine.computeAt(times, now.date, programState.weeklyGoal)
-                StreakEngine.plan(streak, now, StreakEngine.usualHourAt(times))
-            }
-        }
-            .distinctUntilChanged()
-            .collectLatest { planned ->
-                nudges.schedule(
-                    planned.map { nudge ->
-                        val (title, body) = nudgeWords(texts, nudge)
-                        Nudge(nudge.id, Dates.epochMs(nudge.at), title, body)
-                    },
-                )
-            }
-    }
-    // A tap on that notice: open the running workout once the database has said there is one.
-    val resumeRequest by ResumeRequests.pending.collectAsState()
-    LaunchedEffect(resumeRequest) {
-        if (resumeRequest == 0) return@LaunchedEffect
-        val running = liveSessions.observe().first()
-        ResumeRequests.consume()
-        val current = navigator.current
-        if (running != null && !(current is Screen.EditSession && current.live)) {
-            navigator.push(Screen.EditSession(null, running.program, live = true))
-        }
-    }
-    // "Skip rest" on that notice: the editor running the workout drops it when there is one (its next
-    // persist reaches the database and, through it, the notice); otherwise the database is changed directly.
-    val skipRequest by SkipRestRequests.pending.collectAsState()
-    LaunchedEffect(skipRequest) {
-        if (skipRequest == 0) return@LaunchedEffect
-        SkipRestRequests.consume()
-        // Any editor may be open (a past workout's, say); only the one running the workout takes it.
-        val editors = navigator.stack.mapNotNull { it.peek(SessionEditorModel::class) }
-        if (editors.none { it.skipRest() }) liveSessions.clearRest()
-    }
-    val screen = navigator.current
-    if (accountState === AccountLoading) return
-    if (accountState == null) { SignInScreen(); return }
-    if (onboardingDone == null) return
-    if (onboardingDone == false) { OnboardingScreen(onDone = {}); return }
-    // Tapping outside a text field anywhere in the app puts the keyboard away.
-    Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
-        TopBar(navigator, screen, upNext)
-        val transition = updateTransition(navigator.currentEntry, label = "screen")
-        val reduceMotion = LocalReduceMotion.current
-        SwipeBack(
-            // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
-            enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
-            onBack = { navigator.pop(animated = false) },
-            modifier = Modifier.weight(1f),
-            previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, photoPicker, stateHolder) } },
-        ) {
-            transition.AnimatedContent(
-                transitionSpec = {
-                    // The swipe-back gesture has already slid the old screen away. Otherwise the new screen comes
-                    // in the way the lifter went: deeper or to a tab on the right from the right, back or left from the left.
-                    screenSlide(forward = navigator.direction > 0, reduce = navigator.skipTransition || reduceMotion)
-                },
-            ) { entry -> ScreenContent(entry, navigator, filePicker, photoPicker, stateHolder) }
-        }
-        // The bar rises in when a workout starts and folds away when it ends, rather than shoving the tabs.
-        // The workout it last showed, so the bar can still be drawn while it folds away after the workout ends.
-        var lastLive by remember { mutableStateOf(live) }
-        SideEffect { if (live != null) lastLive = live }
-        val shownLive = live ?: lastLive
-        AnimatedVisibility(
-            visible = live != null && !(screen is Screen.EditSession && screen.live),
-            enter = if (reduceMotion) EnterTransition.None else expandVertically(tween(Motion.STANDARD)) + fadeIn(tween(Motion.STANDARD)),
-            exit = if (reduceMotion) ExitTransition.None else shrinkVertically(tween(Motion.STANDARD)) + fadeOut(tween(Motion.EXIT)),
-        ) {
-            shownLive?.let { running ->
-                LiveSessionBar(running, onResume = { navigator.push(Screen.EditSession(null, running.program, live = true)) })
-            }
-        }
-        BottomNav(navigator)
-    }
-}
-
-/** The active program's next day, shown in the "+" menu. */
-private data class UpNext(val ref: ProgramDayRef, val dayName: String)
-
-/**
- * One screen of the stack. Opaque, so it can slide over the screen beneath it during a swipe back
- * and so the outgoing screen never shows through the incoming one mid-transition. Its models and
- * saved UI state belong to [entry], not to this composition, so they outlive the screen being covered.
- */
-@Composable
-private fun ScreenContent(entry: NavEntry, navigator: Navigator, filePicker: CsvFilePicker, photoPicker: PhotoPicker, stateHolder: SaveableStateHolder) {
-    DisposableEffect(entry) {
-        entry.attach()
-        onDispose { entry.detach() }
-    }
-    CompositionLocalProvider(LocalNavEntry provides entry) {
-        stateHolder.SaveableStateProvider(entry.id) {
-            ScreenBody(entry.screen, navigator, filePicker, photoPicker)
-        }
-    }
-}
-
-@Composable
-private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFilePicker, photoPicker: PhotoPicker) {
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        when (screen) {
-            Screen.Home -> HomeScreen(
-                onImport = { navigator.push(Screen.Import) },
-                onLog = { navigator.push(Screen.EditSession(null)) },
-                onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
-                onOpenSession = { navigator.push(Screen.EditSession(it)) },
-                onOpenVolume = { navigator.switchTab(Tab.VOLUME) },
-                onOpenHistory = { navigator.switchTab(Tab.HISTORY) },
-                onOpenOnboarding = { navigator.push(Screen.Onboarding) },
-                onOpenPrograms = { navigator.push(Screen.Programs) },
-                onOpenProgram = { navigator.push(Screen.ProgramDetail(it)) },
-                onStartDay = { navigator.push(Screen.EditSession(null, it, live = true)) },
-                onOpenTrophies = { navigator.push(Screen.Trophies) },
-            )
-            Screen.Trophies -> TrophiesScreen(
-                onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
-                onOpenSession = { navigator.push(Screen.EditSession(it)) },
-            )
-            Screen.Exercises -> ExercisesScreen(onOpen = { navigator.push(Screen.ExerciseDetail(it)) })
-            Screen.Volume -> VolumeScreen()
-            Screen.Body -> BodyweightScreen()
-            Screen.History -> HistoryScreen(
-                onOpen = { navigator.push(Screen.EditSession(it)) },
-                onLog = { navigator.push(Screen.EditSession(null)) },
-            )
-            is Screen.EditSession -> SessionEditorScreen(
-                screen.sessionId, screen.programDay, screen.live,
-                onDone = { navigator.pop() },
-                // An ended workout hands over to its summary, which Back then leaves for whatever came before it.
-                onEnded = { navigator.replace(Screen.SessionSummary(it)) },
-                onOpenSummary = { navigator.push(Screen.SessionSummary(it)) },
-            )
-            is Screen.SessionSummary -> SessionSummaryScreen(screen.sessionId, photoPicker, onDone = { navigator.pop() })
-            Screen.Settings -> SettingsScreen(
-                onOpenPrograms = { navigator.push(Screen.Programs) },
-                onOpenOnboarding = { navigator.push(Screen.Onboarding) },
-            )
-            Screen.Onboarding -> OnboardingScreen(onDone = { navigator.pop() })
-            Screen.Programs -> ProgramsScreen(
-                onOpen = { navigator.push(Screen.ProgramDetail(it)) },
-                onNew = { navigator.push(Screen.ProgramEditor(null)) },
-            )
-            is Screen.ProgramDetail -> ProgramDetailScreen(
-                screen.programId,
-                onStartDay = { navigator.push(Screen.EditSession(null, it, live = true)) },
-                onEdit = { navigator.push(Screen.ProgramEditor(it)) },
-                onDeleted = { navigator.pop() },
-            )
-            is Screen.ProgramEditor -> ProgramEditorScreen(screen.programId, onDone = { navigator.pop() })
-            Screen.Import -> ImportScreen(filePicker, onDone = { navigator.pop() })
-            is Screen.ExerciseDetail -> ExerciseDetailScreen(screen.exerciseId, onOpenSession = { navigator.push(Screen.EditSession(it)) })
-        }
-    }
-}
-
-@Composable
-private fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val reduce = LocalReduceMotion.current
-        // The wordmark and the back arrow hand over to each other while the screen below slides.
-        AnimatedContent(navigator.canGoBack, transitionSpec = { fadeThrough(reduce) }, contentAlignment = Alignment.CenterStart) { canGoBack ->
-            if (canGoBack) {
-                Row {
-                    IconCircle(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.back)) { navigator.pop() }
-                    Spacer(Modifier.size(8.dp))
-                }
-            } else {
-                GainsWordmark(Modifier.padding(start = 4.dp))
-            }
-        }
-        Spacer(Modifier.weight(1f))
-        val iconEnter = if (reduce) EnterTransition.None else fadeIn(tween(Motion.STANDARD)) + scaleIn(tween(Motion.STANDARD), initialScale = 0.8f)
-        val iconExit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT)) + scaleOut(tween(Motion.EXIT), targetScale = 0.8f)
-        // "+" offers both ways of getting a session in; hidden on the screens that already are one of them.
-        AnimatedVisibility(screen != Screen.Import && screen !is Screen.EditSession && screen !is Screen.SessionSummary, enter = iconEnter, exit = iconExit) {
-            var menuOpen by remember { mutableStateOf(false) }
-            Box {
-                IconCircle(Icons.Default.Add, stringResource(Res.string.add_description)) { menuOpen = true }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, shape = MaterialTheme.shapes.medium) {
-                    if (upNext != null) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.menu_start_day, upNext.dayName)) },
-                            leadingIcon = { Icon(Icons.Default.Star, null, modifier = Modifier.size(18.dp)) },
-                            onClick = { menuOpen = false; navigator.push(Screen.EditSession(null, upNext.ref, live = true)) },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.menu_start_workout)) },
-                        leadingIcon = { Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp)) },
-                        onClick = { menuOpen = false; navigator.push(Screen.EditSession(null, live = true)) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.menu_log_past_workout)) },
-                        leadingIcon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp)) },
-                        onClick = { menuOpen = false; navigator.push(Screen.EditSession(null)) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.menu_import_csv)) },
-                        leadingIcon = { Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp)) },
-                        onClick = { menuOpen = false; navigator.push(Screen.Import) },
-                    )
-                    if (screen != Screen.Programs) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.menu_programs)) },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, null, modifier = Modifier.size(18.dp)) },
-                            onClick = { menuOpen = false; navigator.push(Screen.Programs) },
-                        )
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.size(8.dp))
-        AnimatedVisibility(screen != Screen.Settings, enter = iconEnter, exit = iconExit) {
-            IconCircle(Icons.Default.Settings, stringResource(Res.string.settings_description)) { navigator.push(Screen.Settings) }
-        }
-    }
-}
-
-@Composable
-private fun IconCircle(icon: ImageVector, description: String, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, description, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-    }
-}
-
-@Composable
-private fun BottomNav(navigator: Navigator) {
-    val palette = GainsColors.palette
-    // One pill that slides along the bar to the chosen tab, and fades while a screen is pushed on top.
-    val indicator = rememberSlidingIndicator(navigator.currentTab?.ordinal?.takeIf { !navigator.canGoBack })
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(6.dp)
-                .slidingIndicator(indicator, palette.volt),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            for (tab in Tab.entries) {
-                val selected = navigator.currentTab == tab && !navigator.canGoBack
-                val interaction = remember { MutableInteractionSource() }
-                val content by animateColorAsState(
-                    if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    Motion.standard(), label = "tab",
-                )
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .indicatorSlot(indicator, tab.ordinal)
-                        .clip(CircleShape)
-                        .clickable(interaction, indication = null) { navigator.switchTab(tab) }
-                        .padding(vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    val label = tab.label()
-                    Icon(tab.icon(), label, tint = content, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.height(2.dp))
-                    Text(label, style = MaterialTheme.typography.labelSmall, color = content)
-                }
-            }
-        }
-    }
-}
-
-/**
- * The workout in progress, above the tabs: its name, the total time, the rest left, and a tap to get
- * back to it. Both clocks run against wall time, so the bar is right straight after a relaunch.
- */
-@Composable
-private fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
-    val palette = GainsColors.palette
-    var now by remember { mutableStateOf(nowMs()) }
-    LaunchedEffect(Unit) { while (true) { delay(1000); now = nowMs() } }
-    val remaining = live.rest?.remainingSeconds(now)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(CircleShape)
-            .background(palette.volt)
-            .clickable(onClick = onResume)
-            .padding(horizontal = 18.dp, vertical = 10.dp)
-            .animateContentSize(Motion.standard()),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val onAccent = MaterialTheme.colorScheme.onPrimary
-        Text(live.title, style = MaterialTheme.typography.titleSmall, color = onAccent, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(Format.clock(live.elapsedMs(now) / 1000), style = MaterialTheme.typography.titleSmall, color = onAccent)
-        if (remaining != null && remaining > 0) {
-            Spacer(Modifier.size(10.dp))
-            Text(stringResource(Res.string.rest_countdown, Format.clock(remaining.toLong())), style = MaterialTheme.typography.bodySmall, color = onAccent)
-        }
-        Spacer(Modifier.size(10.dp))
-        Text(stringResource(Res.string.resume_chevron), style = MaterialTheme.typography.labelSmall, color = onAccent)
-    }
-}
-
-/** Sentinel for "account preference not read yet", so the sign-in screen does not flash on launch. */
-private val AccountLoading = app.gains.auth.Account(app.gains.auth.AccountKind.GUEST, displayName = "__loading__")
-
-private fun Tab.icon(): ImageVector = when (this) {
-    Tab.HOME -> Icons.Default.Home
-    Tab.HISTORY -> Icons.Default.DateRange
-    Tab.EXERCISES -> Icons.AutoMirrored.Filled.List
-    Tab.VOLUME -> Icons.Default.Star
-    Tab.BODY -> Icons.Default.Favorite
 }

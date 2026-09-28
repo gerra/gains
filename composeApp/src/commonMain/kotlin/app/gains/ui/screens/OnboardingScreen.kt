@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import app.gains.ErrorReporter
 import app.gains.catalogue.ProgramCatalogue
 import app.gains.data.ProgramRepository
 import app.gains.domain.Experience
@@ -61,12 +62,12 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
-internal class OnboardingModel(private val programs: ProgramRepository = inject()) : ScreenModel() {
+internal class OnboardingModel(private val programs: ProgramRepository, reporter: ErrorReporter) : ScreenModel(reporter) {
     var step by mutableStateOf(0)
         private set
     var goal by mutableStateOf<Goal?>(null)
@@ -78,7 +79,7 @@ internal class OnboardingModel(private val programs: ProgramRepository = inject(
         private set
 
     init {
-        scope.launch {
+        scope.launchAction {
             programs.observeProfile().first()?.let { goal = it.goal; experience = it.experience; days = it.daysPerWeek }
         }
     }
@@ -99,10 +100,10 @@ internal class OnboardingModel(private val programs: ProgramRepository = inject(
 
     fun back() { step = (step - 1).coerceAtLeast(0) }
 
-    fun skip() = scope.launch { programs.markOnboardingDone(); done = true }
+    fun skip() = scope.launchAction { programs.markOnboardingDone(); done = true }
 
     /** Saves the answers and, when given, activates a program. */
-    fun finish(programId: String?) = scope.launch {
+    fun finish(programId: String?) = scope.launchAction {
         profile?.let { programs.setProfile(it) }
         if (programId != null) programs.setActive(programId)
         programs.markOnboardingDone()
@@ -116,7 +117,7 @@ internal class OnboardingModel(private val programs: ProgramRepository = inject(
  */
 @Composable
 internal fun OnboardingScreen(onDone: () -> Unit) {
-    val model = rememberScreenModel { OnboardingModel() }
+    val model = rememberScreenModel { OnboardingModel(inject(), inject()) }
     val palette = GainsColors.palette
     if (model.done) { onDone(); return }
     val reduce = LocalReduceMotion.current

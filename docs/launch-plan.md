@@ -20,14 +20,19 @@ The same rules as `auth-plan.md`:
 
 1. **Each work item is one branch and one pull request.** Take the first unticked item whose
    "Depends on" items are ticked, branch from the latest `main`, implement only that item, tick
-   its box in the same pull request and add `Done in #<pr>` under it.
+   its box in the same pull request and add `Done in #<pr>` under it. Item 33 is the one
+   exception: each of its steps is its own pull request, and ticks its own box.
 2. Run the checks from [`auth-plan.md`](auth-plan.md#checks-every-item-must-pass) before
    pushing. They still apply: both `strings.xml` files, KDoc that says why, Koin for wiring,
-   `docs/sync.md` kept true.
-3. **Android is not compiled in CI** (no Android SDK on the runner; see
-   [Known limitations](development.md#known-limitations)) until item 25 lands. Keep Android
-   work small and list every Android file you touched in the pull request body so the owner can
-   build it in Android Studio.
+   `docs/sync.md` kept true. A pull request that changes how the app is put together (the root,
+   the ScreenModels, the wiring, the modules) keeps `docs/how-it-works.md` true in the same pull
+   request.
+3. **Android is compiled and linted in CI, and the Xcode project built for the simulator; a
+   device is still needed for the test plan.** The `android` job in `ci.yml` builds the debug
+   app, runs lint and the shared tests on the Android JVM (item 25); the `ios` job in `ios.yml`
+   builds the iOS app for the simulator, unsigned (item 26). List every Android, Swift and Xcode
+   project file you touched in the pull request body so the owner knows what to check on a
+   device.
 4. Steps marked **Owner** are console or account work. Agents assume they are done or in
    progress and don't block on them.
 5. Manual checks go in the [test plan](#test-plan), under the item's number. An item that
@@ -43,14 +48,14 @@ The same rules as `auth-plan.md`:
 | 4 | Contact email alias | iOS launch | Owner | — | [ ] |
 | 5 | Google sign-in in production | iOS launch | Owner | 3, 4 | [ ] |
 | 6 | Revoke the Apple token when an account is deleted | iOS launch | Agent + Owner | — | [x] |
-| 7 | Submit iOS for App Review | iOS launch | Owner | 1–6, 20, test plan | [ ] |
+| 7 | Submit iOS for App Review | iOS launch | Owner | 1–6, 20, 39, test plan | [ ] |
 | 8 | Android package name and Play Console app | Android launch | Owner + Agent | — | [ ] |
 | 9 | Android: Sign in with Google | Android launch | Agent + Owner | 8 | [x] |
 | 10 | Server: Apple web sign-in (Services ID) | Android launch | Agent + Owner | — | [x] |
 | 11 | Android: Sign in with Apple | Android launch | Agent + Owner | 8, 10 | [x] |
 | 12 | Android: keep the token in the Keystore | Android launch | Agent | — | [x] |
 | 13 | Android: release workflow and Play closed testing | Android launch | Agent + Owner | 8, 9 | [x] |
-| 14 | Publish on Google Play | Android launch | Owner | 9–13, 20, 21, test plan | [ ] |
+| 14 | Publish on Google Play | Android launch | Owner | 9–13, 20, 21, 39, test plan | [ ] |
 | 15 | Desktop: Sign in with Google | Desktop (P1) | Agent + Owner | — | [x] |
 | 16 | Desktop: Sign in with Apple | Desktop (P1) | Agent | 10 | [x] |
 | 17 | Desktop: keep the token in the OS keychain | Desktop (P1) | Agent | — | [x] |
@@ -59,22 +64,37 @@ The same rules as `auth-plan.md`:
 | 20 | Every authenticated route checks that the account still exists | iOS launch | Agent | — | [x] |
 | 21 | Android: target API 36 (Android 16) | Android launch | Agent + Owner | — | [x] |
 | 22 | Server: run as an unprivileged user, with systemd hardening | Hardening (P1) | Agent + Owner | — | [x] |
-| 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [ ] |
+| 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [x] |
 | 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [ ] |
-| 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [ ] |
-| 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [ ] |
-| 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [ ] |
-| 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [ ] |
-| 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [ ] |
-| 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [ ] |
+| 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [x] |
+| 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [x] |
+| 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [x] |
+| 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [x] |
+| 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [x] |
+| 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [x] |
 | 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
+| 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [x] |
+| 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [x] |
+| 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [x] |
+| 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [x] |
+| 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [x] |
+| 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [x] |
+| 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [x] |
+| 39 | Open source under MPL-2.0: the license, its scope, the notices, no personal data | iOS launch | Agent + Owner | — | [ ] |
 
-**Blockers, P1, P2.** Items 20 and 21 are launch blockers: item 7 (App Review) depends on 20,
-and item 14 (Google Play) on 20 and 21. Items 22–31 came out of a production-readiness review
-after the sign-in work and don't hold either store back: `Hardening (P1)` and `CI (P1)` are
-wanted right after the first launch and can start now, `(P2)` when there is time. Within a
-milestone the numbers are the order: security and auth correctness (20, 22–24) before
-infrastructure polish (25–29), and API 36 (21) before Android goes public.
+**Blockers, P1, P2.** Items 20, 21 and 39 are launch blockers: item 7 (App Review) depends on 20
+and 39, and item 14 (Google Play) on 20, 21 and 39. Items 22–31 came out of a
+production-readiness review after the sign-in work and don't hold either store back:
+`Hardening (P1)` and `CI (P1)` are wanted right after the first launch and can start now, `(P2)`
+when there is time. Within a milestone the numbers are the order: security and auth correctness
+(20, 22–24) before infrastructure polish (25–29), and API 36 (21) before Android goes public.
+Items 32–37 came out of an architecture review of the client and hold nothing back either: they keep the code easy to
+change as it grows, and come after the P1 hardening and CI items. 32 goes first because it is the
+safety net for 33. Item 38 came out of item 27, which had to stop at AGP 8.x: it holds nothing back
+either, but every month on 8.x puts Compose, okhttp and the next androidx releases further out of
+reach. Item 39 came from the decision to publish Gains' source under MPL-2.0. It goes before
+either store: the repository is already public, with what looks like a real workout export in it,
+and the builds already owe the body drawing's MIT notice.
 
 ## Owner actions
 
@@ -114,9 +134,22 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
 - [ ] Refresh-token key (item 24): `REFRESH_TOKEN_KEY` in `secrets/.env`
       (`openssl rand -base64 32`), then `python3 tools/deploy_server.py secrets`; and the backup
       decision under item 24, step 3.
-- [ ] iOS CI (item 26): where the macOS job runs, given what its minutes cost.
-- [ ] Dependabot alerts on (item 28): GitHub → Settings → Code security.
+- [ ] iOS CI (item 26): where the macOS job runs, given what its minutes cost. Item 26 put the
+      recommended answer in place (pull requests and pushes to `main`, skipping `docs/`,
+      `site/`, `server/`, `deploy/` and `tools/`): keep it, or change the `paths` lists in
+      `.github/workflows/ios.yml`. Either way, don't make **iOS simulator build** a required
+      check.
+- [ ] Dependency graph and Dependabot alerts on (item 28): GitHub → Settings → Code security.
+  Until the graph is on, GitHub refuses the snapshot, so CI's Dependency review job and the
+  Dependency graph workflow fail.
 - [ ] Backup decision (item 31), before item 14 if possible.
+- [ ] Android app module (item 38): Android Studio Quail 4 (2026.1.4) or newer with SDK 37, then
+      one release round to closed testing and the test plan's item 38 checks on a phone that has
+      the previous build.
+- [ ] License decisions (item 39), before its pull request: the copyright holder's name, the
+      treatment of the name and logo, the license for docs and site text, the notices tool,
+      whose workouts `liftoff_workout_data.csv` and the site's images hold, and whether the
+      public history is rewritten to remove that export.
 
 ---
 
@@ -294,8 +327,9 @@ account deletion revokes it before deleting, and a failed revoke still deletes.
 - [ ] Done
 
 **Milestone:** iOS launch. **Who:** Owner. **Depends on:** 1–6, 20 (a deleted account's token
-must be worth nothing before anyone can delete one), and the test plan's iOS sections passed on a
-TestFlight build containing them.
+must be worth nothing before anyone can delete one), 39 (the build carries the license and the
+third-party notices, and the public tree carries no personal data), and the test plan's iOS
+sections passed on a TestFlight build containing them.
 
 1. App Store Connect: privacy policy URL, support URL (`/support`), screenshots, description,
    and the review notes. Reviewers can use Sign in with Apple, so no demo account is needed.
@@ -312,13 +346,13 @@ TestFlight build containing them.
 
 **Milestone:** Android launch. **Depends on:** nothing.
 
-The application id is `app.gains` today (`composeApp/android.gradle`), which may already be
+The application id is `app.gains` today (`androidApp/build.gradle.kts` since item 38), which may already be
 taken on Play. **Choose before the first upload: Play never lets you change it.**
 
 1. **Owner:** pick the id. `sh.gerra.gains` follows the domain you own. Check that no Play
    listing uses it. *Decided:* keep `app.gains`. Play refuses the first upload if the
    id is taken; if that happens, come back here and pick another before retrying.
-2. Change `applicationId` in `composeApp/android.gradle`. `namespace` and the Kotlin packages
+2. Change `applicationId` in `androidApp/build.gradle.kts`. `namespace` and the Kotlin packages
    can stay `app.gains`, since only the application id is public. Check `AndroidManifest.xml`
    and the notification / receiver code for any hard-coded `app.gains` that means the
    application id.
@@ -401,7 +435,7 @@ expires, and an unlisted redirect is refused.
 **Milestone:** Android launch. **Depends on:** 8, 10.
 
 1. `AccountKind.APPLE` in `AndroidIdentityProvider`: open `/auth/apple/start` in a Custom Tab
-   with the App Link `https://gains.gerra.sh/auth/done` (`AppleWebFlow.ANDROID_CALLBACK`, the
+   with the App Link `https://gains.gerra.sh/auth/done` (`AppleWebCallback.ANDROID`, the
    one URL the server allows) as the callback. `SignInCallbackActivity` receives it, hands the
    URL to the waiting provider (`WebSignIn`) and returns to `MainActivity`; the provider checks
    the state and returns the code.
@@ -460,7 +494,8 @@ Update `docs/sync.md` "What the client does".
 - [ ] Done
 
 **Milestone:** Android launch. **Who:** Owner. **Depends on:** 9–13, 20, 21 (Play takes only
-API 36 bundles in production), the 14-day closed test, and the test plan's Android section.
+API 36 bundles in production), 39 (the license and notices in the bundle), the 14-day closed
+test, and the test plan's Android section.
 
 Apply for production access, then promote the build. Add the store link to the landing page.
 
@@ -744,7 +779,15 @@ the style of the existing ones. The manual checks are step 4, repeated in the te
 
 ### 23. Server: rate limits on sign-in, sync and uploads
 
-- [ ] Done
+- [x] Done
+  Done in #104. Steps 1–4 are in. The numbers chosen: `/auth/` 10 a minute per address with a
+  burst of 10; `/sync/` 10 a second with `burst=200 delay=100`, so past the first 100 a request
+  is slowed rather than refused and one device syncing in sequence never sees a 429 (checked
+  against a stub: 400 pulls in a row all pass, in 30 s); 8 blob requests at a time per address;
+  the guest list's zone on `/guest-list` here too; per account, 200,000 feed rows (413) and 2 GB
+  of photo bytes (507). The client needed no change: only a 401 signs out, and a refused run
+  stays in the change log for the next one (`SyncRoundTripTest`). Merging deploys the vhost
+  through the Deploy site and nginx workflow; the test plan's item 23 check is left.
 
 **Milestone:** Hardening (P1). **Depends on:** nothing.
 
@@ -815,7 +858,11 @@ line says so.
 
 ### 25. Android in CI: build, lint and the JVM tests
 
-- [ ] Done
+- [x] Done
+  Done in #105, green in #107: the job's first runs found what nothing had compiled before, a
+  Groovy misparse of `versionCode` in `android.gradle`, a type-inference cycle in
+  `MainActivity`, and okhttp 5.5.0 (through Ktor) asking for compileSdk 37, held at 5.4.0 until
+  item 27. Lint passes without a baseline.
 
 **Milestone:** CI (P1). **Depends on:** nothing.
 
@@ -844,7 +891,15 @@ Tests: the job itself. A pull request that breaks an `androidMain` file must go 
 
 ### 26. iOS in CI: an Xcode simulator build
 
-- [ ] Done
+- [x] Done
+  Done in #106. Steps 1, 2 and 4 are in: `python3 tools/testflight.py build-simulator` (next to
+  the archive, so the project and scheme are named once; tests in `tools/test_testflight.py`)
+  and the `ios` job on `macos-26`, the TestFlight image, with its Gradle and `~/.konan` caches.
+  Two changes from the text below: the job lives in `.github/workflows/ios.yml`, not `ci.yml`,
+  because Actions filters paths per workflow, not per job; and the build passes `ARCHS=arm64`,
+  so Gradle links the simulator framework for the runner's architecture only rather than a fat
+  arm64 + x86_64 one. Step 3 has the recommended answer until the owner says otherwise (the
+  owner action above). The `test` job's Linux klib compile stays as it was.
 
 **Milestone:** CI (P1). **Depends on:** nothing.
 
@@ -869,7 +924,7 @@ XCUITest, no screenshots, no scenario runs.
    with `paths-ignore` for `docs/**`, `site/**`, `server/**`, `deploy/**` and `tools/**`; a
    path-filtered job must not be a required check, or it hangs the merge. Not on the two-hourly
    release branches, which archive anyway.
-4. Then the second bullet under `docs/development.md` Known limitations says the simulator build
+4. Then the iOS bullet under `docs/development.md` Known limitations says the simulator build
    runs in CI and only archiving needs the signing material, and `auth-plan.md`'s "No Mac or
    Xcode is available to the agent" becomes "CI builds the Xcode project; the agent still can't
    run it".
@@ -878,7 +933,36 @@ Tests: the job. A pull request that breaks a Swift file or `Info.plist` must go 
 
 ### 27. A dependency modernization pass
 
-- [ ] Done
+- [x] Done
+  Done in #108, one commit per group, each with `:shared:desktopTest`, `:server:test` and the
+  `:shared` iOS klib green locally, and the whole pass through the three CI jobs. What moved:
+  1. Kotlin 2.4.20 and Compose Multiplatform 1.11.1 (Jetpack Compose 1.11.2 on Android). Not
+     1.12.1, the current one: the first CI run showed its Jetpack Compose 1.12 artifacts refuse
+     anything below compileSdk 37 and AGP 9.1, so 1.12 waits for the AGP 9 move under step 3.
+     Material 3 has had its own version line since 1.9, so it is `compose-material3 = "1.9.0"`,
+     the one the 1.11.1 plugin pairs with; Compose no longer publishes `iosX64`, so the Intel
+     simulator target is gone from both modules (the CI simulator build was arm64 only already);
+     and `runDesktopComposeUiTest` now wraps the test in `runTest`, whose one-minute default cut
+     the screenshot walk short, so `:composeApp`'s tests set
+     `kotlinx.coroutines.test.default_timeout` to the task's own timeout;
+     `material-icons-core` still resolves at 1.7.3, its last release; the resources and desktop
+     UI-test artifacts moved from the plugin's deprecated `compose.*` accessors into the
+     catalog. `kotlin.native.enableKlibsCrossCompilation` is still needed: without it
+     `compileKotlinIosArm64` is skipped on Linux.
+  2. Koin 4.2.2, with no code change.
+  3. **AGP stays on 8.x: 8.13.2, the last, on Gradle 8.14.5** (Kotlin 2.5 will want 8.14.4 or
+     newer). AGP 9 refuses `com.android.application` in a module that also applies the Kotlin
+     Multiplatform plugin: `:composeApp` would have to become a KMP library with a new Android
+     app module next to it, and `:shared` move to `com.android.kotlin.multiplatform.library`.
+     That is item 38. AGP 8.13 supports API 36.1 at most, so the okhttp 5.4.0 pin from
+     item 25 stays until then, and so does Compose Multiplatform 1.11 (step 1).
+  4. SQLDelight 2.4.0, activity-compose 1.13.0, credentials 1.6.0, browser 1.10.0, googleid
+     1.2.1, and on the server logback 1.6.4 and Bouncy Castle 1.86. Ktor 3.6.0, coroutines
+     1.11.0, serialization 1.11.0 and kotlinx-datetime 0.8.0 were already the latest stable.
+  5. `docs/development.md`: the Android Studio version AGP 8.13 needs, and a note under "Built
+     with". The JDK stays 17.
+  Left for the owner: the TestFlight round and the Play bundle from the next release branch, and
+  the test plan's item 27 smoke on each.
 
 **Milestone:** Maintenance (P2). **Depends on:** 25, 26 (an upgrade CI can't build for Android
 or Xcode is a guess).
@@ -917,7 +1001,12 @@ Tests: the check set above, after each group.
 
 ### 28. Supply chain: pinned actions and dependency scanning
 
-- [ ] Done
+- [x] Done
+  Done in #111. Each action is pinned to the release its major tag pointed at, so nothing
+  changed behaviour; majors are item 29's. CodeQL is a workflow (`codeql.yml`), not the default
+  setup: autobuild can't be told which tasks a Kotlin Multiplatform build compiles on Linux, and
+  the workflow's own run on the pull request showed the extractor taking Kotlin 2.4.20. Left:
+  the owner's dependency graph and Dependabot alerts switches.
 
 **Milestone:** Maintenance (P2). **Depends on:** nothing.
 
@@ -949,7 +1038,19 @@ release round.
 
 ### 29. Supply chain: Dependabot, and Gradle dependency verification where practical
 
-- [ ] Done
+- [x] Done
+  Done in #112. Step 1 is `.github/dependabot.yml`: the actions weekly as one pull request, and
+  Gradle weekly in the five groups below. Kotlin and Compose Multiplatform get patches only,
+  since a minor of either is the deliberate pass (Compose 1.12 needs AGP 9, item 38); Koin, AGP
+  and the Gradle wrapper no majors (Gradle 9.6 and newer refuse AGP 8.x); okhttp stays below
+  5.5.0 until item 38. Step 2 is not in: Dependabot doesn't regenerate
+  `gradle/verification-metadata.xml`, so each of its Gradle pull requests would fail CI until
+  someone rewrote the file by hand, which is the case this step said to take it out
+  for; and the metadata must cover Google's Maven and the Kotlin/Native toolchain, which the
+  agent's environment can't reach, so it could only have been written from a laptop or a CI
+  run. The SHA pins from 28 and the grouping here are the proportional version. Step 3 is the
+  paragraph under "Dependencies and actions" in `docs/development.md`. Left: the test plan's
+  item 29 checks on the first Monday round.
 
 **Milestone:** Maintenance (P2). **Depends on:** 27, 28 (Dependabot before the pass would open a
 dozen pull requests the pass then supersedes; the SHAs from 28 are what it keeps current).
@@ -974,7 +1075,13 @@ build, if step 2 stays.
 
 ### 30. Android: R8 for release builds
 
-- [ ] Done
+- [x] Done
+  Steps 1 and 2 are in #114: `minifyEnabled` and `shrinkResources` on `release`, an empty
+  `composeApp/proguard-rules.pro` (every library that reflects ships its own rules, and the app's
+  serializers are called by name), `bundleRelease` in CI's Android job, and `tools/play.py`
+  sending `mapping.txt` as the bundle's deobfuscation file. Left: the owner's device pass in
+  step 3, which is the test plan's item 30 check. Item 38 moved the release build type and the
+  rules file to the app module: `androidApp/build.gradle.kts` and `androidApp/proguard-rules.pro`.
 
 **Milestone:** Hardening (P2). **Depends on:** 21, 25 (a release build in CI to try it on).
 
@@ -1036,6 +1143,667 @@ default nobody chose.
    back matches the decision.
 
 Tests: the manual check in step 3.
+
+### 32. Navigation lifecycle: pin its invariants in tests
+
+- [x] Done
+  Done in #116. Steps 1–6 are tests in `NavigationTest.kt`: a seeded replay of 300 random moves
+  (five seeds) checking after each one that exactly the entries off both the stack and the
+  screen are released, each once, with only the kept ones' models active; an entry hosted twice;
+  a tab switch with screens still attached, and one to the tab already shown; the push of the
+  screen on top; unique ids; the language change against a `SaveableStateHolder`; and the
+  skip-rest lookup. One behaviour looks wrong and is pinned as it is today, for a separate fix
+  (see "Found by the tests" below).
+
+**Milestone:** Maintenance (P1). **Depends on:** nothing. Item 33 depends on it.
+
+The app keeps its own back stack instead of AndroidX Navigation and ViewModels, on purpose: one
+`Navigator` and `NavEntry` in `ui/nav/Navigation.kt` for all three platforms, `ScreenModel`s
+held per entry and per class through `rememberScreenModel` (`ui/ScreenModel.kt`), and each
+entry's saved UI state under its id in the root's `SaveableStateHolder` (`App.kt`, whose
+`Navigator(onReleased = { stateHolder.removeState(it.id) })` drops it). Keep that design; this
+item makes sure item 33 and later work can't change its behaviour without a red test. Nothing
+is replaced unless a test here finds a real defect, and then the fix is its own pull request.
+
+`composeApp/src/desktopTest/.../NavigationTest.kt` already covers: a covered screen keeps its
+model, `peek`, a popped entry released only once it is off the screen too (or at once when it
+wasn't drawn), `replace`, tab roots kept across switches, a model remade when its keys change,
+one model per class, `rememberScreenModel` sharing one model between the places an entry is
+drawn, and a model outside the navigator living with its composable. Add what is missing, in the
+same file and style:
+
+1. **Every entry is released exactly once, and only when gone.** A seeded, fixed sequence of a
+   few hundred `push`, `pop`, `replace` and `switchTab` calls, with `attach`/`detach` pairs
+   around some of them as the transitions and the swipe back do: afterwards `onReleased` has
+   seen each entry that left the stack at most once, never a tab root or an entry still on the
+   stack, and every model whose entry was released has an inactive `scope`. The models still
+   active are exactly those of the entries on the stack, the tab roots and anything still
+   attached. This is the leak check.
+2. **An entry drawn twice** (the swipe back draws the previous entry under the current one while
+   the transition still hosts it): popped with two hosts, it is released after the second
+   `detach`, not the first.
+3. **`switchTab` while the leaving screens are still attached:** they are released when they
+   detach, not before; switching to the tab already shown drops what was pushed on it and keeps
+   its root.
+4. **`push` of the screen already on top** adds nothing and makes no entry; entry ids are unique
+   for the navigator's life (the saved state is keyed on them).
+5. **A change of language** through `rememberScreenModel` (it keys models on
+   `LocalAppLanguage`): the entry's model is remade and the old one's `scope` is cancelled, while
+   the entry, the stack and the entry's saved state stay. A composition test with a
+   `SaveableStateHolder` and `rememberSaveable` shows the saved value survives the language
+   change and is gone once the entry is released.
+6. **The skip-rest lookup** that `App.kt` does today (`navigator.stack.mapNotNull { it.peek(...) }`):
+   a model on a covered entry is found, one on a released entry is not.
+
+Write each test against `Navigator`, `NavEntry` and `rememberScreenModel` only, not against
+`App.kt`, so that item 33 moves code around them without touching the tests. If a test shows a
+current behaviour that looks wrong, keep the test asserting today's behaviour, mark it with a
+comment, and write it down here for a separate fix.
+
+Tests: the above, in `:composeApp:desktopTest`.
+
+**Found by the tests, for a separate fix:** a change of language loses the saved UI state
+(`rememberSaveable`: scroll positions and the like) of the screen being drawn, in practice
+Settings, where the language is picked. Covered entries keep theirs. `InLanguage`'s
+`key(language)` composes the screen again, and `SaveableStateProvider` makes the new registry
+from what the holder has saved during that composition, while the old registry only saves in
+its `onDispose`, after it. The test marked "Looks wrong" in
+`aChangeOfLanguageRemakesTheModelAndKeepsTheEntryAndItsSavedState` asserts today's behaviour;
+the fix turns its `0` into the value set before the change. One way: keep each screen's
+`SaveableStateProvider` outside the `key(language)`, so only what is inside it is composed again.
+
+### 33. `App.kt`: move the root's coordination into small, tested pieces
+
+- [x] Done (all steps below ticked)
+  Done in #119, #120, #121, #122 and #123, one step each.
+
+**Milestone:** Maintenance (P1). **Depends on:** 32 (the lifecycle tests are the net). **One pull
+request per step**, in this order, each leaving the app behaving exactly as before.
+
+`composeApp/src/commonMain/kotlin/app/gains/App.kt` is about 590 lines. `App` picks the theme and
+the language and owns the navigator and the saved state; `AppBody` then does, in one composable:
+seeding the exercise catalogue and starting `SyncController`; opening Import for files shared in
+(`IncomingFiles`); gating on the account (`SignInScreen`, with an `AccountLoading` sentinel
+account) and on onboarding; working out the program's next day for the "+" menu; keeping the
+platform's workout notice in step with the workout in progress, rest countdown included
+(`LiveSessionNotifier`); planning the streak reminders (`StreakEngine` → `NudgeScheduler`);
+answering the notice's taps (`ResumeRequests`, `SkipRestRequests`, the latter by peeking every
+entry for a `SessionEditorModel`); and drawing the top bar, the swipe back, the screen
+transition, the workout bar, the bottom bar and the `when` over every `Screen`. The logic in
+those `LaunchedEffect`s can only be tested by composing the whole app.
+
+The goal is an `App.kt` that assembles the top-level UI and nothing else, with each piece of
+coordination in a small class of its own that has a narrow job, takes what it needs in its
+constructor and has unit tests. **Not** one `AppCoordinator` that takes over everything, not a
+navigation library, not an MVI framework, and no change to `Navigator`. The pieces live in
+`composeApp/src/commonMain` (they use `LiveSessionNotifier`, `NudgeScheduler`, `Navigator` and
+the texts, which are the UI module's), in a package of their own such as `app.gains.root`; what is
+pure domain logic and not there yet goes to `shared` (as `StreakEngine` already did). No
+platform code: the platform hooks stay the interfaces `App` is given today. Names and exact
+boundaries are the implementer's call from the code; the steps say what moves.
+
+Things to keep exactly as they are, and check in each step:
+
+- `AppBody` sits inside `InLanguage`'s `key(language)`, so a change of language recomposes it:
+  its effects restart (the reminders re-worded, which is wanted; `sync.start` and
+  `seedCatalogue` run again, which is harmless). Keep that; if a step wants the sync above the
+  language key, that is a behaviour change for its own pull request.
+- The navigator and the saved state outlive the language (they sit in `App`), and the sign-in
+  and onboarding gates draw nothing until their preference is read, so neither flashes at launch.
+- Nothing starts the sync or plans a reminder outside the composition's lifetime: each piece is
+  made with `remember` and run from a `LaunchedEffect` in the same place its code runs today.
+
+Steps:
+
+- [x] **1. The workout notice and its two buttons.** Done in #119: `app.gains.root.LiveSessionNotices`,
+  run from `AppBody` where the effects were, with `LiveSessionNoticesTest`. A class (e.g. `LiveSessionNotices`) taking
+  `LiveSessionRepository` and `LiveSessionNotifier`, with a `suspend fun run()` that holds
+  today's `distinctUntilChanged` / rest-countdown re-post logic, and the handling of
+  `ResumeRequests` and `SkipRestRequests` (open the running workout unless its editor is on top;
+  let the running editor skip the rest, else `clearRest()`), given the `Navigator`. A clock
+  parameter instead of `nowMs()` so tests use virtual time. Tests with a fake notifier and
+  repository under `runTest`: the notice follows title and start, a rest is posted with its end
+  and re-posted without it once over, a weight change doesn't re-post, a resume pushes the live
+  editor once and not when it is already on top, a skip reaches the covered editor (item 32's
+  lookup) and falls back to the repository.
+- [x] **2. The streak reminders.** Done in #120: `app.gains.root.StreakReminders`, with
+  `nudgeWords` beside it, run from `AppBody` where the effect was, with `StreakRemindersTest`.
+  A class (e.g. `StreakReminders`) taking `SessionRepository`,
+  `ProgramRepository`, `SettingsRepository`, `NudgeScheduler` and a clock and time zone, with
+  `suspend fun run(texts)`; `nudgeWords` goes with it. Tests: reminder off → an empty plan
+  (which cancels); on → the plan from `StreakEngine` with its words; a week already trained →
+  empty; a change of texts re-words the plan.
+- [x] **3. What the root shows.** Done in #121: `app.gains.root.RootGate` with `RootState`,
+  `Navigator.openImportFor` beside it and `findUpNext` in `root/UpNext.kt`, with `RootGateTest`
+  and `UpNextTest`. One small state holder that turns the account and the
+  onboarding preference into `Loading`, `SignIn`, `Onboarding` or `Main`, replacing the
+  `AccountLoading` sentinel and the four early `return`s; the incoming-files rule (push Import
+  unless it is on top) next to it or in a two-line helper, whichever reads better. The next
+  program day for the "+" menu (`UpNext`) becomes a plain function over the program state, the
+  links and the texts, tested on its own. Tests: each state from the flows' values, including
+  "not read yet" never showing sign-in.
+- [x] **4. The chrome and the routes out of the file.** Done in #122: `ui/nav/AppChrome.kt` and
+  `ui/nav/Routes.kt`, moved as they were; `App.kt` is down to `App`, `AppBody` and `Main`.
+  `TopBar`, `BottomNav`, `LiveSessionBar`,
+  `IconCircle` and `Tab.icon` into `ui/nav/` (e.g. `AppChrome.kt`); `ScreenContent` and
+  `ScreenBody`'s `when` over `Screen` into e.g. `ui/nav/Routes.kt`. A pure move: no behaviour,
+  wording or look changes, and the screenshot tests unchanged.
+- [x] **5. Finish.** Done in #123: `observeUpNext` beside `findUpNext`, `ThemeMode.isDark()` in
+  `ui/theme/Theme.kt`, and `Main` moved as it was to `ui/nav/AppFrame.kt`; `App.kt` is `App` and
+  `AppBody`, 149 lines. `App.kt` now holds `App` and `AppBody` assembling the theme, the language,
+  the gates, the pieces above and the chrome; no repository flow is combined in it and no rule
+  is decided in it. Aim for well under 200 lines, but the measure is that every remaining line
+  is assembly. `docs/how-it-works.md` "Modules" names the pieces in a sentence (rule 2), and
+  `auth-plan.md`'s "Where things are" row for `App.kt` is left alone (it is history).
+
+Every step: the existing desktop tests and item 32's pass unchanged, the screenshot tests too,
+and the pull request lists the test plan checks it touched (below, item 33).
+
+Tests: per step, as above.
+
+### 34. ScreenModel actions: one way to launch them and to handle their failures
+
+- [x] Done
+  Done in #124
+
+**Milestone:** Maintenance (P1). **Depends on:** nothing. Touches the same model files as
+item 35, so don't run the two at once.
+
+`ScreenModel.scope` is `CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)` with no
+exception handler, and the models call `scope.launch` about fifty times. An exception nobody
+catches there goes to the platform: on iOS an uncaught Kotlin/Native exception ends the app,
+Android crashes, and the desktop prints it. Item 1 fixed the one case found then (sign-out) at
+its source, not the pattern. Each model that does catch does it its own way: `SignInModel.run`
+and `EmailSignIn` catch the expected sign-in exceptions, rethrow `CancellationException` and
+turn anything else into a `failed` flag; `AccountDeletion` in `SettingsScreen.kt` does the same;
+`ImportModel.load` and `commit` catch `Exception`, which also swallows `CancellationException`
+and writes an error into a model that is being cleared; the rest catch nothing.
+
+1. **Inventory**, written into the pull request: every `scope.launch` under
+   `ui/screens/`, sorted into *actions the person started that can fail visibly* (sign-in, link,
+   delete account, import, save a program, pick a photo, …), *background writes that should never
+   fail in normal use* (persisting an edit, toggling a set), and *collections* (flows into
+   state, which should be `stateIn`/`collect` and rarely fail).
+2. **One small helper in `ui/ScreenModel.kt`**, e.g. `protected fun launchAction(onFailure:
+   (Throwable) -> Unit = {}, block: suspend CoroutineScope.() -> Unit): Job`, which: rethrows
+   `CancellationException`; lets the caller map the failures it expects (domain exceptions like
+   `SignInCancelledException`, `AuthNotConfiguredException`, `CsvFormatException`) inside
+   `block` as today; catches `Exception` (never `Throwable`: an `Error` stays a crash) as
+   unexpected, reports it, and calls `onFailure` so the screen can show its failure state. Plus a
+   `CoroutineExceptionHandler` on `scope` as the last line for a plain `launch` that escapes: it
+   reports and keeps the app alive in a release build.
+3. **Reporting**, one place: a small `ErrorReporter` (an interface in `shared` with a default
+   that logs through the platform's log: `println`/stderr on the desktop, `NSLog` on iOS,
+   `android.util.Log` on Android; no new library) bound in Koin. Tests bind one that records,
+   and fails the test when an unexpected exception reaches it, so the handler hides nothing in
+   tests.
+4. **Move the models onto it**: `SignInModel.run`, `EmailSignIn`, `AccountDeletion` and the
+   Settings link flow share the helper (the shared try/catch `auth-plan.md` item 3 asked for);
+   `ImportModel` stops swallowing cancellation; each action from step 1 gets a visible failure
+   where its screen already has a place for one, and the rest report only. No new UI and no new
+   strings unless a screen had no way at all to say an action failed; then one line, in both
+   `strings.xml`.
+5. `docs/how-it-works.md`: one sentence on how a model's actions fail, next to the
+   `ScreenModel` paragraph.
+
+Not an MVI framework, no sealed intent classes, no `Result` wrapping of every repository.
+
+Tests: in `:composeApp:desktopTest`, with `Dispatchers.setMain` and a test reporter: an
+action whose repository throws shows the failure state, reports once and doesn't crash;
+cancelling a model mid-action (its entry released) reports nothing and writes no state; an
+expected domain exception (a cancelled sign-in) is not reported; an `Error` is not caught.
+The existing `SignInModelTest`, `EmailSignInTest` and `AccountDeletionTest` keep passing.
+
+### 35. Explicit dependencies instead of `inject()` defaults
+
+- [x] Done
+  Done in #125
+
+**Milestone:** Maintenance (P2). **Depends on:** 34 (same files; its helper settles first). Not
+a launch blocker, and no change of DI framework: Koin stays.
+
+`ui/ScreenModel.kt` has `inject<T>() = KoinPlatform.getKoin().get(T::class)`, and the
+ScreenModels use it as default constructor arguments (`class HomeModel(..., sessions:
+SessionRepository = inject())`), so a screen's composable makes its model with only the
+arguments that aren't repositories, and a test gets the real Koin graph unless it passes every
+dependency by hand. `App.kt` calls `remember { inject<…>() }` eight times, and `SkipRestReceiver`
+once. The constructors already list their dependencies; what hides them is the default.
+
+1. Drop the `= inject()` defaults from every ScreenModel constructor. Each screen composable
+   passes them where it makes the model (`rememberScreenModel { HomeModel(texts, inject(),
+   inject()) }`), so the composable is the one factory boundary and the model knows nothing of
+   Koin. If that reads worse than a Koin `factory` per model with `parametersOf(texts, …)`, the
+   pull request may choose that instead and say why; either way no model class calls Koin.
+2. `inject()` stays for composables only: its KDoc says so, and `KoinPlatform` appears in the
+   platform entry points (`GainsApplication`, `MainViewController`, `main.kt`),
+   `SkipRestReceiver` (a `BroadcastReceiver` has no constructor of ours; keep it, or make it a
+   `KoinComponent`) and the Android `Context` lookups in `platform/Language.kt` and `Motion.kt`,
+   and nowhere else. `App.kt`'s own lookups go into the constructors of item 33's pieces, made in
+   one place in `App`; if 33 is not done yet, leave `App.kt` to it.
+3. Tests that build a model get simpler: they pass fakes or the test database's repositories
+   directly (`SignInModelTest`, `SyncUiTest`, `AccountDeletionTest` and any other test that
+   builds a model). Don't rewrite tests that already work through Koin unless they touch a
+   changed constructor.
+4. `docs/how-it-works.md`'s Koin paragraph: Koin wires the graph at the entry points and the
+   screens take what they need from it; models are plain classes.
+
+Tests: all existing tests; `grep -rn "= inject()" composeApp/src` returns nothing.
+
+### 36. Architecture docs back in step with the code
+
+- [x] Done
+  Done in #126
+
+**Milestone:** Maintenance (P2). **Depends on:** nothing. Items 33–35 and 37 then keep the docs
+true in their own pull requests (rule 2).
+
+The docs have drifted from what the code does. Found so far:
+
+- `docs/how-it-works.md`, "Accounts and sync": "Today that is Sign in with Apple and with Google
+  on iOS … Android and the desktop still run as guests." All three platforms have Apple and
+  Google (items 9, 11, 15, 16), and email and password once the server has a mail account
+  (item 18); the first paragraph says "Continue with Google / Apple" only.
+- `docs/how-it-works.md`, the modules table: the server is "sign-in with Google or Apple identity
+  tokens" (it also runs Apple's web flow and email accounts), and the diagram's server box and
+  the table should match `docs/sync.md`'s description of the server.
+- `README.md`, "Local first": "Sign in with Apple on iOS syncs it".
+- `docs/development.md`, Roadmap "Done so far": only the iOS sign-in; Android and desktop
+  sign-in and email accounts are done too (Known limitations already says so).
+
+1. Read `docs/how-it-works.md`, `README.md`, `docs/development.md` and `docs/sync.md` against the
+   code (`AuthConfig`, the platform `IdentityProvider`s, `Routes.kt`, `SyncController`, the Koin
+   modules, `ScreenModel`/`Navigator`) and fix every statement about platforms, providers,
+   modules and the app's structure that is no longer true, including the ones above. Correct
+   what is wrong; don't restyle or rewrite what is right.
+2. The mermaid diagram in `how-it-works.md`: the sign-in and sync arrows as they are (all three
+   platforms, the server's web flow for Apple off iOS), nothing more detailed than it is now.
+3. `auth-plan.md` is a finished plan: leave it as history, except a line at the top saying its
+   "Where things are" table was true at release 1.5.
+4. No new documents.
+
+Tests: none; `docs/` changes skip the iOS job. Links checked by opening the rendered files.
+
+### 37. Module boundaries: a wire-protocol module, and when to split features
+
+- [x] Done
+  Done in #127
+
+**Milestone:** Maintenance (P2, after launch). **Depends on:** 27 (both rewrite build files).
+Nothing is split unless this item's measurements say the graph gets better.
+
+Three modules today: `shared` (KMP: domain, import, SQLDelight, the sync client and the wire
+format), `composeApp` (the UI and the entry points) and `server` (Ktor, JVM). That is the right
+size for the project now. One boundary is worth a look: `server` depends on all of `:shared`
+(`implementation(project(":shared"))`) to reuse the wire format, and `shared`'s `commonMain`
+carries `api` dependencies on Koin, Ktor client and kotlinx-datetime, and its JVM target the
+SQLDelight SQLite driver and Ktor CIO client, so the server's classpath holds the app's client
+database, DI container and HTTP client. What the server actually imports from it: the request and
+response classes in `sync/Protocol.kt`, `SyncJson`, `SyncKinds`, `PhotoDoc` from `Documents.kt`,
+`AppleWebFlow`'s constants, and `SyncApi.PAGE` and `SyncApi.HEADER_UPDATED_AT` from the client
+class itself.
+
+1. **Measure first:** the server's `runtimeClasspath` (`./gradlew :server:dependencies
+   --configuration runtimeClasspath`) and the size of `build/install/gains-server/lib`; and
+   whether a change to a client-only file in `shared` (a repository, the SQLDelight schema)
+   recompiles and re-tests the server.
+2. **Decide, and write the decision here.** If the server carries a real amount of client code
+   and rebuilds for client changes: a small `:protocol` KMP module (`commonMain` only,
+   kotlinx-serialization and nothing else) holding `Protocol.kt`, `SyncJson`, `SyncKinds`, the
+   document shapes the server reads, the Apple web-flow constants and the protocol constants
+   moved out of `SyncApi`; `shared` and `server` both depend on it and `server` no longer on
+   `shared`. Package names stay, so the move is imports only. If the gain is small, say so and
+   stop.
+
+   *Measured and decided (September 2026):* split. The server shipped 71 jars (about 42 MB);
+   `:shared` brought `shared-desktop.jar` (1.3 MB), Koin and its three stately jars, Ktor's CIO
+   client and SQLDelight's coroutines extensions, none of which the server's main code calls.
+   Ktor's client core and kotlinx-datetime stay: Ktor's server auth plugin brings them itself.
+   With `:protocol` (a 105 KB jar) the install is 63 jars, about 40 MB. The bigger cost was the
+   rebuild: `deploy.yml` ran on any change under `shared/src/commonMain/`, and of the 40 merges
+   to `main` since 2 September that touched it, 7 touched a file the server uses; the other 33
+   each rebuilt, retested and restarted the server for app-only changes. Now the deploy runs on
+   `protocol/**` instead, and the server's main compile classpath has no `:shared`. It stays a
+   test dependency: the round-trip tests run the app's real sync client against the routes, so
+   CI still tests the server against every change to `:shared`. What moved: `Protocol.kt` whole,
+   with `SyncApi.PAGE` and `SyncApi.HEADER_UPDATED_AT` as `SyncProtocol`; `SyncKinds` and
+   `PhotoDoc` into `Kinds.kt`, the synced setting keys staying in the app as
+   `SyncedSettings.keys` because they name the app's repositories; and Android's callback as
+   `AppleWebCallback.ANDROID`, the rest of `AppleWebFlow` being the app's.
+3. **Feature modules: don't create any now.** Write in `docs/development.md` when splitting
+   `composeApp` or `shared` into feature modules becomes worth it, so the question is answered
+   next time by checking, not by taste: a feature with its own clear owner or reuse outside this
+   app; builds where a change in one feature recompiles unrelated ones for a noticeable time;
+   a dependency cycle between packages that a module boundary would forbid; tests that need a
+   large unrelated graph (the whole database and Koin) to test one feature. One of those, seen
+   concretely, is the trigger; screen count alone is not.
+4. `docs/how-it-works.md`'s modules table and `docs/sync.md` "The server", if step 2 adds the
+   module (rule 2).
+
+Tests: if the module is added, every test set in CI unchanged and green, and the server's
+classpath from step 1 measured again in the pull request.
+
+### 38. Android: an app module of its own, then AGP 9 and compileSdk 37
+
+- [x] Done
+  Done in #129. Steps 1–5 are in, in two commits (the move on AGP 8.13, then the bump): AGP 9.4.1
+  on Gradle 9.8.0, compileSdk 37, Compose Multiplatform 1.12.1; Material 3 stays on 1.9.0, its
+  last stable. Left: the owner's step 6 and the test plan's item 38 checks.
+
+**Milestone:** Maintenance (P2). **Depends on:** 25, 26 (CI builds Android and Xcode, which is
+how this item is checked), 27 (it left AGP on 8.x for this). Items 30 and 31 edit the Android
+application config this item moves; whichever lands second follows it to `androidApp/`. Item 39
+adds a notices plugin to the Gradle build; if it lands first, this item keeps that plugin reading
+the Android dependencies from the new modules.
+
+Item 27 had to stop at AGP 8.13.2. AGP 9 no longer accepts `com.android.application` in a module
+that also applies the Kotlin Multiplatform plugin, and `:composeApp` has both. Staying on 8.x
+holds back more than AGP. compileSdk 37 needs AGP 9.1.1 or newer (8.13 tops out at API 36.1).
+Compose Multiplatform 1.12's Android artifacts (Jetpack Compose 1.12) refuse to build with less
+than AGP 9.1 and compileSdk 37, which is why item 27 stopped at 1.11.1. And okhttp stays pinned
+at 5.4.0, the last release that builds against API 36. When this was written (September 2026),
+AGP 9.4.0 was current: Gradle 9.6.0 or newer, API 37, Android Studio Quail 4 (2026.1.4) or newer.
+The AGP 9 opt-outs (`android.newDsl=false`, `android.builtInKotlin=false`) might keep today's
+layout building for a while, but they are removed in AGP 10, so they only postpone this item.
+
+**The shape: a thin app module, everything else where it is.** Almost all the Android code in
+`composeApp/src/androidMain` uses `internal` declarations of `:composeApp` (`App`, the screen
+models, `AndroidIdentityProvider`, `WebSignIn`), and `platform/` holds `actual`s. `internal`
+isn't visible from another module, and an `actual` must stay with its `expect`. So the Kotlin, the
+manifest and the resources stay in `:composeApp`, which becomes an Android library, and the new
+module holds only what must belong to an application.
+
+1. **`:androidApp`** (`com.android.application`, `androidApp/build.gradle.kts` in the Kotlin DSL,
+   no Kotlin sources), depending on `:composeApp`. It takes everything application-only from
+   `composeApp/android.gradle`:
+   - `applicationId "app.gains"`, unchanged, so Play and devices see the same app. `namespace`
+     must differ from the library's, which stays `app.gains` (`app.gains.android`, say).
+   - `versionCode`, and `versionName` from `MARKETING_VERSION`.
+   - The upload signing config, the build types and `packaging`.
+   - `lint` with `abortOnError`, plus `checkDependencies true` so the library's code is still
+     linted.
+   - A minimal `src/main/AndroidManifest.xml`. The library's manifest keeps the `<application>`,
+     the activities, the receivers and the permissions. Its relative names (`.MainActivity`)
+     resolve against the library's `app.gains` and merge into the app's.
+
+   `settings.gradle.kts` includes `:androidApp` only when `gains.android` is on
+   (`providers.gradleProperty`), so `-Pgains.android=false` (the `test` CI job, the Xcode build
+   phase, a Mac without an Android SDK) never sees it.
+2. **`:composeApp`, `:shared` and `:protocol` become KMP libraries** on
+   `com.android.kotlin.multiplatform.library`. `androidTarget { }` and the `com.android.*` plugin
+   go. The Android target is configured in `kotlin { android { namespace; compileSdk; minSdk } }`
+   (`androidLibrary { }` is the older, deprecated name). Keep the conditional wiring:
+   - The plugin is applied only when Android is on, and its block lives in each module's Groovy
+     `android.gradle`, applied **before** the `kotlin { }` block that names `androidMain`. The
+     Kotlin DSL can't mention AGP types when AGP isn't on the classpath. Check that Groovy
+     resolves `kotlin { android { } }` to the target. If it doesn't, the target can be found by
+     name in `kotlin.targets`.
+   - `:composeApp` needs `androidResources { enable = true }`, which is off by default in the
+     new plugin: the notification strings, drawables and layout use `R`, and the Compose
+     resources ship as Android assets.
+   - `:shared` needs `withHostTest { }`, so `commonTest` keeps running on the Android JVM. The
+     task becomes `:shared:testAndroidHostTest`, not `testDebugUnitTest`.
+   - The JVM target is set on the module's `KotlinJvmCompile` tasks (17, as now).
+   - The okhttp constraint in `shared/build.gradle.kts` goes.
+3. **`BuildConfig` goes.** The KMP library plugin has no variants and no `BuildConfig`, and
+   `androidAuthConfig()` reads four fields from it. They become string resources instead:
+   - Empty defaults in `composeApp/src/androidMain/res/values/sign_in_config.xml`
+     (`translatable="false"`).
+   - `:androidApp` overrides them with `resValue` from the same Gradle properties
+     (`gains.serverUrl`, `gains.googleWebClientId`, `gains.appleServicesId`,
+     `gains.passwordSignIn`). `buildFeatures { resValues true }` is set explicitly, since AGP 9
+     changed the defaults.
+   - `androidAuthConfig(context)` reads `R.string.…`. An app resource overrides a library's with
+     the same name, so the library code needs no knowledge of the app.
+   - `docs/development.md` "Android" and the Play workflow's variables keep their property names.
+4. **Versions**, once 1–3 build on AGP 8.13 (the move and the bump in separate commits, so a
+   failure says which one broke):
+   - AGP 9.4 or the current 9.x, the Gradle wrapper it asks for (9.6 or newer), and a look at
+     the build for Gradle 9 removals.
+   - `compileSdk 37`. `targetSdk` stays at 36: raising it opts the app into Android 17's
+     runtime behaviour, which is its own item, as item 21 was for 36.
+   - Compose Multiplatform 1.12.x with the Material 3 version its plugin names.
+   - The okhttp pin dropped from the catalog.
+   - In `.github/dependabot.yml`, the `gradle-wrapper` and okhttp ignores go (#113 was the
+     wrapper's Gradle 9.8 major, which AGP 8.13 can't run on).
+5. **Paths:**
+   - `.github/workflows/ci.yml`: the `android` job becomes `:androidApp:assembleDebug
+     :androidApp:lintDebug :shared:testAndroidHostTest`, and the lint report path moves.
+   - `tools/play.py` and `tools/test_play.py`: `ANDROID_GRADLE` becomes the app module's build
+     file, `BUNDLE` becomes `androidApp/build/outputs/bundle/release/androidApp-release.aab`,
+     and the task is `:androidApp:bundleRelease`.
+   - `docs/play.md`, `docs/development.md` (the commands, the Android Studio run configuration,
+     the Android Studio version, "Built with"), `README.md`, the checks in `auth-plan.md`, and
+     this file's items 30 and 31 where they name `composeApp/android.gradle`.
+   - `docs/how-it-works.md`'s modules table gains `androidApp/`, and `docs/development.md`
+     "Modules" counts it.
+6. **Owner:**
+   - Android Studio Quail 4 or newer.
+   - Once CI is green, one release round to the closed testing track. Play must take the bundle
+     as an update: same application id, same upload key, a higher `versionCode`.
+   - On a phone that has the previous closed-testing build, the update installs over it with
+     the workouts, the sign-in and the settings still there.
+
+Tests: the three CI jobs on the pull request. `:shared`'s Android host tests run the same
+`commonTest` count as `testDebugUnitTest` did (compare the two reports). The merged manifest of a
+debug build (`androidApp/build/intermediates/merged_manifests/…`) has `package="app.gains"`, the
+three receivers, both activities and the App Link filter. The four sign-in values reach the app:
+with `-Pgains.serverUrl=…` set, the generated `resValues` carries it. The manual checks are in the
+test plan, "Android app module (item 38)".
+
+### 39. Open source under MPL-2.0: the license, its scope, the notices, no personal data
+
+- [ ] Done
+
+**Milestone:** iOS launch. **Depends on:** nothing. **Launch blocker:** items 7 and 14 depend on
+it. One pull request. The owner makes the decisions marked **Owner decides** first, and they are
+written here (*Decided:* …) before the pull request starts.
+
+`gerra/gains` has been public on GitHub since 2 September 2026. The README still says "No license
+yet; all rights reserved", so anyone can read the code and nobody may reuse it. The owner has
+decided to license Gains' own source code under the Mozilla Public License 2.0. MPL-2.0 is a
+file-level copyleft: a changed MPL file stays MPL-2.0 and its source must be offered, the files
+around it may be under any license, and App Store and Play distribution is allowed. Three things
+make this more than adding a file:
+
+- The tree holds work that isn't Gains', and MPL-2.0 can't relicense it. The license covers only
+  what the owner may license.
+- The tree holds `liftoff_workout_data.csv`, which looks like a real person's training log, and
+  test fixtures copied from it. They must be gone before a public license is applied.
+- The shipped builds (TestFlight, Play closed testing) already contain the body drawing's path
+  data without its MIT notice. The MIT license asks for that notice in every copy, so the builds
+  owe notices whatever license Gains uses.
+
+**Found so far.** Step 2 completes this list; nothing here is a finished inventory.
+
+| Path | What | Origin | License, as found |
+|---|---|---|---|
+| `composeApp/src/commonMain/composeResources/files/exercises/*/{0,1}.webp` (274 exercises, 548 photos) | Start and end photos, scaled to WebP by `tools/exercise_demos.py` | [free-exercise-db](https://github.com/yuhonas/free-exercise-db), fetched from `main` | Unlicense, per `docs/development.md`. Not yet checked that it covers the images |
+| `composeApp/.../ui/demo/ExerciseDemos.kt` (generated); the `// src:` names in `shared/.../catalogue/ExerciseCatalogue.kt` (183) | Which exercise has which photo; exercise names | free-exercise-db | Unlicense |
+| `composeApp/.../ui/charts/BodyMapPaths.kt` (generated) | The body outline behind the muscle map | [react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter) | MIT, © 2022 ELABBASSI Hicham. The notice is in the file header |
+| `shared/src/desktopTest/.../auth/GoogleOAuthTest.kt` | The PKCE example values | RFC 7636, Appendix B | IETF Trust. Test only, never shipped |
+| `docs/screenshots/*.png`, `docs/animations/*` | App screens rendered by `ScreenshotTest` from `samples/liftoff-export.csv` (the Screenshots workflow) | Gains | Gains' own. They show the name and logo (step 3) |
+| `site/img/hero.webp`, `site/img/shot-*.webp` | The hero is a framed phone cut from an App Store screenshot (commit `c191bac`). Its data runs to 19 September with 58 bench sessions, which is not the sample export (January–August 2026) | Unknown: the device, the data and the frame | Unknown |
+| `ui/components/Logo.kt` (`GainsLogo`), `composeApp/src/androidMain/res/drawable/ic_launcher_*.xml`, `ic_notification.xml`, `iosApp/.../AppIcon.png`, `docs/screenshots/logo.png`, `site/img/logo.png`, `site/img/favicon-32.png`, `site/apple-touch-icon.png` | The Gains mark, drawn in code. The vector and the PNGs mirror or render it | Gains | Copyright is Gains'. The name and mark are step 3 |
+| `samples/liftoff-export.csv` | "A generated eight-month Liftoff export" (`docs/how-it-works.md`). No generator is in the tree | Gains, it says | To confirm (step 4) |
+| `liftoff_workout_data.csv` | 1,721 rows, December 2024 to August 2026, with irregular times and free-text notes ("In Vit gym", "It was deep !"). No code, test or doc references it | Most likely the owner's own Liftoff export | Not to be licensed (step 4) |
+| `shared/src/commonTest/.../csv/Fixtures.kt` (`SAMPLE`, `CRLF`), `LiftoffCsvParserTest.kt`, `ImportAnalyzerTest.kt` | Rows and notes copied from that export (`2026-02-18 20:40:47`, "I used one dumbbell…", `+53kg`) | The same export | Step 4 |
+| Fonts | None bundled. Every platform uses its system font | — | — |
+| Icons in the UI | `material-icons-core`, a Maven dependency | Google / JetBrains | Apache-2.0. Covered by step 5's dependency list |
+
+1. **The license file and the README.**
+   - `LICENSE` at the root: MPL-2.0 exactly as Mozilla publishes it
+     (`https://www.mozilla.org/media/MPL/2.0/index.txt`). Nothing is added to it, not even a
+     copyright line or the project's name, so that GitHub detects it as `MPL-2.0`.
+   - No Exhibit B. Gains stays "Compatible With Secondary Licenses", which is the MPL-2.0
+     default and lets the code be combined into GPL or LGPL works.
+   - **Owner decides** who the copyright holder is: *Recommended:* the name the commits carry,
+     "German Berezhko", or a legal name the owner prefers. The line
+     `Copyright © 2026 <holder>` goes in `NOTICE.md` (step 2) and the README, never in
+     `LICENSE`.
+   - Exhibit A's notice ("This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0 …"). **Owner decides:** a header in every source file, or one notice.
+     *Recommended:* one notice, at the top of `NOTICE.md` and in the README. Exhibit A allows
+     this "in a location … where a recipient would be likely to look". A header in about 400
+     files is churn, and headers can come later in a pull request of their own. Files that
+     carry another license keep their own header (`BodyMapPaths.kt`).
+   - README, "License": replace "No license yet; all rights reserved." with a short statement.
+     Gains' original source code is under MPL-2.0 (link `LICENSE`). The exercise photos and
+     the body drawing keep their own licenses. The Gains name and logo are not licensed as
+     marks. `NOTICE.md` lists what is covered and what isn't. Keep both credits and the
+     "Built with" link.
+   - README, "Contributing": contributions are accepted under MPL-2.0, the license they are
+     contributed to. There is no CLA and no sign-off, unless the owner wants a DCO line.
+
+2. **Scope: the inventory, then `NOTICE.md`.** Go through `git ls-files` and complete the table
+   above. It must cover every file that isn't Kotlin, Swift, Python, SQL, Gradle or YAML written
+   here, and every source file with outside content (grep for license headers, "copied from",
+   "ported", "adapted", and URLs in comments). For each third-party work, record the upstream
+   URL, the commit or date it came from, its license, and the attribution the license needs.
+   - **free-exercise-db.** Read the upstream `LICENSE` and README at the commit the photos came
+     from, and confirm that the Unlicense dedication covers the images, not only the JSON. If the
+     images turn out to come from somewhere else, or the rights are unclear, **Owner decides**:
+     keep them with that fact written in `NOTICE.md`, or drop them. Dropping works without new
+     code: `tools/exercise_demos.py`'s `SKIP` path already falls back to a video search. Pin
+     `DB_URL` and `IMAGE_URL` in the script to that commit instead of `main`, so the provenance
+     can be reproduced.
+   - **react-native-body-highlighter.** `BodyMapPaths.kt` stays under MIT as a whole: it is
+     generated from the upstream data, and the notice stays in its header. `NOTICE.md` and the
+     app (step 5) carry the MIT notice in full.
+   - **The site's images.** Find out where each `site/img/*.webp` came from: the device, whose
+     data it shows (step 4), and the phone frame around the hero. If the frame is Apple's
+     marketing artwork or a template with its own terms, record it as an exception, or replace
+     the images with frames made here or with plain screenshots.
+   - **Docs and site text.** **Owner decides:** *Recommended:* MPL-2.0, like the code, so every
+     file written for Gains has one license. The alternative is CC BY 4.0 for `docs/` and
+     `site/`.
+   - **`NOTICE.md`** at the root holds:
+     - the copyright line and Exhibit A's notice;
+     - one sentence: "Files written for Gains are licensed under MPL-2.0, except those listed
+       below";
+     - the exceptions, as a table of path, author, license, link and what the license needs;
+     - the name and logo paragraph (step 3);
+     - one sentence saying that MPL-2.0 doesn't change the license of any third-party work in the
+       repository.
+   - **No blanket statements.** No README, site page, store listing or doc may say that
+     "everything in this repository" is MPL-2.0, or that it is free to reuse.
+
+3. **The name, the logo and the branding.** MPL-2.0 section 2.3 grants "no rights in the
+   trademarks, service marks, or logos of any Contributor". Nothing written for this item may
+   suggest otherwise. **Owner decides:**
+   - *Recommended:* the logo's files stay in the tree under MPL-2.0 as far as copyright goes.
+     They are code (`Logo.kt`, the vector drawables) and renders of it, and the app needs them to
+     build. A paragraph in `NOTICE.md` says the name "Gains" and the mark are not licensed for
+     use as a name or mark. A fork that distributes a build gives it another name and icon, and
+     doesn't suggest that it is Gains or is endorsed by it. The paragraph describes how the name
+     may be used. It claims no registration.
+   - *Alternative:* the logo files stay "all rights reserved", outside MPL-2.0. Then a fork can't
+     build without replacing `Logo.kt`. That needs a stand-in mark and an exception row for each
+     file, which is more to maintain for little gain.
+
+   The same wording goes wherever the license is mentioned: the README, the site's footer and
+   the in-app screen (step 5).
+
+4. **No personal data in the tree before the license lands.**
+   - `liftoff_workout_data.csv`: **Owner confirms** whose export it is, then this pull request
+     deletes it. Nothing uses it: `git grep -n liftoff_workout_data` finds only this file.
+   - The fixtures copied from it: `Fixtures.SAMPLE` and `Fixtures.CRLF`, and the rows repeated in
+     `LiftoffCsvParserTest.kt` and `ImportAnalyzerTest.kt`. Replace them with made-up rows that
+     keep every case the tests exercise:
+     - warm-up sets out of order;
+     - a quoted note with a comma, and one with a curly apostrophe;
+     - a short note like `+53kg`;
+     - a time-only set (dead hang), a distance set (running) and a bodyweight set;
+     - CRLF endings and an RPE.
+     Use other dates, weights and notes, and change the assertions to match. Keep every test,
+     weaken none of them, and keep the test count the same.
+   - The other fixtures (`OUT_OF_ORDER`, `DUPLICATES`, `CORRUPT_DURATIONS`,
+     `ISOMETRIC_OUTLIERS`, `EMPTY_ROWS`, `SHUFFLED_SET_ORDER`, the Strong, Hevy and generic rows
+     in `ConnectorsTest`, and the documents in `MigrationTest`, `SyncStoreTest` and
+     `IntegrationTest`) look made up, with round times and no notes. Confirm each one, and
+     replace any that isn't the same way.
+   - `samples/liftoff-export.csv`: confirm that it is synthetic, and say how it was made in
+     `docs/how-it-works.md`'s `samples/` row. If its generator still exists, commit it under
+     `tools/`.
+   - The site's images and the store screenshots: if they show real workouts, **Owner decides**
+     whether to keep them, with consent to publish their own data, or to regenerate them from the
+     sample export. The Screenshots workflow renders the same screens.
+   - **History. Owner decides.** The repository is public, so the export and the fixtures are
+     already in its history, and in any clone or fork. Deleting them from `main` doesn't remove
+     them from past commits. The options:
+     - *Accept it*, if the data is the owner's own and the owner is content to leave it there.
+     - *Rewrite history* before this pull request merges: `git filter-repo --invert-paths --path
+       liftoff_workout_data.csv`, plus `--replace-text` for the fixture rows, and a force-push,
+       then ask GitHub Support to drop cached views. This changes every commit hash from the
+       first affected commit onwards: the `testflight/*` tags must be pushed again, open pull
+       requests and existing clones no longer match, and forks keep the old copies.
+
+     The pull request itself never rewrites history. If the owner chooses to rewrite, the owner
+     does it before the merge.
+
+5. **The license and notices in every distributed build.** MPL-2.0 section 3.2 says whoever
+   distributes Gains as an app must tell recipients how to get its source. The MIT notice for the
+   body drawing, and the notices of the dependencies compiled into the app (Apache-2.0, MIT,
+   BSD), travel with the binaries too. The owner, as the licensor, isn't bound by the license on
+   their own code, but forks are, and the third-party notices are owed today.
+   - **One in-app place on every platform.** Settings gains an "Open-source licenses" row
+     opening a screen with:
+     - the app version;
+     - "Gains is licensed under the Mozilla Public License 2.0", with links to the license text
+       and to the source (`https://github.com/gerra/gains`). The source of every release is
+       tagged `testflight/<version>/<build>`;
+     - the name-and-logo sentence (step 3);
+     - the third-party works from `NOTICE.md`: the body drawing's MIT notice in full, and the
+       free-exercise-db credit;
+     - the dependency list, each entry with its license. The Apache-2.0 text appears once in
+       full.
+
+     The row and headings go in both `strings.xml`. The license texts stay in English.
+   - **The dependency list. Owner decides** how it is made. *Recommended:* the AboutLibraries
+     Gradle plugin (`com.mikepenz.aboutlibraries.plugin`) only, without its UI library. It reads
+     the POMs of the KMP targets, including the iOS framework's, and writes a JSON file that
+     `composeResources` ships. Gains' own small screen then draws it. Its strict mode fails the
+     build on a license not in an allowed list, so the list follows the version catalog and
+     Dependabot (item 29) without anyone editing it. First check that it works with AGP 8.13 and
+     the iOS targets. *Alternative:* a checked-in `THIRD_PARTY_LICENSES` file, regenerated by a
+     `tools/` script. Either way, the works that aren't Maven dependencies (the body drawing, the
+     photos) are entries written by hand from `NOTICE.md`, in one file that both the screen and
+     `NOTICE.md` are checked against.
+   - **iOS:** the screen covers it. The App Store description and the site's `/support` page link
+     the source.
+   - **Android:** the screen covers it, since Play bundles show no license on install. The Play
+     listing's description links the source.
+   - **Desktop:** `nativeDistributions` in `composeApp/build.gradle.kts` gains
+     `licenseFile.set(rootProject.file("LICENSE"))`, `copyright` and `vendor`. Check what
+     `packageDmg`, `packageMsi` and `packageDeb` do with them (the MSI shows the file as its
+     license agreement). No workflow publishes desktop builds today, so this is a local check.
+   - **Server:** it is never handed to anyone, and MPL-2.0 has no network clause, so running it
+     needs nothing more than the public repository.
+   - **Site:** a footer line on every page, "Gains is open source under MPL-2.0", linking the
+     repository. The privacy policy doesn't change.
+
+6. **Who owns the code, and where it came from.**
+   - List every author on a full clone. The agents' checkouts are shallow, so run
+     `git fetch --unshallow` first, then `git log --format='%an <%ae>' | sort -u`, and add the
+     authors of every merged pull request. At the time of writing they are the owner, `Claude`
+     (commits made in the owner's own sessions), `github-actions[bot]` (screenshots, releases) and
+     `dependabot[bot]` (version bumps). Any other person's contribution needs their agreement to
+     MPL-2.0, or is removed. `NOTICE.md` says what was found.
+   - Outside code in the sources: so far only the body drawing, and RFC 7636's example values in
+     `GoogleOAuthTest`. Record the RFC values as a test-only exception; they are the RFC's
+     published test vector. Anything in doubt goes in `NOTICE.md`'s exceptions, never under the
+     blanket statement.
+   - Generated files keep their inputs' licenses: `ExerciseDemos.kt`, `BodyMapPaths.kt`. The
+     SQLDelight output and other build output are not in the tree.
+
+7. **Docs.**
+   - `docs/development.md` "Built with": the two credits link `NOTICE.md`.
+   - `docs/how-it-works.md`: the `samples/` row (step 4).
+   - This item's decisions go under their steps (*Decided:* …).
+   - Nothing in `auth-plan.md` changes.
+
+Tests: the existing test sets pass on the new fixtures with the same number of tests. No new
+automated tests: if the notices plugin's strict mode is chosen, it is a build check. The manual
+checks are in the test plan, item 39.
 
 ---
 
@@ -1197,12 +1965,35 @@ build fails a check, open an issue and link it next to the box.
       A second deploy and `deploy_server.py secrets` both come back healthy, and
       `sqlite3 /var/lib/gains/gains-server.db 'SELECT count(*) FROM guest_list'` still works as root.
 - [ ] Item 23: twenty quick `POST /auth/google` with `{"token":"x"}` end in **429** after the
-      burst, and so do twenty to `api.gains.gerra.sh/guest-list`. A first sync of a long
+      eleventh, and twenty to `api.gains.gerra.sh/guest-list` after the sixth. A first sync of a long
       history with photos still completes, and a throttled device shows "Couldn't sync", not
       "Signed out on the server".
 - [ ] Item 24: `sqlite3 /var/lib/gains/gains-server.db 'SELECT refresh_token FROM identity'`
       shows `v1:` ciphertext after an Apple sign-in, and Delete account still removes Gains from
       the Apple ID (the item 6 check).
+
+**39. MPL-2.0 license**
+- [ ] The repository page on GitHub shows "MPL-2.0 license". `LICENSE` matches Mozilla's text
+      exactly: `curl -s https://www.mozilla.org/media/MPL/2.0/index.txt | diff - LICENSE` prints
+      nothing.
+- [ ] The README's License section no longer says "all rights reserved", and names the
+      copyright holder, the exceptions, and the fact that the name and logo aren't licensed.
+      `git grep -in "all rights reserved"` finds only this plan's history.
+- [ ] `NOTICE.md` has a row for every third-party path in item 39's table, and the body drawing's
+      MIT notice in full. No page says that everything in the repository is MPL-2.0.
+- [ ] `liftoff_workout_data.csv` is gone, and `git grep -nE "In Vit gym|2026-02-18 20:40:47|\+53kg"`
+      finds nothing. If the owner chose the rewrite, `git log --all --oneline --
+      liftoff_workout_data.csv` on a fresh clone prints nothing.
+- [ ] The site's images show sample data only, or the owner's decision under item 39 says why not.
+- [ ] On a TestFlight build and on a Play closed-testing build containing the item: Settings →
+      "Open-source licenses" opens. It shows MPL-2.0, and the source link opens
+      `github.com/gerra/gains`. The body drawing's MIT notice, the free-exercise-db credit, and a
+      dependency list naming Compose, Ktor, Koin and SQLDelight with their licenses are all there.
+      In Russian, the row and the headings are translated.
+- [ ] Desktop: the same screen in `./gradlew :composeApp:run`. A local `packageDmg`,
+      `packageMsi` or `packageDeb` (whichever the machine builds) carries `LICENSE`.
+- [ ] Every page of `gains.gerra.sh` has the license footer, with a working link to the
+      repository.
 
 ### Android (items 9–13)
 
@@ -1268,6 +2059,36 @@ On an Android 16 device or emulator, with a build containing item 21.
 - [ ] Item 31: after `bmgr backupnow`, uninstall and reinstall, what comes back matches the
       decision written under item 31, and the privacy policy's backup sentence matches it too.
 
+### Architecture (items 32–37)
+
+No new screens; these catch a refactor that changed behaviour. On one phone and the desktop, with
+a build containing the step.
+
+- [ ] Item 33 (each step): a fresh install shows the sign-in screen with no flash of the app
+      first, then onboarding, then Home; an existing install opens straight on Home.
+- [ ] Item 33, steps 1 and 4: start a workout, go to another tab: the workout bar shows and
+      "Resume" opens it; on a phone the notice follows the sets, a rest shows its countdown,
+      "Skip rest" ends it from the tray both with the editor open and with it covered, and a tap
+      on the notice opens the workout.
+- [ ] Item 33, step 2: with the streak reminder on, a reminder is scheduled in the chosen
+      language, and switching the language re-words it; switching it off cancels it.
+- [ ] Item 33, step 3: "Open with" / share a CSV opens the import preview once; the "+" menu
+      offers the program's next day.
+- [ ] Item 33: open Settings from a scrolled History, switch the language, go back: History is
+      where it was left, and the tabs keep their screens.
+- [ ] Item 34: in airplane mode, a sign-in, a link from Settings and Delete account each show
+      their error line and the app stays up; a broken CSV shows the import error, not a crash.
+      The failed sign-in is in the platform's log ("Gains: unexpected error" in the Xcode console,
+      `adb logcat -s Gains` on Android, stderr on the desktop); the closed sheet is not.
+- [ ] Item 35: every screen still opens with its data: Home, History and a past workout's
+      editor and summary, Programs, a program and its editor, Lifts and a lift's detail, Volume,
+      Trophies, Bodyweight, Import and Settings. On Android, with a rest running, swipe the app
+      away and tap "Skip rest" on the notice: the rest ends and the notice is redrawn.
+- [ ] Item 37: after the merge the Deploy server workflow runs and `/health` answers. A workout
+      logged on the phone arrives on the desktop with its photo, and Sign in with Apple on
+      Android comes back to the app. A later merge that changes only the app (not `protocol/`
+      or `server/`) starts no server deploy.
+
 ### Desktop (items 15–17)
 
 - [ ] Google and Apple open the browser and come back signed in. Closing the tab times out
@@ -1322,6 +2143,47 @@ On an Android 16 device or emulator, with a build containing item 21.
       join it.
 - [ ] Create a passkey, then sign in with it on the same device, and on a second device through
       iCloud Keychain or Google Password Manager.
+
+### Dependency pass (item 27)
+
+On the first TestFlight build and Play bundle after item 27, on a device each:
+
+- [ ] Sign in, log a set, and see it arrive on the other device.
+- [ ] Attach a photo to a workout; it shows on the other device.
+- [ ] Import `samples/liftoff-export.csv`: the preview and the imported workouts look right.
+- [ ] Click through every tab, a date and a time picker, a dropdown and a bottom sheet in dark
+      and light: nothing looks different from the build before, apart from Compose's own polish.
+- [ ] Android: Sign in with Google (Credential Manager) and with Apple (the Custom Tab) both
+      still finish.
+
+### Dependabot (item 29)
+
+On the first Monday after item 29 is on `main`:
+
+- [ ] Insights → Dependency graph → Dependabot lists both `github-actions` and `gradle` as
+      checked, with no error on either.
+- [ ] Its pull requests come grouped (one for the actions, at most one per Gradle group), and
+      none proposes a Kotlin or Compose minor, or a Koin or AGP major. (okhttp was held below
+      5.5.0 too until item 38.)
+- [ ] CI runs on them and goes green, or goes red for a reason in the bump itself.
+
+### Android app module (item 38)
+
+On the first closed-testing build from `:androidApp`:
+
+- [ ] Play Console takes the bundle as an update of `app.gains`, with no new-app or key warnings.
+- [ ] On a phone with the previous closed-testing build, the update installs over it: workouts,
+      sign-in and settings are still there.
+- [ ] Sign in with Google and with Apple (the App Link comes back to the app), sync a photo,
+      import a CSV through "Open with".
+- [ ] The workout notification (with "Skip rest"), a streak reminder, and the reminders after a
+      reboot.
+- [ ] The launcher icon and name, and the app in Russian (Settings → Language).
+- [ ] With `GAINS_PASSWORD_SIGN_IN` set for the build, the email form shows on the sign-in screen,
+      and without it, it doesn't: the four sign-in settings are string resources now, not
+      `BuildConfig`.
+- [ ] Compose Multiplatform 1.12: Home, a workout in progress with the keyboard up, the exercise
+      picker sheet, the charts and Settings look and scroll as on the previous build.
 
 ---
 

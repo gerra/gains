@@ -43,6 +43,7 @@ import app.gains.domain.Exercise
 import app.gains.domain.Modality
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
@@ -65,6 +66,7 @@ import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +75,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal enum class Window(val days: Int?) { M3(90), M6(180), Y1(365), ALL(null) }
@@ -97,10 +98,11 @@ internal data class ExerciseDetailState(
 
 internal class ExerciseDetailModel(
     private val exerciseId: String,
-    trainingData: TrainingData = inject(),
-    private val exercises: ExerciseRepository = inject(),
-    settings: SettingsRepository = inject(),
-) : ScreenModel() {
+    trainingData: TrainingData,
+    private val exercises: ExerciseRepository,
+    settings: SettingsRepository,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val window = MutableStateFlow(Window.M6)
 
     val state: StateFlow<ExerciseDetailState> = combine(
@@ -130,13 +132,13 @@ internal class ExerciseDetailModel(
     fun setWindow(w: Window) { window.value = w }
 
     fun setWorkingSetRatio(ratio: Double?) {
-        scope.launch { exercises.setWorkingSetRatio(exerciseId, ratio) }
+        scope.launchAction { exercises.setWorkingSetRatio(exerciseId, ratio) }
     }
 }
 
 @Composable
 internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) -> Unit = {}) {
-    val model = rememberScreenModel(exerciseId) { ExerciseDetailModel(exerciseId) }
+    val model = rememberScreenModel(exerciseId) { ExerciseDetailModel(exerciseId, inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val exercise = state.exercise
     if (state.loading) return

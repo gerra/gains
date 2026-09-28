@@ -1,0 +1,53 @@
+name: CodeQL
+
+# Code scanning of the Kotlin (docs/launch-plan.md, item 28); findings show under Security →
+# Code scanning, and on a pull request as annotations. A workflow rather than GitHub's default
+# setup: the default setup's autobuild can't be told which tasks to run, and a Kotlin
+# Multiplatform build has no plain `build` that compiles on Linux without the iOS link. So this
+# compiles what runs on a JVM, the Android and JVM targets of the three KMP modules and the server,
+# with every task rerun and nothing from the build cache: CodeQL sees Kotlin only when kotlinc
+# actually runs, and only when it runs in Gradle's process rather than the Kotlin daemon.
+# CodeQL's Kotlin extractor trails Kotlin releases: when a Kotlin bump fails here, check its
+# supported versions before anything else.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze the Kotlin
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: java-kotlin
+          build-mode: manual
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Compile the JVM and Android code
+        run: >-
+          ./gradlew
+          :protocol:compileKotlinJvm :protocol:compileAndroidMain
+          :shared:compileKotlinDesktop :shared:compileAndroidMain
+          :composeApp:compileKotlinDesktop :composeApp:compileAndroidMain
+          :server:compileKotlin
+          -Pkotlin.compiler.execution.strategy=in-process
+          --no-daemon --no-build-cache --rerun-tasks
+      - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          category: /language:java-kotlin

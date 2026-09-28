@@ -10,7 +10,7 @@ the importer, the insights, the programs, the schema and the languages.
 ./gradlew :server:test -Pgains.android=false                   # the sync server's routes and a two-device round trip
 ./gradlew :server:run -Pgains.android=false                    # the sync server on :5003 (needs JWT_SECRET, see secrets/README.md)
 ./gradlew :shared:compileKotlinIosArm64 :composeApp:compileKotlinIosArm64 -Pgains.android=false  # the iOS compile CI runs on Linux
-python3 -m unittest discover -s tools -p 'test_*.py'            # the release, deploy and pruning scripts
+python3 -m unittest discover -s tools -p 'test_*.py'            # the release, deploy, TestFlight and pruning scripts
 ```
 
 `-Pgains.android=false` configures the build without the Android Gradle Plugin, which is what
@@ -18,7 +18,8 @@ CI does on runners without an SDK. Everything else is unaffected.
 
 ## Running it
 
-Requirements: JDK 17 or newer. Android additionally needs Android Studio with SDK 36, iOS needs
+Requirements: JDK 17 or newer. Android additionally needs Android Studio with SDK 37 (Quail 4,
+2026.1.4, or newer, for AGP 9.4), iOS needs
 Xcode on a Mac (Xcode 26 to upload to App Store Connect, which only takes builds made with the
 current iOS SDK).
 
@@ -70,23 +71,31 @@ once `gains.appleServicesId` is set, to the server's `APPLE_SERVICES_ID`; set it
 
 ### Android
 
-Open the project in Android Studio and run the `composeApp` configuration, or build an APK:
+Open the project in Android Studio and run the `androidApp` configuration, or build an APK:
 
 ```bash
-./gradlew :composeApp:assembleDebug
+./gradlew :androidApp:assembleDebug
 ```
+
+`androidApp` is the application: the application id, the version, signing, R8 and lint, and no
+code of its own. The Kotlin, the manifest and the resources are in `composeApp`, an Android
+library it wraps (AGP 9 no longer builds an application in a Kotlin Multiplatform module).
 
 A debug build carries version code 1 and the version name from `MARKETING_VERSION` in
 `iosApp/Configuration/Config.xcconfig`, the same one the iOS build shows. Release bundles for
 Play come from the release workflow, signed with the upload key and stamped with the run
-number: [docs/play.md](play.md).
+number: [docs/play.md](play.md). A release build runs R8, which a debug build doesn't, so a
+crash only the release build has is usually a missing keep rule for
+`androidApp/proguard-rules.pro`; CI's Android job builds the release bundle on every pull
+request, so an R8 error shows there.
 
 The app registers as a handler for CSV files, so exports shared from other apps open directly in
 the import preview. Several files can be shared at once.
 
 Sign-in on Android goes through Credential Manager for Google and the server's web flow for Apple
-(docs/sync.md, "Signing in"). The build compiles four Gradle properties into `BuildConfig`
-(`composeApp/android.gradle`): `gains.serverUrl` (the sync server), `gains.googleWebClientId`,
+(docs/sync.md, "Signing in"). The build turns four Gradle properties into string resources
+(`resValue` in `androidApp/build.gradle.kts`, over the empty defaults in `composeApp`'s
+`res/values/sign_in_config.xml`): `gains.serverUrl` (the sync server), `gains.googleWebClientId`,
 the Google **Web application** OAuth client, which is Credential Manager's `serverClientId` and
 the audience of the tokens the phone sends, so the server lists it in `GOOGLE_CLIENT_IDS` too,
 `gains.appleServicesId`, the same Services ID as the desktop's, which the server has as
@@ -97,7 +106,7 @@ with `-P`. The Google Cloud project also needs an **Android** client with the pa
 Signing), or the chooser refuses the app.
 
 ```bash
-./gradlew :composeApp:assembleDebug -Pgains.googleWebClientId=…apps.googleusercontent.com -Pgains.appleServicesId=app.gains.Gains.web
+./gradlew :androidApp:assembleDebug -Pgains.googleWebClientId=…apps.googleusercontent.com -Pgains.appleServicesId=app.gains.Gains.web
 ```
 
 **Sign in with Apple** ends on the App Link `https://gains.gerra.sh/auth/done`. Android opens it
@@ -120,6 +129,13 @@ in `iosApp/Configuration/Config.xcconfig`; change `TEAM_ID` there to build under
 The *Compile Kotlin Framework* phase runs Gradle with `-Pgains.android=false`, so a Mac needs a
 JDK but no Android SDK. The Xcode project wraps the `ComposeApp` framework in SwiftUI and
 registers the app as a CSV handler, so **Open in Gains** appears in the share sheet.
+
+To check that the project builds without opening Xcode or having a signing team, run what the
+[iOS workflow](../.github/workflows/ios.yml) runs on pull requests: an unsigned simulator build.
+
+```bash
+python3 tools/testflight.py build-simulator
+```
 
 To put a build on a phone without a Mac and a cable, see [TestFlight](testflight.md).
 
@@ -158,12 +174,14 @@ the estimated 1RM, the warm-up steps, the default bar weight and increments, and
 **Changing the schema.** Edit the `.sq` file and add a `migrations/N.sqm` with the same DDL;
 `MigrationTest` upgrades a database from the previous version and compares it with a fresh one.
 A new table that should sync also needs its three triggers in
-[`Sync.sq`](../shared/src/commonMain/sqldelight/app/gains/db/Sync.sq) and a document class in
-[`Documents.kt`](../shared/src/commonMain/kotlin/app/gains/sync/Documents.kt); `SyncStoreTest`
-checks that what the repositories write is what the triggers record.
+[`Sync.sq`](../shared/src/commonMain/sqldelight/app/gains/db/Sync.sq), a document class in
+[`Documents.kt`](../shared/src/commonMain/kotlin/app/gains/sync/Documents.kt) and its kind in
+[`SyncKinds`](../protocol/src/commonMain/kotlin/app/gains/sync/Kinds.kt), which the server checks;
+`SyncStoreTest` checks that what the repositories write is what the triggers record.
 
 **The sync server.** Lives in [`server/`](../server) and is deployed by the
-[Deploy server workflow](../.github/workflows/deploy.yml) on a push to `main` that touches it:
+[Deploy server workflow](../.github/workflows/deploy.yml) on a push to `main` that touches it or
+the wire format in [`protocol/`](../protocol), the one module of the app's it is built from:
 tests, `installDist`, rsync to the Hetzner box, the systemd unit from `deploy/`, a smoke test.
 The steps are [`tools/deploy_server.py`](../tools/deploy_server.py), which also runs on the
 box for the install itself. The [Deploy site and nginx workflow](../.github/workflows/deploy-site.yml)
@@ -171,9 +189,46 @@ pushes `deploy/nginx/` and `site/` (gains.gerra.sh) the same way; from a laptop,
 `python3 tools/deploy_server.py secrets` pushes the secrets
 ([secrets/README.md](../secrets/README.md) lists them). A server-only change cuts no release branch. Design and routes: [docs/sync.md](sync.md).
 
+**Modules.** Five: `protocol` (the sync wire format), `shared` (everything below the UI),
+`composeApp` (the UI and the entry points), `androidApp` (the Android application around
+`composeApp`, no code of its own) and `server`. Don't split `composeApp` or `shared` into
+feature modules by taste or by screen count. Split when one of these is seen concretely, and say
+which in the pull request:
+- a feature with an owner of its own, or reused outside this app;
+- a change in one feature that recompiles unrelated ones for a noticeable time;
+- a dependency cycle between packages that a module boundary would forbid;
+- a feature whose tests need a large unrelated graph (the whole database and Koin) to run.
+
+`protocol` was split out for the second reason ([launch-plan item 37](launch-plan.md#37-module-boundaries-a-wire-protocol-module-and-when-to-split-features)):
+every change to the app's `shared` code rebuilt and redeployed the server. `androidApp` is not a
+feature split but a build one ([launch-plan item 38](launch-plan.md#38-android-an-app-module-of-its-own-then-agp-9-and-compilesdk-37)):
+AGP 9 refuses `com.android.application` in a Kotlin Multiplatform module.
+
+**Dependencies and actions.** Every `uses:` in `.github/workflows/` names a full commit SHA, with
+the version it is as a trailing comment (`actions/checkout@<sha> # v4.4.0`), because a tag can be
+moved to other code and these workflows hold the signing keys and the deploy key. To bump one,
+look up the new tag's commit (`git ls-remote --tags https://github.com/<owner>/<repo>.git`,
+taking the `^{}` line for an annotated tag) and change the SHA and the comment together; the
+actions of one repository (`gradle/actions/…`, `github/codeql-action/…`) move together.
+[Dependency graph](../.github/workflows/dependency-graph.yml) submits the Gradle dependencies on
+every push to `main`, so Insights → Dependency graph lists them and the Dependabot alerts under
+Security cover them; on a pull request, CI's dependency review fails when the change brings in a
+dependency with a known advisory. [CodeQL](../.github/workflows/codeql.yml) scans the Kotlin on
+pull requests, on `main` and weekly, into Security → Code scanning.
+[Dependabot](../.github/dependabot.yml) opens its pull requests on Mondays: one for the actions
+(SHA and version comment together), and for Gradle one per group (`kotlin-compose`, `androidx`,
+`ktor`, `kotlinx`, `everything-else`), so a round is a few pull requests, each reviewed by CI.
+Kotlin and Compose Multiplatform get patches only, and Koin and AGP no majors: those are
+deliberate passes like [launch-plan item 27](launch-plan.md#27-a-dependency-modernization-pass).
+To take one of those anyway, change the version in
+`gradle/libs.versions.toml` by hand; to hold something else back, add an `ignore` entry there.
+There is no Gradle dependency verification (`gradle/verification-metadata.xml`): Dependabot
+doesn't regenerate that file, so every Gradle pull request from it would fail until someone
+rewrote the file by hand ([launch-plan item 29](launch-plan.md#29-supply-chain-dependabot-and-gradle-dependency-verification-where-practical)).
+
 **Pruning branches.** `python3 tools/prune_branches.py list` shows the branches on origin whose
-work is already on `main`, and `prune` deletes them. `release/*` branches are always kept: the
-next version number is worked out from them.
+work is already on `main`, and `prune` deletes them. Merged `release/*` branches go too: once a
+release branch is gone, `tools/release.py` works from its `testflight/<version>/<build>` tags.
 
 **Exercise photos.** `python3 tools/exercise_demos.py` (needs Pillow) matches every catalogue
 exercise to a [free-exercise-db](https://github.com/yuhonas/free-exercise-db) entry by its
@@ -220,13 +275,11 @@ in `iosApp/iosApp/Info.plist`.
 
 ## Known limitations
 
-- The Android source set is written against the standard APIs but is not compiled by the CI
-  workflow, which runs without an Android SDK. Open the project in Android Studio to build it.
-  The [Google Play workflow](play.md) does build it, on each release round once its secrets
-  are set.
-- The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request,
-  but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
-  hosted macOS runner for this).
+- The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request.
+  The iOS workflow builds the Xcode project for the simulator on a hosted macOS runner, unsigned,
+  on pull requests and pushes to `main` that touch more than the docs, the site, the server, the
+  deploy files or `tools/`; only archiving needs the signing material (the TestFlight workflow).
+  Running it still needs Xcode on a Mac or a device.
 - Sign-in is wired up on iOS, the desktop and Android, Apple and Google on each (Android once
   `gains.googleWebClientId` and `gains.appleServicesId` are set), and an email address and
   password on all three once the server has a mail account. [docs/launch-plan.md](launch-plan.md)
@@ -240,6 +293,11 @@ Everything still to do, before and after going public, lives in one file:
 - [x] Self-hosted sync server and the client that speaks to it ([docs/sync.md](sync.md))
 - [x] Sign in with Apple and with Google on iOS, linking a guest account, deleting an account,
       sync status in Settings and the token in the Keychain ([docs/auth-plan.md](auth-plan.md))
+- [x] Sign in with Apple and with Google on Android and the desktop, Apple through the server's
+      web flow, with the token in the Android Keystore and the OS keychain
+      ([launch plan](launch-plan.md), items 9–17)
+- [x] Email and password accounts on all three platforms, switched on with the server's mail
+      account ([launch plan](launch-plan.md), item 18)
 
 ## Contributing
 
@@ -259,3 +317,10 @@ plus the iOS compile and the `tools/` tests listed under [the commands at the to
 - [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain, Unlicense) for
   the exercise photos and for the names of about 180 catalogue exercises
 - The README layout borrows from the projects collected in [awesome-readme](https://github.com/matiassingers/awesome-readme)
+
+The versions live in `gradle/libs.versions.toml`. The last deliberate pass over them was
+[launch-plan item 27](launch-plan.md#27-a-dependency-modernization-pass): Kotlin 2.4.20, Koin
+4.2.2. [Item 38](launch-plan.md#38-android-an-app-module-of-its-own-then-agp-9-and-compilesdk-37)
+split the Android application into `:androidApp`, which AGP 9 requires, and moved to AGP 9.4.1
+on Gradle 9.8.0, compileSdk 37 (`targetSdk` stays 36) and Compose Multiplatform 1.12.1. Material 3
+stays on 1.9.0, its last stable release.
