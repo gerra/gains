@@ -822,7 +822,10 @@ line says so.
 ### 25. Android in CI: build, lint and the JVM tests
 
 - [x] Done
-  Done in #105.
+  Done in #105, green in #107: the job's first runs found what nothing had compiled before, a
+  Groovy misparse of `versionCode` in `android.gradle`, a type-inference cycle in
+  `MainActivity`, and okhttp 5.5.0 (through Ktor) asking for compileSdk 37, held at 5.4.0 until
+  item 27. Lint passes without a baseline.
 
 **Milestone:** CI (P1). **Depends on:** nothing.
 
