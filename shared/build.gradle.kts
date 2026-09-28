@@ -48,8 +48,8 @@ kotlin {
             api(libs.koin.core)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
-            // The sync wire format (app.gains.sync) and the client that speaks it. The server
-            // module compiles the same classes, so both ends agree on every field.
+            // The sync wire format, shared with the server, and the client that speaks it.
+            api(project(":protocol"))
             api(libs.kotlinx.serialization.json)
             api(libs.ktor.client.core)
         }

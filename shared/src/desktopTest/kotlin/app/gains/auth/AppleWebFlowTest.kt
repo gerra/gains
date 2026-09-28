@@ -34,12 +34,12 @@ class AppleWebFlowTest {
     fun theAndroidCallbackIsAnAppLinkAndParsesLikeTheDesktopsLoopback() {
         // https, so the browser can verify it against the site's assetlinks.json and hand it to the
         // app alone; a custom scheme would be any app's to claim.
-        assertTrue(AppleWebFlow.ANDROID_CALLBACK.startsWith("https://gains.gerra.sh/"), AppleWebFlow.ANDROID_CALLBACK)
-        val url = AppleWebFlow.startUrl("https://api.gains.gerra.sh", AppleWebFlow.ANDROID_CALLBACK, state = "s1")
-        assertEquals(AppleWebFlow.ANDROID_CALLBACK, parseQueryString(url.substringAfter('?'))["redirect"])
-        assertEquals("one-time", AppleWebFlow.parseCallback("${AppleWebFlow.ANDROID_CALLBACK}?code=one-time&state=s1", "s1"))
-        assertFailsWith<SignInCancelledException> { AppleWebFlow.parseCallback("${AppleWebFlow.ANDROID_CALLBACK}?error=cancelled&state=s1", "s1") }
-        assertFailsWith<AppleSignInException> { AppleWebFlow.parseCallback("${AppleWebFlow.ANDROID_CALLBACK}?code=one-time&state=other", "s1") }
+        assertTrue(AppleWebCallback.ANDROID.startsWith("https://gains.gerra.sh/"), AppleWebCallback.ANDROID)
+        val url = AppleWebFlow.startUrl("https://api.gains.gerra.sh", AppleWebCallback.ANDROID, state = "s1")
+        assertEquals(AppleWebCallback.ANDROID, parseQueryString(url.substringAfter('?'))["redirect"])
+        assertEquals("one-time", AppleWebFlow.parseCallback("${AppleWebCallback.ANDROID}?code=one-time&state=s1", "s1"))
+        assertFailsWith<SignInCancelledException> { AppleWebFlow.parseCallback("${AppleWebCallback.ANDROID}?error=cancelled&state=s1", "s1") }
+        assertFailsWith<AppleSignInException> { AppleWebFlow.parseCallback("${AppleWebCallback.ANDROID}?code=one-time&state=other", "s1") }
     }
 
     @Test

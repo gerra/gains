@@ -16,6 +16,15 @@ val SyncJson: Json = Json {
     explicitNulls = false
 }
 
+/** What the routes agree on besides the bodies. */
+object SyncProtocol {
+    /** The most documents one pull returns: the server's cap on `limit`, and the client's default. */
+    const val PAGE = 500
+
+    /** A blob upload's `updatedAt`, in a header because the body is the bytes. */
+    const val HEADER_UPDATED_AT = "X-Updated-At"
+}
+
 /**
  * One synced thing: a session, a program, a body weight, a setting. [payload] is JSON of the
  * class for [kind] in Documents.kt; empty when [deleted]. [updatedAt] is the client's UTC clock

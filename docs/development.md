@@ -169,18 +169,32 @@ the estimated 1RM, the warm-up steps, the default bar weight and increments, and
 **Changing the schema.** Edit the `.sq` file and add a `migrations/N.sqm` with the same DDL;
 `MigrationTest` upgrades a database from the previous version and compares it with a fresh one.
 A new table that should sync also needs its three triggers in
-[`Sync.sq`](../shared/src/commonMain/sqldelight/app/gains/db/Sync.sq) and a document class in
-[`Documents.kt`](../shared/src/commonMain/kotlin/app/gains/sync/Documents.kt); `SyncStoreTest`
-checks that what the repositories write is what the triggers record.
+[`Sync.sq`](../shared/src/commonMain/sqldelight/app/gains/db/Sync.sq), a document class in
+[`Documents.kt`](../shared/src/commonMain/kotlin/app/gains/sync/Documents.kt) and its kind in
+[`SyncKinds`](../protocol/src/commonMain/kotlin/app/gains/sync/Kinds.kt), which the server checks;
+`SyncStoreTest` checks that what the repositories write is what the triggers record.
 
 **The sync server.** Lives in [`server/`](../server) and is deployed by the
-[Deploy server workflow](../.github/workflows/deploy.yml) on a push to `main` that touches it:
+[Deploy server workflow](../.github/workflows/deploy.yml) on a push to `main` that touches it or
+the wire format in [`protocol/`](../protocol), the one module of the app's it is built from:
 tests, `installDist`, rsync to the Hetzner box, the systemd unit from `deploy/`, a smoke test.
 The steps are [`tools/deploy_server.py`](../tools/deploy_server.py), which also runs on the
 box for the install itself. The [Deploy site and nginx workflow](../.github/workflows/deploy-site.yml)
 pushes `deploy/nginx/` and `site/` (gains.gerra.sh) the same way; from a laptop,
 `python3 tools/deploy_server.py secrets` pushes the secrets
 ([secrets/README.md](../secrets/README.md) lists them). A server-only change cuts no release branch. Design and routes: [docs/sync.md](sync.md).
+
+**Modules.** Four: `protocol` (the sync wire format), `shared` (everything below the UI),
+`composeApp` (the UI and the entry points) and `server`. Don't split `composeApp` or `shared` into
+feature modules by taste or by screen count. Split when one of these is seen concretely, and say
+which in the pull request:
+- a feature with an owner of its own, or reused outside this app;
+- a change in one feature that recompiles unrelated ones for a noticeable time;
+- a dependency cycle between packages that a module boundary would forbid;
+- a feature whose tests need a large unrelated graph (the whole database and Koin) to run.
+
+`protocol` was split out for the second reason ([launch-plan item 37](launch-plan.md#37-module-boundaries-a-wire-protocol-module-and-when-to-split-features)):
+every change to the app's `shared` code rebuilt and redeployed the server.
 
 **Dependencies and actions.** Every `uses:` in `.github/workflows/` names a full commit SHA, with
 the version it is as a trailing comment (`actions/checkout@<sha> # v4.4.0`), because a tag can be

@@ -15,9 +15,9 @@ import app.gains.sync.PushRequest
 import app.gains.sync.PushResponse
 import app.gains.sync.SignInRequest
 import app.gains.sync.SignInResponse
-import app.gains.sync.SyncApi
 import app.gains.sync.SyncJson
 import app.gains.sync.SyncKinds
+import app.gains.sync.SyncProtocol
 import app.gains.sync.UserInfo
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -329,7 +329,7 @@ fun Application.gainsServer(services: Services) {
         get("/sync/pull") {
             val userId = call.caller().id
             val since = call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
-            val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: SyncApi.PAGE).coerceIn(1, SyncApi.PAGE)
+            val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: SyncProtocol.PAGE).coerceIn(1, SyncProtocol.PAGE)
             val (documents, more) = store.pull(userId, since, limit)
             call.respond(PullResponse(documents, cursor = documents.lastOrNull()?.seq ?: since, more = more))
         }
@@ -339,7 +339,7 @@ fun Application.gainsServer(services: Services) {
             val kind = call.parameters["kind"]!!
             val id = call.parameters["id"]!!
             if (kind != SyncKinds.SESSION_PHOTO) throw HttpError(HttpStatusCode.BadRequest, "no blobs of kind $kind")
-            val updatedAt = call.request.headers[SyncApi.HEADER_UPDATED_AT] ?: throw HttpError(HttpStatusCode.BadRequest, "${SyncApi.HEADER_UPDATED_AT} header missing")
+            val updatedAt = call.request.headers[SyncProtocol.HEADER_UPDATED_AT] ?: throw HttpError(HttpStatusCode.BadRequest, "${SyncProtocol.HEADER_UPDATED_AT} header missing")
             val bytes = call.receiveChannel().toByteArray()
             if (bytes.isEmpty()) throw HttpError(HttpStatusCode.BadRequest, "empty blob")
             if (bytes.size > services.maxBlobBytes) throw HttpError(HttpStatusCode.PayloadTooLarge, "blob over ${services.maxBlobBytes} bytes")

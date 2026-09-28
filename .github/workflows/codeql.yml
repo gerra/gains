@@ -4,7 +4,7 @@ name: CodeQL
 # Code scanning, and on a pull request as annotations. A workflow rather than GitHub's default
 # setup: the default setup's autobuild can't be told which tasks to run, and a Kotlin
 # Multiplatform build has no plain `build` that compiles on Linux without the iOS link. So this
-# compiles what runs on a JVM, the Android and desktop targets of both modules and the server,
+# compiles what runs on a JVM, the Android and JVM targets of the three KMP modules and the server,
 # with every task rerun and nothing from the build cache: CodeQL sees Kotlin only when kotlinc
 # actually runs, and only when it runs in Gradle's process rather than the Kotlin daemon.
 # CodeQL's Kotlin extractor trails Kotlin releases: when a Kotlin bump fails here, check its
@@ -42,6 +42,7 @@ jobs:
       - name: Compile the JVM and Android code
         run: >-
           ./gradlew
+          :protocol:compileKotlinJvm :protocol:compileDebugKotlinAndroid
           :shared:compileKotlinDesktop :shared:compileDebugKotlinAndroid
           :composeApp:compileKotlinDesktop :composeApp:compileDebugKotlinAndroid
           :server:compileKotlin

@@ -92,7 +92,7 @@ class SyncApi(
         setBody(SyncJson.encodeToString(PushRequest.serializer(), PushRequest(documents)))
     }.read(PushResponse.serializer())
 
-    suspend fun pull(since: Long, limit: Int = PAGE): PullResponse = client.get("$baseUrl/sync/pull") {
+    suspend fun pull(since: Long, limit: Int = SyncProtocol.PAGE): PullResponse = client.get("$baseUrl/sync/pull") {
         bearer()
         parameter("since", since)
         parameter("limit", limit)
@@ -100,7 +100,7 @@ class SyncApi(
 
     suspend fun putBlob(kind: String, id: String, updatedAt: String, bytes: ByteArray): BlobResponse = client.put("$baseUrl/sync/blobs/$kind/$id") {
         bearer()
-        header(HEADER_UPDATED_AT, updatedAt)
+        header(SyncProtocol.HEADER_UPDATED_AT, updatedAt)
         contentType(ContentType.Application.OctetStream)
         setBody(bytes)
     }.read(BlobResponse.serializer())
@@ -128,10 +128,5 @@ class SyncApi(
     private suspend fun <T> HttpResponse.read(serializer: KSerializer<T>): T {
         check()
         return SyncJson.decodeFromString(serializer, bodyAsText())
-    }
-
-    companion object {
-        const val PAGE = 500
-        const val HEADER_UPDATED_AT = "X-Updated-At"
     }
 }

@@ -49,9 +49,10 @@ The server is a Gradle module in this repository rather than a repository of its
 
 | Path | What it is |
 |------|------------|
-| [`shared/src/commonMain/kotlin/app/gains/sync/`](../shared/src/commonMain/kotlin/app/gains/sync) | The wire format (`Protocol.kt`, `Documents.kt`), the client engine (`SyncEngine.kt`, `SyncApi.kt`) and the change log it reads (`SyncStore.kt`). Compiled into the app and into the server. |
+| [`protocol/`](../protocol) | The wire format: the request and response classes and `SyncJson` (`Protocol.kt`, with the `SyncProtocol` constants), the document kinds and the photo payload (`Kinds.kt`), and Android's callback for Apple's web flow (`AppleWebCallback.kt`). Kotlin Multiplatform with kotlinx-serialization and nothing else, compiled into the app (through `:shared`) and into the server. |
+| [`shared/src/commonMain/kotlin/app/gains/sync/`](../shared/src/commonMain/kotlin/app/gains/sync) | The payload of each kind (`Documents.kt`), the client engine (`SyncEngine.kt`, `SyncApi.kt`) and the change log it reads (`SyncStore.kt`). The app's only. |
 | [`shared/src/commonMain/sqldelight/app/gains/db/Sync.sq`](../shared/src/commonMain/sqldelight/app/gains/db/Sync.sq) | The `sync_change` and `sync_state` tables and the triggers that fill the first. |
-| [`server/`](../server) | The Ktor server: sign-in, the document feed, photo blobs, its own SQLDelight schema. Depends on `:shared`'s JVM target, so the two ends serialize with the same classes. |
+| [`server/`](../server) | The Ktor server: sign-in, the document feed, photo blobs, its own SQLDelight schema. Depends on `:protocol`, so the two ends serialize with the same classes, and on `:shared` only in its tests, which run the app's real sync client against the routes. |
 | [`deploy/`](../deploy) | The systemd unit, installed by the deploy workflow, and the nginx sites (the API and `gains.gerra.sh`), installed by `tools/deploy_server.py nginx`. |
 | [`tools/deploy_server.py`](../tools/deploy_server.py) | Every deploy step as Python, like the release tooling: what the workflows run, what runs on the box, and what a laptop can run (`secrets`, and `nginx` and `site` outside the workflow). |
 | [`secrets/`](../secrets) | `.env.example` and what each variable is; the real `.env` is never committed and reaches the server only through `tools/deploy_server.py secrets`. |
@@ -174,7 +175,7 @@ docs/development.md, "Desktop").
 
 On Android, `AndroidIdentityProvider` opens the start URL in a Custom Tab (the browser's own tab
 over the app, with its cookies, so an Apple ID already signed in there is offered) with the App
-Link `https://gains.gerra.sh/auth/done` (`AppleWebFlow.ANDROID_CALLBACK`) as the callback. An
+Link `https://gains.gerra.sh/auth/done` (`AppleWebCallback.ANDROID`) as the callback. An
 App Link rather than a custom scheme because any app can claim a scheme, while Android hands a
 verified link only to the app whose signing key `site/.well-known/assetlinks.json` lists. The
 server redirects the tab there; Android opens
@@ -254,7 +255,7 @@ Everything the person made, nothing the device decided:
 
 Theme and language are how this device is looked at; the streak reminder is tied to this
 device's notification permission. The synced setting keys are listed once, in
-[`SyncKinds.settingKeys`](../shared/src/commonMain/kotlin/app/gains/sync/Documents.kt), and the
+[`SyncedSettings.keys`](../shared/src/commonMain/kotlin/app/gains/sync/Documents.kt), and the
 trigger on the `setting` table names the same keys.
 
 The streak is not stored anywhere, so it needs nothing: it is recomputed from the sessions that
@@ -304,7 +305,7 @@ The feed stays small whatever the history holds.
 ## The protocol
 
 All bodies are JSON from the `@Serializable` classes in
-[`Protocol.kt`](../shared/src/commonMain/kotlin/app/gains/sync/Protocol.kt); the server gzips
+[`Protocol.kt`](../protocol/src/commonMain/kotlin/app/gains/sync/Protocol.kt); the server gzips
 responses over a kilobyte.
 
 | Route | Body → answer |
@@ -408,7 +409,9 @@ Secret Service on its session bus, probed at start) keeps the token in `sync_sta
 ## The server
 
 [`server/`](../server) is Ktor on the CIO engine, a single SQLite file under `GAINS_DATA_DIR`
-(WAL mode), SQLDelight for its tables:
+(WAL mode), SQLDelight for its tables. Of the app's code it ships only [`protocol/`](../protocol),
+so the app's database, Koin and HTTP client stay off its classpath, and a change to the app alone
+neither rebuilds nor redeploys it ([launch plan](launch-plan.md), item 37):
 
 ```sql
 user     (id, email, name, created_at)
@@ -459,7 +462,7 @@ Without a mail account the password routes answer 503, and the log line says `em
 
 The same playbook as taxes and www, on the same Hetzner box:
 
-- Push to `main` touching `server/`, `shared/src/commonMain/`, the Gradle build files,
+- Push to `main` touching `server/`, `protocol/`, the Gradle build files,
   `deploy/gains-server.service`, `tools/deploy_server.py` or the workflow runs
   [`deploy.yml`](../.github/workflows/deploy.yml): `:server:test`, `:server:installDist`,
   `tools/deploy_server.py build` (rsync of the install directory to

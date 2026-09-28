@@ -1,0 +1,12 @@
+// Android library configuration for :protocol (applied only when gains.android=true).
+android {
+    namespace "app.gains.protocol"
+    compileSdk libs.versions.android.compileSdk.get().toInteger()
+    defaultConfig {
+        minSdk libs.versions.android.minSdk.get().toInteger()
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

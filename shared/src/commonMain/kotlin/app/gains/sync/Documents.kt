@@ -20,27 +20,21 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 
 /*
- * What goes inside a SyncDocument's payload, one class per kind. A session travels whole with its
+ * What goes inside a SyncDocument's payload, one class per kind (`PhotoDoc`, which the server
+ * writes itself, is in `:protocol` beside the kinds). A session travels whole with its
  * entries and sets, a program with its days and slots: the server never looks inside, and the
  * client replaces the whole thing on apply. The compact text forms ProgramCodec already uses for
  * SQLite (reps, progression, goals, equipment, muscles) are reused as they are.
  */
 
-/** The document kinds and the setting keys that are synced. The trigger in Sync.sq names the same keys. */
-object SyncKinds {
-    const val SESSION = "session"
-    const val SESSION_PHOTO = "session_photo"
-    const val EXERCISE = "exercise"
-    const val ALIAS = "alias"
-    const val OVERRIDE = "override"
-    const val BODYWEIGHT = "bodyweight"
-    const val PROGRAM = "program"
-    const val SETTING = "setting"
-
-    val all = listOf(SESSION, SESSION_PHOTO, EXERCISE, ALIAS, OVERRIDE, BODYWEIGHT, PROGRAM, SETTING)
-
+/**
+ * The setting keys that are synced as [SyncKinds.SETTING] documents. The trigger in Sync.sq names
+ * the same keys. Here rather than beside the kinds in `:protocol`, because the server never reads
+ * a setting and the keys belong to the app's repositories.
+ */
+object SyncedSettings {
     /** The person's preferences, not the device's: theme, language and the reminder stay where they are. */
-    val settingKeys = setOf(
+    val keys = setOf(
         SettingsRepository.KEY_UNIT,
         SettingsRepository.KEY_BAR_WEIGHT,
         SettingsRepository.KEY_AUTO_WARMUPS,
@@ -109,10 +103,6 @@ data class SetDoc(
         fun of(s: SetEntry) = SetDoc(s.order, s.type.name, s.weightKg, s.reps, s.seconds, s.distanceKm, s.rpe, s.isWarmup)
     }
 }
-
-/** The bytes travel on the blob route; the feed carries only enough to know whether to fetch them. */
-@Serializable
-data class PhotoDoc(val sha256: String, val size: Int)
 
 @Serializable
 data class ExerciseDoc(

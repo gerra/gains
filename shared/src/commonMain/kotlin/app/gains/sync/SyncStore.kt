@@ -75,7 +75,7 @@ class SyncStore(
             q.selectOverrideIds().executeAsList().forEach { q.markChange(SyncKinds.OVERRIDE, it, now, 0) }
             q.selectBodyweightDates().executeAsList().forEach { q.markChange(SyncKinds.BODYWEIGHT, it, now, 0) }
             q.selectProgramIds().executeAsList().forEach { q.markChange(SyncKinds.PROGRAM, it, now, 0) }
-            q.selectSettingKeys().executeAsList().filter { it in SyncKinds.settingKeys }.forEach { q.markChange(SyncKinds.SETTING, it, now, 0) }
+            q.selectSettingKeys().executeAsList().filter { it in SyncedSettings.keys }.forEach { q.markChange(SyncKinds.SETTING, it, now, 0) }
         }
     }
 
@@ -107,7 +107,7 @@ class SyncStore(
         SyncKinds.OVERRIDE -> db.exerciseQueries.selectOverride(id).executeAsOneOrNull()?.let { SyncJson.encodeToString(OverrideDoc.serializer(), OverrideDoc(it.working_set_ratio)) }
         SyncKinds.BODYWEIGHT -> db.bodyweightQueries.selectByDate(id).executeAsOneOrNull()?.let { SyncJson.encodeToString(BodyweightDoc.serializer(), BodyweightDoc(it.weight_kg)) }
         SyncKinds.PROGRAM -> readProgram(id)?.let { SyncJson.encodeToString(ProgramDoc.serializer(), it) }
-        SyncKinds.SETTING -> if (id in SyncKinds.settingKeys) {
+        SyncKinds.SETTING -> if (id in SyncedSettings.keys) {
             db.settingsQueries.selectValue(id).executeAsOneOrNull()?.let { SyncJson.encodeToString(SettingDoc.serializer(), SettingDoc(it)) }
         } else null
         else -> null
@@ -212,7 +212,7 @@ class SyncStore(
                     val p = SyncJson.decodeFromString(ProgramDoc.serializer(), doc.payload)
                     writeProgramRows(pq, p.toProgram(doc.id), p.createdAt)
                 }
-                SyncKinds.SETTING -> if (!doc.deleted && doc.id in SyncKinds.settingKeys) {
+                SyncKinds.SETTING -> if (!doc.deleted && doc.id in SyncedSettings.keys) {
                     db.settingsQueries.upsert(doc.id, SyncJson.decodeFromString(SettingDoc.serializer(), doc.payload).value)
                 }
                 else -> return false
