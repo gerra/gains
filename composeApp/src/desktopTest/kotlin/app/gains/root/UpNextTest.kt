@@ -3,16 +3,24 @@ package app.gains.root
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import app.gains.data.AppLanguage
+import app.gains.data.DesktopDriverFactory
+import app.gains.data.ProgramRepository
+import app.gains.data.SessionRepository
+import app.gains.data.SettingsRepository
+import app.gains.db.GainsDatabase
 import app.gains.domain.Experience
 import app.gains.domain.Program
 import app.gains.domain.ProgramDay
 import app.gains.domain.ProgramDayRef
 import app.gains.domain.ProgramLink
 import app.gains.domain.ProgramState
+import app.gains.domain.Session
 import app.gains.platform.applyAppLanguage
 import app.gains.ui.i18n.InLanguage
 import app.gains.ui.i18n.Texts
 import app.gains.ui.i18n.rememberTexts
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.AfterTest
@@ -82,6 +90,28 @@ class UpNextTest {
             // A name of its own stays as it is.
             val legs = ProgramState(programs = listOf(other), activeProgramId = "other")
             assertEquals("Legs", findUpNext(legs, emptyList(), russian)?.dayName)
+        }
+    }
+
+    /** What the root collects: against real (in-memory) repositories, it follows the choice of program and the workouts logged. */
+    @Test
+    fun theFlowFollowsTheActiveProgramAndTheWorkoutsLogged() {
+        val english = textsIn(AppLanguage.ENGLISH)
+        runTest {
+            val db = GainsDatabase(DesktopDriverFactory(file = null).createDriver())
+            val sessions = SessionRepository(db, Dispatchers.Unconfined)
+            val settings = SettingsRepository(db, Dispatchers.Unconfined)
+            val programs = ProgramRepository(db, settings, Dispatchers.Unconfined)
+            val upNext = observeUpNext(programs, sessions, english)
+            programs.upsert(ab)
+            assertNull(upNext.first())
+
+            programs.setActive("ab")
+            assertEquals("ab/Workout A", upNext.first()?.ref?.dayId)
+
+            val link = done(ab, day = 0, on = 1)
+            sessions.upsertAll(listOf(Session(link.sessionId, link.timestamp, 45, emptyList(), Session.MANUAL, program = link.ref)))
+            assertEquals(UpNext(ProgramDayRef("ab", "ab/Workout B"), "Workout B"), upNext.first())
         }
     }
 }

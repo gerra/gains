@@ -1,11 +1,15 @@
 package app.gains.root
 
+import app.gains.data.ProgramRepository
+import app.gains.data.SessionRepository
 import app.gains.domain.ProgramDayRef
 import app.gains.domain.ProgramLink
 import app.gains.domain.ProgramState
 import app.gains.program.Rotation
 import app.gains.ui.i18n.Texts
 import app.gains.ui.i18n.resolvedName
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 
 /** The active program's next day, offered first in the "+" menu under [dayName]. */
 internal data class UpNext(val ref: ProgramDayRef, val dayName: String)
@@ -20,3 +24,10 @@ internal suspend fun findUpNext(state: ProgramState, links: List<ProgramLink>, t
     val day = Rotation.nextDay(program, links) ?: return null
     return UpNext(ProgramDayRef(program.id, day.id), day.resolvedName(texts))
 }
+
+/**
+ * [findUpNext] kept current as the programs and the logged workouts change. Here rather than in the
+ * root, so the root only collects it and no repository flow is combined there.
+ */
+internal fun observeUpNext(programs: ProgramRepository, sessions: SessionRepository, texts: Texts): Flow<UpNext?> =
+    combine(programs.observeState(), sessions.observeProgramLinks()) { state, links -> findUpNext(state, links, texts) }

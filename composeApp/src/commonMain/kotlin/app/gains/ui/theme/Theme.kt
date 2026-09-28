@@ -16,6 +16,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.gains.data.ThemeMode
 
 /**
  * Dark-first palette in the style of current training apps: deep charcoal surfaces,
@@ -156,6 +157,17 @@ private val GainsShapes = Shapes(
     large = RoundedCornerShape(24.dp),
     extraLarge = RoundedCornerShape(32.dp),
 )
+
+/**
+ * Whether the app is drawn dark in this mode: [ThemeMode.SYSTEM] follows the device, and changes
+ * with it while the app is open.
+ */
+@Composable
+internal fun ThemeMode.isDark(): Boolean = when (this) {
+    ThemeMode.DARK -> true
+    ThemeMode.LIGHT -> false
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+}
 
 @Composable
 internal fun GainsTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
