@@ -1061,7 +1061,7 @@ build, if step 2 stays.
 ### 30. Android: R8 for release builds
 
 - [x] Done
-  Steps 1 and 2 are in #PR: `minifyEnabled` and `shrinkResources` on `release`, an empty
+  Steps 1 and 2 are in #114: `minifyEnabled` and `shrinkResources` on `release`, an empty
   `composeApp/proguard-rules.pro` (every library that reflects ships its own rules, and the app's
   serializers are called by name), `bundleRelease` in CI's Android job, and `tools/play.py`
   sending `mapping.txt` as the bundle's deobfuscation file. Left: the owner's device pass in
