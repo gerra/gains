@@ -101,4 +101,15 @@ tasks.withType<Test>().configureEach {
 
 if (androidEnabled) {
     apply(from = "android.gradle")
+
+    // Ktor's OkHttp engine brings okhttp 5.5.0, whose AAR metadata requires compileSdk 37 and
+    // fails :composeApp:checkDebugAarMetadata. The version catalog says why 5.4.0.
+    dependencies {
+        constraints {
+            add("androidMainImplementation", "com.squareup.okhttp3:okhttp") {
+                version { strictly(libs.versions.okhttp.get()) }
+                because("okhttp 5.5.0 needs compileSdk 37; see okhttp in gradle/libs.versions.toml")
+            }
+        }
+    }
 }

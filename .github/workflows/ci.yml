@@ -52,7 +52,7 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
       # :composeApp has no tests of its own; :shared's commonTest runs as its Android unit tests.
-      - run: ./gradlew :composeApp:assembleDebug :composeApp:lintDebug :shared:testDebugUnitTest --no-daemon
+      - run: ./gradlew :composeApp:assembleDebug :composeApp:lintDebug :shared:testDebugUnitTest --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
