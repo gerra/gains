@@ -53,7 +53,7 @@ The server is a Gradle module in this repository rather than a repository of its
 | [`shared/src/commonMain/sqldelight/app/gains/db/Sync.sq`](../shared/src/commonMain/sqldelight/app/gains/db/Sync.sq) | The `sync_change` and `sync_state` tables and the triggers that fill the first. |
 | [`server/`](../server) | The Ktor server: sign-in, the document feed, photo blobs, its own SQLDelight schema. Depends on `:shared`'s JVM target, so the two ends serialize with the same classes. |
 | [`deploy/`](../deploy) | The systemd unit, installed by the deploy workflow, and the nginx sites (the API and `gains.gerra.sh`), installed by `tools/deploy_server.py nginx`. |
-| [`tools/deploy_server.py`](../tools/deploy_server.py) | Every deploy step as Python, like the release tooling: what the workflow runs, what runs on the box, and the two laptop commands (`secrets`, `nginx`). |
+| [`tools/deploy_server.py`](../tools/deploy_server.py) | Every deploy step as Python, like the release tooling: what the workflows run, what runs on the box, and what a laptop can run (`secrets`, and `nginx` and `site` outside the workflow). |
 | [`secrets/`](../secrets) | `.env.example` and what each variable is; the real `.env` is never committed and reaches the server only through `tools/deploy_server.py secrets`. |
 
 One pull request changes the app, the server and the format between them, and one CI run checks
@@ -70,8 +70,10 @@ so a UI change does not restart the server.
 
 ## Signing in
 
-The mobile flow is not the web flow used by taxes and fintrack. The server sees no redirect, no
-OAuth state and no cookie, only an identity token the device already holds:
+The app's flow is not the web flow used by taxes and fintrack. For Google, and for Apple on iOS,
+the server sees no redirect, no OAuth state and no cookie, only an identity token the device
+already holds (Apple on Android and the desktop is the exception, under "Sign in with Apple
+without Apple's sheet" below):
 
 1. The app asks the platform for an identity token: Sign in with Apple through
    `ASAuthorizationController` on iOS, Google through Credential Manager on Android
@@ -355,7 +357,8 @@ then pull:
 
 [`SyncController`](../shared/src/commonMain/kotlin/app/gains/sync/SyncController.kt) decides
 when: two seconds after `sync_change` last grew, every time the app comes to the foreground (on
-iOS, `UIApplicationWillEnterForegroundNotification` in `MainViewController.kt`), when the person
+iOS, `UIApplicationWillEnterForegroundNotification` in `MainViewController.kt`; on Android,
+`MainActivity.onResume`; on the desktop, the window gaining focus in `main.kt`), when the person
 taps "Sync now" in Settings and right after sign-in. Signing in on a device that already holds guest data marks every local
 document as changed and resets the cursor, so the first sync is a union of what is here and what
 is there. A guest does that from Settings: the account card offers the enabled providers' buttons
@@ -456,7 +459,8 @@ Without a mail account the password routes answer 503, and the log line says `em
 
 The same playbook as taxes and www, on the same Hetzner box:
 
-- Push to `main` touching `server/`, `shared/src/commonMain/`, `deploy/` or the workflow runs
+- Push to `main` touching `server/`, `shared/src/commonMain/`, the Gradle build files,
+  `deploy/gains-server.service`, `tools/deploy_server.py` or the workflow runs
   [`deploy.yml`](../.github/workflows/deploy.yml): `:server:test`, `:server:installDist`,
   `tools/deploy_server.py build` (rsync of the install directory to
   `/root/Projects/gains-server/current/`), then

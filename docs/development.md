@@ -271,6 +271,11 @@ Everything still to do, before and after going public, lives in one file:
 - [x] Self-hosted sync server and the client that speaks to it ([docs/sync.md](sync.md))
 - [x] Sign in with Apple and with Google on iOS, linking a guest account, deleting an account,
       sync status in Settings and the token in the Keychain ([docs/auth-plan.md](auth-plan.md))
+- [x] Sign in with Apple and with Google on Android and the desktop, Apple through the server's
+      web flow, with the token in the Android Keystore and the OS keychain
+      ([launch plan](launch-plan.md), items 9–17)
+- [x] Email and password accounts on all three platforms, switched on with the server's mail
+      account ([launch plan](launch-plan.md), item 18)
 
 ## Contributing
 

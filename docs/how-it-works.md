@@ -186,21 +186,24 @@ flowchart LR
   UI -->|schedule reminders| N[Local notifications]
   UI -->|log / edit| DB
   UI --- iOS & Android & Desktop
-  DB <-->|sync worker<br/>once signed in| SV[(Sync server<br/>Ktor · SQLite)]
+  DB <-->|sync worker<br/>once signed in| SV[(Sync server<br/>Ktor · SQLite<br/>documents · photos)]
+  UI -->|sign in: Google · Apple · email<br/>Apple's web flow off iOS| SV
 ```
 
 | Module | Contents |
 |--------|----------|
-| [`shared/`](../shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence (including the workout in progress), insight engine, streak engine, program rotation and progression logic. Pure Kotlin, no UI, 180+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
+| [`shared/`](../shared) | Import connectors over a shared row-per-set parser, domain model, exercise and program catalogues, import analyzer, SQLDelight persistence (including the workout in progress), insight engine, streak engine, program rotation and progression logic, and the sync client: the engine, the change log, the token vaults and the account repository with the sign-in flows that run in Kotlin (Google's PKCE flow, Apple's web flow). Pure Kotlin, no UI, 180+ unit tests including an in-memory SQLite integration test, a schema migration test and a 10,000-row import timing test. |
 | [`composeApp/`](../composeApp) | Compose Multiplatform UI (goal onboarding, home insights with the next program day, programs and a program editor, history with a workout editor, the end-of-session summary, import preview, lifts, volume, bodyweight, settings), Canvas charts and the Android, iOS and desktop entry points. `App.kt` only assembles the root: the gate between sign-in, the goal questions and the app (`RootGate`), the workout notice and its buttons (`LiveSessionNotices`), the streak reminders (`StreakReminders`) and the "+" menu's next program day (`observeUpNext`) are small classes and functions in `app.gains.root`, each with its own tests, and the bars, the screen transitions and the route to each screen are in `ui/nav/` (`AppFrame`, `AppChrome`, `Routes`). |
 | [`iosApp/`](../iosApp) | Xcode project wrapping the `ComposeApp` framework in SwiftUI, plus the Xcode Cloud script. |
-| [`server/`](../server) | The sync server: Ktor on a SQLite file, sign-in with Google or Apple identity tokens, a per-user document feed and photo blobs. Built on `shared`'s JVM target so both ends share the wire format; tested by syncing two real client databases through the real routes. |
-| [`deploy/`](../deploy) | The server's systemd unit and nginx block. |
-| [`tools/`](../tools) | Python for the release process, the TestFlight upload, the server deploy, branch pruning and the exercise photos, with their tests. |
+| [`server/`](../server) | The sync server: Ktor on a SQLite file; sign-in with Google or Apple identity tokens, Apple's web flow for Android and the desktop, and email and password accounts; a per-user document feed and photo blobs. Built on `shared`'s JVM target so both ends share the wire format; tested by syncing two real client databases through the real routes. |
+| [`deploy/`](../deploy) | The server's systemd unit and the nginx sites (the API and `gains.gerra.sh`). |
+| [`site/`](../site) | `gains.gerra.sh`: the landing page, the privacy policy, support, and the pages for Apple's web flow and the email links. Static HTML. |
+| [`tools/`](../tools) | Python for the release process, the TestFlight and Google Play uploads, the server and site deploy, branch pruning and the exercise photos, with their tests. |
 | [`samples/`](../samples) | A generated eight-month Liftoff export used by the screenshots and handy for trying the app. |
 
 Dependencies are wired with [Koin](https://insert-koin.io/) at the entry points; each platform
-supplies a `DatabaseDriverFactory` and everything else comes from `SharedModule`. The screens take
+supplies a `DatabaseDriverFactory`, and its own `AuthConfig`, `IdentityProvider` and `TokenVault`
+in place of the guest-only defaults, and everything else comes from `sharedModule`. The screens take
 what they need from it (`inject()`, for composables only) and hand it to their models, and `App`
 does the same for the root's pieces, so the models and the pieces are plain classes that list
 their dependencies in their constructors and know nothing of Koin. Screens use a small
@@ -214,9 +217,12 @@ the model's scope reports whatever still escapes rather than letting it end the 
 ### Accounts and sync
 
 On first launch the app asks how to continue. **Continue as guest** keeps everything in the local
-database. **Continue with Google / Apple** signs in to the sync server: the phone hands the
-provider's identity token to the server, which verifies it against the provider's published keys
-and issues a token of its own. From then on a background worker pushes what changed on this
+database. **Sign in with Google** or **Sign in with Apple** signs in to the sync server: the app
+hands the provider's identity token to the server, which verifies it against the provider's
+published keys and issues a token of its own. Off iOS there is no native Apple sheet, so Android
+and the desktop open Apple's web flow in the browser and the server receives Apple's answer
+itself. **Sign in with email** is an address and a password the server checks, once the address
+is confirmed from a mailed link. From then on a background worker pushes what changed on this
 device and pulls what changed on the others, two seconds after an edit and whenever the app
 comes to the front. Workouts, their photos, custom exercises, aliases, body weight, programs and
 the preferences that are yours rather than the device's all travel; theme, language and the
@@ -224,15 +230,18 @@ streak reminder stay put. Signing in on a device that already holds guest data m
 the account. Settings shows the current account and lets you return to the sign-in screen; local
 data is kept.
 
-Today that is **Sign in with Apple and with Google on iOS**, against the server at
-`api.gains.gerra.sh`: the iOS app reads the server from `GAINS_SERVER_URL` in `Config.xcconfig`
-and the sign-in screen shows only the providers that are wired up. Android and the desktop still
-run as guests. [docs/launch-plan.md](launch-plan.md) is the queue of what is left.
+Apple and Google work on iOS, Android and the desktop, against the server at
+`api.gains.gerra.sh`: the iOS app reads the server from `GAINS_SERVER_URL` in `Config.xcconfig`,
+Android and the desktop from the Gradle property `gains.serverUrl`
+([development](development.md#running-it)), and the sign-in screen shows only the providers that
+are wired up. The email form joins them on all three once the server has a mail account.
+[docs/launch-plan.md](launch-plan.md) is the queue of what is left.
 
 What is synced is a set of small JSON documents, one per workout or program, kept in their
 latest state on the server with last-writer-wins per document and a change log kept by SQLite
 triggers on the device. [docs/sync.md](sync.md) is the whole design: the protocol, the
 server, why photos travel outside the feed, and how it is deployed. A provider's button appears
 once `AuthConfig` in [`Account.kt`](../shared/src/commonMain/kotlin/app/gains/auth/Account.kt) carries
-its client id and the server's URL, and the platform registers its native sign-in sheet as an
+its client id and the server's URL, and the platform registers its sign-in (the system's sheets on iOS,
+Credential Manager and a Custom Tab on Android, the browser on the desktop) as an
 `IdentityProvider`.
