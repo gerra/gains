@@ -90,6 +90,8 @@ kotlin {
             dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.compose.ui.test.junit4)
+                // LiveSessionNoticesTest runs the rest countdown on virtual time.
+                implementation(libs.kotlinx.coroutines.test)
                 // DesktopIdentityProviderTest answers Google's token endpoint without a network.
                 implementation(libs.ktor.client.mock)
             }
