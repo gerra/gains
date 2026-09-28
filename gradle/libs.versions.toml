@@ -1,7 +1,12 @@
 [versions]
 agp = "8.11.1"
-kotlin = "2.3.21"
-compose-multiplatform = "1.7.3"
+kotlin = "2.4.20"
+compose-multiplatform = "1.12.1"
+# Material 3 has its own version line since Compose Multiplatform 1.9; 1.9.0 is the one the
+# Compose 1.12.1 plugin itself pairs with.
+compose-material3 = "1.9.0"
+# The icons no longer ship with Compose Multiplatform, and 1.7.3 is their last release.
+compose-material-icons = "1.7.3"
 sqldelight = "2.3.2"
 koin = "4.0.4"
 kotlinx-datetime = "0.8.0"
@@ -32,10 +37,13 @@ bouncycastle = "1.82"
 [libraries]
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
-compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-multiplatform" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-material3" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose-multiplatform" }
-compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version = "1.7.3" }
+compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "compose-material-icons" }
+# Named here rather than through the plugin's `compose.*` accessors, which are deprecated.
+compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose-multiplatform" }
+compose-ui-test-junit4 = { module = "org.jetbrains.compose.ui:ui-test-junit4", version.ref = "compose-multiplatform" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }

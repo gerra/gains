@@ -63,7 +63,7 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
             implementation(libs.compose.material.icons.core)
-            implementation(compose.components.resources)
+            implementation(libs.compose.components.resources)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.coroutines.core)
         }
@@ -90,7 +90,7 @@ kotlin {
         val desktopTest by getting {
             dependencies {
                 implementation(kotlin("test"))
-                implementation(compose.desktop.uiTestJUnit4)
+                implementation(libs.compose.ui.test.junit4)
                 // DesktopIdentityProviderTest answers Google's token endpoint without a network.
                 implementation(libs.ktor.client.mock)
             }
