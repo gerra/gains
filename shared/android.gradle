@@ -3,13 +3,13 @@
 // (docs/launch-plan.md, item 38). Groovy, so the Kotlin DSL build file never names an AGP type,
 // and applied before the kotlin { } block there, which only exists once this creates the target.
 kotlin {
-    androidLibrary {
+    android {
         namespace = "app.gains.shared"
         compileSdk = libs.versions.android.compileSdk.get().toInteger()
         minSdk = libs.versions.android.minSdk.get().toInteger()
         // commonTest on the Android JVM (:shared:testAndroidHostTest), as testDebugUnitTest did:
         // the same tests against the Android SQLite driver and OkHttp engine. The new plugin
         // creates no test compilation unless asked.
-        withHostTestBuilder {}
+        withHostTest {}
     }
 }

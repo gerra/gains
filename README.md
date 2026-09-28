@@ -53,11 +53,11 @@ and the same rounds send the Android build to Play's closed test: [docs/play.md]
 
 ## Build from source
 
-JDK 17+. Android needs the Android SDK 36; iOS needs Xcode on a Mac.
+JDK 17+. Android needs the Android SDK 37; iOS needs Xcode on a Mac.
 
 ```bash
 ./gradlew :composeApp:run -Pgains.android=false   # desktop, the quickest way to try it
-./gradlew :composeApp:assembleDebug                # Android
+./gradlew :androidApp:assembleDebug                # Android
 open iosApp/iosApp.xcodeproj                       # iOS
 ```
 
@@ -73,6 +73,7 @@ Add `-Pgains.openFile=samples/liftoff-export.csv` to the desktop run to start fr
 |--------|--|
 | [`shared/`](shared) | Importers, database, insight and streak engines, programs, the sync client. Pure Kotlin. |
 | [`composeApp/`](composeApp) | Compose Multiplatform UI for iOS, Android and desktop. |
+| [`androidApp/`](androidApp) | The Android application around it: id, version, signing, R8. |
 | [`iosApp/`](iosApp) | The Xcode project. |
 | [`server/`](server) | The sync server (Ktor, SQLite). |
 | [`tools/`](tools) | Release, TestFlight, Google Play and deploy scripts. |

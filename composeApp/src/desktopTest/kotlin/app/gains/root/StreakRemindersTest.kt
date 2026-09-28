@@ -13,12 +13,21 @@ import app.gains.domain.Session
 import app.gains.platform.Nudge
 import app.gains.platform.NudgeScheduler
 import app.gains.platform.applyAppLanguage
+import app.gains.resources.Res
+import app.gains.resources.nudge_keep_body
+import app.gains.resources.nudge_keep_rest_body
+import app.gains.resources.nudge_keep_title
+import app.gains.resources.nudge_last_body
+import app.gains.resources.nudge_last_rest_body
+import app.gains.resources.nudge_last_title
+import app.gains.resources.weeks
 import app.gains.ui.i18n.InLanguage
 import app.gains.ui.i18n.Texts
 import app.gains.ui.i18n.rememberTexts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -69,11 +78,24 @@ class StreakRemindersTest {
         runCurrent()
     }
 
-    /** The texts a composition in [language] reads its words with. */
+    /**
+     * The texts a composition in [language] reads its words with, with the reminder's strings
+     * already read once. Compose resources load a string in a scope of their own, on a real
+     * dispatcher, since Compose Multiplatform 1.12, and only a cached one comes back without
+     * suspending; so the first read would finish outside runTest's virtual time and after the
+     * runCurrent() that expects the plan.
+     */
     private fun textsIn(language: AppLanguage): Texts {
         var texts: Texts? = null
         runDesktopComposeUiTest { setContent { InLanguage(language) { texts = rememberTexts() } }; waitForIdle() }
-        return checkNotNull(texts)
+        return checkNotNull(texts).also { loaded ->
+            runBlocking {
+                loaded.plural(Res.plurals.weeks, 2, 2)
+                with(Res.string) {
+                    listOf(nudge_keep_title, nudge_keep_body, nudge_keep_rest_body, nudge_last_title, nudge_last_body, nudge_last_rest_body)
+                }.forEach { loaded.get(it, "") }
+            }
+        }
     }
 
     private val saturday = LocalDateTime(2026, 9, 5, 18, 0).toInstant(TimeZone.UTC).toEpochMilliseconds()

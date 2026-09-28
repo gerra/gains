@@ -59,13 +59,13 @@ kotlin {
             implementation(libs.sqldelight.native)
             implementation(libs.ktor.client.darwin)
         }
-        val desktopMain by getting {
+        getByName("desktopMain") {
             dependencies {
                 implementation(libs.sqldelight.sqlite)
                 implementation(libs.ktor.client.cio)
             }
         }
-        val desktopTest by getting {
+        getByName("desktopTest") {
             dependencies {
                 implementation(libs.sqldelight.sqlite)
                 // GoogleOAuthTest answers the token exchange without a network.
@@ -93,17 +93,4 @@ tasks.withType<Test>().configureEach {
 // library plugin's target has no compilerOptions block of its own to say it in.
 tasks.withType<KotlinJvmCompile>().configureEach {
     compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
-}
-
-if (androidEnabled) {
-    // Ktor's OkHttp engine brings okhttp 5.5.0, whose AAR metadata requires compileSdk 37 and
-    // fails :androidApp:checkDebugAarMetadata. The version catalog says why 5.4.0.
-    dependencies {
-        constraints {
-            add("androidMainImplementation", "com.squareup.okhttp3:okhttp") {
-                version { strictly(libs.versions.okhttp.get()) }
-                because("okhttp 5.5.0 needs compileSdk 37; see okhttp in gradle/libs.versions.toml")
-            }
-        }
-    }
 }

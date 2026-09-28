@@ -7,7 +7,7 @@
 // Groovy, so the Kotlin DSL build file never names an AGP type, and applied before the kotlin { }
 // block there, which only exists once this creates the target.
 kotlin {
-    androidLibrary {
+    android {
         // The manifest's relative names (.MainActivity, .GainsApplication) resolve against this,
         // and so does R: app.gains.R. The application's namespace is a different one.
         namespace = "app.gains"
@@ -15,6 +15,8 @@ kotlin {
         minSdk = libs.versions.android.minSdk.get().toInteger()
         // Off by default in the library plugin. The notification strings, the drawables, the
         // layout and the sign-in config use R, and the Compose resources ship as Android assets.
-        experimentalProperties["android.experimental.kmp.enableAndroidResources"] = true
+        androidResources {
+            enable = true
+        }
     }
 }

@@ -12,9 +12,12 @@ plugins {
 val androidEnabled = rootProject.extra["androidEnabled"] as Boolean
 
 // Before the kotlin { } block: android.gradle creates the Android target that androidMain belongs
-// to. This module is an Android library; the application is :androidApp.
+// to. This module is an Android library; the application is :androidApp. The lint plugin gives
+// the library a lint model, without which :androidApp:lintDebug (checkDependencies) skips this
+// module, where all the app's code is.
 if (androidEnabled) {
     apply(plugin = "com.android.kotlin.multiplatform.library")
+    apply(plugin = "com.android.lint")
     apply(from = "android.gradle")
 }
 
@@ -72,13 +75,13 @@ kotlin {
                 implementation(libs.androidx.browser)
             }
         }
-        val desktopMain by getting {
+        getByName("desktopMain") {
             dependencies {
                 implementation(compose.desktop.currentOs)
                 implementation(libs.kotlinx.coroutines.swing)
             }
         }
-        val desktopTest by getting {
+        getByName("desktopTest") {
             dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.compose.ui.test.junit4)

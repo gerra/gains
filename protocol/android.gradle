@@ -3,7 +3,7 @@
 // (docs/launch-plan.md, item 38). Groovy, so the Kotlin DSL build file never names an AGP type,
 // and applied before the kotlin { } block there, which only exists once this creates the target.
 kotlin {
-    androidLibrary {
+    android {
         namespace = "app.gains.protocol"
         compileSdk = libs.versions.android.compileSdk.get().toInteger()
         minSdk = libs.versions.android.minSdk.get().toInteger()
