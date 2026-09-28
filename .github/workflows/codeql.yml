@@ -22,8 +22,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A pull request that touches nothing Gradle reads (tools/changes.py: docs, the site, tools/,
+  # deploy/) has no Kotlin to scan, so the analysis skips itself; see ci.yml's job of the same
+  # name. The push to main and the weekly run always analyze.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      build: ${{ steps.changes.outputs.build }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - id: changes
+        run: python3 tools/changes.py
+
   analyze:
     name: Analyze the Kotlin
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

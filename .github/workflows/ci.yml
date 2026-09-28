@@ -6,8 +6,37 @@ on:
   pull_request:
 
 jobs:
+  # Which of the Gradle jobs below this pull request needs (tools/changes.py). A change that only
+  # touches docs, the site, tools/ or deploy/ skips them. They skip with a job-level `if:`,
+  # which GitHub reports as passed, rather than the workflow's `paths:`, which would leave a
+  # required check waiting. `!= 'false'` rather than `== 'true'`: if this job breaks, they run.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.changes.outputs.build }}
+      dependencies: ${{ steps.changes.outputs.dependencies }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - id: changes
+        run: python3 tools/changes.py
+
+  # The Python in tools/ decides which release branch gets cut and what version it carries, and
+  # checks the site's links and the workflows, so it is tested on every pull request, whatever
+  # it touches. It needs no JDK and takes seconds.
+  scripts:
+    name: Script tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: python3 -m unittest discover -s tools -p 'test_*.py'
+
   test:
     name: Shared tests and desktop build
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -16,10 +45,6 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
-      # The release scripts in tools/ decide which branch gets cut and what version it
-      # carries, so their arithmetic is tested here rather than discovered at 08:00 UTC.
-      - name: Release script tests
-        run: python3 -m unittest discover -s tools -p 'test_*.py'
       # No Android SDK on the runner: build the shared module, the desktop target and the sync
       # server (built on :protocol, its tests run against :shared's JVM build) only.
       - run: ./gradlew :shared:desktopTest :composeApp:desktopTest :server:test -Pgains.android=false --no-daemon
@@ -43,6 +68,8 @@ jobs:
   # local build.
   android:
     name: Android build, lint and unit tests
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -70,10 +97,16 @@ jobs:
   # before it merges (docs/launch-plan.md, item 28). GitHub can't read the Gradle build, so the
   # job first submits this branch's dependency graph, as dependency-graph.yml does for main, and
   # the review compares the two; it waits for the snapshot it just sent. Submitting needs a
-  # token that can write, which a pull request from a fork doesn't get, so those skip it.
+  # token that can write, which a pull request from a fork doesn't get, so those skip it. A pull
+  # request that touches no build file or version catalog has nothing to review, and skips too.
   dependency-review:
     name: Dependency review
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: changes
+    if: >-
+      ${{ !cancelled()
+      && github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && needs.changes.outputs.dependencies != 'false' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
