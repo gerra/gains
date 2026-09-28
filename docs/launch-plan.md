@@ -1238,7 +1238,8 @@ Things to keep exactly as they are, and check in each step:
 
 Steps:
 
-- [ ] **1. The workout notice and its two buttons.** A class (e.g. `LiveSessionNotices`) taking
+- [x] **1. The workout notice and its two buttons.** Done in #119: `app.gains.root.LiveSessionNotices`,
+  run from `AppBody` where the effects were, with `LiveSessionNoticesTest`. A class (e.g. `LiveSessionNotices`) taking
   `LiveSessionRepository` and `LiveSessionNotifier`, with a `suspend fun run()` that holds
   today's `distinctUntilChanged` / rest-countdown re-post logic, and the handling of
   `ResumeRequests` and `SkipRestRequests` (open the running workout unless its editor is on top;
