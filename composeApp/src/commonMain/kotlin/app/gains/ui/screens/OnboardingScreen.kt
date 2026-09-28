@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import app.gains.ErrorReporter
 import app.gains.catalogue.ProgramCatalogue
 import app.gains.data.ProgramRepository
 import app.gains.domain.Experience
@@ -66,7 +67,7 @@ import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.first
 
-internal class OnboardingModel(private val programs: ProgramRepository = inject()) : ScreenModel() {
+internal class OnboardingModel(private val programs: ProgramRepository, reporter: ErrorReporter) : ScreenModel(reporter) {
     var step by mutableStateOf(0)
         private set
     var goal by mutableStateOf<Goal?>(null)
@@ -116,7 +117,7 @@ internal class OnboardingModel(private val programs: ProgramRepository = inject(
  */
 @Composable
 internal fun OnboardingScreen(onDone: () -> Unit) {
-    val model = rememberScreenModel { OnboardingModel() }
+    val model = rememberScreenModel { OnboardingModel(inject(), inject()) }
     val palette = GainsColors.palette
     if (model.done) { onDone(); return }
     val reduce = LocalReduceMotion.current

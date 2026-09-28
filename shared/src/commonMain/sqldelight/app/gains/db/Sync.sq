@@ -139,7 +139,7 @@ CREATE TRIGGER sync_slot_delete AFTER DELETE ON program_slot BEGIN
   SELECT 'program', program_id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0 FROM program_day WHERE id = old.day_id;
 END;
 
--- setting: the keys that are the person's, not the device's. Same list as SyncKinds.settingKeys.
+-- setting: the keys that are the person's, not the device's. Same list as SyncedSettings.keys.
 CREATE TRIGGER sync_setting_insert AFTER INSERT ON setting
 WHEN new.key IN ('weight_unit', 'bar_weight_kg', 'auto_warmups', 'goal_profile', 'active_program', 'onboarding_done') BEGIN
   INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('setting', new.key, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);

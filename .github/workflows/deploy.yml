@@ -3,7 +3,8 @@ name: Deploy server
 # Ships the sync server (server/, docs/sync.md) to the Hetzner box the way taxes and www are
 # shipped: tests, `installDist`, rsync of the install directory, the systemd unit from the
 # repository, restart, smoke test. Runs only for changes that reach the server: the module,
-# the shared code it is built from, the unit and this file. UI-only changes leave it alone.
+# the wire format it is built from (:protocol), the unit and this file. Changes to the app,
+# :shared included, leave it alone; CI runs the server's tests against them on the pull request.
 #
 # The steps are tools/deploy_server.py, not shell; the same file runs on the box for the
 # install itself. Needs the repository secrets DEPLOY_HOST, DEPLOY_USER and DEPLOY_KEY (the
@@ -14,8 +15,7 @@ on:
     branches: [main]
     paths:
       - "server/**"
-      - "shared/src/commonMain/**"
-      - "shared/build.gradle.kts"
+      - "protocol/**"
       - "gradle/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"

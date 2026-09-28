@@ -41,6 +41,7 @@ import app.gains.domain.Exercise
 import app.gains.domain.WeightUnit
 import app.gains.resources.Res
 import app.gains.resources.*
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
@@ -88,10 +89,11 @@ internal data class TrophiesState(
 )
 
 internal class TrophiesModel(
-    trainingData: TrainingData = inject(),
-    settings: SettingsRepository = inject(),
-    programs: ProgramRepository = inject(),
-) : ScreenModel() {
+    trainingData: TrainingData,
+    settings: SettingsRepository,
+    programs: ProgramRepository,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     val state: StateFlow<TrophiesState> = combine(trainingData.snapshot, settings.observeUnit(), programs.observeState()) { snapshot, unit, programState ->
         withContext(Dispatchers.Default) {
             val statuses = Achievements.evaluate(snapshot.sessions, snapshot.exercisesById, unit, programState.weeklyGoal)
@@ -123,7 +125,7 @@ internal class TrophiesModel(
  */
 @Composable
 internal fun TrophiesScreen(onOpenExercise: (String) -> Unit, onOpenSession: (String) -> Unit) {
-    val model = rememberScreenModel { TrophiesModel() }
+    val model = rememberScreenModel { TrophiesModel(inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     if (state.loading) return
     val palette = GainsColors.palette

@@ -48,6 +48,7 @@ import app.gains.domain.ProgramDay
 import app.gains.domain.ProgressionRule
 import app.gains.domain.RepTarget
 import app.gains.importer.ExerciseResolver
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
 import app.gains.ui.components.Dp16
@@ -158,10 +159,11 @@ internal class ProgramEditorModel(
     private val programId: String?,
     /** Names new days ("Day 1"). */
     private val texts: Texts,
-    private val programs: ProgramRepository = inject(),
-    private val exercises: ExerciseRepository = inject(),
-    trainingData: TrainingData = inject(),
-) : ScreenModel() {
+    private val programs: ProgramRepository,
+    private val exercises: ExerciseRepository,
+    trainingData: TrainingData,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val _state = MutableStateFlow(ProgramEditorState())
     val state: StateFlow<ProgramEditorState> = _state
 
@@ -255,7 +257,7 @@ internal class ProgramEditorModel(
 @Composable
 internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
     val texts = rememberTexts()
-    val model = rememberScreenModel(programId) { ProgramEditorModel(programId, texts) }
+    val model = rememberScreenModel(programId) { ProgramEditorModel(programId, texts, inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerFor by remember { mutableStateOf<Int?>(null) }

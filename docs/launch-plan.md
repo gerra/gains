@@ -76,9 +76,9 @@ The same rules as `auth-plan.md`:
 | 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [x] |
 | 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [x] |
 | 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [x] |
-| 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [ ] |
-| 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [ ] |
-| 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [ ] |
+| 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [x] |
+| 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [x] |
+| 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [x] |
 | 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [ ] |
 
 **Blockers, P1, P2.** Items 20 and 21 are launch blockers: item 7 (App Review) depends on 20,
@@ -424,7 +424,7 @@ expires, and an unlisted redirect is refused.
 **Milestone:** Android launch. **Depends on:** 8, 10.
 
 1. `AccountKind.APPLE` in `AndroidIdentityProvider`: open `/auth/apple/start` in a Custom Tab
-   with the App Link `https://gains.gerra.sh/auth/done` (`AppleWebFlow.ANDROID_CALLBACK`, the
+   with the App Link `https://gains.gerra.sh/auth/done` (`AppleWebCallback.ANDROID`, the
    one URL the server allows) as the callback. `SignInCallbackActivity` receives it, hands the
    URL to the waiting provider (`WebSignIn`) and returns to `MainActivity`; the provider checks
    the state and returns the code.
@@ -1340,7 +1340,8 @@ The existing `SignInModelTest`, `EmailSignInTest` and `AccountDeletionTest` keep
 
 ### 35. Explicit dependencies instead of `inject()` defaults
 
-- [ ] Done
+- [x] Done
+  Done in #125
 
 **Milestone:** Maintenance (P2). **Depends on:** 34 (same files; its helper settles first). Not
 a launch blocker, and no change of DI framework: Koin stays.
@@ -1374,7 +1375,8 @@ Tests: all existing tests; `grep -rn "= inject()" composeApp/src` returns nothin
 
 ### 36. Architecture docs back in step with the code
 
-- [ ] Done
+- [x] Done
+  Done in #126
 
 **Milestone:** Maintenance (P2). **Depends on:** nothing. Items 33–35 and 37 then keep the docs
 true in their own pull requests (rule 2).
@@ -1407,7 +1409,8 @@ Tests: none; `docs/` changes skip the iOS job. Links checked by opening the rend
 
 ### 37. Module boundaries: a wire-protocol module, and when to split features
 
-- [ ] Done
+- [x] Done
+  Done in #127
 
 **Milestone:** Maintenance (P2, after launch). **Depends on:** 27 (both rewrite build files).
 Nothing is split unless this item's measurements say the graph gets better.
@@ -1434,6 +1437,22 @@ class itself.
    moved out of `SyncApi`; `shared` and `server` both depend on it and `server` no longer on
    `shared`. Package names stay, so the move is imports only. If the gain is small, say so and
    stop.
+
+   *Measured and decided (September 2026):* split. The server shipped 71 jars (about 42 MB);
+   `:shared` brought `shared-desktop.jar` (1.3 MB), Koin and its three stately jars, Ktor's CIO
+   client and SQLDelight's coroutines extensions, none of which the server's main code calls.
+   Ktor's client core and kotlinx-datetime stay: Ktor's server auth plugin brings them itself.
+   With `:protocol` (a 105 KB jar) the install is 63 jars, about 40 MB. The bigger cost was the
+   rebuild: `deploy.yml` ran on any change under `shared/src/commonMain/`, and of the 40 merges
+   to `main` since 2 September that touched it, 7 touched a file the server uses; the other 33
+   each rebuilt, retested and restarted the server for app-only changes. Now the deploy runs on
+   `protocol/**` instead, and the server's main compile classpath has no `:shared`. It stays a
+   test dependency: the round-trip tests run the app's real sync client against the routes, so
+   CI still tests the server against every change to `:shared`. What moved: `Protocol.kt` whole,
+   with `SyncApi.PAGE` and `SyncApi.HEADER_UPDATED_AT` as `SyncProtocol`; `SyncKinds` and
+   `PhotoDoc` into `Kinds.kt`, the synced setting keys staying in the app as
+   `SyncedSettings.keys` because they name the app's repositories; and Android's callback as
+   `AppleWebCallback.ANDROID`, the rest of `AppleWebFlow` being the app's.
 3. **Feature modules: don't create any now.** Write in `docs/development.md` when splitting
    `composeApp` or `shared` into feature modules becomes worth it, so the question is answered
    next time by checking, not by taste: a feature with its own clear owner or reuse outside this
@@ -1488,7 +1507,7 @@ module holds only what must belong to an application.
    `settings.gradle.kts` includes `:androidApp` only when `gains.android` is on
    (`providers.gradleProperty`), so `-Pgains.android=false` (the `test` CI job, the Xcode build
    phase, a Mac without an Android SDK) never sees it.
-2. **`:composeApp` and `:shared` become KMP libraries** on
+2. **`:composeApp`, `:shared` and `:protocol` become KMP libraries** on
    `com.android.kotlin.multiplatform.library`. `androidTarget { }` and the `com.android.*` plugin
    go. The Android target is configured in `kotlin { android { namespace; compileSdk; minSdk } }`
    (`androidLibrary { }` is the older, deprecated name). Keep the conditional wiring:
@@ -1532,7 +1551,8 @@ module holds only what must belong to an application.
    - `docs/play.md`, `docs/development.md` (the commands, the Android Studio run configuration,
      the Android Studio version, "Built with"), `README.md`, the checks in `auth-plan.md`, and
      this file's items 30 and 31 where they name `composeApp/android.gradle`.
-   - `docs/how-it-works.md`'s modules table gains the fourth module.
+   - `docs/how-it-works.md`'s modules table gains `androidApp/`, and `docs/development.md`
+     "Modules" counts it.
 6. **Owner:**
    - Android Studio Quail 4 or newer.
    - Once CI is green, one release round to the closed testing track. Play must take the bundle
@@ -1796,6 +1816,14 @@ a build containing the step.
       their error line and the app stays up; a broken CSV shows the import error, not a crash.
       The failed sign-in is in the platform's log ("Gains: unexpected error" in the Xcode console,
       `adb logcat -s Gains` on Android, stderr on the desktop); the closed sheet is not.
+- [ ] Item 35: every screen still opens with its data: Home, History and a past workout's
+      editor and summary, Programs, a program and its editor, Lifts and a lift's detail, Volume,
+      Trophies, Bodyweight, Import and Settings. On Android, with a rest running, swipe the app
+      away and tap "Skip rest" on the notice: the rest ends and the notice is redrawn.
+- [ ] Item 37: after the merge the Deploy server workflow runs and `/health` answers. A workout
+      logged on the phone arrives on the desktop with its photo, and Sign in with Apple on
+      Android comes back to the app. A later merge that changes only the app (not `protocol/`
+      or `server/`) starts no server deploy.
 
 ### Desktop (items 15–17)
 

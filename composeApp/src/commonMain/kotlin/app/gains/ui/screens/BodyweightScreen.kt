@@ -51,6 +51,7 @@ import app.gains.domain.Exercise
 import app.gains.domain.Modality
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
@@ -96,10 +97,11 @@ internal data class BodyweightState(
 )
 
 internal class BodyweightModel(
-    private val repo: BodyweightRepository = inject(),
-    trainingData: TrainingData = inject(),
-    settings: SettingsRepository = inject(),
-) : ScreenModel() {
+    private val repo: BodyweightRepository,
+    trainingData: TrainingData,
+    settings: SettingsRepository,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val overlay = MutableStateFlow<String?>(null)
 
     val state: StateFlow<BodyweightState> = combine(repo.observe(), trainingData.snapshot, settings.observeUnit(), overlay) { entries, snapshot, unit, overlayId ->
@@ -127,7 +129,7 @@ internal class BodyweightModel(
 
 @Composable
 internal fun BodyweightScreen() {
-    val model = rememberScreenModel { BodyweightModel() }
+    val model = rememberScreenModel { BodyweightModel(inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     if (state.loading) return
     val today = Dates.today()

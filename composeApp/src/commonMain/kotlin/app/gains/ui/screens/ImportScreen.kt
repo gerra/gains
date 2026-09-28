@@ -74,8 +74,8 @@ internal sealed interface ImportState {
 }
 
 internal class ImportModel(
-    private val importService: ImportService = inject(),
-    reporter: ErrorReporter = inject(),
+    private val importService: ImportService,
+    reporter: ErrorReporter,
 ) : ScreenModel(reporter) {
     private val _state = MutableStateFlow<ImportState>(ImportState.Idle)
     val state: StateFlow<ImportState> = _state
@@ -126,7 +126,7 @@ internal class ImportModel(
 
 @Composable
 internal fun ImportScreen(filePicker: CsvFilePicker, onDone: () -> Unit) {
-    val model = rememberScreenModel { ImportModel() }
+    val model = rememberScreenModel { ImportModel(inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
 

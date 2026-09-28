@@ -1,8 +1,9 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // The sync server (docs/sync.md): Ktor on the CIO engine, a SQLite file through SQLDelight, and
-// the wire format from :shared so both ends serialize with the same classes. `installDist`
-// builds what the deploy workflow ships: build/install/gains-server/{bin,lib}.
+// the wire format from :protocol so both ends serialize with the same classes. `installDist`
+// builds what the deploy workflow ships: build/install/gains-server/{bin,lib}. :shared is a test
+// dependency only: the round-trip tests run the app's real sync client against the routes.
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
@@ -27,7 +28,7 @@ application {
 }
 
 dependencies {
-    implementation(project(":shared"))
+    implementation(project(":protocol"))
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.content.negotiation)
@@ -44,6 +45,7 @@ dependencies {
     implementation(libs.logback.classic)
     implementation(libs.bouncycastle)
 
+    testImplementation(project(":shared"))
     testImplementation(kotlin("test"))
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -114,6 +114,7 @@ import app.gains.program.DayPlanner
 import app.gains.program.Gzclp
 import app.gains.program.PlanOptions
 import app.gains.program.Progression
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChooserRow
 import app.gains.ui.components.DatePickerSheet
@@ -318,13 +319,14 @@ internal class SessionEditorModel(
     private val live: Boolean = false,
     /** The titles and day tags the model makes. */
     private val texts: Texts,
-    private val sessions: SessionRepository = inject(),
-    private val exercises: ExerciseRepository = inject(),
-    private val liveSessions: LiveSessionRepository = inject(),
-    settings: SettingsRepository = inject(),
-    trainingData: TrainingData = inject(),
-    private val programs: ProgramRepository = inject(),
-) : ScreenModel() {
+    private val sessions: SessionRepository,
+    private val exercises: ExerciseRepository,
+    private val liveSessions: LiveSessionRepository,
+    settings: SettingsRepository,
+    trainingData: TrainingData,
+    private val programs: ProgramRepository,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state
 
@@ -807,7 +809,7 @@ internal fun SessionEditorScreen(
     onOpenSummary: (String) -> Unit = {},
 ) {
     val texts = rememberTexts()
-    val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live, texts) }
+    val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live, texts, inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerOpen by remember { mutableStateOf(false) }

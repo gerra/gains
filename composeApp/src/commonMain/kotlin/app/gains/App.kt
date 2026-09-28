@@ -74,7 +74,8 @@ internal fun App(
     nudges: NudgeScheduler = NudgeScheduler.None,
     systemBars: @Composable (dark: Boolean) -> Unit = {},
 ) {
-    val settings = remember { inject<SettingsRepository>() }
+    val graph = remember { RootGraph(inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
+    val settings = graph.settings
     // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
     // while the entry lives, so a screen comes back as it was left once the one covering it is popped.
     // The stack and that state sit above the language, so a change of it leaves the lifter where they were.
@@ -90,10 +91,26 @@ internal fun App(
             // been chosen. Nothing is drawn until that preference has been read — a moment, at
             // launch — so the app is never shown in one language and then another.
             val language = settings.observeLanguage().collectAsState(initial = null).value ?: return@Surface
-            InLanguage(language) { AppBody(navigator, stateHolder, filePicker, photoPicker, systemBack, notifier, nudges) }
+            InLanguage(language) { AppBody(graph, navigator, stateHolder, filePicker, photoPicker, systemBack, notifier, nudges) }
         }
     } }
 }
+
+/**
+ * What the root takes from the Koin graph, looked up once in [App] and handed down, so the root's
+ * lookups sit in one place and the pieces in `app.gains.root` are given theirs in their
+ * constructors. It sits above the language with the navigator; the pieces made from it are still
+ * made afresh under each language, as before.
+ */
+private class RootGraph(
+    val settings: SettingsRepository,
+    val accounts: AccountRepository,
+    val exercises: ExerciseRepository,
+    val programs: ProgramRepository,
+    val sessions: SessionRepository,
+    val liveSessions: LiveSessionRepository,
+    val sync: SyncController,
+)
 
 /**
  * Everything under the look and the language: the gates, the pieces in `app.gains.root` that keep
@@ -107,6 +124,7 @@ internal fun App(
  */
 @Composable
 private fun AppBody(
+    graph: RootGraph,
     navigator: Navigator,
     stateHolder: SaveableStateHolder,
     filePicker: CsvFilePicker,
@@ -115,20 +133,17 @@ private fun AppBody(
     notifier: LiveSessionNotifier,
     nudges: NudgeScheduler,
 ) {
-    val settings = remember { inject<SettingsRepository>() }
-    val exercises = remember { inject<ExerciseRepository>() }
-    LaunchedEffect(Unit) { exercises.seedCatalogue() }
+    LaunchedEffect(Unit) { graph.exercises.seedCatalogue() }
     // The sync runs for as long as the app does; it does nothing for a guest or without a server.
-    val sync = remember { inject<SyncController>() }
-    LaunchedEffect(Unit) { sync.start(this) }
+    LaunchedEffect(Unit) { graph.sync.start(this) }
 
     // Files shared into the app open the import screen.
     val incoming by IncomingFiles.pending.collectAsState()
     LaunchedEffect(incoming) { navigator.openImportFor(incoming) }
-    val programs = remember { inject<ProgramRepository>() }
-    val sessions = remember { inject<SessionRepository>() }
+    val programs = graph.programs
+    val sessions = graph.sessions
     // Sign-in, the goal questions or the app; nothing until the account and onboarding have been read.
-    val gate = remember { RootGate(inject<AccountRepository>(), programs) }
+    val gate = remember { RootGate(graph.accounts, programs) }
     val rootState by gate.state.collectAsState(initial = RootState.Loading)
     systemBack(navigator.canGoBack) { navigator.pop() }
 
@@ -136,13 +151,13 @@ private fun AppBody(
     val texts = rememberTexts()
     val upNext by remember(texts) { observeUpNext(programs, sessions, texts) }.collectAsState(initial = null)
     // The workout in progress, if any: shown as a resume bar on every screen but its own.
-    val liveSessions = remember { inject<LiveSessionRepository>() }
+    val liveSessions = graph.liveSessions
     val live by liveSessions.observe().collectAsState(initial = null)
     // Keep the platform's tray in step with it, and answer the notice's taps on "resume" and "skip rest".
     val notices = remember { LiveSessionNotices(liveSessions, notifier, navigator) }
     LaunchedEffect(Unit) { notices.run() }
     // The streak reminders, re-worded when the texts change.
-    val reminders = remember { StreakReminders(sessions, programs, settings, nudges) }
+    val reminders = remember { StreakReminders(sessions, programs, graph.settings, nudges) }
     LaunchedEffect(texts) { reminders.run(texts) }
     when (rootState) {
         RootState.Loading -> Unit

@@ -42,6 +42,7 @@ import app.gains.analysis.WeekCount
 import app.gains.data.ProgramRepository
 import app.gains.domain.Exercise
 import app.gains.domain.Session
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.CalendarHeatmap
 import app.gains.ui.charts.ChartMath.x
@@ -110,7 +111,7 @@ internal data class HistoryState(
     val recordCounts: Map<String, Int> = emptyMap(),
 )
 
-internal class HistoryModel(texts: Texts, trainingData: TrainingData = inject(), programs: ProgramRepository = inject()) : ScreenModel() {
+internal class HistoryModel(texts: Texts, trainingData: TrainingData, programs: ProgramRepository, reporter: ErrorReporter) : ScreenModel(reporter) {
     val state: StateFlow<HistoryState> = combine(trainingData.snapshot, programs.observeState()) { snapshot, programState ->
         withContext(Dispatchers.Default) {
             val today = Dates.today()
@@ -139,7 +140,7 @@ internal class HistoryModel(texts: Texts, trainingData: TrainingData = inject(),
 @Composable
 internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
     val texts = rememberTexts()
-    val model = rememberScreenModel { HistoryModel(texts) }
+    val model = rememberScreenModel { HistoryModel(texts, inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     if (state.loading) return
     val today = Dates.today()

@@ -2,7 +2,9 @@
 
 > **Finished.** Items 1–7 shipped in release 1.5. Everything still open, including the owner
 > actions below, is in [`docs/launch-plan.md`](launch-plan.md). This file stays as the record of
-> how sign-in was built.
+> how sign-in was built. Its [Where things are](#where-things-are) table and the "iOS only" scope
+> were true at release 1.5; Android, the desktop and email accounts came later, and
+> [`docs/sync.md`](sync.md) describes sign-in as it is now.
 
 A queue of self-contained work items. **Each item is one branch, one pull request.** An agent
 starting from scratch should:

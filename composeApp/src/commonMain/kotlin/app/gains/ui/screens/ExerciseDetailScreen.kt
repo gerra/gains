@@ -43,6 +43,7 @@ import app.gains.domain.Exercise
 import app.gains.domain.Modality
 import app.gains.domain.Units
 import app.gains.domain.WeightUnit
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
@@ -97,10 +98,11 @@ internal data class ExerciseDetailState(
 
 internal class ExerciseDetailModel(
     private val exerciseId: String,
-    trainingData: TrainingData = inject(),
-    private val exercises: ExerciseRepository = inject(),
-    settings: SettingsRepository = inject(),
-) : ScreenModel() {
+    trainingData: TrainingData,
+    private val exercises: ExerciseRepository,
+    settings: SettingsRepository,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val window = MutableStateFlow(Window.M6)
 
     val state: StateFlow<ExerciseDetailState> = combine(
@@ -136,7 +138,7 @@ internal class ExerciseDetailModel(
 
 @Composable
 internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) -> Unit = {}) {
-    val model = rememberScreenModel(exerciseId) { ExerciseDetailModel(exerciseId) }
+    val model = rememberScreenModel(exerciseId) { ExerciseDetailModel(exerciseId, inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val exercise = state.exercise
     if (state.loading) return

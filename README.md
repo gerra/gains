@@ -35,7 +35,7 @@ Website, privacy policy and support: **https://gains.gerra.sh**
 - **Charts**: estimated 1RM, weekly volume on a body map, bodyweight.
 - **Week streaks** that survive a rest week.
 - **Records, a score and achievements**: every record the workout set, named exactly; a score you can add up yourself; six ladders earned by training alone.
-- **Local first.** Data lives on the device; Sign in with Apple on iOS syncs it through a self-hosted server.
+- **Local first.** Data lives on the device; signing in with Apple or Google, on iOS, Android or the desktop, syncs it through a self-hosted server.
 - **English and Russian.**
 
 All of it, with every screenshot: [docs/features.md](docs/features.md).
@@ -71,7 +71,7 @@ Add `-Pgains.openFile=samples/liftoff-export.csv` to the desktop run to start fr
 
 | Module | |
 |--------|--|
-| [`shared/`](shared) | Importers, database, insight and streak engines, programs. Pure Kotlin. |
+| [`shared/`](shared) | Importers, database, insight and streak engines, programs, the sync client. Pure Kotlin. |
 | [`composeApp/`](composeApp) | Compose Multiplatform UI for iOS, Android and desktop. |
 | [`iosApp/`](iosApp) | The Xcode project. |
 | [`server/`](server) | The sync server (Ktor, SQLite). |

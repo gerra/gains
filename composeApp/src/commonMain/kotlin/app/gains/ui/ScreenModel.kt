@@ -23,8 +23,13 @@ import org.koin.mp.KoinPlatform
  * Its actions go through [launchAction]. An exception that still escapes a coroutine in [scope]
  * lands in the scope's handler ([reportingHandler]), which hands it to [reporter] and keeps the
  * app running: without one, an uncaught exception ends an iOS app and crashes an Android one.
+ *
+ * A model is a plain class: it takes everything it uses, [reporter] included, in its constructor
+ * and knows nothing of Koin. Its screen's composable makes it, with [inject] for what comes from
+ * the graph, so that call is the one place a model's dependencies are chosen, and a test passes
+ * fakes or the test database's repositories without a Koin graph behind it.
  */
-internal abstract class ScreenModel(protected val reporter: ErrorReporter = inject()) {
+internal abstract class ScreenModel(protected val reporter: ErrorReporter) {
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate + reportingHandler(reporter))
     open fun onCleared() = scope.cancel()
 }
@@ -83,4 +88,13 @@ internal inline fun <reified T : ScreenModel> rememberScreenModel(vararg keys: A
     return model
 }
 
+/**
+ * The [T] bound in the Koin graph, for composables only: a screen passes it to its model's
+ * constructor in the [rememberScreenModel] factory, and [app.gains.App] hands it to the root's
+ * pieces. A model or any other class below the UI takes its dependencies in its constructor
+ * instead, so what it needs is in its signature and a test needs no graph.
+ *
+ * The type comes from where the call stands, so `HomeModel(inject(), inject(), …)` resolves each
+ * argument from its parameter's type and can't hand one repository in the place of another.
+ */
 internal inline fun <reified T : Any> inject(): T = KoinPlatform.getKoin().get(T::class)

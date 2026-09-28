@@ -45,6 +45,7 @@ import app.gains.domain.WeightUnit
 import app.gains.program.Gzclp
 import app.gains.program.Progression
 import app.gains.program.Rotation
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
@@ -83,11 +84,12 @@ internal data class ProgramDetailState(
 
 internal class ProgramDetailModel(
     private val programId: String,
-    private val programs: ProgramRepository = inject(),
-    sessions: SessionRepository = inject(),
-    trainingData: TrainingData = inject(),
-    settings: SettingsRepository = inject(),
-) : ScreenModel() {
+    private val programs: ProgramRepository,
+    sessions: SessionRepository,
+    trainingData: TrainingData,
+    settings: SettingsRepository,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private var navigateTo by mutableStateOf<String?>(null)
     private var deleted by mutableStateOf(false)
 
@@ -125,7 +127,7 @@ internal class ProgramDetailModel(
 
 @Composable
 internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) -> Unit, onEdit: (String) -> Unit, onDeleted: () -> Unit) {
-    val model = rememberScreenModel(programId) { ProgramDetailModel(programId) }
+    val model = rememberScreenModel(programId) { ProgramDetailModel(programId, inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var confirmDelete by remember { mutableStateOf(false) }

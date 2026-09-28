@@ -9,6 +9,7 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import app.gains.auth.AccountKind
+import app.gains.auth.AppleWebCallback
 import app.gains.auth.AppleWebFlow
 import app.gains.auth.AuthConfig
 import app.gains.auth.AuthNotConfiguredException
@@ -90,7 +91,7 @@ internal class AndroidIdentityProvider(
         val callback = WebSignIn.expect()
         // From the activity, so the tab joins its task: coming back then only has to clear the
         // tab off the top (SignInCallbackActivity), and backing out lands on the same screen.
-        CustomTabsIntent.Builder().build().launchUrl(host, Uri.parse(AppleWebFlow.startUrl(server, AppleWebFlow.ANDROID_CALLBACK, state)))
+        CustomTabsIntent.Builder().build().launchUrl(host, Uri.parse(AppleWebFlow.startUrl(server, AppleWebCallback.ANDROID, state)))
         return ExchangeCode(AppleWebFlow.parseCallback(callback.await(), state))
     }
 

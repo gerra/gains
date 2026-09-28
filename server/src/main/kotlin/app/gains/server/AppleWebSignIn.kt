@@ -1,6 +1,6 @@
 package app.gains.server
 
-import app.gains.auth.AppleWebFlow
+import app.gains.auth.AppleWebCallback
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -100,9 +100,9 @@ class AppleWebSignIn(
 
         /**
          * The app callbacks a sign-in may end at, besides the desktop's loopback: Android's App Link
-         * ([AppleWebFlow.ANDROID_CALLBACK]), which only the app signed with our key can open.
+         * ([AppleWebCallback.ANDROID]), which only the app signed with our key can open.
          */
-        val APP_CALLBACKS = listOf(AppleWebFlow.ANDROID_CALLBACK)
+        val APP_CALLBACKS = listOf(AppleWebCallback.ANDROID)
 
         /**
          * Whether [url] may receive a one-time code: one of [APP_CALLBACKS] exactly, or

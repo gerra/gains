@@ -32,7 +32,7 @@ data class AuthConfig(
     /**
      * The audience Apple puts in the identity token, which the server checks against
      * `APPLE_CLIENT_IDS`. On iOS it is the app's bundle id, because the native flow signs tokens
-     * for the app itself. Apple's web flow ([AppleWebFlow], on the desktop) uses the server's
+     * for the app itself. Apple's web flow ([AppleWebFlow], on Android and the desktop) uses the server's
      * Services ID; the server holds it and runs that flow, so there it only switches the button on.
      */
     val appleServiceId: String? = null,
