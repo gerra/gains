@@ -227,8 +227,8 @@ doesn't regenerate that file, so every Gradle pull request from it would fail un
 rewrote the file by hand ([launch-plan item 29](launch-plan.md#29-supply-chain-dependabot-and-gradle-dependency-verification-where-practical)).
 
 **Pruning branches.** `python3 tools/prune_branches.py list` shows the branches on origin whose
-work is already on `main`, and `prune` deletes them. `release/*` branches are always kept: the
-next version number is worked out from them.
+work is already on `main`, and `prune` deletes them. Merged `release/*` branches go too: once a
+release branch is gone, `tools/release.py` works from its `testflight/<version>/<build>` tags.
 
 **Exercise photos.** `python3 tools/exercise_demos.py` (needs Pillow) matches every catalogue
 exercise to a [free-exercise-db](https://github.com/yuhonas/free-exercise-db) entry by its

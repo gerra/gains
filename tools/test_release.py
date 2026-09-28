@@ -20,7 +20,9 @@ from release import (
     parse,
     previous_version,
     pull_request_body,
+    ref_name,
     release_notes,
+    release_refs,
     sort_versions,
 )
 
@@ -54,6 +56,39 @@ class NextVersion(unittest.TestCase):
     def test_a_newer_major_is_left_alone(self):
         """A 2.x branch cut by hand does not drag main's 1.x line along with it."""
         self.assertEqual(next_version("1.2", ["1.1", "1.2", "2.0"]), "1.3")
+
+
+class ReleaseRefs(unittest.TestCase):
+    def test_a_branch_is_its_own_release(self):
+        self.assertEqual(
+            release_refs(["release/1.1"], []), {"1.1": "refs/remotes/origin/release/1.1"}
+        )
+
+    def test_the_branch_wins_over_its_tags(self):
+        """It may carry a fix pushed after the last build, which the next cut compares with."""
+        refs = release_refs(["release/1.1"], ["testflight/1.1/3"])
+        self.assertEqual(refs["1.1"], "refs/remotes/origin/release/1.1")
+
+    def test_a_deleted_branch_lives_on_as_its_newest_build(self):
+        refs = release_refs([], ["testflight/1.1/3", "testflight/1.1/12", "testflight/1.1/9"])
+        self.assertEqual(refs, {"1.1": "refs/tags/testflight/1.1/12"})
+
+    def test_deleting_merged_branches_keeps_the_count_going(self):
+        """1.10 and 1.11 merged and deleted, 1.9 kept: the next cut is still 1.12."""
+        refs = release_refs(
+            ["release/1.9"], ["testflight/1.9/20", "testflight/1.10/22", "testflight/1.11/24"]
+        )
+        self.assertEqual(sort_versions(refs), ["1.9", "1.10", "1.11"])
+        self.assertEqual(refs["1.11"], "refs/tags/testflight/1.11/24")
+        self.assertEqual(next_version("1.9", list(refs)), "1.12")
+
+    def test_other_names_are_ignored(self):
+        refs = release_refs(["release/next", "claude/x"], ["v1.0.0", "testflight/1.2/beta"])
+        self.assertEqual(refs, {})
+
+    def test_names_for_messages(self):
+        self.assertEqual(ref_name("refs/remotes/origin/release/1.2"), "release/1.2")
+        self.assertEqual(ref_name("refs/tags/testflight/1.2/7"), "testflight/1.2/7")
 
 
 class PreviousVersion(unittest.TestCase):

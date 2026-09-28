@@ -48,14 +48,14 @@ The same rules as `auth-plan.md`:
 | 4 | Contact email alias | iOS launch | Owner | — | [ ] |
 | 5 | Google sign-in in production | iOS launch | Owner | 3, 4 | [ ] |
 | 6 | Revoke the Apple token when an account is deleted | iOS launch | Agent + Owner | — | [x] |
-| 7 | Submit iOS for App Review | iOS launch | Owner | 1–6, 20, test plan | [ ] |
+| 7 | Submit iOS for App Review | iOS launch | Owner | 1–6, 20, 39, test plan | [ ] |
 | 8 | Android package name and Play Console app | Android launch | Owner + Agent | — | [ ] |
 | 9 | Android: Sign in with Google | Android launch | Agent + Owner | 8 | [x] |
 | 10 | Server: Apple web sign-in (Services ID) | Android launch | Agent + Owner | — | [x] |
 | 11 | Android: Sign in with Apple | Android launch | Agent + Owner | 8, 10 | [x] |
 | 12 | Android: keep the token in the Keystore | Android launch | Agent | — | [x] |
 | 13 | Android: release workflow and Play closed testing | Android launch | Agent + Owner | 8, 9 | [x] |
-| 14 | Publish on Google Play | Android launch | Owner | 9–13, 20, 21, test plan | [ ] |
+| 14 | Publish on Google Play | Android launch | Owner | 9–13, 20, 21, 39, test plan | [ ] |
 | 15 | Desktop: Sign in with Google | Desktop (P1) | Agent + Owner | — | [x] |
 | 16 | Desktop: Sign in with Apple | Desktop (P1) | Agent | 10 | [x] |
 | 17 | Desktop: keep the token in the OS keychain | Desktop (P1) | Agent | — | [x] |
@@ -80,18 +80,21 @@ The same rules as `auth-plan.md`:
 | 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [x] |
 | 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [x] |
 | 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [x] |
+| 39 | Open source under MPL-2.0: the license, its scope, the notices, no personal data | iOS launch | Agent + Owner | — | [ ] |
 
-**Blockers, P1, P2.** Items 20 and 21 are launch blockers: item 7 (App Review) depends on 20,
-and item 14 (Google Play) on 20 and 21. Items 22–31 came out of a production-readiness review
-after the sign-in work and don't hold either store back: `Hardening (P1)` and `CI (P1)` are
-wanted right after the first launch and can start now, `(P2)` when there is time. Within a
-milestone the numbers are the order: security and auth correctness (20, 22–24) before
-infrastructure polish (25–29), and API 36 (21) before Android goes public. Items 32–37 came out
-of an architecture review of the client and hold nothing back either: they keep the code easy to
+**Blockers, P1, P2.** Items 20, 21 and 39 are launch blockers: item 7 (App Review) depends on 20
+and 39, and item 14 (Google Play) on 20, 21 and 39. Items 22–31 came out of a
+production-readiness review after the sign-in work and don't hold either store back:
+`Hardening (P1)` and `CI (P1)` are wanted right after the first launch and can start now, `(P2)`
+when there is time. Within a milestone the numbers are the order: security and auth correctness
+(20, 22–24) before infrastructure polish (25–29), and API 36 (21) before Android goes public.
+Items 32–37 came out of an architecture review of the client and hold nothing back either: they keep the code easy to
 change as it grows, and come after the P1 hardening and CI items. 32 goes first because it is the
 safety net for 33. Item 38 came out of item 27, which had to stop at AGP 8.x: it holds nothing back
 either, but every month on 8.x puts Compose, okhttp and the next androidx releases further out of
-reach.
+reach. Item 39 came from the decision to publish Gains' source under MPL-2.0. It goes before
+either store: the repository is already public, with what looks like a real workout export in it,
+and the builds already owe the body drawing's MIT notice.
 
 ## Owner actions
 
@@ -143,6 +146,10 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
 - [ ] Android app module (item 38): Android Studio Quail 4 (2026.1.4) or newer with SDK 37, then
       one release round to closed testing and the test plan's item 38 checks on a phone that has
       the previous build.
+- [ ] License decisions (item 39), before its pull request: the copyright holder's name, the
+      treatment of the name and logo, the license for docs and site text, the notices tool,
+      whose workouts `liftoff_workout_data.csv` and the site's images hold, and whether the
+      public history is rewritten to remove that export.
 
 ---
 
@@ -320,8 +327,9 @@ account deletion revokes it before deleting, and a failed revoke still deletes.
 - [ ] Done
 
 **Milestone:** iOS launch. **Who:** Owner. **Depends on:** 1–6, 20 (a deleted account's token
-must be worth nothing before anyone can delete one), and the test plan's iOS sections passed on a
-TestFlight build containing them.
+must be worth nothing before anyone can delete one), 39 (the build carries the license and the
+third-party notices, and the public tree carries no personal data), and the test plan's iOS
+sections passed on a TestFlight build containing them.
 
 1. App Store Connect: privacy policy URL, support URL (`/support`), screenshots, description,
    and the review notes. Reviewers can use Sign in with Apple, so no demo account is needed.
@@ -486,7 +494,8 @@ Update `docs/sync.md` "What the client does".
 - [ ] Done
 
 **Milestone:** Android launch. **Who:** Owner. **Depends on:** 9–13, 20, 21 (Play takes only
-API 36 bundles in production), the 14-day closed test, and the test plan's Android section.
+API 36 bundles in production), 39 (the license and notices in the bundle), the 14-day closed
+test, and the test plan's Android section.
 
 Apply for production access, then promote the build. Add the store link to the landing page.
 
@@ -1480,7 +1489,9 @@ classpath from step 1 measured again in the pull request.
 
 **Milestone:** Maintenance (P2). **Depends on:** 25, 26 (CI builds Android and Xcode, which is
 how this item is checked), 27 (it left AGP on 8.x for this). Items 30 and 31 edit the Android
-application config this item moves; whichever lands second follows it to `androidApp/`.
+application config this item moves; whichever lands second follows it to `androidApp/`. Item 39
+adds a notices plugin to the Gradle build; if it lands first, this item keeps that plugin reading
+the Android dependencies from the new modules.
 
 Item 27 had to stop at AGP 8.13.2. AGP 9 no longer accepts `com.android.application` in a module
 that also applies the Kotlin Multiplatform plugin, and `:composeApp` has both. Staying on 8.x
@@ -1576,6 +1587,221 @@ debug build (`androidApp/build/intermediates/merged_manifests/…`) has `package
 three receivers, both activities and the App Link filter. The four sign-in values reach the app:
 with `-Pgains.serverUrl=…` set, the generated `resValues` carries it. The manual checks are in the
 test plan, "Android app module (item 38)".
+
+### 39. Open source under MPL-2.0: the license, its scope, the notices, no personal data
+
+- [ ] Done
+
+**Milestone:** iOS launch. **Depends on:** nothing. **Launch blocker:** items 7 and 14 depend on
+it. One pull request. The owner makes the decisions marked **Owner decides** first, and they are
+written here (*Decided:* …) before the pull request starts.
+
+`gerra/gains` has been public on GitHub since 2 September 2026. The README still says "No license
+yet; all rights reserved", so anyone can read the code and nobody may reuse it. The owner has
+decided to license Gains' own source code under the Mozilla Public License 2.0. MPL-2.0 is a
+file-level copyleft: a changed MPL file stays MPL-2.0 and its source must be offered, the files
+around it may be under any license, and App Store and Play distribution is allowed. Three things
+make this more than adding a file:
+
+- The tree holds work that isn't Gains', and MPL-2.0 can't relicense it. The license covers only
+  what the owner may license.
+- The tree holds `liftoff_workout_data.csv`, which looks like a real person's training log, and
+  test fixtures copied from it. They must be gone before a public license is applied.
+- The shipped builds (TestFlight, Play closed testing) already contain the body drawing's path
+  data without its MIT notice. The MIT license asks for that notice in every copy, so the builds
+  owe notices whatever license Gains uses.
+
+**Found so far.** Step 2 completes this list; nothing here is a finished inventory.
+
+| Path | What | Origin | License, as found |
+|---|---|---|---|
+| `composeApp/src/commonMain/composeResources/files/exercises/*/{0,1}.webp` (274 exercises, 548 photos) | Start and end photos, scaled to WebP by `tools/exercise_demos.py` | [free-exercise-db](https://github.com/yuhonas/free-exercise-db), fetched from `main` | Unlicense, per `docs/development.md`. Not yet checked that it covers the images |
+| `composeApp/.../ui/demo/ExerciseDemos.kt` (generated); the `// src:` names in `shared/.../catalogue/ExerciseCatalogue.kt` (183) | Which exercise has which photo; exercise names | free-exercise-db | Unlicense |
+| `composeApp/.../ui/charts/BodyMapPaths.kt` (generated) | The body outline behind the muscle map | [react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter) | MIT, © 2022 ELABBASSI Hicham. The notice is in the file header |
+| `shared/src/desktopTest/.../auth/GoogleOAuthTest.kt` | The PKCE example values | RFC 7636, Appendix B | IETF Trust. Test only, never shipped |
+| `docs/screenshots/*.png`, `docs/animations/*` | App screens rendered by `ScreenshotTest` from `samples/liftoff-export.csv` (the Screenshots workflow) | Gains | Gains' own. They show the name and logo (step 3) |
+| `site/img/hero.webp`, `site/img/shot-*.webp` | The hero is a framed phone cut from an App Store screenshot (commit `c191bac`). Its data runs to 19 September with 58 bench sessions, which is not the sample export (January–August 2026) | Unknown: the device, the data and the frame | Unknown |
+| `ui/components/Logo.kt` (`GainsLogo`), `composeApp/src/androidMain/res/drawable/ic_launcher_*.xml`, `ic_notification.xml`, `iosApp/.../AppIcon.png`, `docs/screenshots/logo.png`, `site/img/logo.png`, `site/img/favicon-32.png`, `site/apple-touch-icon.png` | The Gains mark, drawn in code. The vector and the PNGs mirror or render it | Gains | Copyright is Gains'. The name and mark are step 3 |
+| `samples/liftoff-export.csv` | "A generated eight-month Liftoff export" (`docs/how-it-works.md`). No generator is in the tree | Gains, it says | To confirm (step 4) |
+| `liftoff_workout_data.csv` | 1,721 rows, December 2024 to August 2026, with irregular times and free-text notes ("In Vit gym", "It was deep !"). No code, test or doc references it | Most likely the owner's own Liftoff export | Not to be licensed (step 4) |
+| `shared/src/commonTest/.../csv/Fixtures.kt` (`SAMPLE`, `CRLF`), `LiftoffCsvParserTest.kt`, `ImportAnalyzerTest.kt` | Rows and notes copied from that export (`2026-02-18 20:40:47`, "I used one dumbbell…", `+53kg`) | The same export | Step 4 |
+| Fonts | None bundled. Every platform uses its system font | — | — |
+| Icons in the UI | `material-icons-core`, a Maven dependency | Google / JetBrains | Apache-2.0. Covered by step 5's dependency list |
+
+1. **The license file and the README.**
+   - `LICENSE` at the root: MPL-2.0 exactly as Mozilla publishes it
+     (`https://www.mozilla.org/media/MPL/2.0/index.txt`). Nothing is added to it, not even a
+     copyright line or the project's name, so that GitHub detects it as `MPL-2.0`.
+   - No Exhibit B. Gains stays "Compatible With Secondary Licenses", which is the MPL-2.0
+     default and lets the code be combined into GPL or LGPL works.
+   - **Owner decides** who the copyright holder is: *Recommended:* the name the commits carry,
+     "German Berezhko", or a legal name the owner prefers. The line
+     `Copyright © 2026 <holder>` goes in `NOTICE.md` (step 2) and the README, never in
+     `LICENSE`.
+   - Exhibit A's notice ("This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0 …"). **Owner decides:** a header in every source file, or one notice.
+     *Recommended:* one notice, at the top of `NOTICE.md` and in the README. Exhibit A allows
+     this "in a location … where a recipient would be likely to look". A header in about 400
+     files is churn, and headers can come later in a pull request of their own. Files that
+     carry another license keep their own header (`BodyMapPaths.kt`).
+   - README, "License": replace "No license yet; all rights reserved." with a short statement.
+     Gains' original source code is under MPL-2.0 (link `LICENSE`). The exercise photos and
+     the body drawing keep their own licenses. The Gains name and logo are not licensed as
+     marks. `NOTICE.md` lists what is covered and what isn't. Keep both credits and the
+     "Built with" link.
+   - README, "Contributing": contributions are accepted under MPL-2.0, the license they are
+     contributed to. There is no CLA and no sign-off, unless the owner wants a DCO line.
+
+2. **Scope: the inventory, then `NOTICE.md`.** Go through `git ls-files` and complete the table
+   above. It must cover every file that isn't Kotlin, Swift, Python, SQL, Gradle or YAML written
+   here, and every source file with outside content (grep for license headers, "copied from",
+   "ported", "adapted", and URLs in comments). For each third-party work, record the upstream
+   URL, the commit or date it came from, its license, and the attribution the license needs.
+   - **free-exercise-db.** Read the upstream `LICENSE` and README at the commit the photos came
+     from, and confirm that the Unlicense dedication covers the images, not only the JSON. If the
+     images turn out to come from somewhere else, or the rights are unclear, **Owner decides**:
+     keep them with that fact written in `NOTICE.md`, or drop them. Dropping works without new
+     code: `tools/exercise_demos.py`'s `SKIP` path already falls back to a video search. Pin
+     `DB_URL` and `IMAGE_URL` in the script to that commit instead of `main`, so the provenance
+     can be reproduced.
+   - **react-native-body-highlighter.** `BodyMapPaths.kt` stays under MIT as a whole: it is
+     generated from the upstream data, and the notice stays in its header. `NOTICE.md` and the
+     app (step 5) carry the MIT notice in full.
+   - **The site's images.** Find out where each `site/img/*.webp` came from: the device, whose
+     data it shows (step 4), and the phone frame around the hero. If the frame is Apple's
+     marketing artwork or a template with its own terms, record it as an exception, or replace
+     the images with frames made here or with plain screenshots.
+   - **Docs and site text.** **Owner decides:** *Recommended:* MPL-2.0, like the code, so every
+     file written for Gains has one license. The alternative is CC BY 4.0 for `docs/` and
+     `site/`.
+   - **`NOTICE.md`** at the root holds:
+     - the copyright line and Exhibit A's notice;
+     - one sentence: "Files written for Gains are licensed under MPL-2.0, except those listed
+       below";
+     - the exceptions, as a table of path, author, license, link and what the license needs;
+     - the name and logo paragraph (step 3);
+     - one sentence saying that MPL-2.0 doesn't change the license of any third-party work in the
+       repository.
+   - **No blanket statements.** No README, site page, store listing or doc may say that
+     "everything in this repository" is MPL-2.0, or that it is free to reuse.
+
+3. **The name, the logo and the branding.** MPL-2.0 section 2.3 grants "no rights in the
+   trademarks, service marks, or logos of any Contributor". Nothing written for this item may
+   suggest otherwise. **Owner decides:**
+   - *Recommended:* the logo's files stay in the tree under MPL-2.0 as far as copyright goes.
+     They are code (`Logo.kt`, the vector drawables) and renders of it, and the app needs them to
+     build. A paragraph in `NOTICE.md` says the name "Gains" and the mark are not licensed for
+     use as a name or mark. A fork that distributes a build gives it another name and icon, and
+     doesn't suggest that it is Gains or is endorsed by it. The paragraph describes how the name
+     may be used. It claims no registration.
+   - *Alternative:* the logo files stay "all rights reserved", outside MPL-2.0. Then a fork can't
+     build without replacing `Logo.kt`. That needs a stand-in mark and an exception row for each
+     file, which is more to maintain for little gain.
+
+   The same wording goes wherever the license is mentioned: the README, the site's footer and
+   the in-app screen (step 5).
+
+4. **No personal data in the tree before the license lands.**
+   - `liftoff_workout_data.csv`: **Owner confirms** whose export it is, then this pull request
+     deletes it. Nothing uses it: `git grep -n liftoff_workout_data` finds only this file.
+   - The fixtures copied from it: `Fixtures.SAMPLE` and `Fixtures.CRLF`, and the rows repeated in
+     `LiftoffCsvParserTest.kt` and `ImportAnalyzerTest.kt`. Replace them with made-up rows that
+     keep every case the tests exercise:
+     - warm-up sets out of order;
+     - a quoted note with a comma, and one with a curly apostrophe;
+     - a short note like `+53kg`;
+     - a time-only set (dead hang), a distance set (running) and a bodyweight set;
+     - CRLF endings and an RPE.
+     Use other dates, weights and notes, and change the assertions to match. Keep every test,
+     weaken none of them, and keep the test count the same.
+   - The other fixtures (`OUT_OF_ORDER`, `DUPLICATES`, `CORRUPT_DURATIONS`,
+     `ISOMETRIC_OUTLIERS`, `EMPTY_ROWS`, `SHUFFLED_SET_ORDER`, the Strong, Hevy and generic rows
+     in `ConnectorsTest`, and the documents in `MigrationTest`, `SyncStoreTest` and
+     `IntegrationTest`) look made up, with round times and no notes. Confirm each one, and
+     replace any that isn't the same way.
+   - `samples/liftoff-export.csv`: confirm that it is synthetic, and say how it was made in
+     `docs/how-it-works.md`'s `samples/` row. If its generator still exists, commit it under
+     `tools/`.
+   - The site's images and the store screenshots: if they show real workouts, **Owner decides**
+     whether to keep them, with consent to publish their own data, or to regenerate them from the
+     sample export. The Screenshots workflow renders the same screens.
+   - **History. Owner decides.** The repository is public, so the export and the fixtures are
+     already in its history, and in any clone or fork. Deleting them from `main` doesn't remove
+     them from past commits. The options:
+     - *Accept it*, if the data is the owner's own and the owner is content to leave it there.
+     - *Rewrite history* before this pull request merges: `git filter-repo --invert-paths --path
+       liftoff_workout_data.csv`, plus `--replace-text` for the fixture rows, and a force-push,
+       then ask GitHub Support to drop cached views. This changes every commit hash from the
+       first affected commit onwards: the `testflight/*` tags must be pushed again, open pull
+       requests and existing clones no longer match, and forks keep the old copies.
+
+     The pull request itself never rewrites history. If the owner chooses to rewrite, the owner
+     does it before the merge.
+
+5. **The license and notices in every distributed build.** MPL-2.0 section 3.2 says whoever
+   distributes Gains as an app must tell recipients how to get its source. The MIT notice for the
+   body drawing, and the notices of the dependencies compiled into the app (Apache-2.0, MIT,
+   BSD), travel with the binaries too. The owner, as the licensor, isn't bound by the license on
+   their own code, but forks are, and the third-party notices are owed today.
+   - **One in-app place on every platform.** Settings gains an "Open-source licenses" row
+     opening a screen with:
+     - the app version;
+     - "Gains is licensed under the Mozilla Public License 2.0", with links to the license text
+       and to the source (`https://github.com/gerra/gains`). The source of every release is
+       tagged `testflight/<version>/<build>`;
+     - the name-and-logo sentence (step 3);
+     - the third-party works from `NOTICE.md`: the body drawing's MIT notice in full, and the
+       free-exercise-db credit;
+     - the dependency list, each entry with its license. The Apache-2.0 text appears once in
+       full.
+
+     The row and headings go in both `strings.xml`. The license texts stay in English.
+   - **The dependency list. Owner decides** how it is made. *Recommended:* the AboutLibraries
+     Gradle plugin (`com.mikepenz.aboutlibraries.plugin`) only, without its UI library. It reads
+     the POMs of the KMP targets, including the iOS framework's, and writes a JSON file that
+     `composeResources` ships. Gains' own small screen then draws it. Its strict mode fails the
+     build on a license not in an allowed list, so the list follows the version catalog and
+     Dependabot (item 29) without anyone editing it. First check that it works with AGP 8.13 and
+     the iOS targets. *Alternative:* a checked-in `THIRD_PARTY_LICENSES` file, regenerated by a
+     `tools/` script. Either way, the works that aren't Maven dependencies (the body drawing, the
+     photos) are entries written by hand from `NOTICE.md`, in one file that both the screen and
+     `NOTICE.md` are checked against.
+   - **iOS:** the screen covers it. The App Store description and the site's `/support` page link
+     the source.
+   - **Android:** the screen covers it, since Play bundles show no license on install. The Play
+     listing's description links the source.
+   - **Desktop:** `nativeDistributions` in `composeApp/build.gradle.kts` gains
+     `licenseFile.set(rootProject.file("LICENSE"))`, `copyright` and `vendor`. Check what
+     `packageDmg`, `packageMsi` and `packageDeb` do with them (the MSI shows the file as its
+     license agreement). No workflow publishes desktop builds today, so this is a local check.
+   - **Server:** it is never handed to anyone, and MPL-2.0 has no network clause, so running it
+     needs nothing more than the public repository.
+   - **Site:** a footer line on every page, "Gains is open source under MPL-2.0", linking the
+     repository. The privacy policy doesn't change.
+
+6. **Who owns the code, and where it came from.**
+   - List every author on a full clone. The agents' checkouts are shallow, so run
+     `git fetch --unshallow` first, then `git log --format='%an <%ae>' | sort -u`, and add the
+     authors of every merged pull request. At the time of writing they are the owner, `Claude`
+     (commits made in the owner's own sessions), `github-actions[bot]` (screenshots, releases) and
+     `dependabot[bot]` (version bumps). Any other person's contribution needs their agreement to
+     MPL-2.0, or is removed. `NOTICE.md` says what was found.
+   - Outside code in the sources: so far only the body drawing, and RFC 7636's example values in
+     `GoogleOAuthTest`. Record the RFC values as a test-only exception; they are the RFC's
+     published test vector. Anything in doubt goes in `NOTICE.md`'s exceptions, never under the
+     blanket statement.
+   - Generated files keep their inputs' licenses: `ExerciseDemos.kt`, `BodyMapPaths.kt`. The
+     SQLDelight output and other build output are not in the tree.
+
+7. **Docs.**
+   - `docs/development.md` "Built with": the two credits link `NOTICE.md`.
+   - `docs/how-it-works.md`: the `samples/` row (step 4).
+   - This item's decisions go under their steps (*Decided:* …).
+   - Nothing in `auth-plan.md` changes.
+
+Tests: the existing test sets pass on the new fixtures with the same number of tests. No new
+automated tests: if the notices plugin's strict mode is chosen, it is a build check. The manual
+checks are in the test plan, item 39.
 
 ---
 
@@ -1740,6 +1966,29 @@ build fails a check, open an issue and link it next to the box.
 - [ ] Item 24: `sqlite3 /var/lib/gains/gains-server.db 'SELECT refresh_token FROM identity'`
       shows `v1:` ciphertext after an Apple sign-in, and Delete account still removes Gains from
       the Apple ID (the item 6 check).
+
+**39. MPL-2.0 license**
+- [ ] The repository page on GitHub shows "MPL-2.0 license". `LICENSE` matches Mozilla's text
+      exactly: `curl -s https://www.mozilla.org/media/MPL/2.0/index.txt | diff - LICENSE` prints
+      nothing.
+- [ ] The README's License section no longer says "all rights reserved", and names the
+      copyright holder, the exceptions, and the fact that the name and logo aren't licensed.
+      `git grep -in "all rights reserved"` finds only this plan's history.
+- [ ] `NOTICE.md` has a row for every third-party path in item 39's table, and the body drawing's
+      MIT notice in full. No page says that everything in the repository is MPL-2.0.
+- [ ] `liftoff_workout_data.csv` is gone, and `git grep -nE "In Vit gym|2026-02-18 20:40:47|\+53kg"`
+      finds nothing. If the owner chose the rewrite, `git log --all --oneline --
+      liftoff_workout_data.csv` on a fresh clone prints nothing.
+- [ ] The site's images show sample data only, or the owner's decision under item 39 says why not.
+- [ ] On a TestFlight build and on a Play closed-testing build containing the item: Settings →
+      "Open-source licenses" opens. It shows MPL-2.0, and the source link opens
+      `github.com/gerra/gains`. The body drawing's MIT notice, the free-exercise-db credit, and a
+      dependency list naming Compose, Ktor, Koin and SQLDelight with their licenses are all there.
+      In Russian, the row and the headings are translated.
+- [ ] Desktop: the same screen in `./gradlew :composeApp:run`. A local `packageDmg`,
+      `packageMsi` or `packageDeb` (whichever the machine builds) carries `LICENSE`.
+- [ ] Every page of `gains.gerra.sh` has the license footer, with a working link to the
+      repository.
 
 ### Android (items 9–13)
 
