@@ -102,6 +102,7 @@ jobs:
           ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GAINS_GOOGLE_WEB_CLIENT_ID }}
           APPLE_SERVICES_ID: ${{ vars.GAINS_APPLE_SERVICES_ID }}
+          PASSWORD_SIGN_IN: ${{ vars.GAINS_PASSWORD_SIGN_IN }}
         run: python3 tools/play.py bundle
 
       - name: Upload to Google Play

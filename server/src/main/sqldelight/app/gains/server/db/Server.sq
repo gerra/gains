@@ -65,6 +65,31 @@ CREATE TABLE guest_list (
   created_at TEXT NOT NULL
 );
 
+-- An email and password sign-up (migrations/4.sqm). `user_id` is null until the address is
+-- confirmed; confirming it creates an `identity` row with provider `password` and the address
+-- as subject, which is what joins or creates the user, so that the verified-email rule above
+-- decides the merge. The hash is Argon2id in PHC form (PasswordHasher).
+CREATE TABLE password_credential (
+  email TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+  hash TEXT NOT NULL,
+  user_id INTEGER REFERENCES user(id),
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX password_credential_user ON password_credential(user_id);
+
+-- The one-time links sent by mail: the SHA-256 of the token in the link, never the token itself,
+-- what it is for (`verify` or `reset`), the address it went to and when it expires (epoch
+-- milliseconds). Taking a token deletes it.
+CREATE TABLE email_token (
+  token_hash TEXT NOT NULL PRIMARY KEY,
+  email TEXT NOT NULL COLLATE NOCASE,
+  purpose TEXT NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE INDEX email_token_email ON email_token(email);
+
 -- users and identities
 
 selectIdentity:
@@ -105,6 +130,44 @@ SELECT provider FROM identity WHERE user_id = ? ORDER BY provider;
 
 deleteIdentitiesForUser:
 DELETE FROM identity WHERE user_id = ?;
+
+-- password credentials and the links mailed for them
+
+selectCredential:
+SELECT email, hash, user_id, created_at FROM password_credential WHERE email = ?;
+
+insertCredential:
+INSERT INTO password_credential(email, hash, created_at) VALUES (?, ?, ?);
+
+updateCredentialHash:
+UPDATE password_credential SET hash = ? WHERE email = ?;
+
+updateCredentialUser:
+UPDATE password_credential SET user_id = ? WHERE email = ?;
+
+selectCredentialEmailsForUser:
+SELECT email FROM password_credential WHERE user_id = ?;
+
+deleteCredentialsForUser:
+DELETE FROM password_credential WHERE user_id = ?;
+
+insertEmailToken:
+INSERT INTO email_token(token_hash, email, purpose, expires_at) VALUES (?, ?, ?, ?);
+
+selectEmailToken:
+SELECT token_hash, email, purpose, expires_at FROM email_token WHERE token_hash = ?;
+
+deleteEmailToken:
+DELETE FROM email_token WHERE token_hash = ?;
+
+deleteEmailTokensForEmail:
+DELETE FROM email_token WHERE email = ?;
+
+deleteEmailTokensForPurpose:
+DELETE FROM email_token WHERE email = ? AND purpose = ?;
+
+deleteExpiredEmailTokens:
+DELETE FROM email_token WHERE expires_at <= ?;
 
 deleteUser:
 DELETE FROM user WHERE id = ?;

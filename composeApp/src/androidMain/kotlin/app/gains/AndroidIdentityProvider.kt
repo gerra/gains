@@ -46,7 +46,8 @@ internal class AndroidIdentityProvider(
     override suspend fun signIn(kind: AccountKind): SignInProof = when (kind) {
         AccountKind.GOOGLE -> signInWithGoogle()
         AccountKind.APPLE -> signInWithApple()
-        AccountKind.GUEST -> throw AuthNotConfiguredException(kind)
+        // An email account has no sheet: AccountRepository posts the password itself.
+        AccountKind.GUEST, AccountKind.EMAIL -> throw AuthNotConfiguredException(kind)
     }
 
     /** The account chooser, then the token it returns. The server reads the name from Google's token. */
@@ -100,9 +101,9 @@ internal class AndroidIdentityProvider(
 
 /**
  * The Android app's sign-in settings, from `BuildConfig`, which the build fills from the Gradle
- * properties `gains.serverUrl`, `gains.googleWebClientId` and `gains.appleServicesId`
- * (`composeApp/android.gradle`; see docs/development.md, "Android"), so they change without
- * touching code. Google stays off until the web client id is there, and its button stays hidden.
+ * properties `gains.serverUrl`, `gains.googleWebClientId`, `gains.appleServicesId` and
+ * `gains.passwordSignIn` (`composeApp/android.gradle`; see docs/development.md, "Android"), so
+ * they change without touching code. Google stays off until the web client id is there, and its button stays hidden.
  * Apple stays off until the Services ID is there, which the owner sets once the server has
  * `APPLE_SERVICES_ID`: before that `/auth/apple/start` answers 503, and the button would only
  * open an error page.
@@ -111,4 +112,5 @@ internal fun androidAuthConfig(): AuthConfig = AuthConfig(
     serverBaseUrl = BuildConfig.SERVER_URL.trim().trimEnd('/').ifBlank { null },
     googleClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim().ifBlank { null },
     appleServiceId = BuildConfig.APPLE_SERVICES_ID.trim().ifBlank { null },
+    passwordSignIn = BuildConfig.PASSWORD_SIGN_IN.trim().toBoolean(),
 )

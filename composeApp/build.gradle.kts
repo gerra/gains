@@ -136,7 +136,7 @@ compose.desktop {
         // The sync server, the Google Desktop app client and the Apple Services ID (docs/development.md,
         // "Desktop"), passed to the app as system properties, so `run` and the packaged installers both
         // carry them. The secret is not in gradle.properties: pass it with -P or keep it in ~/.gradle/gradle.properties.
-        for (name in listOf("gains.serverUrl", "gains.googleDesktopClientId", "gains.googleDesktopClientSecret", "gains.appleServicesId")) {
+        for (name in listOf("gains.serverUrl", "gains.googleDesktopClientId", "gains.googleDesktopClientSecret", "gains.appleServicesId", "gains.passwordSignIn")) {
             project.findProperty(name)?.toString()?.takeIf { it.isNotBlank() }?.let { jvmArgs += "-D$name=$it" }
         }
         nativeDistributions {

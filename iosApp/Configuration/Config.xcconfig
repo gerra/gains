@@ -27,3 +27,9 @@ GAINS_SERVER_URL = https:/$()/api.gains.gerra.sh
 // com.googleusercontent.apps.95741411455-2fouqgkjlnault5cvd8lc17n4jekg7ea. Empty disables the
 // Google button.
 GOOGLE_IOS_CLIENT_ID = 95741411455-2fouqgkjlnault5cvd8lc17n4jekg7ea.apps.googleusercontent.com
+
+// Email and password accounts (docs/launch-plan.md, item 18), read by the app through
+// GainsPasswordSignIn in Info.plist. YES shows the email form; set it once the server has a mail
+// account for its confirmation links (SMTP_* in secrets/.env), since until then the form only
+// gets 503s. Empty keeps it hidden.
+GAINS_PASSWORD_SIGN_IN =

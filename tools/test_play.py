@@ -219,7 +219,7 @@ class GradlePropertiesTest(unittest.TestCase):
         """Each property the script passes is one android.gradle looks up, and the other way round."""
         gradle = play.ANDROID_GRADLE.read_text()
         looked_up = set(re.findall(r'findProperty\([\'"](gains\.[A-Za-z]+)[\'"]\)', gradle))
-        environment = dict(self.ENVIRONMENT, GOOGLE_WEB_CLIENT_ID="g", APPLE_SERVICES_ID="a")
+        environment = dict(self.ENVIRONMENT, GOOGLE_WEB_CLIENT_ID="g", APPLE_SERVICES_ID="a", PASSWORD_SIGN_IN="true")
         passed = {p[2:].split("=", 1)[0] for p in play.gradle_properties(environment)}
         self.assertEqual(set(), passed - looked_up, "passed to Gradle but not read by android.gradle")
         self.assertEqual({"gains.serverUrl"}, looked_up - passed, "read by android.gradle but not passed")

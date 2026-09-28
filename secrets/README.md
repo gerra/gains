@@ -15,8 +15,18 @@ environment wins over the file.
 | `APPLE_KEY_ID` | static | developer.apple.com → Certificates, Identifiers & Profiles → Keys → a key with **Sign in with Apple** enabled, configured for the primary App ID `app.gains.Gains`. This is its 10-character Key ID. With the next two, it lets the server exchange the code an Apple sign-in carries for a refresh token and revoke that token when the account is deleted, which Apple asks for. All three or none: without them sign-in still works, but deleting an account can't remove Gains from the person's Apple ID. |
 | `APPLE_TEAM_ID` | static | `V5Y8M5GKZ6`, the team that owns the key (top right of the developer account). |
 | `APPLE_PRIVATE_KEY` | static | The contents of that key's `AuthKey_<key id>.p8`, on one line with each newline written as `\n`: `APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIGT…\n-----END PRIVATE KEY-----"`. Apple lets you download the `.p8` only once; keep it somewhere safe besides this file. A key that doesn't parse, or only some of the three set, stops the server at start: after `deploy_server.py secrets` (which restarts without a smoke test), check that `https://api.gains.gerra.sh/health` answers and that `journalctl -u gains-server` shows `apple revoke on`. |
+| `SMTP_HOST` | static | The SMTP submission host of the mail provider the confirmation and reset mails of email accounts go out through (docs/launch-plan.md, item 18): Postmark's `smtp.postmarkapp.com`, SES's `email-smtp.<region>.amazonaws.com`, or the alias's host. Every provider offers SMTP, so the server needs no provider library and the choice can change with one line. With `MAIL_FROM`: both or neither. Empty turns email sign-in off (its routes answer 503; `journalctl -u gains-server` shows `email off`). |
+| `SMTP_PORT` | optional | `587` (the default): `STARTTLS` before anything else is sent. `465`: TLS from the first byte. Nothing goes in the clear on either. |
+| `SMTP_USER`, `SMTP_PASSWORD` | static | The provider's SMTP credentials (`AUTH PLAIN`), both or neither. Postmark uses a server token as both. |
+| `MAIL_FROM` | static | The address the mails come from, e.g. `gains@gerra.sh`, which the provider must have verified as a sender (its domain's SPF and DKIM records point at the provider). The contact alias works (docs/launch-plan.md, item 4). |
+| `GAINS_SITE_URL` | optional | `https://gains.gerra.sh`, where the mailed links point (`/verify?token=…`, `/reset?token=…`): the site's pages post the token back to the server through the site's vhost. |
 | `GAINS_PUBLIC_URL` | optional | `https://api.gains.gerra.sh`, where the internet reaches the server. Only the Apple web flow uses it, for its return URL, which must match the one registered on the Services ID. |
 | `GAINS_DATA_DIR` | env-specific | Where `gains-server.db` lives. `/var/lib/gains` in prod (created on first start), `./data` in dev. |
 | `PORT` | optional | `5003`; nginx proxies `api.gains.gerra.sh` to it (`deploy/nginx/api.gains.gerra.sh.conf`). |
+
+After setting the five mail variables, check that `https://api.gains.gerra.sh/health` answers and that
+`journalctl -u gains-server` shows `email on`, then switch the form on in the apps: `gains.passwordSignIn=true` in
+`gradle.properties` (the desktop and Android; `GAINS_PASSWORD_SIGN_IN` as a repository variable for the Play
+build) and `GAINS_PASSWORD_SIGN_IN = YES` in `iosApp/Configuration/Config.xcconfig`.
 
 Nothing else is secret.

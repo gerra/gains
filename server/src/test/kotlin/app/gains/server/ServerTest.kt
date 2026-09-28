@@ -324,5 +324,15 @@ class ServerTest {
         assertEquals(listOf("a.apps.googleusercontent.com", "b.apps.googleusercontent.com"), config.googleClientIds)
         assertEquals(emptyList(), config.appleClientIds)
         assertEquals(5003, config.port)
+        assertEquals(null, config.smtp, "no mail account: email sign-in off")
+        assertEquals("https://gains.gerra.sh", config.siteUrl)
+
+        val mail = Config.fromEnvironment(mapOf("JWT_SECRET" to "x".repeat(32), "SMTP_HOST" to "smtp.example", "SMTP_USER" to "u", "SMTP_PASSWORD" to "p", "MAIL_FROM" to "gains@gerra.sh", "GAINS_SITE_URL" to "https://site.example/"), workingDir = java.io.File("/nonexistent"))
+        assertEquals(Config.Smtp("smtp.example", 587, "u", "p", "gains@gerra.sh"), mail.smtp)
+        assertEquals("https://site.example", mail.siteUrl)
+        assertEquals("Smtp(host=smtp.example, port=587, user=u, from=gains@gerra.sh)", mail.smtp.toString(), "the password never goes in a log")
+        for (partial in listOf(mapOf("SMTP_HOST" to "smtp.example"), mapOf("MAIL_FROM" to "gains@gerra.sh"), mapOf("SMTP_HOST" to "h", "MAIL_FROM" to "f", "SMTP_USER" to "u"))) {
+            kotlin.test.assertFailsWith<IllegalArgumentException>(partial.toString()) { Config.fromEnvironment(partial + ("JWT_SECRET" to "x".repeat(32)), workingDir = java.io.File("/nonexistent")) }
+        }
     }
 }

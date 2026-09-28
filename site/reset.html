@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New password — Gains</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/img/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="wrap top">
+    <a class="brand" href="/"><img src="/img/logo.png" alt="" width="36" height="36">Gains</a>
+    <nav>
+      <a href="/privacy">Privacy</a>
+      <a href="/support">Support</a>
+    </nav>
+  </header>
+
+  <!-- Where the reset mail of an email account lands (docs/sync.md, "Signing in"). The link is
+       /reset?token=…; the form posts the token and the new password to /auth/password/reset,
+       which this vhost proxies to the server. The token works once and for an hour. -->
+  <main class="wrap narrow doc">
+    <h1>Choose a new password</h1>
+    <p class="updated">For the Gains account this link was sent to.</p>
+    <form class="join stack" id="reset-form" hidden>
+      <label class="visually-hidden" for="password">New password</label>
+      <input id="password" name="password" type="password" required minlength="8" maxlength="128"
+        autocomplete="new-password" placeholder="At least 8 characters">
+      <button class="button primary" type="submit">Set password</button>
+    </form>
+    <p class="note" id="status" role="status" aria-live="polite"></p>
+    <noscript>
+      <p class="note">This page needs JavaScript to set your password. Open the link in another browser, or email
+        <a href="mailto:gains@gerra.sh?subject=Gains%20password">gains@gerra.sh</a>.</p>
+    </noscript>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Gains · <a href="mailto:gains@gerra.sh">gains@gerra.sh</a></span>
+      <nav>
+        <a href="/privacy">Privacy policy</a>
+        <a href="/support">Support</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var form = document.getElementById("reset-form");
+      var password = document.getElementById("password");
+      var button = form.querySelector("button");
+      var status = document.getElementById("status");
+      var token = new URLSearchParams(location.search).get("token");
+      if (!token) {
+        status.textContent = "This link is incomplete. Open the one in the mail again, or ask for a new one in the app.";
+        return;
+      }
+      form.hidden = false;
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        button.disabled = true;
+        status.textContent = "Saving…";
+        fetch("/auth/password/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: token, password: password.value })
+        }).then(function (response) {
+          if (response.ok) {
+            form.hidden = true;
+            status.textContent = "Done: your password is set. Go back to Gains and sign in with it.";
+          } else if (response.status === 400) {
+            return response.json().then(function (body) {
+              var expired = !body || !body.error || body.error.indexOf("link") !== -1;
+              if (expired) form.hidden = true;
+              status.textContent = expired
+                ? "This link has expired or was already used. Ask for a new one in the app (Forgot password?)."
+                : "The password needs at least 8 characters.";
+              button.disabled = false;
+            });
+          } else {
+            throw new Error(response.status);
+          }
+        }).catch(function () {
+          button.disabled = false;
+          status.innerHTML = 'Something went wrong. Try again, or email <a href="mailto:gains@gerra.sh?subject=Gains%20password">gains@gerra.sh</a>.';
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

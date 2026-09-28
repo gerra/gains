@@ -38,6 +38,7 @@ class SyncApi(
             AccountKind.GOOGLE -> "google"
             AccountKind.APPLE -> "apple"
             AccountKind.GUEST -> throw IllegalArgumentException("A guest does not sign in")
+            AccountKind.EMAIL -> throw IllegalArgumentException("An email account signs in with its password")
         }
         val response = client.post("$baseUrl/auth/$route") {
             contentType(ContentType.Application.Json)
@@ -54,6 +55,28 @@ class SyncApi(
         contentType(ContentType.Application.Json)
         setBody(SyncJson.encodeToString(ExchangeRequest.serializer(), ExchangeRequest(code)))
     }.read(SignInResponse.serializer())
+
+    /** Asks for an email account: the server mails a confirmation link and answers 204 whether or not the address is known. */
+    suspend fun signUpWithPassword(email: String, password: String) {
+        client.post("$baseUrl/auth/password/signup") {
+            contentType(ContentType.Application.Json)
+            setBody(SyncJson.encodeToString(PasswordSignUpRequest.serializer(), PasswordSignUpRequest(email, password)))
+        }.check()
+    }
+
+    /** A confirmed email account's sign-in: 401 when the pair is wrong, 403 while the address is unconfirmed. */
+    suspend fun signInWithPassword(email: String, password: String): SignInResponse = client.post("$baseUrl/auth/password/signin") {
+        contentType(ContentType.Application.Json)
+        setBody(SyncJson.encodeToString(PasswordSignInRequest.serializer(), PasswordSignInRequest(email, password)))
+    }.read(SignInResponse.serializer())
+
+    /** Asks for a reset link; 204 whether or not the address has an account. */
+    suspend fun requestPasswordReset(email: String) {
+        client.post("$baseUrl/auth/password/reset-request") {
+            contentType(ContentType.Application.Json)
+            setBody(SyncJson.encodeToString(EmailRequest.serializer(), EmailRequest(email)))
+        }.check()
+    }
 
     suspend fun refresh(): SignInResponse = client.post("$baseUrl/auth/refresh") { bearer() }.read(SignInResponse.serializer())
 

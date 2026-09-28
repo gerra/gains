@@ -3,6 +3,7 @@ which certificates each nginx site needs, and that the site it ships has no brok
 
 import html.parser
 import pathlib
+import re
 import tempfile
 import unittest
 
@@ -74,6 +75,17 @@ class NginxTest(unittest.TestCase):
         config = (deploy_server.NGINX_DIR / f"{deploy_server.SITE_HOST}.conf").read_text()
         self.assertIn(f"root {deploy_server.WEB_ROOT};", config)
 
+    def test_the_site_proxies_what_its_pages_post(self):
+        """Each fetch() in a page goes to a path the vhost hands to the server."""
+        config = (deploy_server.NGINX_DIR / f"{deploy_server.SITE_HOST}.conf").read_text()
+        proxied = [
+            re.compile(pattern.lstrip("^") if modifier == "~" else "^" + re.escape(pattern) + "$")
+            for modifier, pattern in re.findall(r"location\s+(=|~)\s+(\S+)\s*\{[^}]*proxy_pass", config)
+        ]
+        for path in sorted(deploy_server.SITE_DIR.glob("*.html")):
+            for url in re.findall(r'fetch\("([^"]+)"', path.read_text()):
+                self.assertTrue(any(p.search(url) for p in proxied), f"{path.name} posts to {url}, which the vhost does not proxy")
+
 
 class SitePagesTest(unittest.TestCase):
     """Every local link and image in site/ resolves the way nginx's try_files does."""
@@ -113,6 +125,9 @@ class SitePagesTest(unittest.TestCase):
         pages = self.pages()
         self.assertIn(deploy_server.SITE_DIR / "privacy.html", pages)
         self.assertIn(deploy_server.SITE_DIR / "support.html", pages)
+        # The pages the mails of email accounts link to (docs/launch-plan.md, item 18).
+        self.assertIn(deploy_server.SITE_DIR / "verify.html", pages)
+        self.assertIn(deploy_server.SITE_DIR / "reset.html", pages)
         for page, links in pages.items():
             for url in links.urls:
                 if not url.startswith("/"):
@@ -123,7 +138,7 @@ class SitePagesTest(unittest.TestCase):
                     self.assertIn(fragment, pages[target].ids, f"{page.name}: {url}")
 
     def test_every_page_gives_the_contact_address(self):
-        for page in ("index.html", "privacy.html", "support.html"):
+        for page in ("index.html", "privacy.html", "support.html", "verify.html", "reset.html"):
             self.assertIn("mailto:gains@gerra.sh", (deploy_server.SITE_DIR / page).read_text(), page)
 
 

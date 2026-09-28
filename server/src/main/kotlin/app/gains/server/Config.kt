@@ -24,10 +24,19 @@ data class Config(
     val appleServicesId: String? = null,
     /** Where the internet reaches this server, for the redirect URL registered with Apple. */
     val publicUrl: String = DEFAULT_PUBLIC_URL,
+    /** The mail submission account the confirmation and reset links of email accounts go out through; null turns email sign-in off. */
+    val smtp: Smtp? = null,
+    /** Where those links point: the site's pages, which post the token back to this server. */
+    val siteUrl: String = DEFAULT_SITE_URL,
 ) {
     /** A key from developer.apple.com → Keys with Sign in with Apple enabled. [privateKey] is the `.p8` file's contents. */
     data class AppleKey(val keyId: String, val teamId: String, val privateKey: String) {
         override fun toString() = "AppleKey(keyId=$keyId, teamId=$teamId)"
+    }
+
+    /** An SMTP submission account: TLS from the start on port 465, `STARTTLS` on any other; [user] and [password] go together or not at all. */
+    data class Smtp(val host: String, val port: Int, val user: String?, val password: String?, val from: String) {
+        override fun toString() = "Smtp(host=$host, port=$port, user=$user, from=$from)"
     }
 
     companion object {
@@ -44,6 +53,12 @@ data class Config(
                 "APPLE_KEY_ID, APPLE_TEAM_ID and APPLE_PRIVATE_KEY go together: set all three or none (see secrets/README.md)"
             }
             val servicesId = values["APPLE_SERVICES_ID"]?.trim()?.ifEmpty { null }
+            val smtpHost = values["SMTP_HOST"]?.trim()?.ifEmpty { null }
+            val mailFrom = values["MAIL_FROM"]?.trim()?.ifEmpty { null }
+            require((smtpHost == null) == (mailFrom == null)) { "SMTP_HOST and MAIL_FROM go together: set both or neither (see secrets/README.md)" }
+            val smtpUser = values["SMTP_USER"]?.trim()?.ifEmpty { null }
+            val smtpPassword = values["SMTP_PASSWORD"]?.ifEmpty { null }
+            require((smtpUser == null) == (smtpPassword == null)) { "SMTP_USER and SMTP_PASSWORD go together: set both or neither (see secrets/README.md)" }
             val appleClientIds = values["APPLE_CLIENT_IDS"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
             return Config(
                 jwtSecret = secret,
@@ -55,10 +70,16 @@ data class Config(
                 appleKey = appleKeyParts.takeIf { parts -> parts.none { it.isEmpty() } }?.let { (id, team, key) -> AppleKey(id, team, key) },
                 appleServicesId = servicesId,
                 publicUrl = values["GAINS_PUBLIC_URL"]?.trim()?.trimEnd('/')?.ifEmpty { null } ?: DEFAULT_PUBLIC_URL,
+                smtp = smtpHost?.let { host ->
+                    val port = values["SMTP_PORT"]?.trim()?.ifEmpty { null }?.let { it.toIntOrNull() ?: throw IllegalArgumentException("SMTP_PORT is not a port: $it") } ?: 587
+                    Smtp(host, port, smtpUser, smtpPassword, mailFrom!!)
+                },
+                siteUrl = values["GAINS_SITE_URL"]?.trim()?.trimEnd('/')?.ifEmpty { null } ?: DEFAULT_SITE_URL,
             )
         }
 
         const val DEFAULT_PUBLIC_URL = "https://api.gains.gerra.sh"
+        const val DEFAULT_SITE_URL = "https://gains.gerra.sh"
 
         /** `KEY=value` lines; blank lines and `#` comments skipped; surrounding single or double quotes dropped. */
         fun parseDotenv(text: String): Map<String, String> = text.lineSequence()

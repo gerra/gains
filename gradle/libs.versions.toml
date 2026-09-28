@@ -21,6 +21,9 @@ kotlinx-serialization = "1.11.0"
 java-jwt = "4.6.1"
 jwks-rsa = "0.24.1"
 logback = "1.5.38"
+# Email and password accounts (docs/launch-plan.md, item 18): Argon2id for the password hashes,
+# which the JDK has no implementation of.
+bouncycastle = "1.82"
 
 [libraries]
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
@@ -64,6 +67,7 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 java-jwt = { module = "com.auth0:java-jwt", version.ref = "java-jwt" }
 jwks-rsa = { module = "com.auth0:jwks-rsa", version.ref = "jwks-rsa" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

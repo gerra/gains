@@ -19,7 +19,7 @@ and the reasons behind it.
 ## Shape of it
 
 The app stays local-first: every screen reads the SQLite database on the device, as it does today,
-and a guest never talks to a server. Signing in with Google or Apple adds one thing: a background
+and a guest never talks to a server. Signing in with Google, Apple or an email address adds one thing: a background
 worker that pushes what changed here and pulls what changed elsewhere. The server is a per-user
 store of small JSON documents plus a per-user store of photo bytes. It never reads inside a
 document, never computes an insight and never merges anything finer than a whole document.
@@ -110,7 +110,8 @@ anything, in either direction: a verified newcomer doesn't join a user whose onl
 address is unverified, and an unverified newcomer gets a user of its own. Each sign-in refreshes
 the identity's email and claim, which is how rows from before the claim was stored catch up.
 
-`DELETE /auth/account` removes the user, both identities, every document and every blob, which
+`DELETE /auth/account` removes the user, every identity, the password credential and its mailed
+tokens, every document and every blob, which
 Apple requires of any app that offers Sign in with Apple. Settings offers it as "Delete account" on
 a signed-in account, behind a confirmation.
 
@@ -183,6 +184,43 @@ docs/development.md, "Android").
 The Apple subject is the same for the bundle id and the Services ID, so an Apple ID signed in on
 an iPhone and on Android is one user. Pending sign-ins and codes live in memory, capped at ten
 thousand: a restart only loses a sign-in in flight.
+
+**Email and password.** The third way in needs no provider on the device: the app posts the
+address and password itself ([`PasswordSignIn`](../server/src/main/kotlin/app/gains/server/PasswordSignIn.kt)).
+A sign-up (`POST /auth/password/signup`) stores the address and an Argon2id hash of the
+password (`password_credential`, through Bouncy Castle: 19 MiB, two passes, in the PHC string
+form so the parameters can be raised later without touching old rows) and mails a confirmation
+link; it answers 204 whether or not the address was known, and an address that already has a
+confirmed account gets a mail saying so instead, with a reset link. Nothing is an account yet: the
+link opens `gains.gerra.sh/verify?token=…`, whose page posts the token to
+`POST /auth/password/verify` (proxied by the site's vhost), and only then does the address get a
+user, through the same `Store.signIn` as a provider, with provider `password` and the address as
+subject. So the verified-email rule above decides whether it joins an existing Google or Apple
+account: it does when that identity's provider verified the same address, and never before the
+mail is answered, because until then the address is a claim anyone could have typed. A page with
+a button rather than a link that confirms on its own, because mail scanners follow every link
+and a token works once. `POST /auth/password/signin` checks the password and answers like
+`/auth/google` does; a right password on an unconfirmed address is a 403, a wrong pair a 401,
+and an unknown address takes as long as a wrong password (the hash is checked against a decoy).
+`POST /auth/password/reset-request` mails a reset link when the address has a credential and
+answers 204 either way; its page, `/reset?token=…`, posts the token and the new password to
+`POST /auth/password/reset`. A reset link proves the address as well as a confirmation link does,
+so it also confirms a sign-up whose first mail was lost. Tokens live in `email_token` as their
+SHA-256 with an expiry (a day for a confirmation, an hour for a reset), one per address and
+purpose, and go when taken. Sign-ins and mails are limited per address and per IP
+([`RateLimit`](../server/src/main/kotlin/app/gains/server/RateLimit.kt), in memory), on top of
+nginx's per-IP limit on the two proxied routes. The mails go out over SMTP submission
+([`SmtpMailer`](../server/src/main/kotlin/app/gains/server/Mailer.kt), the JDK's sockets with
+`STARTTLS` or TLS and `AUTH PLAIN`; no library, since every provider speaks it) from the account
+in `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` and `MAIL_FROM`; without them the five
+routes answer 503 and the start-up line says `email off`. The apps show the form only where
+`AuthConfig.passwordSignIn` is on (`gains.passwordSignIn` on the desktop and Android,
+`GAINS_PASSWORD_SIGN_IN` on iOS), which the owner sets with the server's mail account; it lives
+on the welcome screen behind "Sign in with email" and in Settings' account card behind "Continue
+with email" ([`EmailSignIn`](../composeApp/src/commonMain/kotlin/app/gains/ui/screens/EmailSignIn.kt)),
+and a sign-in through it stores the token on the same path as the sheets
+(`AccountRepository.signInWithEmail`). An email account has no name until another provider
+joins it, so the card shows the address.
 
 On `DELETE /auth/account`, the server posts each stored Apple refresh token to
 `appleid.apple.com/auth/revoke` **before** deleting the rows. A failed revoke is logged, and the
@@ -269,6 +307,11 @@ responses over a kilobyte.
 | `GET /auth/apple/start?redirect=…&state=…` | → 302 to Apple; 400 for a callback that isn't the app's |
 | `POST /auth/apple/callback` | Apple's form post → 303 to the app's callback with `code` or `error`, and `state` |
 | `POST /auth/exchange` | `{code}` → `{token, user}`; 401 once used or after a minute |
+| `POST /auth/password/signup` | `{email, password}` → 204, a confirmation mail; 400 not an address or a password under 8 characters, 429 too many, 503 no mail account |
+| `POST /auth/password/verify` | `{token}` → 204; 400 unknown, used or expired. Posted by the site's `/verify` page |
+| `POST /auth/password/signin` | `{email, password}` → `{token, user}`; 401 wrong, 403 right but unconfirmed, 429 too many |
+| `POST /auth/password/reset-request` | `{email}` → 204 either way, a reset mail when known |
+| `POST /auth/password/reset` | `{token, password}` → 204; 400 as above. Posted by the site's `/reset` page |
 | `POST /auth/refresh` | bearer → `{token, user}` |
 | `GET /auth/me` | bearer → `user` |
 | `DELETE /auth/account` | bearer → 204, everything gone |
@@ -362,6 +405,8 @@ document (user_id, kind, id, seq, updated_at, deleted, payload)   PRIMARY KEY (u
 blob     (user_id, kind, id, bytes)              PRIMARY KEY (user_id, kind, id)
 counter  (name, value)                           -- the one seq counter
 guest_list (email, created_at)                   PRIMARY KEY (email COLLATE NOCASE), no user
+password_credential (email, hash, user_id, created_at)   PRIMARY KEY (email COLLATE NOCASE); user_id null until confirmed
+email_token (token_hash, email, purpose, expires_at)     the mailed links, hashed; deleted when taken
 ```
 
 Sign-in tokens are RS256 identity tokens checked with `jwks-rsa` against the provider's key set
@@ -372,10 +417,12 @@ Configuration is read from the environment, with `secrets/.env` under the workin
 loaded first when it exists (the systemd unit deliberately has no `EnvironmentFile`, for the
 reason noted in www's unit): `JWT_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS`,
 `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_TEAM_ID`, `APPLE_PRIVATE_KEY`, `GAINS_PUBLIC_URL`,
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`, `GAINS_SITE_URL`,
 `GAINS_DATA_DIR`, `PORT`. Without a
 provider's ids that provider's route answers 503. Without the Apple key, sign-in codes are ignored
 and nothing is revoked; the start-up log line says `apple revoke on` or `off`. Without
 `APPLE_SERVICES_ID` the web flow's routes answer 503, and the log line says `apple web off`.
+Without a mail account the password routes answer 503, and the log line says `email off`.
 
 ## Deploying
 
@@ -387,7 +434,8 @@ The same playbook as taxes and www, on the same Hetzner box:
   `tools/deploy_server.py install`, which copies the unit and itself to the box and runs there:
   JDK 17 if the box lacks one, the unit installed, restart, smoke test of `/health`. No shell
   anywhere in it, the same way the release workflows run `tools/release.py`.
-- nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`.
+- nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`; the site's vhost
+  proxies `/guest-list` and the two password routes its pages post to, rate limited per IP.
   `python3 tools/deploy_server.py nginx` pushes every file in `deploy/nginx/` (this one and the
   site's `gains.gerra.sh.conf`), then runs `nginx -t` and reloads. The
   [Deploy site and nginx workflow](../.github/workflows/deploy-site.yml) runs it on a push to
@@ -424,5 +472,7 @@ three taxes uses.
   flow (above). Android has both too (`AndroidIdentityProvider`, with the server URL, the Web
   application client and the Services ID from `gains.serverUrl`, `gains.googleWebClientId` and
   `gains.appleServicesId`, through `BuildConfig`), Apple through the same web flow in a Custom
-  Tab. Email and password, and passkeys, are items 18 and 19 of the [launch plan](launch-plan.md).
-  Until a provider is wired up its button stays hidden, or disabled when neither is.
+  Tab. An email address and a password work on all three (above), once `gains.passwordSignIn`
+  or `GAINS_PASSWORD_SIGN_IN` is set with the server's mail account. Passkeys are item 19 of the
+  [launch plan](launch-plan.md). Until a provider is wired up its button stays hidden, or Google
+  and Apple show disabled when nothing is.

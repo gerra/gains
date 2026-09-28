@@ -62,6 +62,30 @@ data class SignInRequest(val token: String, val name: String? = null, val author
 data class SignInResponse(val token: String, val user: UserInfo)
 
 /**
+ * An email and password sign-up (`POST /auth/password/signup`). The server stores the address and
+ * a hash of the password, mails a confirmation link and answers 204 whether or not the address is
+ * already known; the account exists once the link is used.
+ */
+@Serializable
+data class PasswordSignUpRequest(val email: String, val password: String)
+
+/** An email and password sign-in (`POST /auth/password/signin`) → [SignInResponse]; 401 when wrong, 403 while the address is unconfirmed. */
+@Serializable
+data class PasswordSignInRequest(val email: String, val password: String)
+
+/** An address on its own: a password reset request (`POST /auth/password/reset-request`), answered 204 either way. */
+@Serializable
+data class EmailRequest(val email: String)
+
+/** The token from a mailed link, posted by the site's `/verify` page (`POST /auth/password/verify`). */
+@Serializable
+data class EmailTokenRequest(val token: String)
+
+/** The token from a reset link and the new password, posted by the site's `/reset` page (`POST /auth/password/reset`). */
+@Serializable
+data class PasswordResetRequest(val token: String, val password: String)
+
+/**
  * The end of a web sign-in (Sign in with Apple on Android and the desktop): the one-time code the
  * server put on the app's callback URL, traded for the same [SignInResponse] as a native sign-in.
  * The callback carries a code rather than the token itself, because URLs end up in browser history.

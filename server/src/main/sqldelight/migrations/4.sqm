@@ -1,0 +1,24 @@
+-- Email and password accounts (docs/launch-plan.md, item 18). A sign-up is a row here with no
+-- user until the address is confirmed; confirming it creates the `identity` row (provider
+-- `password`, subject = the address in lower case) and, through it, joins or creates the user,
+-- so the verified-email rule of migrations/1.sqm decides the merge.
+CREATE TABLE password_credential (
+  email TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+  hash TEXT NOT NULL,
+  user_id INTEGER REFERENCES user(id),
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX password_credential_user ON password_credential(user_id);
+
+-- The one-time links sent by mail: the SHA-256 of the token in the link (never the token, so a
+-- copy of the database confirms or resets nothing), what it is for (`verify` or `reset`), the
+-- address it went to, and when it stops working (epoch milliseconds).
+CREATE TABLE email_token (
+  token_hash TEXT NOT NULL PRIMARY KEY,
+  email TEXT NOT NULL COLLATE NOCASE,
+  purpose TEXT NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE INDEX email_token_email ON email_token(email);

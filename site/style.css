@@ -221,6 +221,9 @@ section > .lead { color: var(--muted); margin: 0 0 28px; max-width: 640px; }
 .join input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .join button { border: 0; font: inherit; font-weight: 700; cursor: pointer; }
 .join button:disabled { opacity: 0.6; cursor: default; }
+/* The reset page's form: the field above the button, at the text pages' width. */
+.join.stack { flex-direction: column; align-items: stretch; margin-top: 8px; }
+.join.stack .button { justify-content: center; }
 .note:empty { display: none; }
 
 .visually-hidden {

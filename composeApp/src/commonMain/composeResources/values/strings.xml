@@ -45,6 +45,24 @@
     <string name="sign_in_with_google">Sign in with Google</string>
     <string name="link_with_apple">Continue with Apple</string>
     <string name="link_with_google">Continue with Google</string>
+    <!-- Email and password accounts (docs/launch-plan.md, item 18). -->
+    <string name="sign_in_with_email">Sign in with email</string>
+    <string name="link_with_email">Continue with email</string>
+    <string name="email_field">Email</string>
+    <string name="password_field">Password</string>
+    <string name="email_password_hint">At least 8 characters</string>
+    <string name="email_sign_in">Sign in</string>
+    <string name="email_create_account">Create account</string>
+    <string name="email_send_reset">Send reset link</string>
+    <string name="email_no_account">New here? Create an account</string>
+    <string name="email_have_account">I already have an account</string>
+    <string name="email_forgot">Forgot password?</string>
+    <string name="email_check_inbox">Check your inbox: we sent a link to confirm your address. Once it's confirmed, sign in here.</string>
+    <string name="email_reset_sent">If that address has an account, we sent it a link to set a new password.</string>
+    <string name="email_wrong">Wrong email or password.</string>
+    <string name="email_not_confirmed">Confirm your address first: the link is in your inbox.</string>
+    <string name="email_invalid">Check the address, and use at least 8 characters for the password.</string>
+    <string name="email_too_many">Too many tries. Wait a few minutes and try again.</string>
     <string name="link_note">Your workouts on this device will be uploaded to the account and merged with anything already there.</string>
     <string name="continue_as_guest">Continue as guest</string>
     <string name="guest_note_with_sync">As a guest everything stays on this device. Sign in later to back it up and sync.</string>
@@ -233,7 +251,7 @@
     <string name="delete_account_title">Delete your account?</string>
     <string name="delete_account_body">Your account and everything synced to it are removed from the server. Workouts on this device stay here.</string>
     <string name="delete_account_failed">Couldn't delete the account. Check your connection and try again.</string>
-    <string name="sign_in_not_configured_note">Google and Apple sign-in are not configured yet; the sync server is coming later.</string>
+    <string name="sign_in_not_configured_note">Sign-in is not configured yet; the sync server is coming later.</string>
     <string name="training_goal">Training goal</string>
     <string name="days_a_week_label">Days a week</string>
     <string name="active_program">Active program</string>
@@ -523,6 +541,7 @@
     <string name="account_guest">Guest</string>
     <string name="account_google">Google</string>
     <string name="account_apple">Apple</string>
+    <string name="account_email">Email</string>
     <string name="insight_regression">Regression</string>
     <string name="insight_stall">Stall</string>
     <string name="insight_neglect">Neglect</string>

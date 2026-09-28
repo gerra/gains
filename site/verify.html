@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confirm your email — Gains</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/img/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="wrap top">
+    <a class="brand" href="/"><img src="/img/logo.png" alt="" width="36" height="36">Gains</a>
+    <nav>
+      <a href="/privacy">Privacy</a>
+      <a href="/support">Support</a>
+    </nav>
+  </header>
+
+  <!-- Where the confirmation mail of an email account lands (docs/sync.md, "Signing in"). The
+       link is /verify?token=…; the button posts the token to /auth/password/verify, which this
+       vhost proxies to the server. A button rather than a post on load, because mail scanners
+       open every link they see, and a token works once. -->
+  <main class="wrap narrow doc">
+    <h1>Confirm your email</h1>
+    <p class="updated">One tap finishes creating your Gains account.</p>
+    <div class="actions">
+      <button class="button primary" id="confirm" type="button" hidden>Confirm my email</button>
+    </div>
+    <p class="note" id="status" role="status" aria-live="polite"></p>
+    <noscript>
+      <p class="note">This page needs JavaScript to confirm your address. Open the link in another browser, or email
+        <a href="mailto:gains@gerra.sh?subject=Gains%20sign-up">gains@gerra.sh</a>.</p>
+    </noscript>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Gains · <a href="mailto:gains@gerra.sh">gains@gerra.sh</a></span>
+      <nav>
+        <a href="/privacy">Privacy policy</a>
+        <a href="/support">Support</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var button = document.getElementById("confirm");
+      var status = document.getElementById("status");
+      var token = new URLSearchParams(location.search).get("token");
+      if (!token) {
+        status.textContent = "This link is incomplete. Open the one in the mail again, or sign up once more in the app.";
+        return;
+      }
+      button.hidden = false;
+      button.addEventListener("click", function () {
+        button.disabled = true;
+        status.textContent = "Confirming…";
+        fetch("/auth/password/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: token })
+        }).then(function (response) {
+          if (response.ok) {
+            button.hidden = true;
+            status.textContent = "Done: your address is confirmed. Go back to Gains and sign in with your email and password.";
+          } else if (response.status === 400) {
+            button.hidden = true;
+            status.textContent = "This link has expired or was already used. Sign up again in the app to get a new one, or sign in if you already confirmed.";
+          } else {
+            throw new Error(response.status);
+          }
+        }).catch(function () {
+          button.disabled = false;
+          status.innerHTML = 'Something went wrong. Try again, or email <a href="mailto:gains@gerra.sh?subject=Gains%20sign-up">gains@gerra.sh</a>.';
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

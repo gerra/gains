@@ -1,9 +1,14 @@
 package app.gains.server
 
 import app.gains.sync.BlobResponse
+import app.gains.sync.EmailRequest
+import app.gains.sync.EmailTokenRequest
 import app.gains.sync.ErrorResponse
 import app.gains.sync.ExchangeRequest
 import app.gains.sync.GuestListRequest
+import app.gains.sync.PasswordResetRequest
+import app.gains.sync.PasswordSignInRequest
+import app.gains.sync.PasswordSignUpRequest
 import app.gains.sync.PhotoDoc
 import app.gains.sync.PullResponse
 import app.gains.sync.PushRequest
@@ -59,6 +64,8 @@ class Services(
     val appleTokens: AppleTokens = NoAppleTokens,
     /** Sign in with Apple through Apple's web page, for Android and the desktop; null when no Services ID is set. */
     val appleWeb: AppleWebSignIn? = null,
+    /** Email and password accounts; null when the server has no mail account to send their links from. */
+    val passwords: PasswordSignIn? = null,
     /** The largest blob accepted, in bytes. A workout photo is a few hundred kilobytes. */
     val maxBlobBytes: Int = 8 * 1024 * 1024,
     /** The most addresses the guest list holds; past it, joining answers 503. */
@@ -146,6 +153,9 @@ fun Application.gainsServer(services: Services) {
         }
     }
 
+    /** Who is calling, for the rate limits: nginx's header in front of the server, the socket's peer otherwise. */
+    fun ApplicationCall.callerIp(): String = request.headers["X-Real-IP"]?.trim()?.ifEmpty { null } ?: request.local.remoteHost
+
     /** Sends the browser on to [url] with a 303, so the post Apple made becomes a plain GET. */
     suspend fun ApplicationCall.seeOther(url: String) {
         response.headers.append(HttpHeaders.Location, url)
@@ -222,6 +232,41 @@ fun Application.gainsServer(services: Services) {
             val userId = web.redeem(code) ?: throw HttpError(HttpStatusCode.Unauthorized, "code expired or already used")
             val user = store.user(userId) ?: throw HttpError(HttpStatusCode.Unauthorized, "no such user")
             call.respond(SignInResponse(tokens.issue(userId), user))
+        }
+
+        // Email and password accounts (PasswordSignIn). The site's /verify and /reset pages post
+        // the mailed tokens to the two token routes; the app calls the other three.
+        fun passwords() = services.passwords ?: throw HttpError(HttpStatusCode.ServiceUnavailable, "email sign-in is not configured")
+
+        post("/auth/password/signup") {
+            val body = call.receive<PasswordSignUpRequest>()
+            withContext(Dispatchers.IO) { passwords().signUp(body.email, body.password, call.callerIp()) }
+            call.respond(HttpStatusCode.NoContent)
+        }
+
+        post("/auth/password/verify") {
+            val body = call.receive<EmailTokenRequest>()
+            passwords().verify(body.token)
+            call.respond(HttpStatusCode.NoContent)
+        }
+
+        post("/auth/password/signin") {
+            val body = call.receive<PasswordSignInRequest>()
+            val user = withContext(Dispatchers.IO) { passwords().signIn(body.email, body.password, call.callerIp()) }
+            log.info("sign-in: user {} via password", user.id)
+            call.respond(SignInResponse(tokens.issue(user.id), user))
+        }
+
+        post("/auth/password/reset-request") {
+            val body = call.receive<EmailRequest>()
+            withContext(Dispatchers.IO) { passwords().requestReset(body.email, call.callerIp()) }
+            call.respond(HttpStatusCode.NoContent)
+        }
+
+        post("/auth/password/reset") {
+            val body = call.receive<PasswordResetRequest>()
+            withContext(Dispatchers.IO) { passwords().reset(body.token, body.password) }
+            call.respond(HttpStatusCode.NoContent)
         }
 
         post("/auth/refresh") {

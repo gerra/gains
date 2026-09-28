@@ -54,7 +54,7 @@ The same rules as `auth-plan.md`:
 | 15 | Desktop: Sign in with Google | Desktop (P1) | Agent + Owner | — | [x] |
 | 16 | Desktop: Sign in with Apple | Desktop (P1) | Agent | 10 | [x] |
 | 17 | Desktop: keep the token in the OS keychain | Desktop (P1) | Agent | — | [x] |
-| 18 | Email and password accounts | More sign-in | Agent + Owner | 2, 4 | [ ] |
+| 18 | Email and password accounts | More sign-in | Agent + Owner | 2, 4 | [x] |
 | 19 | Passkeys | More sign-in | Agent + Owner | 3, 18 | [ ] |
 
 ## Owner actions
@@ -76,6 +76,13 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
       into `site/.well-known/assetlinks.json`, then `python3 tools/deploy_server.py nginx` (the
       vhost gained a location for that file) and `python3 tools/deploy_server.py site`.
       `adb shell pm get-app-links app.gains` then says `verified`.
+- [ ] Email accounts (item 18): a mail provider's SMTP account and a verified sender address
+      into `secrets/.env` (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`;
+      [`secrets/README.md`](../secrets/README.md)), `deploy_server.py secrets`, then the form's
+      switch in the apps: `gains.passwordSignIn=true` in `gradle.properties`,
+      `GAINS_PASSWORD_SIGN_IN` as a repository variable for the Play build, and
+      `GAINS_PASSWORD_SIGN_IN = YES` in `Config.xcconfig`. Until then the form stays hidden and
+      the server logs `email off` at start.
 - [ ] Play upload (item 13): the upload key, the service account and the first closed-testing
       release by hand, then the five `ANDROID_UPLOAD_*` / `PLAY_SERVICE_ACCOUNT_JSON` secrets
       and the `GAINS_GOOGLE_WEB_CLIENT_ID` / `GAINS_APPLE_SERVICES_ID` variables
@@ -482,12 +489,22 @@ finds none. See docs/sync.md, "What the client does".
 
 ### 18. Email and password accounts
 
-- [ ] Done
+- [x] Done
+  Done in #98
+  Steps 2–5 are in. The owner's step 1 switches it on: the mail account in `secrets/.env` and
+  the form's switch in each app (the owner action above). Until then the five routes answer 503,
+  the server logs `email off`, and the form stays hidden. The mails go out over plain SMTP
+  submission (`SmtpMailer`, no library), so any provider works; the confirmation and reset links
+  open `site/verify.html` and `site/reset.html`, which post the token back through the site's
+  vhost. Android files touched: `AndroidIdentityProvider.kt` (the `EMAIL` branch and the
+  `passwordSignIn` field), `composeApp/android.gradle` (`PASSWORD_SIGN_IN`).
 
 **Milestone:** More sign-in. **Depends on:** 2 (verified-only merging), 4.
 
 1. **Owner decides:** the email provider for verification and reset mail (e.g. Postmark,
    Amazon SES, or SMTP through the alias's host). Its credentials go in `secrets/.env`.
+   *Decided for now:* whichever it is, the server talks SMTP submission to it (`SMTP_*`,
+   `MAIL_FROM`), so the choice is five lines in `secrets/.env` and no code.
 2. **Server:** a `password_credential (user_id, email, hash)` table. Hash with Argon2id
    (Bouncy Castle has a pure-Java implementation). Routes: sign up, verify email, sign in,
    request reset, reset. Rate-limit sign-in and reset per email and per IP. Answer "if that
@@ -736,8 +753,29 @@ build fails a check, open an issue and link it next to the box.
 
 ### Email and password (18), passkeys (19)
 
-- [ ] Sign up → verification email → verified → signed in. Reset works. A wrong password
-      is refused, and repeated tries are rate limited.
+- [ ] Item 18: with `SMTP_*` deployed, `journalctl -u gains-server` shows `email on`, and with
+      the switch set the welcome screen shows "Sign in with email" under the provider buttons,
+      and a guest's Settings card "Continue with email".
+- [ ] Item 18: "New here? Create an account" → address and password → "Check your inbox";
+      the mail arrives from `MAIL_FROM` within a minute; its link opens
+      `https://gains.gerra.sh/verify?token=…`, "Confirm my email" says done, and the same link
+      again says expired. Signing in before confirming says "Confirm your address first".
+- [ ] Item 18: sign in with the address and password: the account card shows the address, and
+      a workout logged on another device arrives. Sign out and in again works.
+- [ ] Item 18: a wrong password says "Wrong email or password"; ten wrong tries in a row say
+      "Too many tries", and so does the right password until a quarter of an hour has passed.
+- [ ] Item 18: "Forgot password?" → "If that address has an account…" whether or not it has
+      one; the mail's link opens `/reset?token=…`, a 5-character password is refused there, an
+      8-character one is set, the old one no longer signs in, the new one does, and the link
+      used again says expired.
+- [ ] Item 18: sign up with the same address as your Google account (verified): after
+      confirming, signing in with the password lands in the same account (its workouts show).
+      Before confirming, it is no account at all: `sqlite3 …/gains-server.db 'SELECT email,
+      user_id FROM password_credential'` shows `user_id` empty.
+- [ ] Item 18: delete the account from an email sign-in: the row above is gone, the password
+      no longer signs in, and signing up again with the address works.
+- [ ] Item 18: with the switch off on a build, no email button anywhere; with `SMTP_*` unset on
+      the server but the switch on, the form says "Email sign-in is not configured yet".
 - [ ] An unverified password account with the same email as a Google account does **not**
       join it.
 - [ ] Create a passkey, then sign in with it on the same device, and on a second device through
