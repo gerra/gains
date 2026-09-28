@@ -29,7 +29,9 @@ android {
         targetSdk libs.versions.android.targetSdk.get().toInteger()
         // Play wants every upload's versionCode above the last one's: the release workflow passes
         // its run number, the same number TestFlight gets as the build number, and a local build is 1.
-        versionCode (project.findProperty("gains.versionCode") ?: "1").toInteger()
+        // The outer parentheses matter: Groovy reads `versionCode (x).toInteger()` as
+        // `versionCode(x).toInteger()`, passing the String and failing with "Value is null".
+        versionCode((project.findProperty("gains.versionCode") ?: "1").toInteger())
         versionName marketingVersion()
         // The sync server, the Google Web application client and the Apple Services ID
         // (docs/development.md, "Android"), from the Gradle properties so they change without
