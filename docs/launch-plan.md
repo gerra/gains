@@ -65,7 +65,7 @@ The same rules as `auth-plan.md`:
 | 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [ ] |
 | 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [x] |
 | 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [x] |
-| 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [ ] |
+| 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [x] |
 | 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [ ] |
 | 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [ ] |
 | 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [ ] |
@@ -902,7 +902,36 @@ Tests: the job. A pull request that breaks a Swift file or `Info.plist` must go 
 
 ### 27. A dependency modernization pass
 
-- [ ] Done
+- [x] Done
+  Done in #108, one commit per group, each with `:shared:desktopTest`, `:server:test` and the
+  `:shared` iOS klib green locally, and the whole pass through the three CI jobs. What moved:
+  1. Kotlin 2.4.20 and Compose Multiplatform 1.11.1 (Jetpack Compose 1.11.2 on Android). Not
+     1.12.1, the current one: the first CI run showed its Jetpack Compose 1.12 artifacts refuse
+     anything below compileSdk 37 and AGP 9.1, so 1.12 waits for the AGP 9 move under step 3.
+     Material 3 has had its own version line since 1.9, so it is `compose-material3 = "1.9.0"`,
+     the one the 1.11.1 plugin pairs with; Compose no longer publishes `iosX64`, so the Intel
+     simulator target is gone from both modules (the CI simulator build was arm64 only already);
+     and `runDesktopComposeUiTest` now wraps the test in `runTest`, whose one-minute default cut
+     the screenshot walk short, so `:composeApp`'s tests set
+     `kotlinx.coroutines.test.default_timeout` to the task's own timeout;
+     `material-icons-core` still resolves at 1.7.3, its last release; the resources and desktop
+     UI-test artifacts moved from the plugin's deprecated `compose.*` accessors into the
+     catalog. `kotlin.native.enableKlibsCrossCompilation` is still needed: without it
+     `compileKotlinIosArm64` is skipped on Linux.
+  2. Koin 4.2.2, with no code change.
+  3. **AGP stays on 8.x: 8.13.2, the last, on Gradle 8.14.5** (Kotlin 2.5 will want 8.14.4 or
+     newer). AGP 9 refuses `com.android.application` in a module that also applies the Kotlin
+     Multiplatform plugin: `:composeApp` would have to become a KMP library with a new Android
+     app module next to it, and `:shared` move to `com.android.kotlin.multiplatform.library`.
+     That is its own item. AGP 8.13 supports API 36.1 at most, so the okhttp 5.4.0 pin from
+     item 25 stays until then, and so does Compose Multiplatform 1.11 (step 1).
+  4. SQLDelight 2.4.0, activity-compose 1.13.0, credentials 1.6.0, browser 1.10.0, googleid
+     1.2.1, and on the server logback 1.6.4 and Bouncy Castle 1.86. Ktor 3.6.0, coroutines
+     1.11.0, serialization 1.11.0 and kotlinx-datetime 0.8.0 were already the latest stable.
+  5. `docs/development.md`: the Android Studio version AGP 8.13 needs, and a note under "Built
+     with". The JDK stays 17.
+  Left for the owner: the TestFlight round and the Play bundle from the next release branch, and
+  the test plan's item 27 smoke on each.
 
 **Milestone:** Maintenance (P2). **Depends on:** 25, 26 (an upgrade CI can't build for Android
 or Xcode is a guess).
@@ -1343,6 +1372,18 @@ On an Android 16 device or emulator, with a build containing item 21.
       join it.
 - [ ] Create a passkey, then sign in with it on the same device, and on a second device through
       iCloud Keychain or Google Password Manager.
+
+### Dependency pass (item 27)
+
+On the first TestFlight build and Play bundle after item 27, on a device each:
+
+- [ ] Sign in, log a set, and see it arrive on the other device.
+- [ ] Attach a photo to a workout; it shows on the other device.
+- [ ] Import `samples/liftoff-export.csv`: the preview and the imported workouts look right.
+- [ ] Click through every tab, a date and a time picker, a dropdown and a bottom sheet in dark
+      and light: nothing looks different from the build before, apart from Compose's own polish.
+- [ ] Android: Sign in with Google (Credential Manager) and with Apple (the Custom Tab) both
+      still finish.
 
 ---
 

@@ -18,7 +18,8 @@ CI does on runners without an SDK. Everything else is unaffected.
 
 ## Running it
 
-Requirements: JDK 17 or newer. Android additionally needs Android Studio with SDK 36, iOS needs
+Requirements: JDK 17 or newer. Android additionally needs Android Studio with SDK 36 (Narwhal 3
+Feature Drop, 2025.1.3, or newer, for AGP 8.13), iOS needs
 Xcode on a Mac (Xcode 26 to upload to App Store Connect, which only takes builds made with the
 current iOS SDK).
 
@@ -264,3 +265,9 @@ plus the iOS compile and the `tools/` tests listed under [the commands at the to
 - [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain, Unlicense) for
   the exercise photos and for the names of about 180 catalogue exercises
 - The README layout borrows from the projects collected in [awesome-readme](https://github.com/matiassingers/awesome-readme)
+
+The versions live in `gradle/libs.versions.toml`. The last deliberate pass over them was
+[launch-plan item 27](launch-plan.md#27-a-dependency-modernization-pass): Kotlin 2.4.20, Compose
+Multiplatform 1.11.1, Koin 4.2.2, AGP 8.13.2 on Gradle 8.14.5. AGP stays on 8.x until
+`:composeApp` is split into its own Android app module, which AGP 9 requires, and Compose
+Multiplatform on 1.11 with it: 1.12's Android artifacts need AGP 9.1 and compileSdk 37.

@@ -1,41 +1,51 @@
 [versions]
-agp = "8.11.1"
-kotlin = "2.3.21"
-compose-multiplatform = "1.7.3"
-sqldelight = "2.3.2"
-koin = "4.0.4"
+agp = "8.13.2"
+kotlin = "2.4.20"
+# Not 1.12: its Android artifacts (Jetpack Compose 1.12) need compileSdk 37 and AGP 9.1, and AGP
+# stays on 8.x until :composeApp is split (docs/launch-plan.md, item 27, step 3).
+compose-multiplatform = "1.11.1"
+# Material 3 has its own version line since Compose Multiplatform 1.9; 1.9.0 is the one the
+# Compose 1.11.1 plugin itself pairs with.
+compose-material3 = "1.9.0"
+# The icons no longer ship with Compose Multiplatform, and 1.7.3 is their last release.
+compose-material-icons = "1.7.3"
+sqldelight = "2.4.0"
+koin = "4.2.2"
 kotlinx-datetime = "0.8.0"
 kotlinx-coroutines = "1.11.0"
-android-activity = "1.10.1"
+android-activity = "1.13.0"
 android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
 # Sign in with Google on Android (docs/launch-plan.md, item 9): Credential Manager and Google's
 # id-token option for it.
-androidx-credentials = "1.5.0"
-googleid = "1.1.1"
+androidx-credentials = "1.6.0"
+googleid = "1.2.1"
 # Sign in with Apple on Android (item 11): the Custom Tab the server's web flow opens in.
-androidx-browser = "1.8.0"
+androidx-browser = "1.10.0"
 ktor = "3.6.0"
-# Held below what Ktor's OkHttp engine asks for: okhttp 5.5.0 needs compileSdk 37, which AGP 8.11
-# doesn't support, and 5.4.0 is the last at 36. Ktor 3.6.0's engine calls nothing 5.4.0 lacks.
-# Drop the pin in item 27 (docs/launch-plan.md), with the AGP and compileSdk bump.
+# Held below what Ktor's OkHttp engine asks for: okhttp 5.5.0 needs compileSdk 37, and AGP 8.13,
+# the last 8.x, supports up to 36.1; 5.4.0 is the last at 36. Ktor 3.6.0's engine calls nothing
+# 5.4.0 lacks. Drop the pin with the move to AGP 9 (docs/launch-plan.md, item 27, step 3).
 okhttp = "5.4.0"
 kotlinx-serialization = "1.11.0"
 java-jwt = "4.6.1"
 jwks-rsa = "0.24.1"
-logback = "1.5.38"
+logback = "1.6.4"
 # Email and password accounts (docs/launch-plan.md, item 18): Argon2id for the password hashes,
 # which the JDK has no implementation of.
-bouncycastle = "1.82"
+bouncycastle = "1.86"
 
 [libraries]
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
-compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-multiplatform" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-material3" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose-multiplatform" }
-compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version = "1.7.3" }
+compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "compose-material-icons" }
+# Named here rather than through the plugin's `compose.*` accessors, which are deprecated.
+compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose-multiplatform" }
+compose-ui-test-junit4 = { module = "org.jetbrains.compose.ui:ui-test-junit4", version.ref = "compose-multiplatform" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }

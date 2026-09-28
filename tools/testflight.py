@@ -240,8 +240,8 @@ def simulator_build_command():
     The generic destination needs no simulator device to exist and boots nothing.
     CODE_SIGNING_ALLOWED=NO skips signing, so the entitlements are still processed but no
     certificate, profile or team is needed. ARCHS=arm64 builds the one slice the Apple
-    Silicon runner would run, so Gradle links iosSimulatorArm64 alone rather than that and
-    iosX64 into a fat framework: the x86_64 slice is the same Kotlin, and twice the link.
+    Silicon runner would run: the Kotlin side has no x86_64 simulator slice to link, since
+    Compose Multiplatform 1.11 dropped the iosX64 target (docs/launch-plan.md, item 27).
     """
     return [
         "xcodebuild", "build",
