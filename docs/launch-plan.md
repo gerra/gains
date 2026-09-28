@@ -620,7 +620,7 @@ nothing). A token minted for a user id that never existed gets the same 401.
 ### 21. Android: target API 36 (Android 16)
 
 - [x] Done
-  Done in #PR. Steps 1 and 2 are in: `compileSdk` and `targetSdk` are 36 with AGP unchanged,
+  Done in #102. Steps 1 and 2 are in: `compileSdk` and `targetSdk` are 36 with AGP unchanged,
   what Android 16 changes for Gains is written down under step 2, and the one thing it needed
   in code (the status bar icons) is in `MainActivity`. Android is not compiled in CI: the
   owner's step 3 builds it in Android Studio with SDK 36 and runs the test plan's Android 16
