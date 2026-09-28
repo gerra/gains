@@ -1,9 +1,11 @@
 """The parts of deploy_server.py that need no box: where it connects, what it accepts as healthy,
-which certificates each nginx site needs, and that the site it ships has no broken links."""
+the server's user and file modes, which certificates each nginx site needs, and that the site it
+ships has no broken links."""
 
 import html.parser
 import pathlib
 import re
+import subprocess
 import tempfile
 import unittest
 import unittest.mock
@@ -42,6 +44,111 @@ class HealthTest(unittest.TestCase):
         self.assertFalse(deploy_server.healthy(0, "connection refused"))
 
 
+class UnprivilegedServerTest(unittest.TestCase):
+    """The server runs as its own user, from /opt, sandboxed (docs/launch-plan.md, item 22)."""
+
+    def unit(self):
+        return deploy_server.UNIT_FILE.read_text()
+
+    def directives(self, name):
+        return re.findall(rf"^{name}=(.*)$", self.unit(), re.MULTILINE)
+
+    def test_the_unit_runs_from_the_install_the_deploy_writes(self):
+        self.assertEqual(["/opt/gains-server"], self.directives("WorkingDirectory"))
+        self.assertEqual(str(deploy_server.HOME), self.directives("WorkingDirectory")[0])
+        self.assertEqual([f"{deploy_server.CURRENT}/bin/gains-server"], self.directives("ExecStart"))
+        self.assertNotIn("/root", "\n".join(self.directives("WorkingDirectory") + self.directives("ExecStart")))
+
+    def test_the_unit_runs_as_the_user_the_deploy_creates(self):
+        self.assertEqual([deploy_server.USER], self.directives("User"))
+        self.assertEqual([deploy_server.USER], self.directives("Group"))
+        self.assertEqual(deploy_server.USER, deploy_server.create_user_command()[-1])
+
+    def test_the_data_directory_is_the_only_writable_one(self):
+        self.assertEqual([str(deploy_server.DATA_DIR)], self.directives("ReadWritePaths"))
+        self.assertIn(f"GAINS_DATA_DIR={deploy_server.DATA_DIR}", self.directives("Environment"))
+        self.assertEqual(["strict"], self.directives("ProtectSystem"))
+
+    def test_the_unit_is_sandboxed(self):
+        for name, value in [
+            ("UMask", "0077"), ("NoNewPrivileges", "true"), ("PrivateTmp", "true"), ("ProtectHome", "true"),
+            ("ProtectKernelTunables", "true"), ("ProtectKernelModules", "true"), ("ProtectControlGroups", "true"),
+            ("RestrictAddressFamilies", "AF_INET AF_INET6 AF_UNIX"), ("LockPersonality", "true"),
+            ("RestrictRealtime", "true"), ("CapabilityBoundingSet", ""), ("RestrictSUIDSGID", "true"),
+            ("RestrictNamespaces", "true"), ("PrivateDevices", "true"), ("SystemCallArchitectures", "native"),
+        ]:
+            self.assertEqual([value], self.directives(name), name)
+        # The JIT writes code it then runs, so this one would stop the JVM.
+        self.assertEqual([], self.directives("MemoryDenyWriteExecute"))
+
+    def test_a_missing_user_is_created_as_a_system_user_without_a_login(self):
+        commands = []
+
+        def fake_run(*command, check=True, capture=False):
+            commands.append(list(command))
+            return subprocess.CompletedProcess(command, 1 if command[0] == "id" else 0, "", "")
+
+        with unittest.mock.patch.object(deploy_server, "run", fake_run):
+            deploy_server.ensure_user()
+        self.assertEqual(
+            [["id", "-u", "gains-server"],
+             ["useradd", "--system", "--user-group", "--home-dir", "/var/lib/gains", "--no-create-home",
+              "--shell", "/usr/sbin/nologin", "gains-server"]],
+            commands,
+        )
+
+    def test_an_existing_user_is_left_alone(self):
+        commands = []
+
+        def fake_run(*command, check=True, capture=False):
+            commands.append(list(command))
+            return subprocess.CompletedProcess(command, 0, "999\n", "")
+
+        with unittest.mock.patch.object(deploy_server, "run", fake_run):
+            deploy_server.ensure_user()
+        self.assertEqual([["id", "-u", "gains-server"]], commands)
+
+    def test_the_server_owns_its_data_and_only_reads_its_secrets(self):
+        self.assertEqual(
+            [["chown", "-R", "gains-server:gains-server", "/var/lib/gains"], ["chmod", "750", "/var/lib/gains"]],
+            deploy_server.data_permissions(),
+        )
+        self.assertEqual(
+            [["chown", "root:gains-server", "/opt/gains-server/secrets"], ["chmod", "750", "/opt/gains-server/secrets"],
+             ["chown", "root:gains-server", "/opt/gains-server/secrets/.env"], ["chmod", "640", "/opt/gains-server/secrets/.env"]],
+            deploy_server.secrets_permissions(),
+        )
+        self.assertEqual(
+            [["chown", "root:gains-server", "/opt/gains-server/secrets"], ["chmod", "750", "/opt/gains-server/secrets"]],
+            deploy_server.secrets_permissions(include_file=False),
+        )
+
+    def test_the_first_install_at_the_new_path_carries_the_secrets_over(self):
+        with tempfile.TemporaryDirectory() as temp:
+            old = pathlib.Path(temp) / "root" / "secrets" / ".env"
+            new = pathlib.Path(temp) / "opt" / "secrets" / ".env"
+            old.parent.mkdir(parents=True)
+            old.write_text("JWT_SECRET=old\n")
+            self.assertTrue(deploy_server.carry_over_secrets(old, new))
+            self.assertEqual("JWT_SECRET=old\n", new.read_text())
+            self.assertTrue(old.is_file())
+
+    def test_secrets_already_at_the_new_path_win(self):
+        with tempfile.TemporaryDirectory() as temp:
+            old = pathlib.Path(temp) / "old.env"
+            new = pathlib.Path(temp) / "new.env"
+            old.write_text("JWT_SECRET=old\n")
+            new.write_text("JWT_SECRET=new\n")
+            self.assertFalse(deploy_server.carry_over_secrets(old, new))
+            self.assertEqual("JWT_SECRET=new\n", new.read_text())
+
+    def test_nothing_to_carry_over_on_a_new_box(self):
+        with tempfile.TemporaryDirectory() as temp:
+            new = pathlib.Path(temp) / "secrets" / ".env"
+            self.assertFalse(deploy_server.carry_over_secrets(pathlib.Path(temp) / "missing.env", new))
+            self.assertFalse(new.exists())
+
+
 class SiteSyncTest(unittest.TestCase):
     def test_the_workflow_rsyncs_with_the_deploy_key(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -66,7 +173,7 @@ class SiteSyncTest(unittest.TestCase):
 
 
 class BuildSyncTest(unittest.TestCase):
-    """The server build goes up the way the rsync action sent it: archive mode, stale jars deleted."""
+    """The server build goes up owned by the box's root, read-only to the server's user, stale jars deleted."""
 
     def test_the_workflow_rsyncs_the_install_directory_into_current(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -78,10 +185,10 @@ class BuildSyncTest(unittest.TestCase):
             )
             key = pathlib.Path(temp) / "deploy_key"
             self.assertEqual(
-                ["rsync", "-avz", "--delete",
+                ["rsync", "-rlptvz", "--delete", "--chmod=go-w",
                  "-e", f"ssh -i {key} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes",
                  f"{deploy_server.ROOT}/server/build/install/gains-server/",
-                 "root@box.example:/root/Projects/gains-server/current/"],
+                 "root@box.example:/opt/gains-server/current/"],
                 command,
             )
 

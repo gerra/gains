@@ -5,6 +5,11 @@
 # (server/src/main/kotlin/app/gains/server/Config.kt) — no EnvironmentFile here, because
 # systemd's parser quotes differently from dotenv's and the file should go through one parser.
 # `current/` is what `./gradlew :server:installDist` produces, rsynced by the workflow.
+#
+# The JVM runs as its own system user, which `tools/deploy_server.py install` creates, and sees
+# the rest of the box read-only: one bug in the server or a dependency is then that user on a
+# read-only system, not root on the box that also serves the other sites (docs/launch-plan.md,
+# item 22). `systemd-analyze security gains-server` is the measure.
 
 [Unit]
 Description=api.gains.gerra.sh sync server (Ktor)
@@ -14,15 +19,48 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/root/Projects/gains-server
-ExecStart=/root/Projects/gains-server/current/bin/gains-server
+User=gains-server
+Group=gains-server
+# Under /opt, not /root: ProtectHome= hides /root, and gains-server can't read it anyway.
+WorkingDirectory=/opt/gains-server
+ExecStart=/opt/gains-server/current/bin/gains-server
 Environment=JAVA_OPTS=-Xmx256m
+# The one writable directory below, so the database can't land anywhere else whatever
+# secrets/.env says (the environment wins over the file).
+Environment=GAINS_DATA_DIR=/var/lib/gains
 Restart=always
 RestartSec=3
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=gains-server
+
+# Sandboxing. New files are 600: the database holds every account's data.
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/gains
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+RestrictRealtime=true
+# The same kind of lines past the list in the launch plan: nothing here needs a capability, a
+# device beyond /dev/null and /dev/urandom, a namespace, the clock or the kernel log.
+CapabilityBoundingSet=
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+PrivateDevices=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+SystemCallArchitectures=native
+RemoveIPC=true
+# Not MemoryDenyWriteExecute=true: the JIT needs memory that is writable and executable.
+# Not SystemCallFilter=@system-service yet: untried with this JVM on the box, and a unit the
+# JVM can't start under takes the API down until the next deploy. Try it by hand first.
 
 [Install]
 WantedBy=multi-user.target
