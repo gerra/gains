@@ -74,7 +74,7 @@ The same rules as `auth-plan.md`:
 | 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [x] |
 | 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
 | 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [x] |
-| 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [ ] |
+| 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [x] |
 | 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [ ] |
 | 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [ ] |
 | 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [ ] |
@@ -1198,7 +1198,8 @@ the fix turns its `0` into the value set before the change. One way: keep each s
 
 ### 33. `App.kt`: move the root's coordination into small, tested pieces
 
-- [ ] Done (all steps below ticked)
+- [x] Done (all steps below ticked)
+  Done in #119, #120, #121, #122 and #123, one step each.
 
 **Milestone:** Maintenance (P1). **Depends on:** 32 (the lifecycle tests are the net). **One pull
 request per step**, in this order, each leaving the app behaving exactly as before.
@@ -1271,7 +1272,9 @@ Steps:
   `IconCircle` and `Tab.icon` into `ui/nav/` (e.g. `AppChrome.kt`); `ScreenContent` and
   `ScreenBody`'s `when` over `Screen` into e.g. `ui/nav/Routes.kt`. A pure move: no behaviour,
   wording or look changes, and the screenshot tests unchanged.
-- [ ] **5. Finish.** `App.kt` now holds `App` and `AppBody` assembling the theme, the language,
+- [x] **5. Finish.** Done in #123: `observeUpNext` beside `findUpNext`, `ThemeMode.isDark()` in
+  `ui/theme/Theme.kt`, and `Main` moved as it was to `ui/nav/AppFrame.kt`; `App.kt` is `App` and
+  `AppBody`, 149 lines. `App.kt` now holds `App` and `AppBody` assembling the theme, the language,
   the gates, the pieces above and the chrome; no repository flow is combined in it and no rule
   is decided in it. Aim for well under 200 lines, but the measure is that every remaining line
   is assembly. `docs/how-it-works.md` "Modules" names the pieces in a sentence (rule 2), and
