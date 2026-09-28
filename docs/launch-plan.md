@@ -563,7 +563,7 @@ finds none. See docs/sync.md, "What the client does".
 ### 19. Passkeys
 
 - [x] Done
-  Done in #…
+  Done in #100
   Steps 2–5 are in. Step 1 went the plan's way: a passkey is added from Settings to an account
   that exists ("Add a passkey" in the account card) and then signs into it ("Sign in with a
   passkey" on the welcome screen, "Continue with a passkey" for a guest and after a 401); it
