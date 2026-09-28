@@ -179,6 +179,18 @@ pushes `deploy/nginx/` and `site/` (gains.gerra.sh) the same way; from a laptop,
 `python3 tools/deploy_server.py secrets` pushes the secrets
 ([secrets/README.md](../secrets/README.md) lists them). A server-only change cuts no release branch. Design and routes: [docs/sync.md](sync.md).
 
+**Dependencies and actions.** Every `uses:` in `.github/workflows/` names a full commit SHA, with
+the version it is as a trailing comment (`actions/checkout@<sha> # v4.4.0`), because a tag can be
+moved to other code and these workflows hold the signing keys and the deploy key. To bump one,
+look up the new tag's commit (`git ls-remote --tags https://github.com/<owner>/<repo>.git`,
+taking the `^{}` line for an annotated tag) and change the SHA and the comment together; the
+actions of one repository (`gradle/actions/…`, `github/codeql-action/…`) move together.
+[Dependency graph](../.github/workflows/dependency-graph.yml) submits the Gradle dependencies on
+every push to `main`, so Insights → Dependency graph lists them and the Dependabot alerts under
+Security cover them; on a pull request, CI's dependency review fails when the change brings in a
+dependency with a known advisory. [CodeQL](../.github/workflows/codeql.yml) scans the Kotlin on
+pull requests, on `main` and weekly, into Security → Code scanning.
+
 **Pruning branches.** `python3 tools/prune_branches.py list` shows the branches on origin whose
 work is already on `main`, and `prune` deletes them. `release/*` branches are always kept: the
 next version number is worked out from them.

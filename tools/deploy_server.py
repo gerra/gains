@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Putting the sync server on its box (docs/sync.md, "Deploying").
 
-Seven commands, in three groups. From the deploy workflows, with the DEPLOY_HOST, DEPLOY_USER and
+Eight commands, in three groups. From the deploy workflows, with the DEPLOY_HOST, DEPLOY_USER and
 DEPLOY_KEY secrets in the environment:
 
   prepare   Write the key file and make sure the target directories exist on the box.
-            The workflow's rsync step then copies the install directory into current/.
+  build     Rsync the server's install directory (`installDist`) into current/ on the box.
   install   Copy the systemd unit and this script to the box and run `remote` there.
   logs      Fetch the unit's journal into a file, for the failure artifact.
   nginx     Push every site in deploy/nginx/ whose certificate exists, `nginx -t`, reload.
@@ -45,6 +45,8 @@ CURRENT = HOME / "current"
 SECRETS = HOME / "secrets"
 UNIT = "gains-server"
 UNIT_FILE = ROOT / "deploy" / f"{UNIT}.service"
+# What `:server:installDist` writes: bin/gains-server plus every jar under lib/.
+INSTALL_DIR = ROOT / "server" / "build" / "install" / UNIT
 DATA_DIR = pathlib.Path("/var/lib/gains")
 HEALTH = "http://127.0.0.1:5003/health"
 
@@ -113,6 +115,15 @@ def prepare(args):
     remote.ssh("mkdir", "-p", str(CURRENT), str(SECRETS))
 
 
+def build(args):
+    """The install directory into current/. It is self-contained, and `--delete` keeps stale jars
+    from piling up; data and secrets live outside current/. This used to be a third-party rsync
+    action, which got the deploy key; here the key stays with this script (launch plan, item 28)."""
+    if not (INSTALL_DIR / "bin" / UNIT).is_file():
+        fail(f"{INSTALL_DIR} has no bin/{UNIT}; run `./gradlew :server:installDist` first")
+    run(*rsync_command(Remote.from_environment(), INSTALL_DIR, CURRENT, BUILD_SWITCHES))
+
+
 def install(args):
     remote = Remote.from_environment()
     remote.scp(UNIT_FILE, HOME / UNIT_FILE.name)
@@ -129,16 +140,22 @@ def logs(args):
 def site(args):
     remote = Remote.from_environment()
     remote.ssh("mkdir", "-p", str(WEB_ROOT))
-    run(*rsync_command(remote, SITE_DIR, WEB_ROOT))
+    run(*rsync_command(remote, SITE_DIR, WEB_ROOT, SITE_SWITCHES))
     status = fetch_status(f"https://{SITE_HOST}/privacy")
     if status != 200:
         fail(f"https://{SITE_HOST}/privacy answered {status or 'nothing'}; is the vhost pushed (`nginx`)?")
     print(f"smoke test: https://{SITE_HOST}/privacy answers 200.")
 
 
-def rsync_command(remote, source, destination):
-    """rsync of a directory's contents, deleting what is gone, readable by nginx's worker."""
-    command = ["rsync", "-rltvz", "--delete", "--chmod=D755,F644"]
+# The site: readable by nginx's worker, whoever owns the files here. The server build: as it was
+# built, with bin/gains-server executable.
+SITE_SWITCHES = ["-rltvz", "--delete", "--chmod=D755,F644"]
+BUILD_SWITCHES = ["-avz", "--delete"]
+
+
+def rsync_command(remote, source, destination, switches):
+    """rsync of a directory's contents into another, deleting what is gone from the source."""
+    command = ["rsync", *switches]
     if remote.options():
         command += ["-e", shlex.join(["ssh", *remote.options()])]
     return command + [f"{source}/", f"{remote.target}:{destination}/"]
@@ -269,6 +286,7 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     for name, handler, help_text in [
         ("prepare", prepare, "CI: write the key and create the target directories on the box"),
+        ("build", build, "CI: rsync the server's install directory into current/ on the box"),
         ("install", install, "CI: copy the unit and this script to the box and run `remote` there"),
         ("remote", remote, "on the box: JDK, unit, restart, smoke test"),
         ("secrets", secrets, "laptop: push secrets/.env and restart the unit"),

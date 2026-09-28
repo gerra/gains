@@ -69,7 +69,7 @@ The same rules as `auth-plan.md`:
 | 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [x] |
 | 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [x] |
 | 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [x] |
-| 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [ ] |
+| 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [x] |
 | 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [ ] |
 | 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [ ] |
 | 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
@@ -136,7 +136,9 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
       `site/`, `server/`, `deploy/` and `tools/`): keep it, or change the `paths` lists in
       `.github/workflows/ios.yml`. Either way, don't make **iOS simulator build** a required
       check.
-- [ ] Dependabot alerts on (item 28): GitHub → Settings → Code security.
+- [ ] Dependency graph and Dependabot alerts on (item 28): GitHub → Settings → Code security.
+  Until the graph is on, GitHub refuses the snapshot, so CI's Dependency review job and the
+  Dependency graph workflow fail.
 - [ ] Backup decision (item 31), before item 14 if possible.
 
 ---
@@ -985,7 +987,12 @@ Tests: the check set above, after each group.
 
 ### 28. Supply chain: pinned actions and dependency scanning
 
-- [ ] Done
+- [x] Done
+  Done in #111. Each action is pinned to the release its major tag pointed at, so nothing
+  changed behaviour; majors are item 29's. CodeQL is a workflow (`codeql.yml`), not the default
+  setup: autobuild can't be told which tasks a Kotlin Multiplatform build compiles on Linux, and
+  the workflow's own run on the pull request showed the extractor taking Kotlin 2.4.20. Left:
+  the owner's dependency graph and Dependabot alerts switches.
 
 **Milestone:** Maintenance (P2). **Depends on:** nothing.
 

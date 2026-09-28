@@ -457,8 +457,9 @@ Without a mail account the password routes answer 503, and the log line says `em
 The same playbook as taxes and www, on the same Hetzner box:
 
 - Push to `main` touching `server/`, `shared/src/commonMain/`, `deploy/` or the workflow runs
-  [`deploy.yml`](../.github/workflows/deploy.yml): `:server:test`, `:server:installDist`, rsync
-  of the install directory to `/root/Projects/gains-server/current/`, then
+  [`deploy.yml`](../.github/workflows/deploy.yml): `:server:test`, `:server:installDist`,
+  `tools/deploy_server.py build` (rsync of the install directory to
+  `/root/Projects/gains-server/current/`), then
   `tools/deploy_server.py install`, which copies the unit and itself to the box and runs there:
   JDK 17 if the box lacks one, the unit installed, restart, smoke test of `/health`. No shell
   anywhere in it, the same way the release workflows run `tools/release.py`.

@@ -6,6 +6,7 @@ import pathlib
 import re
 import tempfile
 import unittest
+import unittest.mock
 
 import deploy_server
 
@@ -47,7 +48,7 @@ class SiteSyncTest(unittest.TestCase):
             remote = deploy_server.Remote.from_environment({
                 "DEPLOY_HOST": "box.example", "DEPLOY_USER": "root", "DEPLOY_KEY": "KEY", "RUNNER_TEMP": temp,
             })
-            command = deploy_server.rsync_command(remote, pathlib.Path("/repo/site"), pathlib.Path("/var/www/x"))
+            command = deploy_server.rsync_command(remote, pathlib.Path("/repo/site"), pathlib.Path("/var/www/x"), deploy_server.SITE_SWITCHES)
             key = pathlib.Path(temp) / "deploy_key"
             self.assertEqual(
                 ["rsync", "-rltvz", "--delete", "--chmod=D755,F644",
@@ -60,8 +61,41 @@ class SiteSyncTest(unittest.TestCase):
         remote = deploy_server.Remote.from_environment({})
         self.assertEqual(
             ["rsync", "-rltvz", "--delete", "--chmod=D755,F644", "/repo/site/", "hetzner_gb:/var/www/x/"],
-            deploy_server.rsync_command(remote, pathlib.Path("/repo/site"), pathlib.Path("/var/www/x")),
+            deploy_server.rsync_command(remote, pathlib.Path("/repo/site"), pathlib.Path("/var/www/x"), deploy_server.SITE_SWITCHES),
         )
+
+
+class BuildSyncTest(unittest.TestCase):
+    """The server build goes up the way the rsync action sent it: archive mode, stale jars deleted."""
+
+    def test_the_workflow_rsyncs_the_install_directory_into_current(self):
+        with tempfile.TemporaryDirectory() as temp:
+            remote = deploy_server.Remote.from_environment({
+                "DEPLOY_HOST": "box.example", "DEPLOY_USER": "root", "DEPLOY_KEY": "KEY", "RUNNER_TEMP": temp,
+            })
+            command = deploy_server.rsync_command(
+                remote, deploy_server.INSTALL_DIR, deploy_server.CURRENT, deploy_server.BUILD_SWITCHES,
+            )
+            key = pathlib.Path(temp) / "deploy_key"
+            self.assertEqual(
+                ["rsync", "-avz", "--delete",
+                 "-e", f"ssh -i {key} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes",
+                 f"{deploy_server.ROOT}/server/build/install/gains-server/",
+                 "root@box.example:/root/Projects/gains-server/current/"],
+                command,
+            )
+
+    def test_the_unit_runs_what_is_synced(self):
+        unit = deploy_server.UNIT_FILE.read_text()
+        self.assertIn(f"{deploy_server.CURRENT}/bin/{deploy_server.UNIT}", unit)
+
+    def test_without_an_install_directory_nothing_is_sent(self):
+        with tempfile.TemporaryDirectory() as temp, \
+                unittest.mock.patch.object(deploy_server, "INSTALL_DIR", pathlib.Path(temp)), \
+                unittest.mock.patch.object(deploy_server, "run") as run, \
+                self.assertRaises(SystemExit):
+            deploy_server.build(None)
+        run.assert_not_called()
 
 
 class NginxTest(unittest.TestCase):
