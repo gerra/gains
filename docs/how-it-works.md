@@ -199,8 +199,11 @@ flowchart LR
 | [`tools/`](../tools) | Python for the release process, the TestFlight upload, the server deploy, branch pruning and the exercise photos, with their tests. |
 | [`samples/`](../samples) | A generated eight-month Liftoff export used by the screenshots and handy for trying the app. |
 
-Dependencies are wired with [Koin](https://insert-koin.io/); each platform supplies a
-`DatabaseDriverFactory` and everything else comes from `SharedModule`. Screens use a small
+Dependencies are wired with [Koin](https://insert-koin.io/) at the entry points; each platform
+supplies a `DatabaseDriverFactory` and everything else comes from `SharedModule`. The screens take
+what they need from it (`inject()`, for composables only) and hand it to their models, and `App`
+does the same for the root's pieces, so the models and the pieces are plain classes that list
+their dependencies in their constructors and know nothing of Koin. Screens use a small
 `ScreenModel` state holder over Kotlin Flows; it belongs to the screen's back-stack entry, so a
 screen covered by another one (settings, a lift's detail) comes back as it was left rather than
 reloading. A model's actions all start through `launchAction`: the failures an action expects (a

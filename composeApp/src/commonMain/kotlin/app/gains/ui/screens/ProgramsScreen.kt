@@ -24,6 +24,7 @@ import app.gains.data.ProgramRepository
 import app.gains.domain.GoalProfile
 import app.gains.domain.Program
 import app.gains.program.ProgramSuggester
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
@@ -50,7 +51,7 @@ internal data class ProgramsState(
     val builtIn: List<Program> = emptyList(),
 )
 
-internal class ProgramsModel(programs: ProgramRepository = inject()) : ScreenModel() {
+internal class ProgramsModel(programs: ProgramRepository, reporter: ErrorReporter) : ScreenModel(reporter) {
     val state: StateFlow<ProgramsState> = programs.observeState().map { s ->
         val builtIn = s.programs.filter { it.isBuiltIn }
         ProgramsState(
@@ -65,7 +66,7 @@ internal class ProgramsModel(programs: ProgramRepository = inject()) : ScreenMod
 
 @Composable
 internal fun ProgramsScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
-    val model = rememberScreenModel { ProgramsModel() }
+    val model = rememberScreenModel { ProgramsModel(inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     if (state.loading) return

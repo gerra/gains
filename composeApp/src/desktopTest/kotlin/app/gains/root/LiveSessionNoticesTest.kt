@@ -1,5 +1,6 @@
 package app.gains.root
 
+import app.gains.LogErrorReporter
 import app.gains.data.DesktopDriverFactory
 import app.gains.data.LiveSessionRepository
 import app.gains.db.GainsDatabase
@@ -34,8 +35,11 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LiveSessionNoticesTest {
-    /** Stands in for the workout editor: only the one running the workout takes a skip. */
-    private class Editor(private val running: Boolean) : ScreenModel() {
+    /**
+     * Stands in for the workout editor: only the one running the workout takes a skip. It launches
+     * nothing, so nothing can reach its reporter.
+     */
+    private class Editor(private val running: Boolean) : ScreenModel(LogErrorReporter) {
         var asked = 0
         fun skipRest(): Boolean {
             asked++

@@ -57,6 +57,7 @@ import app.gains.domain.ProgramDay
 import app.gains.domain.ProgramDayRef
 import app.gains.domain.WeightUnit
 import app.gains.program.Rotation
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.DeltaBadge
 import app.gains.ui.components.EmptyState
@@ -112,11 +113,12 @@ internal data class HomeState(
 )
 
 internal class HomeModel(
-    trainingData: TrainingData = inject(),
-    private val settings: SettingsRepository = inject(),
-    programs: ProgramRepository = inject(),
-    sessions: SessionRepository = inject(),
-) : ScreenModel() {
+    trainingData: TrainingData,
+    private val settings: SettingsRepository,
+    programs: ProgramRepository,
+    sessions: SessionRepository,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     val state: StateFlow<HomeState> = combine(
         trainingData.snapshot,
         settings.observeUnit(),
@@ -185,7 +187,7 @@ internal fun HomeScreen(
     onStartDay: (ProgramDayRef) -> Unit = {},
     onOpenTrophies: () -> Unit = {},
 ) {
-    val model = rememberScreenModel { HomeModel() }
+    val model = rememberScreenModel { HomeModel(inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     val reduce = LocalReduceMotion.current

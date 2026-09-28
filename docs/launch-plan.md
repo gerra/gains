@@ -1796,6 +1796,10 @@ a build containing the step.
       their error line and the app stays up; a broken CSV shows the import error, not a crash.
       The failed sign-in is in the platform's log ("Gains: unexpected error" in the Xcode console,
       `adb logcat -s Gains` on Android, stderr on the desktop); the closed sheet is not.
+- [ ] Item 35: every screen still opens with its data: Home, History and a past workout's
+      editor and summary, Programs, a program and its editor, Lifts and a lift's detail, Volume,
+      Trophies, Bodyweight, Import and Settings. On Android, with a rest running, swipe the app
+      away and tap "Skip rest" on the notice: the rest ends and the notice is redrawn.
 
 ### Desktop (items 15–17)
 

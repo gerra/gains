@@ -50,6 +50,7 @@ import app.gains.program.Gzclp
 import app.gains.sync.SyncController
 import app.gains.sync.SyncEngine
 import app.gains.sync.SyncStore
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
 import app.gains.ui.components.Dp16
@@ -103,17 +104,18 @@ private data class Prefs(val unit: WeightUnit, val theme: ThemeMode, val languag
 
 internal class SettingsModel(
     texts: Texts,
-    private val settings: SettingsRepository = inject(),
-    private val accounts: AccountRepository = inject(),
-    val authConfig: AuthConfig = inject(),
-    private val exercises: ExerciseRepository = inject(),
-    private val sessions: SessionRepository = inject(),
-    private val programs: ProgramRepository = inject(),
-    trainingData: TrainingData = inject(),
-    syncEngine: SyncEngine = inject(),
-    syncStore: SyncStore = inject(),
-    private val syncController: SyncController = inject(),
-) : ScreenModel() {
+    private val settings: SettingsRepository,
+    private val accounts: AccountRepository,
+    val authConfig: AuthConfig,
+    private val exercises: ExerciseRepository,
+    private val sessions: SessionRepository,
+    private val programs: ProgramRepository,
+    trainingData: TrainingData,
+    syncEngine: SyncEngine,
+    syncStore: SyncStore,
+    private val syncController: SyncController,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     val state: StateFlow<SettingsState> = combine(
         combine(
             settings.observeUnit(),
@@ -235,7 +237,7 @@ internal class AccountDeletion(private val scope: CoroutineScope, private val ac
 @Composable
 internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}) {
     val texts = rememberTexts()
-    val model = rememberScreenModel { SettingsModel(texts) }
+    val model = rememberScreenModel { SettingsModel(texts, inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val sync by model.sync.collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }

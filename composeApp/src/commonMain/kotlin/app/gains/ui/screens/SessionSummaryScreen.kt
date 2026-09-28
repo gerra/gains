@@ -77,6 +77,7 @@ import app.gains.platform.decodeImage
 import app.gains.platform.shrinkPhoto
 import app.gains.resources.Res
 import app.gains.resources.*
+import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.BodyMap
 import app.gains.ui.charts.BodyMapLegend
@@ -174,12 +175,13 @@ internal data class SummaryState(
 internal class SessionSummaryModel(
     private val sessionId: String,
     private val texts: Texts,
-    private val sessions: SessionRepository = inject(),
-    private val bodyweight: BodyweightRepository = inject(),
-    private val programs: ProgramRepository = inject(),
-    private val settings: SettingsRepository = inject(),
-    private val trainingData: TrainingData = inject(),
-) : ScreenModel() {
+    private val sessions: SessionRepository,
+    private val bodyweight: BodyweightRepository,
+    private val programs: ProgramRepository,
+    private val settings: SettingsRepository,
+    private val trainingData: TrainingData,
+    reporter: ErrorReporter,
+) : ScreenModel(reporter) {
     private val _state = MutableStateFlow(SummaryState())
     val state: StateFlow<SummaryState> = _state
 
@@ -336,7 +338,7 @@ internal class SessionSummaryModel(
 @Composable
 internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone: () -> Unit) {
     val texts = rememberTexts()
-    val model = rememberScreenModel(sessionId) { SessionSummaryModel(sessionId, texts) }
+    val model = rememberScreenModel(sessionId) { SessionSummaryModel(sessionId, texts, inject(), inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var durationPickerOpen by remember { mutableStateOf(false) }

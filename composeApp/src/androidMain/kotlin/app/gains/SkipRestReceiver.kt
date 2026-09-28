@@ -6,11 +6,11 @@ import android.content.Intent
 import app.gains.data.LiveSessionRepository
 import app.gains.platform.LiveSessionNotice
 import app.gains.platform.SkipRestRequests
-import app.gains.ui.inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.mp.KoinPlatform
 
 /**
  * "Skip rest" on the workout notification. While the shared UI is up (the app is open or merely in
@@ -28,7 +28,8 @@ class SkipRestReceiver : BroadcastReceiver() {
         val app = context.applicationContext
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val liveSessions = inject<LiveSessionRepository>()
+                // The system makes a receiver, not us, so it has no constructor to be given this in.
+                val liveSessions = KoinPlatform.getKoin().get<LiveSessionRepository>()
                 liveSessions.clearRest()
                 val session = liveSessions.load()
                 withContext(Dispatchers.Main) {

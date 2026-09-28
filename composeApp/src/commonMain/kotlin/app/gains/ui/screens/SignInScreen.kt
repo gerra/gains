@@ -76,9 +76,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 internal class SignInModel(
-    private val accounts: AccountRepository = inject(),
-    val config: AuthConfig = inject(),
-    reporter: ErrorReporter = inject(),
+    private val accounts: AccountRepository,
+    val config: AuthConfig,
+    reporter: ErrorReporter,
 ) : ScreenModel(reporter) {
     private val attempt = SignInAttempt(scope, accounts)
 
@@ -155,7 +155,7 @@ internal fun signInButtons(config: AuthConfig): List<AccountKind> = buildList {
  */
 @Composable
 internal fun SignInScreen() {
-    val model = rememberScreenModel { SignInModel() }
+    val model = rememberScreenModel { SignInModel(inject(), inject(), inject()) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         AuroraBackground(Modifier.fillMaxSize())
         val compact = maxHeight < 760.dp
