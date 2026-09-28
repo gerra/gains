@@ -52,12 +52,17 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
       # :composeApp has no tests of its own; :shared's commonTest runs as its Android unit tests.
-      - run: ./gradlew :composeApp:assembleDebug :composeApp:lintDebug :shared:testDebugUnitTest --no-daemon --stacktrace
+      # bundleRelease runs R8 (item 30), unsigned, so a shrinking failure shows on the pull
+      # request rather than in the release round's Google Play job.
+      - run: ./gradlew :composeApp:assembleDebug :composeApp:lintDebug :shared:testDebugUnitTest :composeApp:bundleRelease --no-daemon --stacktrace
+      # On an R8 "Missing class" failure, missing_rules.txt holds the -dontwarn lines it asks for.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
-          name: android-lint-report
-          path: composeApp/build/reports/lint-results-debug.*
+          name: android-reports
+          path: |
+            composeApp/build/reports/lint-results-debug.*
+            composeApp/build/outputs/mapping/release/missing_rules.txt
           if-no-files-found: ignore
 
   # What a pull request adds to the dependencies, checked against GitHub's advisory database

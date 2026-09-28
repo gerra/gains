@@ -12,8 +12,9 @@ does it for iOS:
                    Config.xcconfig; the bundle carries the same version as the iOS build.
   install-signing  Write the upload keystore and the service account key out of the secrets.
   bundle           `gradle bundleRelease`, signed with the upload key and stamped with the
-                   run number as versionCode.
-  upload           Send the bundle to the closed testing track through the Play Developer API.
+                   run number as versionCode. R8 writes the mapping file next to it.
+  upload           Send the bundle and its mapping file to the closed testing track through the
+                   Play Developer API.
   cleanup          Remove the key material from the runner.
 
 The Play Developer API is called with the standard library and `openssl`, which signs the
@@ -38,6 +39,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "iosApp/Configuration/Config.xcconfig"
 ANDROID_GRADLE = ROOT / "composeApp/android.gradle"
 BUNDLE = ROOT / "composeApp/build/outputs/bundle/release/composeApp-release.aab"
+# R8's map from the obfuscated names back to the real ones (docs/launch-plan.md, item 30). Play
+# keeps it with the bundle's versionCode and uses it to make Play Console's stack traces read.
+MAPPING = ROOT / "composeApp/build/outputs/mapping/release/mapping.txt"
 
 SECRETS = [
     "ANDROID_UPLOAD_KEYSTORE_BASE64",
@@ -187,8 +191,9 @@ def release_body(track, version_code, version_name):
 
 
 class PlayApi:
-    """The four calls an upload takes, in order: an edit is opened, the bundle goes into it,
-    the track is pointed at the bundle, and the edit is committed, which is when Play acts.
+    """The calls an upload takes, in order: an edit is opened, the bundle goes into it with its
+    mapping file, the track is pointed at the bundle, and the edit is committed, which is when
+    Play acts.
 
     `request` is `http` on the runner and a fake in the tests, so nothing here talks to Google
     unless asked to.
@@ -214,6 +219,16 @@ class PlayApi:
         )
         return answer["versionCode"]
 
+    def upload_mapping(self, edit, version_code, mapping):
+        """R8's mapping.txt, as the deobfuscation file of the bundle with this versionCode."""
+        self.call(
+            "POST",
+            f"{UPLOAD_API}/{self.package}/edits/{edit}/deobfuscationFiles/{version_code}/proguard"
+            "?uploadType=media",
+            body=mapping.read_bytes(),
+            content_type="application/octet-stream",
+        )
+
     def set_track(self, edit, track, version_code, version_name):
         self.call(
             "PUT",
@@ -224,10 +239,11 @@ class PlayApi:
     def commit(self, edit):
         self.call("POST", f"{API}/{self.package}/edits/{edit}:commit", body=b"")
 
-    def release(self, bundle, track, version_name):
+    def release(self, bundle, mapping, track, version_name):
         """The whole upload. Returns the versionCode Play read out of the bundle."""
         edit = self.open_edit()
         version_code = self.upload_bundle(edit, bundle)
+        self.upload_mapping(edit, version_code, mapping)
         self.set_track(edit, track, version_code, version_name)
         self.commit(edit)
         return version_code
@@ -242,6 +258,7 @@ def paths(args):
         KEYSTORE_PATH=keystore_path(),
         SERVICE_ACCOUNT_PATH=service_account_path(),
         BUNDLE_PATH=BUNDLE,
+        MAPPING_PATH=MAPPING,
     )
 
 
@@ -325,6 +342,10 @@ def bundle(args):
     )
     if not BUNDLE.exists():
         gha.fail(f"bundleRelease left no bundle at {BUNDLE.relative_to(ROOT)}")
+    # R8 is on for release builds, so a bundle without a mapping means the build changed under
+    # us; Play would show obfuscated stack traces for this version for good.
+    if not MAPPING.exists():
+        gha.fail(f"bundleRelease left no mapping file at {MAPPING.relative_to(ROOT)}")
     print(f"Built {BUNDLE.relative_to(ROOT)} ({BUNDLE.stat().st_size // 1024} KB)")
 
 
@@ -333,7 +354,7 @@ def upload(args):
     track = os.environ["PLAY_TRACK"]
     token = access_token(service_account_path())
     api = PlayApi(token, os.environ["APPLICATION_ID"])
-    version_code = api.release(BUNDLE, track, version)
+    version_code = api.release(BUNDLE, MAPPING, track, version)
     gha.summary(
         f"Uploaded **Gains {version} ({version_code})** to the Play `{track}` track. "
         "Testers on it get the build once Play has processed it.",

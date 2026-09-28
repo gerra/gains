@@ -80,7 +80,10 @@ Open the project in Android Studio and run the `composeApp` configuration, or bu
 A debug build carries version code 1 and the version name from `MARKETING_VERSION` in
 `iosApp/Configuration/Config.xcconfig`, the same one the iOS build shows. Release bundles for
 Play come from the release workflow, signed with the upload key and stamped with the run
-number: [docs/play.md](play.md).
+number: [docs/play.md](play.md). A release build runs R8, which a debug build doesn't, so a
+crash only the release build has is usually a missing keep rule for
+`composeApp/proguard-rules.pro`; CI's Android job builds the release bundle on every pull
+request, so an R8 error shows there.
 
 The app registers as a handler for CSV files, so exports shared from other apps open directly in
 the import preview. Several files can be shared at once.

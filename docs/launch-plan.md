@@ -71,7 +71,7 @@ The same rules as `auth-plan.md`:
 | 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [x] |
 | 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [x] |
 | 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [x] |
-| 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [ ] |
+| 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [x] |
 | 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
 | 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [ ] |
 | 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [ ] |
@@ -1060,7 +1060,12 @@ build, if step 2 stays.
 
 ### 30. Android: R8 for release builds
 
-- [ ] Done
+- [x] Done
+  Steps 1 and 2 are in #PR: `minifyEnabled` and `shrinkResources` on `release`, an empty
+  `composeApp/proguard-rules.pro` (every library that reflects ships its own rules, and the app's
+  serializers are called by name), `bundleRelease` in CI's Android job, and `tools/play.py`
+  sending `mapping.txt` as the bundle's deobfuscation file. Left: the owner's device pass in
+  step 3, which is the test plan's item 30 check.
 
 **Milestone:** Hardening (P2). **Depends on:** 21, 25 (a release build in CI to try it on).
 

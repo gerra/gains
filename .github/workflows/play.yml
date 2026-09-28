@@ -109,12 +109,16 @@ jobs:
         if: steps.secrets.outputs.configured == 'true'
         run: python3 tools/play.py upload
 
+      # The mapping file too: Play has its own copy, but a crash reported anywhere else needs it
+      # to read, and R8 never writes the same one twice.
       - name: Keep the bundle
         if: always() && steps.secrets.outputs.configured == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: play-bundle-${{ env.BUILD_NUMBER }}
-          path: ${{ env.BUNDLE_PATH }}
+          path: |
+            ${{ env.BUNDLE_PATH }}
+            ${{ env.MAPPING_PATH }}
           if-no-files-found: ignore
 
       - name: Remove signing material

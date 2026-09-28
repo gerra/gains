@@ -101,8 +101,12 @@ CI runs on every pull request:
 python3 -m unittest discover -s tools -p 'test_*.py'
 ```
 
-The bundle is kept as a run artifact (`play-bundle-<number>`) for 90 days, and the key
-material is removed from the runner at the end whether or not the upload worked.
+Release builds are shrunk and obfuscated by R8 (`minifyEnabled` in `composeApp/android.gradle`,
+[launch-plan item 30](launch-plan.md#30-android-r8-for-release-builds)), so the upload also sends
+R8's `mapping.txt` as the bundle's deobfuscation file, and Play Console's crash reports show the
+real class and method names. The bundle and its mapping file are kept as a run artifact
+(`play-bundle-<number>`) for 90 days, and the key material is removed from the runner at the end
+whether or not the upload worked.
 
 ## Upload by hand
 
@@ -115,7 +119,11 @@ A signed bundle from the command line, for the console's **Create new release** 
   -Pgains.uploadKeystorePassword=… -Pgains.uploadKeyAlias=upload -Pgains.uploadKeyPassword=… \
   -Pgains.googleWebClientId=… -Pgains.appleServicesId=…
 # → composeApp/build/outputs/bundle/release/composeApp-release.aab
+# → composeApp/build/outputs/mapping/release/mapping.txt
 ```
+
+Upload the mapping file with the bundle (the release's **App bundle explorer → Downloads →
+ReTrace mapping file**), or the crash reports for that version stay obfuscated.
 
 Without `gains.uploadKeystore` the release bundle is unsigned, which is what Android Studio's
 **Build → Generate Signed App Bundle** expects: it signs with the key you point it at.
@@ -161,5 +169,7 @@ Without `gains.uploadKeystore` the release bundle is unsigned, which is what And
 | `… answered 400: Version code N has already been used` | The upload's version code is not above every earlier one. Let the Release workflow upload (its run number only climbs), or pass a higher `build_number` to a manual run. |
 | `… answered 400: … signed with a key that is not the upload key` | The keystore in the secret is not the key Play registered from the first upload. Use the same `upload.jks`, or reset the upload key under App integrity. |
 | `… answered 404: Track not found` | `PLAY_TRACK` names a track that does not exist. The first closed track is `alpha`; a custom one goes by its own name. |
+| `bundleRelease` fails with R8 *Missing class* | A library references a class nothing ships. `composeApp/build/outputs/mapping/release/missing_rules.txt` holds the `-dontwarn` lines R8 asks for; copy only those into `composeApp/proguard-rules.pro`, with a comment naming the library. CI's Android job catches this on the pull request. |
+| The release build crashes where the debug build doesn't (`ClassNotFoundException`, a serializer "not found") | R8 removed or renamed something reached by reflection: a missing keep rule in `composeApp/proguard-rules.pro`. The mapping file turns the stack trace back into names (`retrace` in the SDK's `cmdline-tools`). |
 | `bundleRelease` fails with *SDK location not found* | Only on a machine without the Android SDK; the Ubuntu runner has it. Locally, install Android Studio or set `ANDROID_HOME`. |
 | The upload succeeds but testers see nothing | Play processes a bundle for minutes to hours, and testers must have accepted the opt-in link. Check the track's page in the console. |
