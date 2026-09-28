@@ -70,7 +70,7 @@ The same rules as `auth-plan.md`:
 | 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [x] |
 | 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [x] |
 | 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [x] |
-| 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [ ] |
+| 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [x] |
 | 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [ ] |
 | 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
 | 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [ ] |
@@ -1024,7 +1024,18 @@ release round.
 
 ### 29. Supply chain: Dependabot, and Gradle dependency verification where practical
 
-- [ ] Done
+- [x] Done
+  Done in #PR. Step 1 is `.github/dependabot.yml`: the actions weekly as one pull request, and
+  Gradle weekly in the five groups below. Kotlin and Compose Multiplatform get patches only,
+  since a minor of either is the deliberate pass (Compose 1.12 needs AGP 9, item 38); Koin and
+  AGP no majors; okhttp stays below 5.5.0 until item 38. Step 2 is not in: Dependabot doesn't
+  regenerate `gradle/verification-metadata.xml`, so each of its Gradle pull requests would fail
+  CI until someone rewrote the file by hand, which is the case this step said to take it out
+  for; and the metadata must cover Google's Maven and the Kotlin/Native toolchain, which the
+  agent's environment can't reach, so it could only have been written from a laptop or a CI
+  run. The SHA pins from 28 and the grouping here are the proportional version. Step 3 is the
+  paragraph under "Dependencies and actions" in `docs/development.md`. Left: the test plan's
+  item 29 checks on the first Monday round.
 
 **Milestone:** Maintenance (P2). **Depends on:** 27, 28 (Dependabot before the pass would open a
 dozen pull requests the pass then supersedes; the SHAs from 28 are what it keeps current).
@@ -1817,6 +1828,16 @@ On the first TestFlight build and Play bundle after item 27, on a device each:
       and light: nothing looks different from the build before, apart from Compose's own polish.
 - [ ] Android: Sign in with Google (Credential Manager) and with Apple (the Custom Tab) both
       still finish.
+
+### Dependabot (item 29)
+
+On the first Monday after item 29 is on `main`:
+
+- [ ] Insights → Dependency graph → Dependabot lists both `github-actions` and `gradle` as
+      checked, with no error on either.
+- [ ] Its pull requests come grouped (one for the actions, at most one per Gradle group), and
+      none proposes a Kotlin or Compose minor, a Koin or AGP major, or okhttp 5.5.0 or newer.
+- [ ] CI runs on them and goes green, or goes red for a reason in the bump itself.
 
 ### Android app module (item 38)
 
