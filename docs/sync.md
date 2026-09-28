@@ -111,7 +111,7 @@ address is unverified, and an unverified newcomer gets a user of its own. Each s
 the identity's email and claim, which is how rows from before the claim was stored catch up.
 
 `DELETE /auth/account` removes the user, every identity, the password credential and its mailed
-tokens, every document and every blob, which
+tokens, every passkey, every document and every blob, which
 Apple requires of any app that offers Sign in with Apple. Settings offers it as "Delete account" on
 a signed-in account, behind a confirmation.
 
@@ -222,6 +222,36 @@ and a sign-in through it stores the token on the same path as the sheets
 (`AccountRepository.signInWithEmail`). An email account has no name until another provider
 joins it, so the card shows the address.
 
+**Passkeys.** A passkey is added from Settings to an account that already exists ("Add a
+passkey" in the account card), and from then on signs into it ("Sign in with a passkey" on the
+welcome screen, "Continue with a passkey" for a guest or after a 401). It never makes an account
+of its own, so every account keeps the provider or email it can be recovered through, and it is
+not an identity: it joins nothing, and `providers` doesn't list it. The server is a WebAuthn
+relying party ([`Passkeys`](../server/src/main/kotlin/app/gains/server/Passkeys.kt), with Yubico's
+`webauthn-server-core` doing the checks) whose id is the site's host, `gains.gerra.sh`. Each
+ceremony is two calls. `POST /auth/passkey/register/start` (bearer) answers creation options: a
+discoverable credential with user verification required, the user handle the account's earlier
+passkeys have (or a new random one, never the user id) and those passkeys excluded; the app
+hands them to the platform's sheet and posts what it made to `…/register/finish`, which checks
+the challenge, the origin, the relying party's hash and the attestation ("none" is fine: any
+authenticator may hold the key) and stores the public key in `passkey_credential`.
+`POST /auth/passkey/signin/start` (anyone, limited per IP) answers request options that name no
+account, so the device offers any passkey it has for Gains; `…/signin/finish` finds the user by
+the answer's user handle, checks the signature against the stored key and the counter against
+the last one seen (a copied key would repeat it), and answers `{token, user}` like any sign-in.
+The options travel as WebAuthn's JSON inside a string (`PasskeyChallenge`), which Android's
+Credential Manager takes as it is and iOS reads through
+[`WebAuthnJson`](../shared/src/commonMain/kotlin/app/gains/auth/WebAuthnJson.kt), which also
+writes AuthenticationServices' answer back as that JSON. Pending ceremonies live in memory for
+five minutes, capped like the web flow's. A platform makes passkeys for `gains.gerra.sh` only for
+an app the site vouches for: iOS through the `webcredentials:gains.gerra.sh` associated domain and
+`/.well-known/apple-app-site-association`, Android through the `get_login_creds` relation in
+`/.well-known/assetlinks.json`. iOS's ceremonies come from `https://gains.gerra.sh`, Android's
+from `android:apk-key-hash:<hash of the signing key>`, which the server accepts only when listed
+in `PASSKEY_ORIGINS`. The apps offer passkeys where `AuthConfig.passkeys` is on
+(`gains.passkeys` on Android, `GAINS_PASSKEYS` on iOS), which the owner sets once those files are
+live; the desktop has none yet.
+
 On `DELETE /auth/account`, the server posts each stored Apple refresh token to
 `appleid.apple.com/auth/revoke` **before** deleting the rows. A failed revoke is logged, and the
 deletion goes ahead anyway: Apple being unreachable must never keep anyone's data on our server.
@@ -312,6 +342,10 @@ responses over a kilobyte.
 | `POST /auth/password/signin` | `{email, password}` → `{token, user}`; 401 wrong, 403 right but unconfirmed, 429 too many |
 | `POST /auth/password/reset-request` | `{email}` → 204 either way, a reset mail when known |
 | `POST /auth/password/reset` | `{token, password}` → 204; 400 as above. Posted by the site's `/reset` page |
+| `POST /auth/passkey/register/start` | bearer → `{id, options}`, WebAuthn creation options as a JSON string |
+| `POST /auth/passkey/register/finish` | bearer, `{id, credential}` → 204; 400 expired, someone else's or refused, 409 already added |
+| `POST /auth/passkey/signin/start` | → `{id, options}`, request options naming no account; 429 too many |
+| `POST /auth/passkey/signin/finish` | `{id, credential}` → `{token, user}`; 401 expired, unknown passkey or a signature or counter that doesn't check out |
 | `POST /auth/refresh` | bearer → `{token, user}` |
 | `GET /auth/me` | bearer → `user` |
 | `DELETE /auth/account` | bearer → 204, everything gone |
@@ -407,6 +441,8 @@ counter  (name, value)                           -- the one seq counter
 guest_list (email, created_at)                   PRIMARY KEY (email COLLATE NOCASE), no user
 password_credential (email, hash, user_id, created_at)   PRIMARY KEY (email COLLATE NOCASE); user_id null until confirmed
 email_token (token_hash, email, purpose, expires_at)     the mailed links, hashed; deleted when taken
+passkey_credential (credential_id, user_id, user_handle, public_key, sign_count,
+                    created_at, last_used_at)            PRIMARY KEY (credential_id)
 ```
 
 Sign-in tokens are RS256 identity tokens checked with `jwks-rsa` against the provider's key set
@@ -418,11 +454,13 @@ loaded first when it exists (the systemd unit deliberately has no `EnvironmentFi
 reason noted in www's unit): `JWT_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS`,
 `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_TEAM_ID`, `APPLE_PRIVATE_KEY`, `GAINS_PUBLIC_URL`,
 `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`, `GAINS_SITE_URL`,
-`GAINS_DATA_DIR`, `PORT`. Without a
+`PASSKEY_ORIGINS`, `GAINS_DATA_DIR`, `PORT`. Without a
 provider's ids that provider's route answers 503. Without the Apple key, sign-in codes are ignored
 and nothing is revoked; the start-up log line says `apple revoke on` or `off`. Without
 `APPLE_SERVICES_ID` the web flow's routes answer 503, and the log line says `apple web off`.
 Without a mail account the password routes answer 503, and the log line says `email off`.
+Passkeys need no secret and are always on; the log line names their relying party and the
+origins accepted, which are the site's plus `PASSKEY_ORIGINS`.
 
 ## Deploying
 
@@ -473,6 +511,7 @@ three taxes uses.
   application client and the Services ID from `gains.serverUrl`, `gains.googleWebClientId` and
   `gains.appleServicesId`, through `BuildConfig`), Apple through the same web flow in a Custom
   Tab. An email address and a password work on all three (above), once `gains.passwordSignIn`
-  or `GAINS_PASSWORD_SIGN_IN` is set with the server's mail account. Passkeys are item 19 of the
-  [launch plan](launch-plan.md). Until a provider is wired up its button stays hidden, or Google
-  and Apple show disabled when nothing is.
+  or `GAINS_PASSWORD_SIGN_IN` is set with the server's mail account. Passkeys work on iOS and
+  Android (above) once `GAINS_PASSKEYS` or `gains.passkeys` is set; the desktop has none, since
+  neither the JVM nor the browser flow it uses can make one for the app. Until a provider is
+  wired up its button stays hidden, or Google and Apple show disabled when nothing is.

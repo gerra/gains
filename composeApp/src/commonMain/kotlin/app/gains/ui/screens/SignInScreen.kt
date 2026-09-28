@@ -51,6 +51,7 @@ import app.gains.auth.AccountKind
 import app.gains.auth.AccountRepository
 import app.gains.auth.AuthConfig
 import app.gains.auth.AuthNotConfiguredException
+import app.gains.auth.NoPasskeyException
 import app.gains.auth.SignInCancelledException
 import app.gains.ui.ScreenModel
 import app.gains.ui.charts.ChartMath
@@ -85,12 +86,16 @@ internal class SignInModel(
     val error: AuthNotConfiguredException? get() = attempt.error
     /** A sign-in that was configured but did not go through: the provider or the server refused, or could not be reached. */
     val failed: Boolean get() = attempt.failed
+    /** A passkey sign-in on a device with no passkey for Gains; the screen says where to add one. */
+    val noPasskey: Boolean get() = attempt.noPasskey
 
     fun continueAsGuest() = scope.launch { accounts.continueAsGuest() }
 
     fun signInWithGoogle() = attempt.google()
 
     fun signInWithApple() = attempt.apple()
+
+    fun signInWithPasskey() = attempt.passkey()
 
     /** The email form, shown in place of the buttons while [emailOpen]. */
     val email = EmailSignIn(scope, accounts)
@@ -100,13 +105,16 @@ internal class SignInModel(
 /**
  * One sign-in through a provider's sheet, shared by the welcome screen and Settings so both treat
  * its endings alike: closing the sheet says nothing, a provider this build lacks says it is not
- * configured, and anything else says the sign-in failed. The account changes only when a sign-in
- * goes through, so a guest who gives up in Settings is still a guest with everything in place.
+ * configured, a passkey sign-in on a device without one says so, and anything else says the
+ * sign-in failed. The account changes only when a sign-in goes through, so a guest who gives up
+ * in Settings is still a guest with everything in place.
  */
 internal class SignInAttempt(private val scope: CoroutineScope, private val accounts: AccountRepository) {
     var error by mutableStateOf<AuthNotConfiguredException?>(null)
         private set
     var failed by mutableStateOf(false)
+        private set
+    var noPasskey by mutableStateOf(false)
         private set
     /** A sheet is up or its token is on the way to the server; a second tap waits for it rather than opening another. */
     var running by mutableStateOf(false)
@@ -116,11 +124,14 @@ internal class SignInAttempt(private val scope: CoroutineScope, private val acco
 
     fun apple(): Job = run { accounts.signInWithApple() }
 
+    fun passkey(): Job = run { accounts.signInWithPasskey() }
+
     private fun run(block: suspend () -> Unit): Job {
         if (running) return Job().apply { complete() }
         running = true
         error = null
         failed = false
+        noPasskey = false
         return scope.launch {
             try {
                 block()
@@ -128,6 +139,8 @@ internal class SignInAttempt(private val scope: CoroutineScope, private val acco
                 error = e
             } catch (e: SignInCancelledException) {
                 // Closing the sheet is a choice, not a failure: the screen stays as it was.
+            } catch (e: NoPasskeyException) {
+                noPasskey = true
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -140,14 +153,15 @@ internal class SignInAttempt(private val scope: CoroutineScope, private val acco
 }
 
 /**
- * The sign-in buttons to offer, Apple first as its guidelines ask, email last since it opens a
- * form. Only the enabled providers are shown, so an iOS build with Apple alone has no dead Google
- * button; empty when none is enabled, and the screen then shows Google and Apple disabled as a
- * sign of what is coming.
+ * The sign-in buttons to offer, Apple first as its guidelines ask, then Google and passkeys, and
+ * email last since it opens a form. Only the enabled providers are shown, so an iOS build with
+ * Apple alone has no dead Google button; empty when none is enabled, and the screen then shows
+ * Google and Apple disabled as a sign of what is coming.
  */
 internal fun signInButtons(config: AuthConfig): List<AccountKind> = buildList {
     if (config.appleEnabled) add(AccountKind.APPLE)
     if (config.googleEnabled) add(AccountKind.GOOGLE)
+    if (config.passkeysEnabled) add(AccountKind.PASSKEY)
     if (config.passwordEnabled) add(AccountKind.EMAIL)
 }
 
@@ -209,6 +223,7 @@ internal fun SignInScreen() {
                 when (kind) {
                     AccountKind.APPLE -> AppleSignInButton(Modifier.fillMaxWidth()) { model.signInWithApple() }
                     AccountKind.GOOGLE -> ProviderButton(stringResource(Res.string.sign_in_with_google), enabled = true, Modifier.fillMaxWidth()) { model.signInWithGoogle() }
+                    AccountKind.PASSKEY -> ProviderButton(stringResource(Res.string.sign_in_with_passkey), enabled = true, Modifier.fillMaxWidth()) { model.signInWithPasskey() }
                     AccountKind.EMAIL -> ProviderButton(stringResource(Res.string.sign_in_with_email), enabled = true, Modifier.fillMaxWidth()) { model.emailOpen = true }
                     AccountKind.GUEST -> Unit
                 }
@@ -218,9 +233,9 @@ internal fun SignInScreen() {
             Spacer(Modifier.height(8.dp))
             val note = if (buttons.isNotEmpty()) stringResource(Res.string.guest_note_with_sync) else stringResource(Res.string.guest_note_coming_soon)
             val message = model.error?.let { stringResource(Res.string.sign_in_not_configured, it.provider.label()) }
-                ?: if (model.failed) stringResource(Res.string.sign_in_failed) else note
+                ?: if (model.failed) stringResource(Res.string.sign_in_failed) else if (model.noPasskey) stringResource(Res.string.no_passkey) else note
             Text(message, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
-                color = if (model.error != null || model.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                color = if (model.error != null || model.failed || model.noPasskey) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

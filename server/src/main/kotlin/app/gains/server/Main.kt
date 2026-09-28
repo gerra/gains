@@ -17,13 +17,15 @@ fun main() {
         appleTokens = config.appleKey?.let { AppleTokenClient(it.keyId, it.teamId, it.privateKey) } ?: NoAppleTokens,
         appleWeb = config.appleServicesId?.let { AppleWebSignIn(it, "${config.publicUrl}/auth/apple/callback") },
         passwords = config.smtp?.let { PasswordSignIn(store, SmtpMailer(it.host, it.port, it.user, it.password, it.from), config.siteUrl) },
+        passkeys = Passkeys(store, config.passkeyRpId, config.allPasskeyOrigins),
     )
     log.info(
-        "gains-server on port {} (data {}; google {}; apple {}; apple web {}; apple revoke {}; email {})",
+        "gains-server on port {} (data {}; google {}; apple {}; apple web {}; apple revoke {}; email {}; passkeys for {} from {})",
         config.port, config.dataDir.absolutePath,
         if (config.googleClientIds.isEmpty()) "off" else "on", if (config.appleClientIds.isEmpty()) "off" else "on",
         if (services.appleWeb == null) "off" else "on", if (services.appleTokens.enabled) "on" else "off",
         if (services.passwords == null) "off" else "on",
+        config.passkeyRpId, config.allPasskeyOrigins.joinToString(),
     )
     embeddedServer(CIO, port = config.port, host = "127.0.0.1") { gainsServer(services) }.start(wait = true)
 }

@@ -48,6 +48,13 @@
     <!-- Аккаунты с почтой и паролем (docs/launch-plan.md, пункт 18). -->
     <string name="sign_in_with_email">Войти по эл. почте</string>
     <string name="link_with_email">Продолжить по эл. почте</string>
+    <string name="sign_in_with_passkey">Войти с ключом доступа</string>
+    <string name="link_with_passkey">Продолжить с ключом доступа</string>
+    <string name="no_passkey">На этом устройстве нет ключа доступа для Gains. Войдите другим способом, а затем добавьте ключ в настройках.</string>
+    <string name="add_passkey">Добавить ключ доступа</string>
+    <string name="passkey_note">С ключом доступа вход в этот аккаунт — по Face ID, отпечатку пальца или блокировке экрана, без пароля.</string>
+    <string name="passkey_added">Ключ доступа добавлен. В следующий раз войдите с ним.</string>
+    <string name="passkey_failed">Ключ доступа не добавлен. Проверьте соединение и попробуйте ещё раз.</string>
     <string name="email_field">Эл. почта</string>
     <string name="password_field">Пароль</string>
     <string name="email_password_hint">Не короче 8 символов</string>
@@ -542,6 +549,7 @@
     <string name="account_google">Google</string>
     <string name="account_apple">Apple</string>
     <string name="account_email">Эл. почта</string>
+    <string name="account_passkey">Ключ доступа</string>
     <string name="insight_regression">Регресс</string>
     <string name="insight_stall">Застой</string>
     <string name="insight_neglect">Заброшено</string>

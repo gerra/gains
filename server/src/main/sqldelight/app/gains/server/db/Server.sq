@@ -90,6 +90,22 @@ CREATE TABLE email_token (
 
 CREATE INDEX email_token_email ON email_token(email);
 
+-- A passkey added from Settings (migrations/5.sqm): the credential id and user handle in
+-- base64url, the COSE public key, and the authenticator's signature counter. A user's passkeys
+-- share one random user handle, which is how a sign-in that names no account finds its user.
+CREATE TABLE passkey_credential (
+  credential_id TEXT NOT NULL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES user(id),
+  user_handle TEXT NOT NULL,
+  public_key BLOB NOT NULL,
+  sign_count INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT
+);
+
+CREATE INDEX passkey_credential_user ON passkey_credential(user_id);
+CREATE INDEX passkey_credential_handle ON passkey_credential(user_handle);
+
 -- users and identities
 
 selectIdentity:
@@ -168,6 +184,29 @@ DELETE FROM email_token WHERE email = ? AND purpose = ?;
 
 deleteExpiredEmailTokens:
 DELETE FROM email_token WHERE expires_at <= ?;
+
+-- passkeys
+
+selectPasskeyHandleForUser:
+SELECT user_handle FROM passkey_credential WHERE user_id = ? LIMIT 1;
+
+selectUserIdForPasskeyHandle:
+SELECT user_id FROM passkey_credential WHERE user_handle = ? LIMIT 1;
+
+selectPasskeyIdsForUser:
+SELECT credential_id FROM passkey_credential WHERE user_id = ?;
+
+selectPasskey:
+SELECT credential_id, user_id, user_handle, public_key, sign_count FROM passkey_credential WHERE credential_id = ?;
+
+insertPasskey:
+INSERT INTO passkey_credential(credential_id, user_id, user_handle, public_key, sign_count, created_at) VALUES (?, ?, ?, ?, ?, ?);
+
+updatePasskeyUse:
+UPDATE passkey_credential SET sign_count = ?, last_used_at = ? WHERE credential_id = ?;
+
+deletePasskeysForUser:
+DELETE FROM passkey_credential WHERE user_id = ?;
 
 deleteUser:
 DELETE FROM user WHERE id = ?;

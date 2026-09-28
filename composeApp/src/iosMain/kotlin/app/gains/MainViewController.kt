@@ -85,8 +85,9 @@ private fun requestSyncOnForeground() {
 }
 
 /**
- * The server, the Google client and the email switch come from Info.plist (`GainsServerURL`,
- * `GainsGoogleClientID`, `GainsPasswordSignIn`, set from Config.xcconfig) so they are changed
+ * The server, the Google client and the email and passkey switches come from Info.plist
+ * (`GainsServerURL`, `GainsGoogleClientID`, `GainsPasswordSignIn`, `GainsPasskeys`, set from
+ * Config.xcconfig) so they are changed
  * without touching code; the Apple audience is the bundle id, which the native flow signs for.
  */
 private fun iosAuthConfig(): AuthConfig {
@@ -96,6 +97,7 @@ private fun iosAuthConfig(): AuthConfig {
         googleClientId = (bundle.objectForInfoDictionaryKey("GainsGoogleClientID") as? String)?.trim()?.ifBlank { null },
         appleServiceId = bundle.bundleIdentifier,
         passwordSignIn = (bundle.objectForInfoDictionaryKey("GainsPasswordSignIn") as? String)?.trim().equals("YES", ignoreCase = true),
+        passkeys = (bundle.objectForInfoDictionaryKey("GainsPasskeys") as? String)?.trim().equals("YES", ignoreCase = true),
     )
 }
 

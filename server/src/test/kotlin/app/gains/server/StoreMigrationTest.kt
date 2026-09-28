@@ -61,8 +61,15 @@ class StoreMigrationTest {
         store.putEmailToken("t1", "same@x.y", "reset", expiresAt = 2_000, now = 1_000)
         assertEquals(null, store.takeEmailToken("t1", "verify", now = 1_500), "another purpose")
         assertEquals(null, store.takeEmailToken("t1", "reset", now = 1_500), "and taken once, good or not")
+        // migrations/5.sqm added passkeys, found by their user handle.
+        store.addPasskey(Store.Passkey("cred-1", 1, "handle-1", byteArrayOf(1, 2), signCount = 0))
+        assertEquals(1L, store.userIdForPasskeyHandle("handle-1"))
+        assertEquals("handle-1", store.passkeyHandle(1))
+        store.usePasskey("cred-1", signCount = 3)
+        assertEquals(3L, store.passkey("cred-1")!!.signCount)
         store.deleteUser(1)
         assertEquals(null, store.credential("same@x.y"))
+        assertEquals(emptyList(), store.passkeyIds(1))
     }
 
     @Test

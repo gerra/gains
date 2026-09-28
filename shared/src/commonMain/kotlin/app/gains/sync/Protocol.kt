@@ -86,6 +86,23 @@ data class EmailTokenRequest(val token: String)
 data class PasswordResetRequest(val token: String, val password: String)
 
 /**
+ * The server's half of a passkey ceremony (`POST /auth/passkey/register/start` or
+ * `/auth/passkey/signin/start`): [options] is the WebAuthn options object as JSON
+ * (`PublicKeyCredentialCreationOptions` or `…RequestOptions`, binary fields in base64url), kept a
+ * string so that Android's Credential Manager takes it as it is; [id] names the ceremony when
+ * the platform's answer is posted back.
+ */
+@Serializable
+data class PasskeyChallenge(val id: String, val options: String)
+
+/**
+ * The platform's answer to a [PasskeyChallenge], posted to the matching `…/finish` route:
+ * [credential] is the `PublicKeyCredential` as WebAuthn's JSON (binary fields in base64url).
+ */
+@Serializable
+data class PasskeyFinishRequest(val id: String, val credential: String)
+
+/**
  * The end of a web sign-in (Sign in with Apple on Android and the desktop): the one-time code the
  * server put on the app's callback URL, traded for the same [SignInResponse] as a native sign-in.
  * The callback carries a code rather than the token itself, because URLs end up in browser history.

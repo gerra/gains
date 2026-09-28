@@ -55,7 +55,7 @@ The same rules as `auth-plan.md`:
 | 16 | Desktop: Sign in with Apple | Desktop (P1) | Agent | 10 | [x] |
 | 17 | Desktop: keep the token in the OS keychain | Desktop (P1) | Agent | — | [x] |
 | 18 | Email and password accounts | More sign-in | Agent + Owner | 2, 4 | [x] |
-| 19 | Passkeys | More sign-in | Agent + Owner | 3, 18 | [ ] |
+| 19 | Passkeys | More sign-in | Agent + Owner | 3, 18 | [x] |
 
 ## Owner actions
 
@@ -83,6 +83,20 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
       `GAINS_PASSWORD_SIGN_IN` as a repository variable for the Play build, and
       `GAINS_PASSWORD_SIGN_IN = YES` in `Config.xcconfig`. Until then the form stays hidden and
       the server logs `email off` at start.
+- [ ] Passkeys on iOS (item 19), **before the next TestFlight build**: developer.apple.com →
+      Identifiers → `app.gains.Gains` → enable **Associated Domains**, regenerate the App Store
+      profile and update `IOS_APP_STORE_PROFILE_BASE64` (docs/testflight.md). The entitlements
+      now ask for `webcredentials:gains.gerra.sh`, and a profile without the capability fails
+      the signing step. Then, once
+      `https://gains.gerra.sh/.well-known/apple-app-site-association` loads (the Deploy site and
+      nginx workflow ships it), `GAINS_PASSKEYS = YES` in `Config.xcconfig`.
+- [ ] Passkeys on Android (item 19): the Play App Signing and upload keys' fingerprints in
+      `site/.well-known/assetlinks.json` (the same step as item 11's, which now also grants
+      `get_login_creds`), their hashes as `android:apk-key-hash:…` in `PASSKEY_ORIGINS` in
+      `secrets/.env` ([`secrets/README.md`](../secrets/README.md) has the command), then
+      `deploy_server.py secrets`, and `gains.passkeys=true` / the `GAINS_PASSKEYS` repository
+      variable. Until then the passkey buttons stay hidden, and the server accepts passkeys from
+      iOS only.
 - [ ] Play upload (item 13): the upload key, the service account and the first closed-testing
       release by hand, then the five `ANDROID_UPLOAD_*` / `PLAY_SERVICE_ACCOUNT_JSON` secrets
       and the `GAINS_GOOGLE_WEB_CLIENT_ID` / `GAINS_APPLE_SERVICES_ID` variables
@@ -518,13 +532,26 @@ finds none. See docs/sync.md, "What the client does".
 
 ### 19. Passkeys
 
-- [ ] Done
+- [x] Done
+  Done in #…
+  Steps 2–5 are in. Step 1 went the plan's way: a passkey is added from Settings to an account
+  that exists ("Add a passkey" in the account card) and then signs into it ("Sign in with a
+  passkey" on the welcome screen, "Continue with a passkey" for a guest and after a 401); it
+  never creates an account. The server (`Passkeys`, Yubico's `webauthn-server-core`) is always
+  on, with the site's host as relying party id; iOS's origin `https://gains.gerra.sh` is always
+  accepted, Android's come from `PASSKEY_ORIGINS`. Each app shows the buttons only with its
+  switch (`GAINS_PASSKEYS`, `gains.passkeys`), which the owner sets after the two owner actions
+  above. Android files touched: `AndroidIdentityProvider.kt` (Credential Manager's create and
+  get, the `passkeys` field), `composeApp/android.gradle` (`PASSKEYS`). Unchecked by CI:
+  `iosApp.entitlements`, `Info.plist`, `Config.xcconfig`.
 
 **Milestone:** More sign-in. **Depends on:** 3, 18.
 
 1. **Owner decides:** can a passkey create an account on its own, or is it added from Settings
    to an account that already exists? Adding it from Settings is simpler and avoids accounts
-   with no recovery email.
+   with no recovery email. *Decided for now:* added from Settings only. Letting a passkey
+   create an account later is a server change (a user for a new user handle) with the same
+   routes.
 2. **Server:** WebAuthn registration and authentication routes with a JVM library (Yubico
    `java-webauthn-server` or `webauthn4j`), and a `passkey_credential` table. The relying party
    id is `gains.gerra.sh`.
@@ -778,8 +805,27 @@ build fails a check, open an issue and link it next to the box.
       the server but the switch on, the form says "Email sign-in is not configured yet".
 - [ ] An unverified password account with the same email as a Google account does **not**
       join it.
-- [ ] Create a passkey, then sign in with it on the same device, and on a second device through
-      iCloud Keychain or Google Password Manager.
+- [ ] Item 19: `https://gains.gerra.sh/.well-known/apple-app-site-association` loads as JSON
+      naming `V5Y8M5GKZ6.app.gains.Gains`, and `assetlinks.json` lists `get_login_creds`.
+      `journalctl -u gains-server` shows `passkeys for gains.gerra.sh from https://gains.gerra.sh`
+      plus the Android origins.
+- [ ] Item 19: with the switch set, the welcome screen shows "Sign in with a passkey" after the
+      provider buttons; a signed-in account's Settings card shows "Add a passkey" with the line
+      under it; a guest's shows "Continue with a passkey". With the switch off, none of them.
+- [ ] Item 19: signed in with Apple, "Add a passkey" → Face ID → "Passkey added". The Passwords
+      app (or Settings → Passwords) lists a passkey for gains.gerra.sh under your address.
+      Closing the sheet instead shows nothing.
+- [ ] Item 19: sign out, "Sign in with a passkey" → Face ID → back in the same account (its
+      workouts show), and the card shows your name. Closing the sheet shows no error.
+- [ ] Item 19: on a second iPhone or iPad signed into the same Apple ID, the passkey arrives
+      through iCloud Keychain and "Sign in with a passkey" lands in the same account.
+- [ ] Item 19 on Android: "Add a passkey" saves one to Google Password Manager; signing in with
+      it lands in the same account as on the iPhone. On a phone with no passkey for Gains,
+      "Sign in with a passkey" says "No passkey for Gains on this device…".
+- [ ] Item 19: delete the account, then "Sign in with a passkey" with the passkey left on the
+      phone: "Sign-in did not go through", and nothing is created.
+- [ ] Item 19: as a guest with workouts, "Continue with a passkey" signs into the passkey's
+      account and uploads the guest's workouts into it, like the other link buttons.
 
 ---
 

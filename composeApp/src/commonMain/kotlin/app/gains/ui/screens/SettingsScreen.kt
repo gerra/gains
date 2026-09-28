@@ -34,6 +34,7 @@ import app.gains.auth.Account
 import app.gains.auth.AccountKind
 import app.gains.auth.AccountRepository
 import app.gains.auth.AuthConfig
+import app.gains.auth.SignInCancelledException
 import app.gains.data.AppLanguage
 import app.gains.data.ExerciseRepository
 import app.gains.data.ProgramRepository
@@ -174,6 +175,7 @@ internal class SettingsModel(
     val linking: Boolean get() = link.running
     fun linkGoogle() = link.google()
     fun linkApple() = link.apple()
+    fun linkPasskey() = link.passkey()
 
     /**
      * Signing back in after the server answered 401, with the same buttons. The account row
@@ -182,6 +184,11 @@ internal class SettingsModel(
      */
     fun relinkGoogle() { link.google().invokeOnCompletion { syncNow() } }
     fun relinkApple() { link.apple().invokeOnCompletion { syncNow() } }
+    fun relinkPasskey() { link.passkey().invokeOnCompletion { syncNow() } }
+
+    /** Adding a passkey to the signed-in account; see [PasskeyAddition]. */
+    val passkey = PasskeyAddition(scope, accounts)
+    fun addPasskey() = passkey.run()
 
     /** The email form under the link buttons, opened by its own button; a sign-in through it asks for a sync like a relink. */
     val email = EmailSignIn(scope, accounts, onSignedIn = { syncNow() })
@@ -225,6 +232,41 @@ internal class AccountDeletion(private val scope: CoroutineScope, private val ac
         return scope.launch {
             try {
                 accounts.deleteAccount()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failed = true
+            } finally {
+                running = false
+            }
+        }
+    }
+}
+
+/**
+ * Adding a passkey from the account card (docs/launch-plan.md, item 19): the only way a passkey
+ * comes to be, so every account that has one also has the sign-in it was made from. While the
+ * sheet is up the button waits; closing it says nothing, like a sign-in's sheet, and anything
+ * else that stops it (offline, the server refusing what the device made) says it failed.
+ */
+internal class PasskeyAddition(private val scope: CoroutineScope, private val accounts: AccountRepository) {
+    var running by mutableStateOf(false)
+        private set
+    var added by mutableStateOf(false)
+        private set
+    var failed by mutableStateOf(false)
+        private set
+
+    fun run(): Job {
+        if (running) return Job().apply { complete() }
+        running = true
+        failed = false
+        return scope.launch {
+            try {
+                accounts.addPasskey()
+                added = true
+            } catch (e: SignInCancelledException) {
+                // Closing the sheet is a choice: the card stays as it was.
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -281,7 +323,27 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                 val providers = signInButtons(model.authConfig)
                 if (sync == SyncUi.SignedOut && providers.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
-                    LinkButtons(providers, model, onApple = { model.relinkApple() }, onGoogle = { model.relinkGoogle() }, note = false)
+                    LinkButtons(providers, model, onApple = { model.relinkApple() }, onGoogle = { model.relinkGoogle() }, onPasskey = { model.relinkPasskey() }, note = false)
+                }
+                if (account != null && !account.isGuest && model.authConfig.passkeysEnabled && sync != SyncUi.SignedOut) {
+                    Spacer(Modifier.height(8.dp))
+                    ProviderButton(
+                        stringResource(Res.string.add_passkey),
+                        enabled = !model.passkey.running && !model.deletion.running,
+                        Modifier.fillMaxWidth(),
+                        height = 40.dp,
+                        onClick = { model.addPasskey() },
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(when {
+                            model.passkey.failed -> Res.string.passkey_failed
+                            model.passkey.added -> Res.string.passkey_added
+                            else -> Res.string.passkey_note
+                        }),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (model.passkey.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 if (account != null && !account.isGuest) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -295,7 +357,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                 }
                 if (account?.isGuest == true && providers.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
-                    LinkButtons(providers, model, onApple = { model.linkApple() }, onGoogle = { model.linkGoogle() }, note = true)
+                    LinkButtons(providers, model, onApple = { model.linkApple() }, onGoogle = { model.linkGoogle() }, onPasskey = { model.linkPasskey() }, note = true)
                 }
                 if (signInButtons(model.authConfig).isEmpty()) {
                     Spacer(Modifier.height(6.dp))
@@ -463,11 +525,12 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
  * turned down signs in again with the same ones, where the sync line above already says why.
  */
 @Composable
-private fun LinkButtons(providers: List<AccountKind>, model: SettingsModel, onApple: () -> Unit, onGoogle: () -> Unit, note: Boolean) {
+private fun LinkButtons(providers: List<AccountKind>, model: SettingsModel, onApple: () -> Unit, onGoogle: () -> Unit, onPasskey: () -> Unit, note: Boolean) {
     for (kind in providers) {
         when (kind) {
             AccountKind.APPLE -> AppleSignInButton(Modifier.fillMaxWidth(), label = stringResource(Res.string.link_with_apple), height = 40.dp, enabled = !model.linking, onClick = onApple)
             AccountKind.GOOGLE -> ProviderButton(stringResource(Res.string.link_with_google), enabled = !model.linking, Modifier.fillMaxWidth(), height = 40.dp, onClick = onGoogle)
+            AccountKind.PASSKEY -> ProviderButton(stringResource(Res.string.link_with_passkey), enabled = !model.linking, Modifier.fillMaxWidth(), height = 40.dp, onClick = onPasskey)
             AccountKind.EMAIL -> ProviderButton(stringResource(Res.string.link_with_email), enabled = !model.linking, Modifier.fillMaxWidth(), height = 40.dp, onClick = { model.emailOpen = !model.emailOpen })
             AccountKind.GUEST -> Unit
         }
@@ -481,6 +544,7 @@ private fun LinkButtons(providers: List<AccountKind>, model: SettingsModel, onAp
     val message = when {
         error != null -> stringResource(Res.string.sign_in_not_configured, error.provider.label())
         model.link.failed -> stringResource(Res.string.sign_in_failed)
+        model.link.noPasskey -> stringResource(Res.string.no_passkey)
         note -> stringResource(Res.string.link_note)
         else -> null
     }
@@ -488,7 +552,7 @@ private fun LinkButtons(providers: List<AccountKind>, model: SettingsModel, onAp
         Text(
             message,
             style = MaterialTheme.typography.bodySmall,
-            color = if (error != null || model.link.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (error != null || model.link.failed || model.link.noPasskey) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

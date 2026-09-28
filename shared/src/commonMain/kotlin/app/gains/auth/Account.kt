@@ -13,7 +13,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.time.Clock
 
-enum class AccountKind(val label: String) { GUEST("Guest"), GOOGLE("Google"), APPLE("Apple"), EMAIL("Email") }
+enum class AccountKind(val label: String) { GUEST("Guest"), GOOGLE("Google"), APPLE("Apple"), EMAIL("Email"), PASSKEY("Passkey") }
 
 data class Account(
     val kind: AccountKind,
@@ -44,10 +44,18 @@ data class AuthConfig(
      * 503, so each platform keeps this off until the owner switches it on with the server.
      */
     val passwordSignIn: Boolean = false,
+    /**
+     * Whether passkeys are offered: signing in with one, and adding one in Settings. They are
+     * bound to `gains.gerra.sh`, and a platform makes one only once that site vouches for the app
+     * (`apple-app-site-association` for iOS's associated domain, `assetlinks.json` for Android's
+     * signing keys), so each platform keeps this off until the owner has set those up.
+     */
+    val passkeys: Boolean = false,
 ) {
     val googleEnabled: Boolean get() = !googleClientId.isNullOrBlank() && syncEnabled
     val appleEnabled: Boolean get() = !appleServiceId.isNullOrBlank() && syncEnabled
     val passwordEnabled: Boolean get() = passwordSignIn && syncEnabled
+    val passkeysEnabled: Boolean get() = passkeys && syncEnabled
     val syncEnabled: Boolean get() = !serverBaseUrl.isNullOrBlank()
 }
 
@@ -77,6 +85,12 @@ class EmailSignInException(val reason: Reason, val detail: String? = null) : Exc
         TOO_MANY,
     }
 }
+
+/**
+ * The device has no passkey for Gains, so a passkey sign-in had nothing to offer. Not a failure
+ * of the sign-in: the screens point the person at the other ways in, and at Settings to add one.
+ */
+class NoPasskeyException : Exception("No passkey for Gains on this device.")
 
 /**
  * What a platform's sign-in hands to [AccountRepository], which trades it for our token. Most
@@ -112,6 +126,22 @@ interface IdentityProvider {
      * when the platform has no such sheet, and [SignInCancelledException] when the person closes it.
      */
     suspend fun signIn(kind: AccountKind): SignInProof
+
+    /**
+     * Makes a passkey with the platform's sheet from the server's creation [options] (WebAuthn's
+     * JSON) and returns the new `PublicKeyCredential` as JSON. Throws [SignInCancelledException]
+     * when the person closes the sheet, and [AuthNotConfiguredException] where the platform has
+     * no passkeys.
+     */
+    suspend fun createPasskey(options: String): String = throw AuthNotConfiguredException(AccountKind.PASSKEY)
+
+    /**
+     * Signs the server's request [options] with a passkey the person picks and returns the
+     * `PublicKeyCredential` as JSON. Throws [SignInCancelledException] when the sheet is closed,
+     * [NoPasskeyException] when the device has none for Gains, and [AuthNotConfiguredException]
+     * where the platform has no passkeys.
+     */
+    suspend fun getPasskey(options: String): String = throw AuthNotConfiguredException(AccountKind.PASSKEY)
 }
 
 /** Any platform that has not registered a provider yet, and the tests. */
@@ -169,6 +199,31 @@ class AccountRepository(
     suspend fun requestPasswordReset(email: String) {
         if (!config.passwordEnabled) throw AuthNotConfiguredException(AccountKind.EMAIL)
         emailCall { api.requestPasswordReset(email) }
+    }
+
+    /**
+     * Signs in with a passkey the account added earlier (docs/sync.md, "Signing in"): the server's
+     * challenge, the platform's sheet, and the signed answer back for our token. The options name
+     * no account, so the sheet offers whichever passkeys the device has for Gains.
+     */
+    suspend fun signInWithPasskey() {
+        if (!config.passkeysEnabled) throw AuthNotConfiguredException(AccountKind.PASSKEY)
+        val challenge = api.startPasskeySignIn()
+        val credential = identity.getPasskey(challenge.options)
+        val response = api.finishPasskeySignIn(challenge.id, credential)
+        keep(AccountKind.PASSKEY, response, name = null)
+    }
+
+    /**
+     * Adds a passkey to the signed-in account, from Settings: the server's creation options, the
+     * platform's sheet, and the new passkey back to be stored. The account and its token are as
+     * they were; the passkey is one more way into the same account.
+     */
+    suspend fun addPasskey() {
+        if (!config.passkeysEnabled) throw AuthNotConfiguredException(AccountKind.PASSKEY)
+        val challenge = api.startPasskeyRegistration()
+        val credential = identity.createPasskey(challenge.options)
+        api.finishPasskeyRegistration(challenge.id, credential)
     }
 
     /** The server's answers to the email routes as exceptions the screens can word; anything else (offline, a 5xx) stays a [SyncException]. */

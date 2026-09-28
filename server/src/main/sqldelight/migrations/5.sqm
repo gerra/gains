@@ -1,0 +1,17 @@
+-- Passkeys (docs/launch-plan.md, item 19). One row per passkey an account has added from
+-- Settings: its credential id and the user handle it was made for (both base64url, as WebAuthn
+-- sends them), the COSE public key that checks its signatures, and the authenticator's signature
+-- counter, which a cloned key would repeat. Every passkey of one user shares a user handle: a
+-- random one, not the user id, since the authenticator shows and syncs it.
+CREATE TABLE passkey_credential (
+  credential_id TEXT NOT NULL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES user(id),
+  user_handle TEXT NOT NULL,
+  public_key BLOB NOT NULL,
+  sign_count INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT
+);
+
+CREATE INDEX passkey_credential_user ON passkey_credential(user_id);
+CREATE INDEX passkey_credential_handle ON passkey_credential(user_handle);

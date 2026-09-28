@@ -1,6 +1,7 @@
 package app.gains.server
 
 import java.io.File
+import java.net.URI
 
 /**
  * What the server is told from outside. Read from the environment, with `secrets/.env` under
@@ -28,7 +29,18 @@ data class Config(
     val smtp: Smtp? = null,
     /** Where those links point: the site's pages, which post the token back to this server. */
     val siteUrl: String = DEFAULT_SITE_URL,
+    /**
+     * Origins a passkey ceremony may come from besides the site itself: the Android app's,
+     * `android:apk-key-hash:<base64url SHA-256 of a signing certificate>`, one per key it is signed with.
+     */
+    val passkeyOrigins: List<String> = emptyList(),
 ) {
+    /** The passkeys' relying party id: the site's host, whose `.well-known` files vouch for the apps. */
+    val passkeyRpId: String get() = URI(siteUrl).host
+
+    /** Every origin a passkey ceremony may come from: the site (iOS writes that one), then [passkeyOrigins]. */
+    val allPasskeyOrigins: Set<String> get() = linkedSetOf("https://$passkeyRpId") + passkeyOrigins
+
     /** A key from developer.apple.com → Keys with Sign in with Apple enabled. [privateKey] is the `.p8` file's contents. */
     data class AppleKey(val keyId: String, val teamId: String, val privateKey: String) {
         override fun toString() = "AppleKey(keyId=$keyId, teamId=$teamId)"
@@ -75,6 +87,7 @@ data class Config(
                     Smtp(host, port, smtpUser, smtpPassword, mailFrom!!)
                 },
                 siteUrl = values["GAINS_SITE_URL"]?.trim()?.trimEnd('/')?.ifEmpty { null } ?: DEFAULT_SITE_URL,
+                passkeyOrigins = values["PASSKEY_ORIGINS"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
             )
         }
 
