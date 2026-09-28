@@ -66,7 +66,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.gains.analysis.Dates
 import app.gains.platform.systemReducesMotion
 import app.gains.ui.components.indicatorSlot
 import app.gains.ui.components.rememberSlidingIndicator
@@ -76,7 +75,6 @@ import app.gains.ui.theme.Motion
 import app.gains.ui.theme.fadeThrough
 import app.gains.ui.theme.screenSlide
 import app.gains.analysis.Format
-import app.gains.analysis.StreakEngine
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.i18n.*
@@ -91,20 +89,15 @@ import app.gains.domain.LiveSession
 import app.gains.domain.ProgramDayRef
 import app.gains.program.Rotation
 import app.gains.root.LiveSessionNotices
+import app.gains.root.StreakReminders
 import app.gains.sync.SyncController
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Clock
 import app.gains.data.ThemeMode
 import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.LiveSessionNotifier
-import app.gains.platform.Nudge
 import app.gains.platform.NudgeScheduler
 import app.gains.platform.PhotoPicker
 import app.gains.platform.ResumeRequests
@@ -243,26 +236,9 @@ private fun AppBody(
     // Keep the platform's tray in step with it, and answer the notice's taps on "resume" and "skip rest".
     val notices = remember { LiveSessionNotices(liveSessions, notifier, navigator) }
     LaunchedEffect(Unit) { notices.run() }
-    // The streak reminder. Nothing is scheduled until the lifter has asked for it, and nothing is
-    // scheduled in a week they have already trained: the plan comes back empty and cancels itself.
-    LaunchedEffect(texts) {
-        combine(sessions.observeSessionTimes(), programs.observeState(), settings.observeStreakReminder()) { times, programState, on ->
-            if (on != true) emptyList() else {
-                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-                val streak = StreakEngine.computeAt(times, now.date, programState.weeklyGoal)
-                StreakEngine.plan(streak, now, StreakEngine.usualHourAt(times))
-            }
-        }
-            .distinctUntilChanged()
-            .collectLatest { planned ->
-                nudges.schedule(
-                    planned.map { nudge ->
-                        val (title, body) = nudgeWords(texts, nudge)
-                        Nudge(nudge.id, Dates.epochMs(nudge.at), title, body)
-                    },
-                )
-            }
-    }
+    // The streak reminders, re-worded when the texts change.
+    val reminders = remember { StreakReminders(sessions, programs, settings, nudges) }
+    LaunchedEffect(texts) { reminders.run(texts) }
     val screen = navigator.current
     if (accountState === AccountLoading) return
     if (accountState == null) { SignInScreen(); return }
