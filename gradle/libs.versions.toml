@@ -1,5 +1,5 @@
 [versions]
-agp = "8.11.1"
+agp = "8.13.2"
 kotlin = "2.4.20"
 compose-multiplatform = "1.12.1"
 # Material 3 has its own version line since Compose Multiplatform 1.9; 1.9.0 is the one the
@@ -22,9 +22,9 @@ googleid = "1.1.1"
 # Sign in with Apple on Android (item 11): the Custom Tab the server's web flow opens in.
 androidx-browser = "1.8.0"
 ktor = "3.6.0"
-# Held below what Ktor's OkHttp engine asks for: okhttp 5.5.0 needs compileSdk 37, which AGP 8.11
-# doesn't support, and 5.4.0 is the last at 36. Ktor 3.6.0's engine calls nothing 5.4.0 lacks.
-# Drop the pin in item 27 (docs/launch-plan.md), with the AGP and compileSdk bump.
+# Held below what Ktor's OkHttp engine asks for: okhttp 5.5.0 needs compileSdk 37, and AGP 8.13,
+# the last 8.x, supports up to 36.1; 5.4.0 is the last at 36. Ktor 3.6.0's engine calls nothing
+# 5.4.0 lacks. Drop the pin with the move to AGP 9 (docs/launch-plan.md, item 27, step 3).
 okhttp = "5.4.0"
 kotlinx-serialization = "1.11.0"
 java-jwt = "4.6.1"
