@@ -18,7 +18,7 @@ CI does on runners without an SDK. Everything else is unaffected.
 
 ## Running it
 
-Requirements: JDK 17 or newer. Android additionally needs Android Studio with SDK 35, iOS needs
+Requirements: JDK 17 or newer. Android additionally needs Android Studio with SDK 36, iOS needs
 Xcode on a Mac (Xcode 26 to upload to App Store Connect, which only takes builds made with the
 current iOS SDK).
 

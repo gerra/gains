@@ -157,6 +157,10 @@ import app.gains.ui.theme.GainsTheme
  * [nudges] holds the streak reminders the platform is to deliver while the app is not running. The
  * whole plan is handed over again every time the streak changes, so it can never fall behind what
  * has actually been logged.
+ *
+ * [systemBars] is composed with whether the app is drawn dark, so a platform that draws the app
+ * under its own status and navigation bars (Android 15 and later) can colour their icons to match
+ * the app's theme rather than the device's.
  */
 @Composable
 internal fun App(
@@ -165,6 +169,7 @@ internal fun App(
     notifier: LiveSessionNotifier = LiveSessionNotifier.None,
     photoPicker: PhotoPicker = PhotoPicker.None,
     nudges: NudgeScheduler = NudgeScheduler.None,
+    systemBars: @Composable (dark: Boolean) -> Unit = {},
 ) {
     val settings = remember { inject<SettingsRepository>() }
     // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
@@ -179,6 +184,7 @@ internal fun App(
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
     val reduceMotion = remember { systemReducesMotion() }
+    systemBars(dark)
     GainsTheme(darkTheme = dark) { CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
         // Surface sets the content colour for every Text below it and paints the background.
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {

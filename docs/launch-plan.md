@@ -57,7 +57,7 @@ The same rules as `auth-plan.md`:
 | 18 | Email and password accounts | More sign-in | Agent + Owner | 2, 4 | [x] |
 | 19 | Passkeys | More sign-in | Agent + Owner | 3, 18 | [ ] |
 | 20 | Every authenticated route checks that the account still exists | iOS launch | Agent | — | [x] |
-| 21 | Android: target API 36 (Android 16) | Android launch | Agent + Owner | — | [ ] |
+| 21 | Android: target API 36 (Android 16) | Android launch | Agent + Owner | — | [x] |
 | 22 | Server: run as an unprivileged user, with systemd hardening | Hardening (P1) | Agent + Owner | — | [ ] |
 | 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [ ] |
 | 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [ ] |
@@ -619,7 +619,13 @@ nothing). A token minted for a user id that never existed gets the same 401.
 
 ### 21. Android: target API 36 (Android 16)
 
-- [ ] Done
+- [x] Done
+  Done in #PR. Steps 1 and 2 are in: `compileSdk` and `targetSdk` are 36 with AGP unchanged,
+  what Android 16 changes for Gains is written down under step 2, and the one thing it needed
+  in code (the status bar icons) is in `MainActivity`. Android is not compiled in CI: the
+  owner's step 3 builds it in Android Studio with SDK 36 and runs the test plan's Android 16
+  section, and step 4 checks the target SDK in Play Console on the next round. `play.yml` needs
+  nothing: the runner image or AGP supplies the platform.
 
 **Milestone:** Android launch. **Depends on:** nothing. Easier once item 25 is in, which then
 builds it; until then the owner builds it in Android Studio (rule 3). **Launch blocker:** item 14
@@ -642,6 +648,41 @@ bundle that targets 35.
    with `unzip -l` on the bundle that no dependency brings a `.so`); and anything new about
    alarms and `BOOT_COMPLETED` receivers (`AndroidNudgeScheduler`'s `setWindow` with its
    ten-minute window, and `BootReceiver`).
+   *Found*, going through [the changes for apps targeting 36](https://developer.android.com/about/versions/16/behavior-changes-16)
+   and [the changes for all apps](https://developer.android.com/about/versions/16/behavior-changes-all):
+   - **AGP:** 8.11.1 builds against API 36 (8.9.1 is the first that does), so nothing else in the
+     version catalog moves.
+   - **Edge to edge:** already enforced since the app targets 35; 36 only removes the opt-out,
+     which Gains never set. The Compose side already pads for the bars (`statusBarsPadding` on
+     the app's column, `navigationBarsPadding` on the bottom bar and the sheets,
+     `safeDrawingPadding` on sign-in and onboarding). What it didn't do was colour the bars'
+     icons: the manifest's platform theme keeps them light, so in the light theme the clock and
+     battery would be white on white. `MainActivity` now sets the icons from the theme chosen in
+     Settings on Android 15 and later, through a `systemBars` hook on `App` (the other platforms
+     pass nothing). **Check on the device:** the keyboard. With enforced edge to edge,
+     `adjustResize` no longer shrinks the window; only `ExercisePickerSheet` pads for the IME.
+     If a field in the workout editor or on sign-in ends up under the keyboard, that is a small
+     follow-up (an Android-only IME padding, since iOS moves its own view).
+   - **Predictive back:** on by default, and `onBackPressed` is no longer called. Gains doesn't
+     override it: the navigator's back goes through Compose's `BackHandler`
+     (`OnBackPressedDispatcher`, which uses `OnBackInvokedCallback` on 33 and later), and at the
+     root the handler is off so the system's back-to-home preview runs. `SignInCallbackActivity`
+     finishes in `onCreate` and never sees a back; backing out of the Custom Tab lands on
+     `MainActivity`, whose resume is the cancel, as before.
+   - **Large screens:** orientation and resizability are ignored at 600 dp and wider. Gains
+     declares neither, so nothing changes.
+   - **Alarms and boot:** nothing new for inexact alarms or `BOOT_COMPLETED` receivers.
+     `setWindow` and `BootReceiver` stay as they are. The fixed-rate change is about
+     `scheduleAtFixedRate`, which Gains doesn't use.
+   - **Not used by Gains:** the elegant-text-height APIs, health and fitness permissions
+     (no `BODY_SENSORS`), the Bluetooth bond changes, the MediaStore version lockdown and
+     app-owned photos (the photo picker needs no media permission), and the opt-in parts (Safer
+     Intents, the local network permission). The intent-redirection hardening for all apps
+     doesn't apply either: no intent is relaunched from another intent's extras.
+   - **16 KB pages:** Gains has no native code of its own, and none of its Android dependencies
+     is known to bring a `.so` (SQLDelight uses the platform's SQLite, Ktor OkHttp, the rest is
+     JVM). The owner confirms it: `unzip -l composeApp/build/outputs/bundle/release/composeApp-release.aab | grep '\.so$'`
+     prints nothing.
 3. Build (`assembleDebug`, `bundleRelease`) and run the JVM tests against the new SDK. Then, on
    an Android 16 device or emulator, the test plan's Android 16 section: the workout
    notification and its "Skip rest" action, a streak reminder firing (and after a reboot), CSV
@@ -1208,6 +1249,8 @@ On an Android 16 device or emulator, with a build containing item 21.
 - [ ] Item 21: the app draws edge to edge with nothing hidden under the status or navigation
       bars, the keyboard doesn't cover the field being typed in, and the back gesture previews
       and lands where it should, including from the Sign in with Apple tab back into the app.
+- [ ] Item 21: the status bar's clock and icons read in both themes: dark on Settings → Theme →
+      Light, light on Dark, and they switch at once when the theme is changed.
 - [ ] Item 21: the workout notification shows, follows the sets, and "Skip rest" works; a streak
       reminder fires at its time, and again after a reboot.
 - [ ] Item 21: "Open with" for a CSV from Files and the share sheet open the import preview; the
