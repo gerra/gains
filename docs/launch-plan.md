@@ -79,7 +79,7 @@ The same rules as `auth-plan.md`:
 | 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [x] |
 | 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [x] |
 | 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [x] |
-| 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [ ] |
+| 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [x] |
 
 **Blockers, P1, P2.** Items 20 and 21 are launch blockers: item 7 (App Review) depends on 20,
 and item 14 (Google Play) on 20 and 21. Items 22–31 came out of a production-readiness review
@@ -1473,7 +1473,10 @@ classpath from step 1 measured again in the pull request.
 
 ### 38. Android: an app module of its own, then AGP 9 and compileSdk 37
 
-- [ ] Done
+- [x] Done
+  Done in #129. Steps 1–5 are in, in two commits (the move on AGP 8.13, then the bump): AGP 9.4.1
+  on Gradle 9.8.0, compileSdk 37, Compose Multiplatform 1.12.1; Material 3 stays on 1.9.0, its
+  last stable. Left: the owner's step 6 and the test plan's item 38 checks.
 
 **Milestone:** Maintenance (P2). **Depends on:** 25, 26 (CI builds Android and Xcode, which is
 how this item is checked), 27 (it left AGP on 8.x for this). Items 30 and 31 edit the Android
