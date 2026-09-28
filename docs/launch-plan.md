@@ -77,7 +77,7 @@ The same rules as `auth-plan.md`:
 | 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [x] |
 | 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [x] |
 | 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [x] |
-| 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [ ] |
+| 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [x] |
 | 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [ ] |
 | 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [ ] |
 
@@ -1375,7 +1375,8 @@ Tests: all existing tests; `grep -rn "= inject()" composeApp/src` returns nothin
 
 ### 36. Architecture docs back in step with the code
 
-- [ ] Done
+- [x] Done
+  Done in #126
 
 **Milestone:** Maintenance (P2). **Depends on:** nothing. Items 33–35 and 37 then keep the docs
 true in their own pull requests (rule 2).
