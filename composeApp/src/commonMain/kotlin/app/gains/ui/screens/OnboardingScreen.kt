@@ -61,10 +61,10 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 internal class OnboardingModel(private val programs: ProgramRepository = inject()) : ScreenModel() {
     var step by mutableStateOf(0)
@@ -78,7 +78,7 @@ internal class OnboardingModel(private val programs: ProgramRepository = inject(
         private set
 
     init {
-        scope.launch {
+        scope.launchAction {
             programs.observeProfile().first()?.let { goal = it.goal; experience = it.experience; days = it.daysPerWeek }
         }
     }
@@ -99,10 +99,10 @@ internal class OnboardingModel(private val programs: ProgramRepository = inject(
 
     fun back() { step = (step - 1).coerceAtLeast(0) }
 
-    fun skip() = scope.launch { programs.markOnboardingDone(); done = true }
+    fun skip() = scope.launchAction { programs.markOnboardingDone(); done = true }
 
     /** Saves the answers and, when given, activates a program. */
-    fun finish(programId: String?) = scope.launch {
+    fun finish(programId: String?) = scope.launchAction {
         profile?.let { programs.setProfile(it) }
         if (programId != null) programs.setActive(programId)
         programs.markOnboardingDone()

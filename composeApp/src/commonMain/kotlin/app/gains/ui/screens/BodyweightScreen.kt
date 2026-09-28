@@ -73,6 +73,7 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +82,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 
@@ -121,8 +121,8 @@ internal class BodyweightModel(
 
     fun setOverlay(exerciseId: String?) { overlay.value = exerciseId }
 
-    fun add(date: LocalDate, weightKg: Double) { scope.launch { repo.upsert(BodyweightEntry(date, weightKg)) } }
-    fun delete(date: LocalDate) { scope.launch { repo.delete(date) } }
+    fun add(date: LocalDate, weightKg: Double) { scope.launchAction { repo.upsert(BodyweightEntry(date, weightKg)) } }
+    fun delete(date: LocalDate) { scope.launchAction { repo.delete(date) } }
 }
 
 @Composable

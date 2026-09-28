@@ -98,7 +98,12 @@ class ScreenshotTest {
     fun captureEveryScreen() = runDesktopComposeUiTest(width = 960, height = 1720) {
         val dbFile = File.createTempFile("gains-screenshots", ".db").apply { delete(); deleteOnExit() }
         stopKoin()
-        initKoin(module { single<DatabaseDriverFactory> { DesktopDriverFactory(dbFile) } })
+        // Walking every screen is also a run of every model's actions: none of them may fail unseen.
+        val reporter = RecordingReporter()
+        initKoin(module {
+            single<DatabaseDriverFactory> { DesktopDriverFactory(dbFile) }
+            single<ErrorReporter> { reporter }
+        })
         val csv = endingYesterday(sampleCsv.readText())
 
         // Drive the clock by hand from the very first composition. With autoAdvance the framework
@@ -542,6 +547,7 @@ class ScreenshotTest {
         settle(1_500)
         shot("11-lift-detail-light")
         watchdog.interrupt()
+        reporter.assertNone()
     }
 
     /**

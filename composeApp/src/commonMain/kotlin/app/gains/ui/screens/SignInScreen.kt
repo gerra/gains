@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.gains.ErrorReporter
 import app.gains.analysis.InsightKind
 import app.gains.auth.AccountKind
 import app.gains.auth.AccountRepository
@@ -66,19 +67,19 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
 internal class SignInModel(
     private val accounts: AccountRepository = inject(),
     val config: AuthConfig = inject(),
-) : ScreenModel() {
+    reporter: ErrorReporter = inject(),
+) : ScreenModel(reporter) {
     private val attempt = SignInAttempt(scope, accounts)
 
     /** The provider whose sign-in is not configured, after a tap on its button; the screen words it. */
@@ -86,7 +87,7 @@ internal class SignInModel(
     /** A sign-in that was configured but did not go through: the provider or the server refused, or could not be reached. */
     val failed: Boolean get() = attempt.failed
 
-    fun continueAsGuest() = scope.launch { accounts.continueAsGuest() }
+    fun continueAsGuest() = scope.launchAction { accounts.continueAsGuest() }
 
     fun signInWithGoogle() = attempt.google()
 
@@ -121,17 +122,13 @@ internal class SignInAttempt(private val scope: CoroutineScope, private val acco
         running = true
         error = null
         failed = false
-        return scope.launch {
+        return scope.launchAction(onFailure = { failed = true }) {
             try {
                 block()
             } catch (e: AuthNotConfiguredException) {
                 error = e
             } catch (e: SignInCancelledException) {
                 // Closing the sheet is a choice, not a failure: the screen stays as it was.
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                failed = true
             } finally {
                 running = false
             }

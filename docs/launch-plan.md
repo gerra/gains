@@ -1793,6 +1793,8 @@ a build containing the step.
       where it was left, and the tabs keep their screens.
 - [ ] Item 34: in airplane mode, a sign-in, a link from Settings and Delete account each show
       their error line and the app stays up; a broken CSV shows the import error, not a crash.
+      The failed sign-in is in the platform's log ("Gains: unexpected error" in the Xcode console,
+      `adb logcat -s Gains` on Android, stderr on the desktop); the closed sheet is not.
 
 ### Desktop (items 15–17)
 
