@@ -6,8 +6,8 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import app.gains.analysis.Streak
 import app.gains.analysis.StreakNudge
 import app.gains.analysis.StreakStatus
+import app.gains.root.nudgeWords
 import app.gains.ui.i18n.Texts
-import app.gains.ui.i18n.nudgeWords
 import app.gains.ui.i18n.rememberTexts
 import app.gains.ui.i18n.streakLine
 import app.gains.ui.theme.GainsTheme

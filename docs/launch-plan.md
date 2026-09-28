@@ -1249,7 +1249,9 @@ Steps:
   and re-posted without it once over, a weight change doesn't re-post, a resume pushes the live
   editor once and not when it is already on top, a skip reaches the covered editor (item 32's
   lookup) and falls back to the repository.
-- [ ] **2. The streak reminders.** A class (e.g. `StreakReminders`) taking `SessionRepository`,
+- [x] **2. The streak reminders.** Done in #120: `app.gains.root.StreakReminders`, with
+  `nudgeWords` beside it, run from `AppBody` where the effect was, with `StreakRemindersTest`.
+  A class (e.g. `StreakReminders`) taking `SessionRepository`,
   `ProgramRepository`, `SettingsRepository`, `NudgeScheduler` and a clock and time zone, with
   `suspend fun run(texts)`; `nudgeWords` goes with it. Tests: reminder off → an empty plan
   (which cancels); on → the plan from `StreakEngine` with its words; a week already trained →
