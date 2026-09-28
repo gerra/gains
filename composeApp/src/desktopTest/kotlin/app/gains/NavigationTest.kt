@@ -34,8 +34,9 @@ import kotlin.test.assertTrue
 /** A screen's state survives being covered by another screen, and goes once the screen is gone for good. */
 @OptIn(ExperimentalTestApi::class)
 class NavigationTest {
-    private class Model : ScreenModel()
-    private class Other : ScreenModel()
+    // They launch nothing, so nothing can reach the reporter; the log is the one there is without Koin.
+    private class Model : ScreenModel(LogErrorReporter)
+    private class Other : ScreenModel(LogErrorReporter)
 
     private fun NavEntry.model(vararg keys: Any?) = model(Model::class, keys.toList()) { Model() }
 

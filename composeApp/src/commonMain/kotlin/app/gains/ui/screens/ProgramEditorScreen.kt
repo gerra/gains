@@ -61,12 +61,12 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 /** The progression choices a user can set on a slot. Ladders from duplicated built-ins are kept as-is. */
 internal enum class ProgressionChoice {
@@ -166,7 +166,7 @@ internal class ProgramEditorModel(
     val state: StateFlow<ProgramEditorState> = _state
 
     init {
-        scope.launch {
+        scope.launchAction {
             val snapshot = trainingData.snapshot.first()
             val programState = programs.observeState().first()
             val existing = programId?.let { id -> programState.programs.firstOrNull { it.id == id && !it.isBuiltIn } }
@@ -187,7 +187,7 @@ internal class ProgramEditorModel(
     fun setName(v: String) = update { it.copy(name = v) }
     fun setDescription(v: String) = update { it.copy(description = v) }
     fun addDay() {
-        scope.launch {
+        scope.launchAction {
             val name = texts.get(Res.string.day_n, _state.value.days.size + 1)
             update { s -> s.copy(days = s.days + DayDraft(ProgramRepository.newDayId(s.id ?: "new", s.days.size), name, emptyList())) }
         }
@@ -206,7 +206,7 @@ internal class ProgramEditorModel(
 
     fun createExercise(name: String): Exercise {
         val exercise = ExerciseResolver(_state.value.catalogue, emptyMap()).resolve(name, emptyList())
-        scope.launch { exercises.insertIfMissing(listOf(exercise)) }
+        scope.launchAction { exercises.insertIfMissing(listOf(exercise)) }
         update { it.copy(catalogue = (it.catalogue + exercise).distinctBy { e -> e.id }.sortedBy { e -> e.name }) }
         return exercise
     }
@@ -220,7 +220,7 @@ internal class ProgramEditorModel(
         if (target !in d.slots.indices) d else d.copy(slots = d.slots.toMutableList().apply { add(target, removeAt(slotIndex)) })
     }
 
-    fun save() { scope.launch { saveNow() } }
+    fun save() { scope.launchAction { saveNow() } }
 
     private suspend fun saveNow() {
         val s = _state.value

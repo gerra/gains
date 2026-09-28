@@ -57,13 +57,13 @@ import app.gains.resources.*
 import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
 internal data class ProgramDetailState(
@@ -108,19 +108,19 @@ internal class ProgramDetailModel(
     val pendingNavigation: String? get() = navigateTo
     val wasDeleted: Boolean get() = deleted
 
-    fun activate() { scope.launch { programs.setActive(programId) } }
-    fun deactivate() { scope.launch { programs.setActive(null) } }
+    fun activate() { scope.launchAction { programs.setActive(programId) } }
+    fun deactivate() { scope.launchAction { programs.setActive(null) } }
 
     /** Copies the program as [newName] so it can be edited; the caller opens the editor on the new id. */
     fun duplicate(source: Program, newName: String) {
-        scope.launch {
+        scope.launchAction {
             val copy = programs.duplicate(source, newName)
             programs.upsert(copy)
             navigateTo = copy.id
         }
     }
 
-    fun delete() { scope.launch { programs.delete(programId); deleted = true } }
+    fun delete() { scope.launchAction { programs.delete(programId); deleted = true } }
 }
 
 @Composable

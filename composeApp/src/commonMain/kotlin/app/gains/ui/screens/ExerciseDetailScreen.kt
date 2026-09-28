@@ -65,6 +65,7 @@ import app.gains.ui.i18n.*
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.inject
+import app.gains.ui.launchAction
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +74,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal enum class Window(val days: Int?) { M3(90), M6(180), Y1(365), ALL(null) }
@@ -130,7 +130,7 @@ internal class ExerciseDetailModel(
     fun setWindow(w: Window) { window.value = w }
 
     fun setWorkingSetRatio(ratio: Double?) {
-        scope.launch { exercises.setWorkingSetRatio(exerciseId, ratio) }
+        scope.launchAction { exercises.setWorkingSetRatio(exerciseId, ratio) }
     }
 }
 

@@ -15,6 +15,7 @@ import app.gains.sync.SyncStore
 import app.gains.sync.createHttpClient
 import app.gains.ui.screens.SignInAttempt
 import app.gains.ui.screens.SignInModel
+import app.gains.ui.reportingHandler
 import app.gains.ui.screens.signInButtons
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,9 +47,11 @@ class SignInModelTest {
         return AccountRepository(SettingsRepository(db), apple, SyncApi(createHttpClient(), apple.serverBaseUrl!!, token = { null }), store, sheet)
     }
 
+    private val reporter = RecordingReporter()
+
     private fun model(outcome: () -> IdentityAssertion): Pair<SignInModel, AccountRepository> {
         val accounts = accounts(outcome)
-        return SignInModel(accounts, apple) to accounts
+        return SignInModel(accounts, apple, reporter) to accounts
     }
 
     @Test
@@ -58,6 +61,7 @@ class SignInModelTest {
         assertNull(model.error)
         assertFalse(model.failed)
         assertNull(accounts.observeAccount().first())
+        reporter.assertNone()
         model.onCleared()
     }
 
@@ -68,12 +72,13 @@ class SignInModelTest {
         assertNull(model.error)
         assertTrue(model.failed)
         assertNull(accounts.observeAccount().first())
+        assertEquals(1, reporter.reported.size, "a failure nobody has words for is reported once")
         model.onCleared()
     }
 
     @Test
     fun aGuestWhoGivesUpLinkingInSettingsIsStillAGuest() = runBlocking {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + reportingHandler(reporter))
         for (outcome in listOf(SignInCancelledException(), IllegalStateException("offline"))) {
             val accounts = accounts { throw outcome }
             accounts.continueAsGuest()
@@ -84,6 +89,7 @@ class SignInModelTest {
             assertEquals(outcome !is SignInCancelledException, link.failed)
             assertEquals(Account(AccountKind.GUEST), accounts.observeAccount().first())
         }
+        assertEquals(1, reporter.reported.size, "only the failed sheet is reported, not the closed one")
         scope.cancel()
     }
 

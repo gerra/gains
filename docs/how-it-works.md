@@ -203,7 +203,10 @@ Dependencies are wired with [Koin](https://insert-koin.io/); each platform suppl
 `DatabaseDriverFactory` and everything else comes from `SharedModule`. Screens use a small
 `ScreenModel` state holder over Kotlin Flows; it belongs to the screen's back-stack entry, so a
 screen covered by another one (settings, a lift's detail) comes back as it was left rather than
-reloading.
+reloading. A model's actions all start through `launchAction`: the failures an action expects (a
+closed sign-in sheet, a CSV in an unknown format) it words itself, anything else shows the
+screen's failure state where it has one and goes to the `ErrorReporter` (the platform's log), and
+the model's scope reports whatever still escapes rather than letting it end the app.
 
 ### Accounts and sync
 

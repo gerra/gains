@@ -28,11 +28,10 @@ import app.gains.auth.EmailSignInException
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.components.PrimaryButton
+import app.gains.ui.launchAction
 import app.gains.ui.theme.GainsColors
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -94,7 +93,7 @@ internal class EmailSignIn(
         }
         running = true
         outcome = null
-        return scope.launch {
+        return scope.launchAction(onFailure = { outcome = Outcome.Failed }) {
             try {
                 when (mode) {
                     Mode.SIGN_IN -> {
@@ -118,10 +117,6 @@ internal class EmailSignIn(
                 outcome = Outcome.Refused(e.reason)
             } catch (e: AuthNotConfiguredException) {
                 outcome = Outcome.NotConfigured
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                outcome = Outcome.Failed
             } finally {
                 running = false
             }

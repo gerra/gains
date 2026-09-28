@@ -1,5 +1,7 @@
 package app.gains.di
 
+import app.gains.ErrorReporter
+import app.gains.LogErrorReporter
 import app.gains.auth.AccountRepository
 import app.gains.auth.AuthConfig
 import app.gains.auth.IdentityProvider
@@ -27,7 +29,8 @@ import org.koin.dsl.module
  * Shared dependencies. Platforms must additionally provide a [DatabaseDriverFactory], and may
  * override [AuthConfig] (with the client ids and the server), [IdentityProvider] (with their
  * native sign-in) and [TokenVault] (with a safer home for the token than the database); the
- * defaults here keep the app a guest.
+ * defaults here keep the app a guest. [ErrorReporter] writes to the platform's log; tests bind
+ * one that records.
  */
 val sharedModule = module {
     single { GainsDatabase(get<DatabaseDriverFactory>().createDriver()) }
@@ -51,4 +54,5 @@ val sharedModule = module {
     single { AccountRepository(get(), get(), get(), get(), get()) }
     single { SyncEngine(get(), get()) }
     single { SyncController(get(), get(), get(), enabled = get<AuthConfig>().syncEnabled) }
+    single<ErrorReporter> { LogErrorReporter }
 }
