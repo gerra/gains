@@ -1131,7 +1131,7 @@ Tests: the manual check in step 3.
 ### 32. Navigation lifecycle: pin its invariants in tests
 
 - [x] Done
-  Done in #PR. Steps 1–6 are tests in `NavigationTest.kt`: a seeded replay of 300 random moves
+  Done in #116. Steps 1–6 are tests in `NavigationTest.kt`: a seeded replay of 300 random moves
   (five seeds) checking after each one that exactly the entries off both the stack and the
   screen are released, each once, with only the kept ones' models active; an entry hosted twice;
   a tab switch with screens still attached, and one to the tab already shown; the push of the
