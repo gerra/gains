@@ -1,0 +1,64 @@
+# Dependabot (docs/launch-plan.md, item 29). Weekly, and grouped so that a round is a pull
+# request or two rather than twenty; CI (the three jobs in ci.yml, plus ios.yml) is the review.
+# Dependabot opens its pull requests from branches on this repository, so the workflows run on
+# them as on any other, without the repository's secrets.
+version: 2
+updates:
+  # The `uses:` lines are pinned to commit SHAs with the version as a trailing comment (item 28).
+  # Dependabot moves the SHA and the comment together, majors included: an action's major is a
+  # one-line change CI exercises, unlike a toolchain's.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # gradle/libs.versions.toml and the build scripts. A dependency lands in the first group whose
+  # patterns match it, so `everything-else` stays last. The plugin markers are named after their
+  # plugin ids (org.jetbrains.kotlin.multiplatform, org.jetbrains.compose, app.cash.sqldelight),
+  # which the patterns below cover along with the libraries.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      kotlin-compose:
+        patterns:
+          - "org.jetbrains.kotlin:*"
+          - "org.jetbrains.kotlin.*"
+          - "org.jetbrains.compose*"
+      androidx:
+        patterns:
+          - "androidx.*"
+      ktor:
+        patterns:
+          - "io.ktor*"
+      kotlinx:
+        patterns:
+          - "org.jetbrains.kotlinx*"
+      everything-else:
+        patterns: ["*"]
+    ignore:
+      # Kotlin and Compose Multiplatform move together, and a minor of either is a deliberate
+      # pass like item 27 (the Compose compiler ships with Kotlin; Compose 1.12's Android
+      # artifacts need AGP 9 and compileSdk 37, item 38). Only their patches come in here.
+      - dependency-name: "org.jetbrains.kotlin:*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "org.jetbrains.kotlin.*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "org.jetbrains.compose*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # Majors of Koin and the Android Gradle Plugin are their own passes too. AGP 9 needs the
+      # app module split first (item 38).
+      - dependency-name: "io.insert-koin:*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "com.android.tools.build:gradle"
+        update-types: ["version-update:semver-major"]
+      # Held at 5.4.0 on purpose: 5.5.0 needs compileSdk 37, which AGP 8.13 can't build
+      # (the okhttp comment in gradle/libs.versions.toml). Drop this with item 38.
+      - dependency-name: "com.squareup.okhttp3:okhttp"
+        versions: [">= 5.5.0"]

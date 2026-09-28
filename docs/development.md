@@ -190,6 +190,16 @@ every push to `main`, so Insights → Dependency graph lists them and the Depend
 Security cover them; on a pull request, CI's dependency review fails when the change brings in a
 dependency with a known advisory. [CodeQL](../.github/workflows/codeql.yml) scans the Kotlin on
 pull requests, on `main` and weekly, into Security → Code scanning.
+[Dependabot](../.github/dependabot.yml) opens its pull requests on Mondays: one for the actions
+(SHA and version comment together), and for Gradle one per group (`kotlin-compose`, `androidx`,
+`ktor`, `kotlinx`, `everything-else`), so a round is a few pull requests, each reviewed by CI.
+Kotlin and Compose Multiplatform get patches only, and Koin and AGP no majors: those are
+deliberate passes like [launch-plan item 27](launch-plan.md#27-a-dependency-modernization-pass).
+okhttp is held below 5.5.0 until item 38. To take one of those anyway, change the version in
+`gradle/libs.versions.toml` by hand; to hold something else back, add an `ignore` entry there.
+There is no Gradle dependency verification (`gradle/verification-metadata.xml`): Dependabot
+doesn't regenerate that file, so every Gradle pull request from it would fail until someone
+rewrote the file by hand ([launch-plan item 29](launch-plan.md#29-supply-chain-dependabot-and-gradle-dependency-verification-where-practical)).
 
 **Pruning branches.** `python3 tools/prune_branches.py list` shows the branches on origin whose
 work is already on `main`, and `prune` deletes them. `release/*` branches are always kept: the
