@@ -10,6 +10,7 @@ import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
@@ -50,11 +51,14 @@ class MainActivity : ComponentActivity() {
     }
 
     // The workout in progress lives in the tray while the lifter is elsewhere; see AndroidLiveSessionNotifier.
-    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        notifier.onPermissionResult(granted)
-    }
-    private val askToNotify = { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
-    private val notifier = AndroidLiveSessionNotifier(this, askToNotify)
+    // The three refer to each other, so their types are spelled out: inferred, they are a cycle the
+    // compiler refuses ("Type checking has run into a recursive problem").
+    private val notificationPermission: ActivityResultLauncher<String> =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            notifier.onPermissionResult(granted)
+        }
+    private val askToNotify: () -> Unit = { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+    private val notifier: AndroidLiveSessionNotifier = AndroidLiveSessionNotifier(this, askToNotify)
     // The streak reminders, held by the system as alarms while the app is not running.
     private val nudges = AndroidNudgeScheduler(this, askToNotify)
 
