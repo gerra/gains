@@ -78,7 +78,7 @@ The same rules as `auth-plan.md`:
 | 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [x] |
 | 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [x] |
 | 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [x] |
-| 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [ ] |
+| 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [x] |
 | 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [ ] |
 
 **Blockers, P1, P2.** Items 20 and 21 are launch blockers: item 7 (App Review) depends on 20,
@@ -1409,7 +1409,8 @@ Tests: none; `docs/` changes skip the iOS job. Links checked by opening the rend
 
 ### 37. Module boundaries: a wire-protocol module, and when to split features
 
-- [ ] Done
+- [x] Done
+  Done in #127
 
 **Milestone:** Maintenance (P2, after launch). **Depends on:** 27 (both rewrite build files).
 Nothing is split unless this item's measurements say the graph gets better.
