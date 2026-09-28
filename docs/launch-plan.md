@@ -20,10 +20,13 @@ The same rules as `auth-plan.md`:
 
 1. **Each work item is one branch and one pull request.** Take the first unticked item whose
    "Depends on" items are ticked, branch from the latest `main`, implement only that item, tick
-   its box in the same pull request and add `Done in #<pr>` under it.
+   its box in the same pull request and add `Done in #<pr>` under it. Item 33 is the one
+   exception: each of its steps is its own pull request, and ticks its own box.
 2. Run the checks from [`auth-plan.md`](auth-plan.md#checks-every-item-must-pass) before
    pushing. They still apply: both `strings.xml` files, KDoc that says why, Koin for wiring,
-   `docs/sync.md` kept true.
+   `docs/sync.md` kept true. A pull request that changes how the app is put together (the root,
+   the ScreenModels, the wiring, the modules) keeps `docs/how-it-works.md` true in the same pull
+   request.
 3. **Android is compiled and linted in CI, and the Xcode project built for the simulator; a
    device is still needed for the test plan.** The `android` job in `ci.yml` builds the debug
    app, runs lint and the shared tests on the Android JVM (item 25); the `ios` job in `ios.yml`
@@ -70,13 +73,22 @@ The same rules as `auth-plan.md`:
 | 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [ ] |
 | 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [ ] |
 | 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
+| 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [ ] |
+| 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [ ] |
+| 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [ ] |
+| 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [ ] |
+| 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [ ] |
+| 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [ ] |
 
 **Blockers, P1, P2.** Items 20 and 21 are launch blockers: item 7 (App Review) depends on 20,
 and item 14 (Google Play) on 20 and 21. Items 22–31 came out of a production-readiness review
 after the sign-in work and don't hold either store back: `Hardening (P1)` and `CI (P1)` are
 wanted right after the first launch and can start now, `(P2)` when there is time. Within a
 milestone the numbers are the order: security and auth correctness (20, 22–24) before
-infrastructure polish (25–29), and API 36 (21) before Android goes public.
+infrastructure polish (25–29), and API 36 (21) before Android goes public. Items 32–37 came out
+of an architecture review of the client and hold nothing back either: they keep the code easy to
+change as it grows, and come after the P1 hardening and CI items. 32 goes first because it is the
+safety net for 33.
 
 ## Owner actions
 
@@ -1090,6 +1102,297 @@ default nobody chose.
 
 Tests: the manual check in step 3.
 
+### 32. Navigation lifecycle: pin its invariants in tests
+
+- [ ] Done
+
+**Milestone:** Maintenance (P1). **Depends on:** nothing. Item 33 depends on it.
+
+The app keeps its own back stack instead of AndroidX Navigation and ViewModels, on purpose: one
+`Navigator` and `NavEntry` in `ui/nav/Navigation.kt` for all three platforms, `ScreenModel`s
+held per entry and per class through `rememberScreenModel` (`ui/ScreenModel.kt`), and each
+entry's saved UI state under its id in the root's `SaveableStateHolder` (`App.kt`, whose
+`Navigator(onReleased = { stateHolder.removeState(it.id) })` drops it). Keep that design; this
+item makes sure item 33 and later work can't change its behaviour without a red test. Nothing
+is replaced unless a test here finds a real defect, and then the fix is its own pull request.
+
+`composeApp/src/desktopTest/.../NavigationTest.kt` already covers: a covered screen keeps its
+model, `peek`, a popped entry released only once it is off the screen too (or at once when it
+wasn't drawn), `replace`, tab roots kept across switches, a model remade when its keys change,
+one model per class, `rememberScreenModel` sharing one model between the places an entry is
+drawn, and a model outside the navigator living with its composable. Add what is missing, in the
+same file and style:
+
+1. **Every entry is released exactly once, and only when gone.** A seeded, fixed sequence of a
+   few hundred `push`, `pop`, `replace` and `switchTab` calls, with `attach`/`detach` pairs
+   around some of them as the transitions and the swipe back do: afterwards `onReleased` has
+   seen each entry that left the stack at most once, never a tab root or an entry still on the
+   stack, and every model whose entry was released has an inactive `scope`. The models still
+   active are exactly those of the entries on the stack, the tab roots and anything still
+   attached. This is the leak check.
+2. **An entry drawn twice** (the swipe back draws the previous entry under the current one while
+   the transition still hosts it): popped with two hosts, it is released after the second
+   `detach`, not the first.
+3. **`switchTab` while the leaving screens are still attached:** they are released when they
+   detach, not before; switching to the tab already shown drops what was pushed on it and keeps
+   its root.
+4. **`push` of the screen already on top** adds nothing and makes no entry; entry ids are unique
+   for the navigator's life (the saved state is keyed on them).
+5. **A change of language** through `rememberScreenModel` (it keys models on
+   `LocalAppLanguage`): the entry's model is remade and the old one's `scope` is cancelled, while
+   the entry, the stack and the entry's saved state stay. A composition test with a
+   `SaveableStateHolder` and `rememberSaveable` shows the saved value survives the language
+   change and is gone once the entry is released.
+6. **The skip-rest lookup** that `App.kt` does today (`navigator.stack.mapNotNull { it.peek(...) }`):
+   a model on a covered entry is found, one on a released entry is not.
+
+Write each test against `Navigator`, `NavEntry` and `rememberScreenModel` only, not against
+`App.kt`, so that item 33 moves code around them without touching the tests. If a test shows a
+current behaviour that looks wrong, keep the test asserting today's behaviour, mark it with a
+comment, and write it down here for a separate fix.
+
+Tests: the above, in `:composeApp:desktopTest`.
+
+### 33. `App.kt`: move the root's coordination into small, tested pieces
+
+- [ ] Done (all steps below ticked)
+
+**Milestone:** Maintenance (P1). **Depends on:** 32 (the lifecycle tests are the net). **One pull
+request per step**, in this order, each leaving the app behaving exactly as before.
+
+`composeApp/src/commonMain/kotlin/app/gains/App.kt` is about 590 lines. `App` picks the theme and
+the language and owns the navigator and the saved state; `AppBody` then does, in one composable:
+seeding the exercise catalogue and starting `SyncController`; opening Import for files shared in
+(`IncomingFiles`); gating on the account (`SignInScreen`, with an `AccountLoading` sentinel
+account) and on onboarding; working out the program's next day for the "+" menu; keeping the
+platform's workout notice in step with the workout in progress, rest countdown included
+(`LiveSessionNotifier`); planning the streak reminders (`StreakEngine` → `NudgeScheduler`);
+answering the notice's taps (`ResumeRequests`, `SkipRestRequests`, the latter by peeking every
+entry for a `SessionEditorModel`); and drawing the top bar, the swipe back, the screen
+transition, the workout bar, the bottom bar and the `when` over every `Screen`. The logic in
+those `LaunchedEffect`s can only be tested by composing the whole app.
+
+The goal is an `App.kt` that assembles the top-level UI and nothing else, with each piece of
+coordination in a small class of its own that has a narrow job, takes what it needs in its
+constructor and has unit tests. **Not** one `AppCoordinator` that takes over everything, not a
+navigation library, not an MVI framework, and no change to `Navigator`. The pieces live in
+`composeApp/src/commonMain` (they use `LiveSessionNotifier`, `NudgeScheduler`, `Navigator` and
+the texts, which are the UI module's), in a package of their own such as `app.gains.root`; what is
+pure domain logic and not there yet goes to `shared` (as `StreakEngine` already did). No
+platform code: the platform hooks stay the interfaces `App` is given today. Names and exact
+boundaries are the implementer's call from the code; the steps say what moves.
+
+Things to keep exactly as they are, and check in each step:
+
+- `AppBody` sits inside `InLanguage`'s `key(language)`, so a change of language recomposes it:
+  its effects restart (the reminders re-worded, which is wanted; `sync.start` and
+  `seedCatalogue` run again, which is harmless). Keep that; if a step wants the sync above the
+  language key, that is a behaviour change for its own pull request.
+- The navigator and the saved state outlive the language (they sit in `App`), and the sign-in
+  and onboarding gates draw nothing until their preference is read, so neither flashes at launch.
+- Nothing starts the sync or plans a reminder outside the composition's lifetime: each piece is
+  made with `remember` and run from a `LaunchedEffect` in the same place its code runs today.
+
+Steps:
+
+- [ ] **1. The workout notice and its two buttons.** A class (e.g. `LiveSessionNotices`) taking
+  `LiveSessionRepository` and `LiveSessionNotifier`, with a `suspend fun run()` that holds
+  today's `distinctUntilChanged` / rest-countdown re-post logic, and the handling of
+  `ResumeRequests` and `SkipRestRequests` (open the running workout unless its editor is on top;
+  let the running editor skip the rest, else `clearRest()`), given the `Navigator`. A clock
+  parameter instead of `nowMs()` so tests use virtual time. Tests with a fake notifier and
+  repository under `runTest`: the notice follows title and start, a rest is posted with its end
+  and re-posted without it once over, a weight change doesn't re-post, a resume pushes the live
+  editor once and not when it is already on top, a skip reaches the covered editor (item 32's
+  lookup) and falls back to the repository.
+- [ ] **2. The streak reminders.** A class (e.g. `StreakReminders`) taking `SessionRepository`,
+  `ProgramRepository`, `SettingsRepository`, `NudgeScheduler` and a clock and time zone, with
+  `suspend fun run(texts)`; `nudgeWords` goes with it. Tests: reminder off → an empty plan
+  (which cancels); on → the plan from `StreakEngine` with its words; a week already trained →
+  empty; a change of texts re-words the plan.
+- [ ] **3. What the root shows.** One small state holder that turns the account and the
+  onboarding preference into `Loading`, `SignIn`, `Onboarding` or `Main`, replacing the
+  `AccountLoading` sentinel and the four early `return`s; the incoming-files rule (push Import
+  unless it is on top) next to it or in a two-line helper, whichever reads better. The next
+  program day for the "+" menu (`UpNext`) becomes a plain function over the program state, the
+  links and the texts, tested on its own. Tests: each state from the flows' values, including
+  "not read yet" never showing sign-in.
+- [ ] **4. The chrome and the routes out of the file.** `TopBar`, `BottomNav`, `LiveSessionBar`,
+  `IconCircle` and `Tab.icon` into `ui/nav/` (e.g. `AppChrome.kt`); `ScreenContent` and
+  `ScreenBody`'s `when` over `Screen` into e.g. `ui/nav/Routes.kt`. A pure move: no behaviour,
+  wording or look changes, and the screenshot tests unchanged.
+- [ ] **5. Finish.** `App.kt` now holds `App` and `AppBody` assembling the theme, the language,
+  the gates, the pieces above and the chrome; no repository flow is combined in it and no rule
+  is decided in it. Aim for well under 200 lines, but the measure is that every remaining line
+  is assembly. `docs/how-it-works.md` "Modules" names the pieces in a sentence (rule 2), and
+  `auth-plan.md`'s "Where things are" row for `App.kt` is left alone (it is history).
+
+Every step: the existing desktop tests and item 32's pass unchanged, the screenshot tests too,
+and the pull request lists the test plan checks it touched (below, item 33).
+
+Tests: per step, as above.
+
+### 34. ScreenModel actions: one way to launch them and to handle their failures
+
+- [ ] Done
+
+**Milestone:** Maintenance (P1). **Depends on:** nothing. Touches the same model files as
+item 35, so don't run the two at once.
+
+`ScreenModel.scope` is `CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)` with no
+exception handler, and the models call `scope.launch` about fifty times. An exception nobody
+catches there goes to the platform: on iOS an uncaught Kotlin/Native exception ends the app,
+Android crashes, and the desktop prints it. Item 1 fixed the one case found then (sign-out) at
+its source, not the pattern. Each model that does catch does it its own way: `SignInModel.run`
+and `EmailSignIn` catch the expected sign-in exceptions, rethrow `CancellationException` and
+turn anything else into a `failed` flag; `AccountDeletion` in `SettingsScreen.kt` does the same;
+`ImportModel.load` and `commit` catch `Exception`, which also swallows `CancellationException`
+and writes an error into a model that is being cleared; the rest catch nothing.
+
+1. **Inventory**, written into the pull request: every `scope.launch` under
+   `ui/screens/`, sorted into *actions the person started that can fail visibly* (sign-in, link,
+   delete account, import, save a program, pick a photo, …), *background writes that should never
+   fail in normal use* (persisting an edit, toggling a set), and *collections* (flows into
+   state, which should be `stateIn`/`collect` and rarely fail).
+2. **One small helper in `ui/ScreenModel.kt`**, e.g. `protected fun launchAction(onFailure:
+   (Throwable) -> Unit = {}, block: suspend CoroutineScope.() -> Unit): Job`, which: rethrows
+   `CancellationException`; lets the caller map the failures it expects (domain exceptions like
+   `SignInCancelledException`, `AuthNotConfiguredException`, `CsvFormatException`) inside
+   `block` as today; catches `Exception` (never `Throwable`: an `Error` stays a crash) as
+   unexpected, reports it, and calls `onFailure` so the screen can show its failure state. Plus a
+   `CoroutineExceptionHandler` on `scope` as the last line for a plain `launch` that escapes: it
+   reports and keeps the app alive in a release build.
+3. **Reporting**, one place: a small `ErrorReporter` (an interface in `shared` with a default
+   that logs through the platform's log: `println`/stderr on the desktop, `NSLog` on iOS,
+   `android.util.Log` on Android; no new library) bound in Koin. Tests bind one that records,
+   and fails the test when an unexpected exception reaches it, so the handler hides nothing in
+   tests.
+4. **Move the models onto it**: `SignInModel.run`, `EmailSignIn`, `AccountDeletion` and the
+   Settings link flow share the helper (the shared try/catch `auth-plan.md` item 3 asked for);
+   `ImportModel` stops swallowing cancellation; each action from step 1 gets a visible failure
+   where its screen already has a place for one, and the rest report only. No new UI and no new
+   strings unless a screen had no way at all to say an action failed; then one line, in both
+   `strings.xml`.
+5. `docs/how-it-works.md`: one sentence on how a model's actions fail, next to the
+   `ScreenModel` paragraph.
+
+Not an MVI framework, no sealed intent classes, no `Result` wrapping of every repository.
+
+Tests: in `:composeApp:desktopTest`, with `Dispatchers.setMain` and a test reporter: an
+action whose repository throws shows the failure state, reports once and doesn't crash;
+cancelling a model mid-action (its entry released) reports nothing and writes no state; an
+expected domain exception (a cancelled sign-in) is not reported; an `Error` is not caught.
+The existing `SignInModelTest`, `EmailSignInTest` and `AccountDeletionTest` keep passing.
+
+### 35. Explicit dependencies instead of `inject()` defaults
+
+- [ ] Done
+
+**Milestone:** Maintenance (P2). **Depends on:** 34 (same files; its helper settles first). Not
+a launch blocker, and no change of DI framework: Koin stays.
+
+`ui/ScreenModel.kt` has `inject<T>() = KoinPlatform.getKoin().get(T::class)`, and the
+ScreenModels use it as default constructor arguments (`class HomeModel(..., sessions:
+SessionRepository = inject())`), so a screen's composable makes its model with only the
+arguments that aren't repositories, and a test gets the real Koin graph unless it passes every
+dependency by hand. `App.kt` calls `remember { inject<…>() }` eight times, and `SkipRestReceiver`
+once. The constructors already list their dependencies; what hides them is the default.
+
+1. Drop the `= inject()` defaults from every ScreenModel constructor. Each screen composable
+   passes them where it makes the model (`rememberScreenModel { HomeModel(texts, inject(),
+   inject()) }`), so the composable is the one factory boundary and the model knows nothing of
+   Koin. If that reads worse than a Koin `factory` per model with `parametersOf(texts, …)`, the
+   pull request may choose that instead and say why; either way no model class calls Koin.
+2. `inject()` stays for composables only: its KDoc says so, and `KoinPlatform` appears in the
+   platform entry points (`GainsApplication`, `MainViewController`, `main.kt`),
+   `SkipRestReceiver` (a `BroadcastReceiver` has no constructor of ours; keep it, or make it a
+   `KoinComponent`) and the Android `Context` lookups in `platform/Language.kt` and `Motion.kt`,
+   and nowhere else. `App.kt`'s own lookups go into the constructors of item 33's pieces, made in
+   one place in `App`; if 33 is not done yet, leave `App.kt` to it.
+3. Tests that build a model get simpler: they pass fakes or the test database's repositories
+   directly (`SignInModelTest`, `SyncUiTest`, `AccountDeletionTest` and any other test that
+   builds a model). Don't rewrite tests that already work through Koin unless they touch a
+   changed constructor.
+4. `docs/how-it-works.md`'s Koin paragraph: Koin wires the graph at the entry points and the
+   screens take what they need from it; models are plain classes.
+
+Tests: all existing tests; `grep -rn "= inject()" composeApp/src` returns nothing.
+
+### 36. Architecture docs back in step with the code
+
+- [ ] Done
+
+**Milestone:** Maintenance (P2). **Depends on:** nothing. Items 33–35 and 37 then keep the docs
+true in their own pull requests (rule 2).
+
+The docs have drifted from what the code does. Found so far:
+
+- `docs/how-it-works.md`, "Accounts and sync": "Today that is Sign in with Apple and with Google
+  on iOS … Android and the desktop still run as guests." All three platforms have Apple and
+  Google (items 9, 11, 15, 16), and email and password once the server has a mail account
+  (item 18); the first paragraph says "Continue with Google / Apple" only.
+- `docs/how-it-works.md`, the modules table: the server is "sign-in with Google or Apple identity
+  tokens" (it also runs Apple's web flow and email accounts), and the diagram's server box and
+  the table should match `docs/sync.md`'s description of the server.
+- `README.md`, "Local first": "Sign in with Apple on iOS syncs it".
+- `docs/development.md`, Roadmap "Done so far": only the iOS sign-in; Android and desktop
+  sign-in and email accounts are done too (Known limitations already says so).
+
+1. Read `docs/how-it-works.md`, `README.md`, `docs/development.md` and `docs/sync.md` against the
+   code (`AuthConfig`, the platform `IdentityProvider`s, `Routes.kt`, `SyncController`, the Koin
+   modules, `ScreenModel`/`Navigator`) and fix every statement about platforms, providers,
+   modules and the app's structure that is no longer true, including the ones above. Correct
+   what is wrong; don't restyle or rewrite what is right.
+2. The mermaid diagram in `how-it-works.md`: the sign-in and sync arrows as they are (all three
+   platforms, the server's web flow for Apple off iOS), nothing more detailed than it is now.
+3. `auth-plan.md` is a finished plan: leave it as history, except a line at the top saying its
+   "Where things are" table was true at release 1.5.
+4. No new documents.
+
+Tests: none; `docs/` changes skip the iOS job. Links checked by opening the rendered files.
+
+### 37. Module boundaries: a wire-protocol module, and when to split features
+
+- [ ] Done
+
+**Milestone:** Maintenance (P2, after launch). **Depends on:** 27 (both rewrite build files).
+Nothing is split unless this item's measurements say the graph gets better.
+
+Three modules today: `shared` (KMP: domain, import, SQLDelight, the sync client and the wire
+format), `composeApp` (the UI and the entry points) and `server` (Ktor, JVM). That is the right
+size for the project now. One boundary is worth a look: `server` depends on all of `:shared`
+(`implementation(project(":shared"))`) to reuse the wire format, and `shared`'s `commonMain`
+carries `api` dependencies on Koin, Ktor client and kotlinx-datetime, and its JVM target the
+SQLDelight SQLite driver and Ktor CIO client, so the server's classpath holds the app's client
+database, DI container and HTTP client. What the server actually imports from it: the request and
+response classes in `sync/Protocol.kt`, `SyncJson`, `SyncKinds`, `PhotoDoc` from `Documents.kt`,
+`AppleWebFlow`'s constants, and `SyncApi.PAGE` and `SyncApi.HEADER_UPDATED_AT` from the client
+class itself.
+
+1. **Measure first:** the server's `runtimeClasspath` (`./gradlew :server:dependencies
+   --configuration runtimeClasspath`) and the size of `build/install/gains-server/lib`; and
+   whether a change to a client-only file in `shared` (a repository, the SQLDelight schema)
+   recompiles and re-tests the server.
+2. **Decide, and write the decision here.** If the server carries a real amount of client code
+   and rebuilds for client changes: a small `:protocol` KMP module (`commonMain` only,
+   kotlinx-serialization and nothing else) holding `Protocol.kt`, `SyncJson`, `SyncKinds`, the
+   document shapes the server reads, the Apple web-flow constants and the protocol constants
+   moved out of `SyncApi`; `shared` and `server` both depend on it and `server` no longer on
+   `shared`. Package names stay, so the move is imports only. If the gain is small, say so and
+   stop.
+3. **Feature modules: don't create any now.** Write in `docs/development.md` when splitting
+   `composeApp` or `shared` into feature modules becomes worth it, so the question is answered
+   next time by checking, not by taste: a feature with its own clear owner or reuse outside this
+   app; builds where a change in one feature recompiles unrelated ones for a noticeable time;
+   a dependency cycle between packages that a module boundary would forbid; tests that need a
+   large unrelated graph (the whole database and Koin) to test one feature. One of those, seen
+   concretely, is the trigger; screen count alone is not.
+4. `docs/how-it-works.md`'s modules table and `docs/sync.md` "The server", if step 2 adds the
+   module (rule 2).
+
+Tests: if the module is added, every test set in CI unchanged and green, and the server's
+classpath from step 1 measured again in the pull request.
+
 ---
 
 ## Contact email: where it is used
@@ -1317,6 +1620,26 @@ On an Android 16 device or emulator, with a build containing item 21.
       rule shows there first).
 - [ ] Item 31: after `bmgr backupnow`, uninstall and reinstall, what comes back matches the
       decision written under item 31, and the privacy policy's backup sentence matches it too.
+
+### Architecture (items 32–37)
+
+No new screens; these catch a refactor that changed behaviour. On one phone and the desktop, with
+a build containing the step.
+
+- [ ] Item 33 (each step): a fresh install shows the sign-in screen with no flash of the app
+      first, then onboarding, then Home; an existing install opens straight on Home.
+- [ ] Item 33, steps 1 and 4: start a workout, go to another tab: the workout bar shows and
+      "Resume" opens it; on a phone the notice follows the sets, a rest shows its countdown,
+      "Skip rest" ends it from the tray both with the editor open and with it covered, and a tap
+      on the notice opens the workout.
+- [ ] Item 33, step 2: with the streak reminder on, a reminder is scheduled in the chosen
+      language, and switching the language re-words it; switching it off cancels it.
+- [ ] Item 33, step 3: "Open with" / share a CSV opens the import preview once; the "+" menu
+      offers the program's next day.
+- [ ] Item 33: open Settings from a scrolled History, switch the language, go back: History is
+      where it was left, and the tabs keep their screens.
+- [ ] Item 34: in airplane mode, a sign-in, a link from Settings and Delete account each show
+      their error line and the app stays up; a broken CSV shows the import error, not a crash.
 
 ### Desktop (items 15–17)
 
