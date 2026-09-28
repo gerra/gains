@@ -132,24 +132,25 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
 - [ ] Server user (item 22): once `/health` answers from `/opt/gains-server`, remove
       `/root/Projects/gains-server` on the box.
 - [ ] Refresh-token key (item 24): `REFRESH_TOKEN_KEY` in `secrets/.env`
-      (`openssl rand -base64 32`), then `python3 tools/deploy_server.py secrets`; and the backup
-      decision under item 24, step 3.
-- [ ] iOS CI (item 26): where the macOS job runs, given what its minutes cost. Item 26 put the
-      recommended answer in place (pull requests and pushes to `main`, skipping `docs/`,
-      `site/`, `server/`, `deploy/` and `tools/`): keep it, or change the `paths` lists in
-      `.github/workflows/ios.yml`. Either way, don't make **iOS simulator build** a required
-      check.
+      (`openssl rand -base64 32`), then `python3 tools/deploy_server.py secrets`.
+- [x] Backup decision (item 24, step 3): both, the nightly `.backup` and the box's backups.
+- [ ] Hetzner backups (item 24, step 3): turn on the server's backups and check that they are
+      encrypted at rest, or write under "Deploying" what they are.
+- [x] iOS CI (item 26): where the macOS job runs. *Decided:* keep item 26's answer (pull
+      requests and pushes to `main`, skipping `docs/`, `site/`, `server/`, `deploy/` and
+      `tools/`). Don't make **iOS simulator build** a required check.
 - [ ] Dependency graph and Dependabot alerts on (item 28): GitHub → Settings → Code security.
   Until the graph is on, GitHub refuses the snapshot, so CI's Dependency review job and the
   Dependency graph workflow fail.
-- [ ] Backup decision (item 31), before item 14 if possible.
+- [x] Backup decision (item 31). *Decided:* keep it.
 - [ ] Android app module (item 38): Android Studio Quail 4 (2026.1.4) or newer with SDK 37, then
       one release round to closed testing and the test plan's item 38 checks on a phone that has
       the previous build.
-- [ ] License decisions (item 39), before its pull request: the copyright holder's name, the
+- [x] License decisions (item 39), before its pull request: the copyright holder's name, the
       treatment of the name and logo, the license for docs and site text, the notices tool,
       whose workouts `liftoff_workout_data.csv` and the site's images hold, and whether the
-      public history is rewritten to remove that export.
+      public history is rewritten to remove that export. *Decided:* see item 39's steps.
+- [x] Passkey decision (item 19, step 1). *Decided:* see item 19.
 
 ---
 
@@ -590,6 +591,18 @@ finds none. See docs/sync.md, "What the client does".
 1. **Owner decides:** can a passkey create an account on its own, or is it added from Settings
    to an account that already exists? Adding it from Settings is simpler and avoids accounts
    with no recovery email.
+   *Decided:* a passkey never creates an account on its own. It is always added to an account
+   that already exists (Apple, Google or email), in three places:
+   - **Settings**, a "Passkeys" row: add one, and remove the ones already there.
+   - **Sign-up, as the second step.** Right after a new account is made, one screen offers
+     "Add a passkey" or "Not now".
+   - **Once, at launch, for existing accounts.** A signed-in account with no passkey, on a
+     device that supports them, sees the same screen once after the release that ships this
+     item. Whatever the person chooses, it isn't shown again, on that device or any other
+     (the "asked" flag syncs with the settings); from then on passkeys live in Settings only.
+     A guest never sees it.
+   - A passkey then signs in to that account from the sign-in screen, next to the other
+     buttons.
 2. **Server:** WebAuthn registration and authentication routes with a JVM library (Yubico
    `java-webauthn-server` or `webauthn4j`), and a `passkey_credential` table. The relying party
    id is `gains.gerra.sh`.
@@ -850,6 +863,9 @@ mode that says who may read it.
    `deploy_server.py install` puts in place. Any copy that leaves the box is encrypted first
    (`age` or `gpg`), and the Hetzner backup or snapshot setting is checked for encryption at
    rest. Write the decision under "Deploying".
+   *Decided:* both. The nightly `.backup` timer from `deploy_server.py install`, into a 700
+   directory, kept for seven days; and the box's own Hetzner backups on top, for the whole
+   server. Anything copied off the box by hand is encrypted first.
 4. `docs/sync.md`: the schema note (`refresh_token` is ciphertext) and the configuration list.
 
 Tests: a round trip of the cipher; a plain-text row from before is still revoked on deletion, and
@@ -924,6 +940,7 @@ XCUITest, no screenshots, no scenario runs.
    with `paths-ignore` for `docs/**`, `site/**`, `server/**`, `deploy/**` and `tools/**`; a
    path-filtered job must not be a required check, or it hangs the merge. Not on the two-hourly
    release branches, which archive anyway.
+   *Decided:* the recommended answer, as it is in `ios.yml` now.
 4. Then the iOS bullet under `docs/development.md` Known limitations says the simulator build
    runs in CI and only archiving needs the signing material, and `auth-plan.md`'s "No Mac or
    Xcode is available to the agent" becomes "CI builds the Xcode project; the agent still can't
@@ -1135,6 +1152,9 @@ default nobody chose.
      Google's cloud, and a new phone still gets it over the cable or Wi-Fi. A guest who loses the
      phone loses the data, and the sign-in screen and the policy must say so.
    - *Exclude both*: only an account keeps its data across phones; a guest starts from nothing.
+
+   *Decided:* keep it. The database, the photos and the preferences go in cloud backup and
+   device-to-device transfer; the token file never does.
 2. Whatever is chosen: `backup_rules.xml` and `data_extraction_rules.xml` say it (with the
    comments saying why), the privacy policy's sentence matches it, iOS is given the same answer
    (the database file's `isExcludedFromBackup` if the choice is to exclude), and `docs/sync.md`
@@ -1640,12 +1660,14 @@ make this more than adding a file:
      "German Berezhko", or a legal name the owner prefers. The line
      `Copyright © 2026 <holder>` goes in `NOTICE.md` (step 2) and the README, never in
      `LICENSE`.
+     *Decided:* German Berezhko.
    - Exhibit A's notice ("This Source Code Form is subject to the terms of the Mozilla Public
      License, v. 2.0 …"). **Owner decides:** a header in every source file, or one notice.
      *Recommended:* one notice, at the top of `NOTICE.md` and in the README. Exhibit A allows
      this "in a location … where a recipient would be likely to look". A header in about 400
      files is churn, and headers can come later in a pull request of their own. Files that
      carry another license keep their own header (`BodyMapPaths.kt`).
+     *Decided:* one notice, in `NOTICE.md` and the README.
    - README, "License": replace "No license yet; all rights reserved." with a short statement.
      Gains' original source code is under MPL-2.0 (link `LICENSE`). The exercise photos and
      the body drawing keep their own licenses. The Gains name and logo are not licensed as
@@ -1653,6 +1675,7 @@ make this more than adding a file:
      "Built with" link.
    - README, "Contributing": contributions are accepted under MPL-2.0, the license they are
      contributed to. There is no CLA and no sign-off, unless the owner wants a DCO line.
+     *Decided:* no CLA and no DCO.
 
 2. **Scope: the inventory, then `NOTICE.md`.** Go through `git ls-files` and complete the table
    above. It must cover every file that isn't Kotlin, Swift, Python, SQL, Gradle or YAML written
@@ -1666,6 +1689,7 @@ make this more than adding a file:
      code: `tools/exercise_demos.py`'s `SKIP` path already falls back to a video search. Pin
      `DB_URL` and `IMAGE_URL` in the script to that commit instead of `main`, so the provenance
      can be reproduced.
+     *Decided:* if the rights to the photos are unclear, drop them. The `SKIP` path takes over.
    - **react-native-body-highlighter.** `BodyMapPaths.kt` stays under MIT as a whole: it is
      generated from the upstream data, and the notice stays in its header. `NOTICE.md` and the
      app (step 5) carry the MIT notice in full.
@@ -1675,7 +1699,7 @@ make this more than adding a file:
      the images with frames made here or with plain screenshots.
    - **Docs and site text.** **Owner decides:** *Recommended:* MPL-2.0, like the code, so every
      file written for Gains has one license. The alternative is CC BY 4.0 for `docs/` and
-     `site/`.
+     `site/`. *Decided:* MPL-2.0.
    - **`NOTICE.md`** at the root holds:
      - the copyright line and Exhibit A's notice;
      - one sentence: "Files written for Gains are licensed under MPL-2.0, except those listed
@@ -1700,12 +1724,16 @@ make this more than adding a file:
      build without replacing `Logo.kt`. That needs a stand-in mark and an exception row for each
      file, which is more to maintain for little gain.
 
+   *Decided:* the recommended answer. The logo's files are under MPL-2.0, and the name and mark
+   are not licensed as a name or mark.
+
    The same wording goes wherever the license is mentioned: the README, the site's footer and
    the in-app screen (step 5).
 
 4. **No personal data in the tree before the license lands.**
    - `liftoff_workout_data.csv`: **Owner confirms** whose export it is, then this pull request
      deletes it. Nothing uses it: `git grep -n liftoff_workout_data` finds only this file.
+     *Decided:* it is the owner's own export. This pull request deletes it.
    - The fixtures copied from it: `Fixtures.SAMPLE` and `Fixtures.CRLF`, and the rows repeated in
      `LiftoffCsvParserTest.kt` and `ImportAnalyzerTest.kt`. Replace them with made-up rows that
      keep every case the tests exercise:
@@ -1727,6 +1755,8 @@ make this more than adding a file:
    - The site's images and the store screenshots: if they show real workouts, **Owner decides**
      whether to keep them, with consent to publish their own data, or to regenerate them from the
      sample export. The Screenshots workflow renders the same screens.
+     *Decided:* regenerate them from the sample export, with a frame made here or plain
+     screenshots, and replace the store screenshots the same way.
    - **History. Owner decides.** The repository is public, so the export and the fixtures are
      already in its history, and in any clone or fork. Deleting them from `main` doesn't remove
      them from past commits. The options:
@@ -1739,6 +1769,7 @@ make this more than adding a file:
 
      The pull request itself never rewrites history. If the owner chooses to rewrite, the owner
      does it before the merge.
+     *Decided:* accept it. The data is the owner's own; `main` drops it and the history stays.
 
 5. **The license and notices in every distributed build.** MPL-2.0 section 3.2 says whoever
    distributes Gains as an app must tell recipients how to get its source. The MIT notice for the
@@ -1768,6 +1799,7 @@ make this more than adding a file:
      `tools/` script. Either way, the works that aren't Maven dependencies (the body drawing, the
      photos) are entries written by hand from `NOTICE.md`, in one file that both the screen and
      `NOTICE.md` are checked against.
+     *Decided:* the AboutLibraries Gradle plugin, without its UI library, in strict mode.
    - **iOS:** the screen covers it. The App Store description and the site's `/support` page link
      the source.
    - **Android:** the screen covers it, since Play bundles show no license on install. The Play
