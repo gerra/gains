@@ -26,7 +26,7 @@ androidx-browser = "1.10.0"
 ktor = "3.6.0"
 # Held below what Ktor's OkHttp engine asks for: okhttp 5.5.0 needs compileSdk 37, and AGP 8.13,
 # the last 8.x, supports up to 36.1; 5.4.0 is the last at 36. Ktor 3.6.0's engine calls nothing
-# 5.4.0 lacks. Drop the pin with the move to AGP 9 (docs/launch-plan.md, item 27, step 3).
+# 5.4.0 lacks. Drop the pin with the move to AGP 9 (docs/launch-plan.md, item 38).
 okhttp = "5.4.0"
 kotlinx-serialization = "1.11.0"
 java-jwt = "4.6.1"

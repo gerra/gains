@@ -79,6 +79,7 @@ The same rules as `auth-plan.md`:
 | 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [ ] |
 | 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [ ] |
 | 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [ ] |
+| 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [ ] |
 
 **Blockers, P1, P2.** Items 20 and 21 are launch blockers: item 7 (App Review) depends on 20,
 and item 14 (Google Play) on 20 and 21. Items 22–31 came out of a production-readiness review
@@ -88,7 +89,9 @@ milestone the numbers are the order: security and auth correctness (20, 22–24)
 infrastructure polish (25–29), and API 36 (21) before Android goes public. Items 32–37 came out
 of an architecture review of the client and hold nothing back either: they keep the code easy to
 change as it grows, and come after the P1 hardening and CI items. 32 goes first because it is the
-safety net for 33.
+safety net for 33. Item 38 came out of item 27, which had to stop at AGP 8.x: it holds nothing back
+either, but every month on 8.x puts Compose, okhttp and the next androidx releases further out of
+reach.
 
 ## Owner actions
 
@@ -935,7 +938,7 @@ Tests: the job. A pull request that breaks a Swift file or `Info.plist` must go 
      newer). AGP 9 refuses `com.android.application` in a module that also applies the Kotlin
      Multiplatform plugin: `:composeApp` would have to become a KMP library with a new Android
      app module next to it, and `:shared` move to `com.android.kotlin.multiplatform.library`.
-     That is its own item. AGP 8.13 supports API 36.1 at most, so the okhttp 5.4.0 pin from
+     That is item 38. AGP 8.13 supports API 36.1 at most, so the okhttp 5.4.0 pin from
      item 25 stays until then, and so does Compose Multiplatform 1.11 (step 1).
   4. SQLDelight 2.4.0, activity-compose 1.13.0, credentials 1.6.0, browser 1.10.0, googleid
      1.2.1, and on the server logback 1.6.4 and Bouncy Castle 1.86. Ktor 3.6.0, coroutines
@@ -1393,6 +1396,106 @@ class itself.
 Tests: if the module is added, every test set in CI unchanged and green, and the server's
 classpath from step 1 measured again in the pull request.
 
+### 38. Android: an app module of its own, then AGP 9 and compileSdk 37
+
+- [ ] Done
+
+**Milestone:** Maintenance (P2). **Depends on:** 25, 26 (CI builds Android and Xcode, which is
+how this item is checked), 27 (it left AGP on 8.x for this). Items 30 and 31 edit the Android
+application config this item moves; whichever lands second follows it to `androidApp/`.
+
+Item 27 had to stop at AGP 8.13.2. AGP 9 no longer accepts `com.android.application` in a module
+that also applies the Kotlin Multiplatform plugin, and `:composeApp` has both. Staying on 8.x
+holds back more than AGP. compileSdk 37 needs AGP 9.1.1 or newer (8.13 tops out at API 36.1).
+Compose Multiplatform 1.12's Android artifacts (Jetpack Compose 1.12) refuse to build with less
+than AGP 9.1 and compileSdk 37, which is why item 27 stopped at 1.11.1. And okhttp stays pinned
+at 5.4.0, the last release that builds against API 36. When this was written (September 2026),
+AGP 9.4.0 was current: Gradle 9.6.0 or newer, API 37, Android Studio Quail 4 (2026.1.4) or newer.
+The AGP 9 opt-outs (`android.newDsl=false`, `android.builtInKotlin=false`) might keep today's
+layout building for a while, but they are removed in AGP 10, so they only postpone this item.
+
+**The shape: a thin app module, everything else where it is.** Almost all the Android code in
+`composeApp/src/androidMain` uses `internal` declarations of `:composeApp` (`App`, the screen
+models, `AndroidIdentityProvider`, `WebSignIn`), and `platform/` holds `actual`s. `internal`
+isn't visible from another module, and an `actual` must stay with its `expect`. So the Kotlin, the
+manifest and the resources stay in `:composeApp`, which becomes an Android library, and the new
+module holds only what must belong to an application.
+
+1. **`:androidApp`** (`com.android.application`, `androidApp/build.gradle.kts` in the Kotlin DSL,
+   no Kotlin sources), depending on `:composeApp`. It takes everything application-only from
+   `composeApp/android.gradle`:
+   - `applicationId "app.gains"`, unchanged, so Play and devices see the same app. `namespace`
+     must differ from the library's, which stays `app.gains` (`app.gains.android`, say).
+   - `versionCode`, and `versionName` from `MARKETING_VERSION`.
+   - The upload signing config, the build types and `packaging`.
+   - `lint` with `abortOnError`, plus `checkDependencies true` so the library's code is still
+     linted.
+   - A minimal `src/main/AndroidManifest.xml`. The library's manifest keeps the `<application>`,
+     the activities, the receivers and the permissions. Its relative names (`.MainActivity`)
+     resolve against the library's `app.gains` and merge into the app's.
+
+   `settings.gradle.kts` includes `:androidApp` only when `gains.android` is on
+   (`providers.gradleProperty`), so `-Pgains.android=false` (the `test` CI job, the Xcode build
+   phase, a Mac without an Android SDK) never sees it.
+2. **`:composeApp` and `:shared` become KMP libraries** on
+   `com.android.kotlin.multiplatform.library`. `androidTarget { }` and the `com.android.*` plugin
+   go. The Android target is configured in `kotlin { android { namespace; compileSdk; minSdk } }`
+   (`androidLibrary { }` is the older, deprecated name). Keep the conditional wiring:
+   - The plugin is applied only when Android is on, and its block lives in each module's Groovy
+     `android.gradle`, applied **before** the `kotlin { }` block that names `androidMain`. The
+     Kotlin DSL can't mention AGP types when AGP isn't on the classpath. Check that Groovy
+     resolves `kotlin { android { } }` to the target. If it doesn't, the target can be found by
+     name in `kotlin.targets`.
+   - `:composeApp` needs `androidResources { enable = true }`, which is off by default in the
+     new plugin: the notification strings, drawables and layout use `R`, and the Compose
+     resources ship as Android assets.
+   - `:shared` needs `withHostTest { }`, so `commonTest` keeps running on the Android JVM. The
+     task becomes `:shared:testAndroidHostTest`, not `testDebugUnitTest`.
+   - The JVM target is set on the module's `KotlinJvmCompile` tasks (17, as now).
+   - The okhttp constraint in `shared/build.gradle.kts` goes.
+3. **`BuildConfig` goes.** The KMP library plugin has no variants and no `BuildConfig`, and
+   `androidAuthConfig()` reads four fields from it. They become string resources instead:
+   - Empty defaults in `composeApp/src/androidMain/res/values/sign_in_config.xml`
+     (`translatable="false"`).
+   - `:androidApp` overrides them with `resValue` from the same Gradle properties
+     (`gains.serverUrl`, `gains.googleWebClientId`, `gains.appleServicesId`,
+     `gains.passwordSignIn`). `buildFeatures { resValues true }` is set explicitly, since AGP 9
+     changed the defaults.
+   - `androidAuthConfig(context)` reads `R.string.…`. An app resource overrides a library's with
+     the same name, so the library code needs no knowledge of the app.
+   - `docs/development.md` "Android" and the Play workflow's variables keep their property names.
+4. **Versions**, once 1–3 build on AGP 8.13 (the move and the bump in separate commits, so a
+   failure says which one broke):
+   - AGP 9.4 or the current 9.x, the Gradle wrapper it asks for (9.6 or newer), and a look at
+     the build for Gradle 9 removals.
+   - `compileSdk 37`. `targetSdk` stays at 36: raising it opts the app into Android 17's
+     runtime behaviour, which is its own item, as item 21 was for 36.
+   - Compose Multiplatform 1.12.x with the Material 3 version its plugin names.
+   - The okhttp pin dropped from the catalog.
+5. **Paths:**
+   - `.github/workflows/ci.yml`: the `android` job becomes `:androidApp:assembleDebug
+     :androidApp:lintDebug :shared:testAndroidHostTest`, and the lint report path moves.
+   - `tools/play.py` and `tools/test_play.py`: `ANDROID_GRADLE` becomes the app module's build
+     file, `BUNDLE` becomes `androidApp/build/outputs/bundle/release/androidApp-release.aab`,
+     and the task is `:androidApp:bundleRelease`.
+   - `docs/play.md`, `docs/development.md` (the commands, the Android Studio run configuration,
+     the Android Studio version, "Built with"), `README.md`, the checks in `auth-plan.md`, and
+     this file's items 30 and 31 where they name `composeApp/android.gradle`.
+   - `docs/how-it-works.md`'s modules table gains the fourth module.
+6. **Owner:**
+   - Android Studio Quail 4 or newer.
+   - Once CI is green, one release round to the closed testing track. Play must take the bundle
+     as an update: same application id, same upload key, a higher `versionCode`.
+   - On a phone that has the previous closed-testing build, the update installs over it with
+     the workouts, the sign-in and the settings still there.
+
+Tests: the three CI jobs on the pull request. `:shared`'s Android host tests run the same
+`commonTest` count as `testDebugUnitTest` did (compare the two reports). The merged manifest of a
+debug build (`androidApp/build/intermediates/merged_manifests/…`) has `package="app.gains"`, the
+three receivers, both activities and the App Link filter. The four sign-in values reach the app:
+with `-Pgains.serverUrl=…` set, the generated `resValues` carries it. The manual checks are in the
+test plan, "Android app module (item 38)".
+
 ---
 
 ## Contact email: where it is used
@@ -1707,6 +1810,19 @@ On the first TestFlight build and Play bundle after item 27, on a device each:
       and light: nothing looks different from the build before, apart from Compose's own polish.
 - [ ] Android: Sign in with Google (Credential Manager) and with Apple (the Custom Tab) both
       still finish.
+
+### Android app module (item 38)
+
+On the first closed-testing build from `:androidApp`:
+
+- [ ] Play Console takes the bundle as an update of `app.gains`, with no new-app or key warnings.
+- [ ] On a phone with the previous closed-testing build, the update installs over it: workouts,
+      sign-in and settings are still there.
+- [ ] Sign in with Google and with Apple (the App Link comes back to the app), sync a photo,
+      import a CSV through "Open with".
+- [ ] The workout notification (with "Skip rest"), a streak reminder, and the reminders after a
+      reboot.
+- [ ] The launcher icon and name, and the app in Russian (Settings → Language).
 
 ---
 
