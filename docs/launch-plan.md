@@ -1030,10 +1030,11 @@ release round.
 - [x] Done
   Done in #112. Step 1 is `.github/dependabot.yml`: the actions weekly as one pull request, and
   Gradle weekly in the five groups below. Kotlin and Compose Multiplatform get patches only,
-  since a minor of either is the deliberate pass (Compose 1.12 needs AGP 9, item 38); Koin and
-  AGP no majors; okhttp stays below 5.5.0 until item 38. Step 2 is not in: Dependabot doesn't
-  regenerate `gradle/verification-metadata.xml`, so each of its Gradle pull requests would fail
-  CI until someone rewrote the file by hand, which is the case this step said to take it out
+  since a minor of either is the deliberate pass (Compose 1.12 needs AGP 9, item 38); Koin, AGP
+  and the Gradle wrapper no majors (Gradle 9.6 and newer refuse AGP 8.x); okhttp stays below
+  5.5.0 until item 38. Step 2 is not in: Dependabot doesn't regenerate
+  `gradle/verification-metadata.xml`, so each of its Gradle pull requests would fail CI until
+  someone rewrote the file by hand, which is the case this step said to take it out
   for; and the metadata must cover Google's Maven and the Kotlin/Native toolchain, which the
   agent's environment can't reach, so it could only have been written from a laptop or a CI
   run. The SHA pins from 28 and the grouping here are the proportional version. Step 3 is the
@@ -1546,6 +1547,8 @@ module holds only what must belong to an application.
      runtime behaviour, which is its own item, as item 21 was for 36.
    - Compose Multiplatform 1.12.x with the Material 3 version its plugin names.
    - The okhttp pin dropped from the catalog.
+   - In `.github/dependabot.yml`, the `gradle-wrapper` and okhttp ignores go (#113 was the
+     wrapper's Gradle 9.8 major, which AGP 8.13 can't run on).
 5. **Paths:**
    - `.github/workflows/ci.yml`: the `android` job becomes `:androidApp:assembleDebug
      :androidApp:lintDebug :shared:testAndroidHostTest`, and the lint report path moves.
