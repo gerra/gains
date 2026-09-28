@@ -1265,7 +1265,9 @@ Steps:
   program day for the "+" menu (`UpNext`) becomes a plain function over the program state, the
   links and the texts, tested on its own. Tests: each state from the flows' values, including
   "not read yet" never showing sign-in.
-- [ ] **4. The chrome and the routes out of the file.** `TopBar`, `BottomNav`, `LiveSessionBar`,
+- [x] **4. The chrome and the routes out of the file.** Done in #122: `ui/nav/AppChrome.kt` and
+  `ui/nav/Routes.kt`, moved as they were; `App.kt` is down to `App`, `AppBody` and `Main`.
+  `TopBar`, `BottomNav`, `LiveSessionBar`,
   `IconCircle` and `Tab.icon` into `ui/nav/` (e.g. `AppChrome.kt`); `ScreenContent` and
   `ScreenBody`'s `when` over `Screen` into e.g. `ui/nav/Routes.kt`. A pure move: no behaviour,
   wording or look changes, and the screenshot tests unchanged.
