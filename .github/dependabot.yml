@@ -58,6 +58,11 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "com.android.tools.build:gradle"
         update-types: ["version-update:semver-major"]
+      # Gradle 9.6 and newer refuse AGP 8.x (it uses a Gradle internal API they removed), so the
+      # wrapper stays on 8.x until AGP 9 lands with item 38, which picks the Gradle it asks for.
+      # Drop this with item 38.
+      - dependency-name: "gradle-wrapper"
+        update-types: ["version-update:semver-major"]
       # Held at 5.4.0 on purpose: 5.5.0 needs compileSdk 37, which AGP 8.13 can't build
       # (the okhttp comment in gradle/libs.versions.toml). Drop this with item 38.
       - dependency-name: "com.squareup.okhttp3:okhttp"
