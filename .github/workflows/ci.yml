@@ -34,3 +34,28 @@ jobs:
           name: screenshots
           path: composeApp/build/screenshots
           if-no-files-found: ignore
+
+  # The job above builds with -Pgains.android=false, so nothing there touches androidMain. This
+  # one compiles the Android app, lints it and runs the shared tests on the Android JVM
+  # (docs/launch-plan.md, item 25): no emulator, no instrumented tests. The SDK is on the
+  # ubuntu-latest image, and the Android Gradle Plugin fetches a platform or build-tools version
+  # it lacks, as the Google Play workflow does. The sign-in properties stay empty, as in a
+  # local build.
+  android:
+    name: Android build, lint and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      # :composeApp has no tests of its own; :shared's commonTest runs as its Android unit tests.
+      - run: ./gradlew :composeApp:assembleDebug :composeApp:lintDebug :shared:testDebugUnitTest --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: android-lint-report
+          path: composeApp/build/reports/lint-results-debug.*
+          if-no-files-found: ignore

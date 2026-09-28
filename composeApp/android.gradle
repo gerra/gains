@@ -69,4 +69,10 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    // CI runs lintDebug on every pull request (docs/launch-plan.md, item 25). Errors fail the
+    // build and warnings only show in the report, so a new warning never holds a pull request up.
+    lint {
+        abortOnError true
+        warningsAsErrors false
+    }
 }
