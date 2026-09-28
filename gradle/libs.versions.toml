@@ -34,8 +34,9 @@ logback = "1.6.4"
 # Email and password accounts (docs/launch-plan.md, item 18): Argon2id for the password hashes,
 # which the JDK has no implementation of.
 bouncycastle = "1.86"
-# Only to lift AGP's older copy past an advisory (build.gradle.kts).
+# Only to lift AGP's older copies past their advisories (build.gradle.kts).
 commons-lang3 = "3.20.0"
+httpclient = "4.5.14"
 
 [libraries]
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
@@ -84,6 +85,7 @@ jwks-rsa = { module = "com.auth0:jwks-rsa", version.ref = "jwks-rsa" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
+httpclient = { module = "org.apache.httpcomponents:httpclient", version.ref = "httpclient" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
