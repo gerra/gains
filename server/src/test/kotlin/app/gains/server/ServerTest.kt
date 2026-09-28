@@ -255,6 +255,77 @@ class ServerTest {
     }
 
     @Test
+    fun aPushOverTheDocumentCeilingIsRefusedAndWritesNothing() = testApplication {
+        val services = testServices(google, apple).let { Services(it.store, it.tokens, it.verifier, maxDocumentsPerUser = 3) }
+        application { gainsServer(services) }
+        val signedIn = client.signIn("google", google.token("g-1", GOOGLE_AUDIENCE))
+        val token = signedIn.token
+        suspend fun push(vararg docs: SyncDocument) = client.post("/sync/push") {
+            header("Authorization", "Bearer $token")
+            contentType(ContentType.Application.Json)
+            setBody(SyncJson.encodeToString(PushRequest.serializer(), PushRequest(docs.toList())))
+        }
+        fun weight(day: String, at: String, kg: Double) = SyncDocument(SyncKinds.BODYWEIGHT, day, at, payload = """{"kg":$kg}""")
+
+        assertEquals(HttpStatusCode.OK, push(weight("d1", "2026-09-20T10:00:00.000Z", 80.0), weight("d2", "2026-09-20T10:00:00.000Z", 81.0)).status)
+        // Two new rows on top of two would make four: refused whole, the edit riding with them too.
+        val over = push(weight("d1", "2026-09-21T10:00:00.000Z", 70.0), weight("d3", "2026-09-21T10:00:00.000Z", 82.0), weight("d4", "2026-09-21T10:00:00.000Z", 83.0))
+        assertEquals(HttpStatusCode.PayloadTooLarge, over.status, over.bodyAsText())
+        val stored = services.store.pull(signedIn.user.id, 0, SyncApi.PAGE).first
+        assertEquals(listOf("d1" to 1L, "d2" to 2L), stored.map { it.id to it.seq }, "nothing written, no seq taken")
+        assertEquals("""{"kg":80.0}""", stored.first().payload)
+
+        // Up to the ceiling is fine; at it, edits and deletes of what is there still go through.
+        assertEquals(HttpStatusCode.OK, push(weight("d3", "2026-09-21T10:00:00.000Z", 82.0)).status)
+        assertEquals(HttpStatusCode.PayloadTooLarge, push(weight("d4", "2026-09-21T10:00:00.000Z", 83.0)).status)
+        assertEquals(HttpStatusCode.OK, push(weight("d1", "2026-09-22T10:00:00.000Z", 79.0), SyncDocument(SyncKinds.BODYWEIGHT, "d2", "2026-09-22T10:00:00.000Z", deleted = true)).status)
+        // A new photo is a feed row too.
+        assertEquals(HttpStatusCode.PayloadTooLarge, client.put("/sync/blobs/session_photo/p") {
+            header("Authorization", "Bearer $token"); header(SyncApi.HEADER_UPDATED_AT, "2026-09-22T10:00:00.000Z"); setBody(ByteArray(10))
+        }.status)
+        assertEquals(null, services.store.blob(signedIn.user.id, SyncKinds.SESSION_PHOTO, "p"))
+
+        // The ceiling is per account: someone else starts from zero.
+        val other = client.signIn("google", google.token("g-2", GOOGLE_AUDIENCE)).token
+        assertEquals(HttpStatusCode.OK, client.post("/sync/push") {
+            header("Authorization", "Bearer $other")
+            contentType(ContentType.Application.Json)
+            setBody(SyncJson.encodeToString(PushRequest.serializer(), PushRequest(listOf(weight("d1", "2026-09-20T10:00:00.000Z", 60.0)))))
+        }.status)
+    }
+
+    @Test
+    fun aBlobOverTheByteCeilingIsRefusedAndStoresNothing() = testApplication {
+        val services = testServices(google, apple).let { Services(it.store, it.tokens, it.verifier, maxBlobBytesPerUser = 1000) }
+        application { gainsServer(services) }
+        val signedIn = client.signIn("google", google.token("g-1", GOOGLE_AUDIENCE))
+        val token = signedIn.token
+        suspend fun put(id: String, at: String, size: Int) = client.put("/sync/blobs/session_photo/$id") {
+            header("Authorization", "Bearer $token"); header(SyncApi.HEADER_UPDATED_AT, at); setBody(ByteArray(size) { 7 })
+        }
+
+        assertEquals(HttpStatusCode.OK, put("a", "2026-09-20T10:00:00.000Z", 600).status)
+        val over = put("b", "2026-09-20T10:00:00.000Z", 500)
+        assertEquals(HttpStatusCode.InsufficientStorage, over.status, over.bodyAsText())
+        assertEquals(null, services.store.blob(signedIn.user.id, SyncKinds.SESSION_PHOTO, "b"))
+        assertEquals(listOf("a"), services.store.pull(signedIn.user.id, 0, SyncApi.PAGE).first.map { it.id }, "no feed row for the refused one")
+
+        // What fits still does, and replacing a photo counts the new bytes instead of the old.
+        assertEquals(HttpStatusCode.OK, put("b", "2026-09-20T10:00:00.000Z", 400).status)
+        assertEquals(HttpStatusCode.OK, put("a", "2026-09-21T10:00:00.000Z", 600).status)
+        assertEquals(HttpStatusCode.InsufficientStorage, put("a", "2026-09-22T10:00:00.000Z", 601).status)
+        assertEquals(600, services.store.blob(signedIn.user.id, SyncKinds.SESSION_PHOTO, "a")!!.size)
+
+        // Deleting a photo frees its bytes.
+        client.post("/sync/push") {
+            header("Authorization", "Bearer $token")
+            contentType(ContentType.Application.Json)
+            setBody(SyncJson.encodeToString(PushRequest.serializer(), PushRequest(listOf(SyncDocument(SyncKinds.SESSION_PHOTO, "b", "2026-09-22T10:00:00.000Z", deleted = true)))))
+        }.read(PushResponse.serializer())
+        assertEquals(HttpStatusCode.OK, put("c", "2026-09-22T10:00:00.000Z", 400).status)
+    }
+
+    @Test
     fun usersNeverSeeEachOtherAndDeletingAnAccountRemovesEverything() = testApplication {
         application { gainsServer(testServices(google, apple)) }
         val a = client.signIn("google", google.token("a", GOOGLE_AUDIENCE)).token

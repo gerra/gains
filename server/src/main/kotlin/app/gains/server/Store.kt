@@ -11,6 +11,18 @@ import java.time.Instant
 import java.util.Properties
 
 /**
+ * A write that would take a user past the document ceiling ([Services.maxDocumentsPerUser]).
+ * Nothing of it was stored; the routes answer 413.
+ */
+class TooManyDocumentsException(val max: Long) : Exception("over $max documents for this account")
+
+/**
+ * An upload that would take a user's photos past the byte ceiling ([Services.maxBlobBytesPerUser]).
+ * Nothing of it was stored; the routes answer 507.
+ */
+class StorageFullException(val max: Long) : Exception("over $max bytes of photos for this account")
+
+/**
  * The server's database (docs/sync.md, "The server"). Every method takes the user it acts for;
  * nothing here can reach another user's rows. Writes that need the feed counter run in one
  * transaction with it, so `seq` is assigned in order and never reused.
@@ -129,9 +141,16 @@ class Store(private val db: ServerDatabase) {
 
     // --- documents --------------------------------------------------------------------------
 
-    /** Upserts each document unless the row already holds a newer one; every accepted write takes the next seq. */
-    fun push(userId: Long, documents: List<SyncDocument>): List<PushResult> = db.transactionWithResult {
-        documents.map { doc ->
+    /**
+     * Upserts each document unless the row already holds a newer one; every accepted write takes the
+     * next seq. A push that would take the user past [maxDocuments] rows (tombstones count: they
+     * stay) throws [TooManyDocumentsException] and writes nothing. A push of edits to rows the user
+     * already has always passes, so an account at the ceiling can still change and delete what it
+     * holds.
+     */
+    fun push(userId: Long, documents: List<SyncDocument>, maxDocuments: Long = Long.MAX_VALUE): List<PushResult> = db.transactionWithResult {
+        val before = q.countDocumentsForUser(userId).executeAsOne()
+        val results = documents.map { doc ->
             val current = q.selectDocument(userId, doc.kind, doc.id).executeAsOneOrNull()
             if (current != null && current.updated_at > doc.updatedAt) {
                 PushResult(doc.kind, doc.id, current.seq, accepted = false)
@@ -142,6 +161,11 @@ class Store(private val db: ServerDatabase) {
                 PushResult(doc.kind, doc.id, seq, accepted = true)
             }
         }
+        // Counted after the writes, so a batch that repeats an id or edits existing rows is judged
+        // by what it adds; throwing rolls the whole push back, seqs included.
+        val after = q.countDocumentsForUser(userId).executeAsOne()
+        if (after > before && after > maxDocuments) throw TooManyDocumentsException(maxDocuments)
+        results
     }
 
     /** The documents after [since] in feed order, at most [limit], and whether more follow. */
@@ -153,12 +177,28 @@ class Store(private val db: ServerDatabase) {
 
     // --- blobs ------------------------------------------------------------------------------
 
-    /** Stores the bytes and writes their feed document in one go. Returns the seq, or null when the feed holds a newer version. */
-    fun putBlob(userId: Long, kind: String, id: String, updatedAt: String, bytes: ByteArray, payload: String): Long? = db.transactionWithResult {
+    /**
+     * Stores the bytes and writes their feed document in one go. Returns the seq, or null when the
+     * feed holds a newer version. Throws, storing nothing, when the user's blobs would come to more
+     * than [maxBytes] ([StorageFullException]; a replaced blob's old bytes don't count), or when a
+     * new photo's feed row would take them past [maxDocuments] ([TooManyDocumentsException]).
+     */
+    fun putBlob(
+        userId: Long,
+        kind: String,
+        id: String,
+        updatedAt: String,
+        bytes: ByteArray,
+        payload: String,
+        maxBytes: Long = Long.MAX_VALUE,
+        maxDocuments: Long = Long.MAX_VALUE,
+    ): Long? = db.transactionWithResult {
         val current = q.selectDocument(userId, kind, id).executeAsOneOrNull()
         if (current != null && current.updated_at > updatedAt) {
             null
         } else {
+            if (q.sumOtherBlobBytesForUser(userId, kind, id).executeAsOne() + bytes.size > maxBytes) throw StorageFullException(maxBytes)
+            if (current == null && q.countDocumentsForUser(userId).executeAsOne() >= maxDocuments) throw TooManyDocumentsException(maxDocuments)
             val seq = nextSeq()
             q.upsertBlob(userId, kind, id, bytes)
             q.upsertDocument(userId, kind, id, seq, updatedAt, 0L, payload)

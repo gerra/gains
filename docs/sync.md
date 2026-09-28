@@ -320,9 +320,9 @@ responses over a kilobyte.
 | `POST /auth/refresh` | bearer → `{token, user}`. Every bearer route answers 401 when the token is invalid, expired or its account is gone |
 | `GET /auth/me` | bearer → `user` |
 | `DELETE /auth/account` | bearer → 204, everything gone |
-| `POST /sync/push` | `{documents: [{kind, id, updatedAt, deleted, payload}]}` → `{results: [{kind, id, seq, accepted}]}` |
+| `POST /sync/push` | `{documents: [{kind, id, updatedAt, deleted, payload}]}` → `{results: [{kind, id, seq, accepted}]}`; 413 past the account's document ceiling, nothing written |
 | `GET /sync/pull?since=N&limit=500` | → `{documents: [...with seq], cursor, more}` |
-| `PUT /sync/blobs/{kind}/{id}` | bytes + `X-Updated-At` → `{seq}` |
+| `PUT /sync/blobs/{kind}/{id}` | bytes + `X-Updated-At` → `{seq}`; 409 a newer one is stored, 413 over 8 MB or past the document ceiling, 507 past the account's photo bytes |
 | `GET /sync/blobs/{kind}/{id}` | → bytes |
 | `POST /guest-list` | `{email}` → 204 (new or already listed), 400 not an address, 503 list full. No bearer: the form on gains.gerra.sh posts it, not the app |
 
@@ -332,6 +332,9 @@ Every accepted write takes the next value of a single counter, so `seq` is monot
 user. An overwrite moves the row to the front of the feed: a device that was away for a month sees
 each changed document once, in its latest state, and the cost of a pull is bounded by documents,
 not by edits.
+
+Any route can also answer **429** from nginx in front of the server, per client address (see
+[The server](#the-server)).
 
 ## What the client does
 
@@ -364,7 +367,9 @@ with "· 3 changes waiting" while the change log holds something, or that the la
 The engine's status is in memory, so the time of the last successful run is also kept in
 `sync_state` (`last_synced_at`) and still shows after a restart; it is cleared when the feed
 changes hands. A 401 from the server shows "Signed out on the server" with the provider buttons,
-which sign in again where the person stands and then ask for a sync.
+which sign in again where the person stands and then ask for a sync. Every other refusal, a 429
+from the rate limits or a 413 or 507 from the ceilings among them, is only "Couldn't sync": the
+change log keeps what didn't go up, and the next occasion tries again.
 
 The cursor, the user id and when the token was issued live in `sync_state`, inside the app's
 database; none of them is a secret. The bearer token goes through a
@@ -418,6 +423,24 @@ Sign-in tokens are RS256 identity tokens checked with `jwks-rsa` against the pro
 (cached, rate limited); our own are HS256 with `JWT_SECRET`. The verifier is an interface so the
 tests hand the server a key pair of their own and sign real tokens with it.
 
+**Limits.** Two layers ([launch plan](launch-plan.md), item 23). nginx, where the client's address is the
+real one, limits each address:
+
+| Where | Limit | Past it |
+|-------|-------|---------|
+| `/auth/` (sign-in, exchange, refresh, deletion) | 10 a minute, a burst of 10 | 429 |
+| `/sync/` | 10 a second; a burst of 100 goes straight through, the next 100 are slowed to the rate | 429 only past 200 waiting, so one device syncing in sequence is never refused |
+| `/sync/blobs/` | as `/sync/`, and 8 at a time | 429 |
+| `/guest-list` (both hosts), and the site's two password routes | 6 a minute, a burst of 5 | 429 |
+
+Behind them the server bounds what one account can cost, whatever its token: **200,000 feed rows**
+(`Services.maxDocumentsPerUser`; tombstones and photos count, and a push that would pass it is
+refused whole with 413, though edits to what is already there always go through) and **2 GB of
+photo bytes** (`Services.maxBlobBytesPerUser`, about 7,000 photos; 507). Nobody logging workouts
+gets near either: a workout a day with a photo and a weigh-in is about a thousand rows and a
+hundred megabytes a year. The password routes also have their own per-address and per-IP limits
+([`RateLimit`](../server/src/main/kotlin/app/gains/server/RateLimit.kt)).
+
 Configuration is read from the environment, with `secrets/.env` under the working directory
 loaded first when it exists (the systemd unit deliberately has no `EnvironmentFile`, for the
 reason noted in www's unit): `JWT_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS`,
@@ -439,8 +462,10 @@ The same playbook as taxes and www, on the same Hetzner box:
   `tools/deploy_server.py install`, which copies the unit and itself to the box and runs there:
   JDK 17 if the box lacks one, the unit installed, restart, smoke test of `/health`. No shell
   anywhere in it, the same way the release workflows run `tools/release.py`.
-- nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`; the site's vhost
-  proxies `/guest-list` and the two password routes its pages post to, rate limited per IP.
+- nginx: `deploy/nginx/api.gains.gerra.sh.conf` proxies to `127.0.0.1:5003`, with the rate limits
+  under "Limits" above (its zones are declared at the top of the file; the guest list's zone is
+  the site's, since nginx zones are global); the site's vhost proxies `/guest-list` and the two
+  password routes its pages post to, rate limited per IP.
   `python3 tools/deploy_server.py nginx` pushes every file in `deploy/nginx/` (this one and the
   site's `gains.gerra.sh.conf`), then runs `nginx -t` and reloads. The
   [Deploy site and nginx workflow](../.github/workflows/deploy-site.yml) runs it on a push to

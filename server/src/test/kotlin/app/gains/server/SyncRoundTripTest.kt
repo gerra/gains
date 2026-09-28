@@ -21,6 +21,7 @@ import app.gains.domain.SetType
 import app.gains.domain.WeightUnit
 import app.gains.sync.SyncApi
 import app.gains.sync.SyncEngine
+import app.gains.sync.SyncKinds
 import app.gains.sync.SyncStatus
 import app.gains.sync.SyncStore
 import io.ktor.client.HttpClient
@@ -216,6 +217,38 @@ class SyncRoundTripTest {
         laptop.store.startFeed(relogin.user.id)
         laptop.engine.sync()
         assertEquals(listOf("2026-09-03T10:00"), laptop.sessions.observeRawSessions().first().map { it.id })
+    }
+
+    @Test
+    fun anAccountAtItsCeilingCantSyncButStaysSignedIn() = testApplication {
+        val services = testServices(google, apple).let { Services(it.store, it.tokens, it.verifier, maxDocumentsPerUser = 2, maxBlobBytesPerUser = 2) }
+        application { gainsServer(services) }
+
+        // A 413 on the push: a failed run, not a sign-out, and nothing leaves the change log.
+        val phone = Device(client, google, "me")
+        phone.exercises.seedCatalogue()
+        phone.signIn()
+        phone.sessions.upsert(session("2026-09-20T10:00", 100.0))
+        phone.bodyweight.upsert(BodyweightEntry(LocalDate(2026, 9, 20), 82.4))
+        phone.settings.setUnit(WeightUnit.LBS)
+        val pending = phone.store.pendingChanges()
+        assertTrue(runCatching { phone.engine.sync() }.isFailure)
+        val failed = phone.engine.status.value as SyncStatus.Failed
+        assertEquals(false, failed.signedOut, failed.message)
+        assertTrue(failed.message.startsWith("413"), failed.message)
+        assertEquals(pending, phone.store.pendingChanges())
+
+        // A 507 on a photo: the same, and the photo waits for the next run.
+        val other = Device(client, google, "someone-else")
+        other.exercises.seedCatalogue()
+        other.signIn()
+        other.sessions.upsert(session("2026-09-20T10:00", 100.0))
+        other.sessions.setPhoto("2026-09-20T10:00", byteArrayOf(1, 2, 3, 4))
+        assertTrue(runCatching { other.engine.sync() }.isFailure)
+        val full = other.engine.status.value as SyncStatus.Failed
+        assertEquals(false, full.signedOut, full.message)
+        assertTrue(full.message.startsWith("507"), full.message)
+        assertEquals(listOf(SyncKinds.SESSION_PHOTO), other.store.pendingChanges().map { it.kind })
     }
 
     @Test

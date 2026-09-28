@@ -71,6 +71,14 @@ class Services(
     val maxBlobBytes: Int = 8 * 1024 * 1024,
     /** The most addresses the guest list holds; past it, joining answers 503. */
     val maxGuestList: Long = 10_000,
+    /**
+     * The most feed rows one account may hold, tombstones and photos included; a push past it
+     * answers 413. Nobody logging workouts gets near it (a workout a day with a photo and a weigh-in
+     * is about a thousand rows a year); it bounds what a stolen token or a runaway client can make one account cost.
+     */
+    val maxDocumentsPerUser: Long = 200_000,
+    /** The most photo bytes one account may store; an upload past it answers 507. About 7,000 photos. */
+    val maxBlobBytesPerUser: Long = 2L * 1024 * 1024 * 1024,
 )
 
 /** What the guest list accepts as an email address: something@domain.tld, at most 254 characters, no spaces. */
@@ -87,6 +95,8 @@ fun Application.gainsServer(services: Services) {
     install(CallLogging)
     install(StatusPages) {
         exception<HttpError> { call, e -> call.respond(e.status, ErrorResponse(e.message ?: e.status.description)) }
+        exception<TooManyDocumentsException> { call, e -> call.respond(HttpStatusCode.PayloadTooLarge, ErrorResponse(e.message!!)) }
+        exception<StorageFullException> { call, e -> call.respond(HttpStatusCode.InsufficientStorage, ErrorResponse(e.message!!)) }
         exception<InvalidTokenException> { call, e -> call.respond(HttpStatusCode.Unauthorized, ErrorResponse(e.message ?: "invalid token")) }
         exception<SerializationException> { call, e -> call.respond(HttpStatusCode.BadRequest, ErrorResponse("malformed body: ${e.message}")) }
         exception<BadRequestException> { call, e -> call.respond(HttpStatusCode.BadRequest, ErrorResponse("malformed body: ${e.cause?.message ?: e.message}")) }
@@ -313,7 +323,7 @@ fun Application.gainsServer(services: Services) {
                 // The bytes of a photo come through the blob route; the feed never carries them.
                 if (doc.kind == SyncKinds.SESSION_PHOTO && !doc.deleted) throw HttpError(HttpStatusCode.BadRequest, "a photo is uploaded with PUT /sync/blobs")
             }
-            call.respond(PushResponse(store.push(userId, body.documents)))
+            call.respond(PushResponse(store.push(userId, body.documents, services.maxDocumentsPerUser)))
         }
 
         get("/sync/pull") {
@@ -334,7 +344,7 @@ fun Application.gainsServer(services: Services) {
             if (bytes.isEmpty()) throw HttpError(HttpStatusCode.BadRequest, "empty blob")
             if (bytes.size > services.maxBlobBytes) throw HttpError(HttpStatusCode.PayloadTooLarge, "blob over ${services.maxBlobBytes} bytes")
             val payload = SyncJson.encodeToString(PhotoDoc.serializer(), PhotoDoc(sha256(bytes), bytes.size))
-            val seq = store.putBlob(userId, kind, id, updatedAt, bytes, payload)
+            val seq = store.putBlob(userId, kind, id, updatedAt, bytes, payload, services.maxBlobBytesPerUser, services.maxDocumentsPerUser)
                 ?: throw HttpError(HttpStatusCode.Conflict, "a newer version is stored")
             call.respond(BlobResponse(seq))
         }
