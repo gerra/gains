@@ -62,8 +62,17 @@ android {
         }
     }
     buildTypes {
+        // R8 (docs/launch-plan.md, item 30): a smaller bundle that starts quicker. It is hygiene,
+        // not a security boundary: the token is in the Keystore, not in the code. The libraries
+        // that reflect ship their own consumer rules (kotlinx-serialization, Ktor, OkHttp, Koin,
+        // Credential Manager, googleid), and the app's own serializers are all called by name, so
+        // proguard-rules.pro starts empty and gains a rule only when a release-only crash asks for
+        // one. Names stay obfuscated; tools/play.py sends mapping.txt to Play with the bundle so
+        // Play Console's stack traces read.
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             if (uploadKeystore) signingConfig signingConfigs.upload
         }
     }
