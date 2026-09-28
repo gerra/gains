@@ -76,7 +76,7 @@ The same rules as `auth-plan.md`:
 | 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [x] |
 | 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [x] |
 | 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [x] |
-| 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [ ] |
+| 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [x] |
 | 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [ ] |
 | 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [ ] |
 | 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [ ] |
@@ -1340,7 +1340,8 @@ The existing `SignInModelTest`, `EmailSignInTest` and `AccountDeletionTest` keep
 
 ### 35. Explicit dependencies instead of `inject()` defaults
 
-- [ ] Done
+- [x] Done
+  Done in #125
 
 **Milestone:** Maintenance (P2). **Depends on:** 34 (same files; its helper settles first). Not
 a launch blocker, and no change of DI framework: Koin stays.
