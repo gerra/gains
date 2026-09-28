@@ -76,19 +76,29 @@ Open the project in Android Studio and run the `composeApp` configuration, or bu
 The app registers as a handler for CSV files, so exports shared from other apps open directly in
 the import preview. Several files can be shared at once.
 
-Sign-in on Android goes through Credential Manager (docs/sync.md, "Signing in"). The build
-compiles two Gradle properties into `BuildConfig` (`composeApp/android.gradle`):
-`gains.serverUrl` (the sync server) and `gains.googleWebClientId`, the Google **Web application**
-OAuth client, which is Credential Manager's `serverClientId` and the audience of the tokens the
-phone sends, so the server lists it in `GOOGLE_CLIENT_IDS` too. **Sign in with Google** shows only
-once it is set, in `gradle.properties` or with `-P`. The Google Cloud project also needs an
-**Android** client with the package name `app.gains` and the SHA-1 of every signing key the app is
-built with (debug, upload, Play App Signing), or the chooser refuses the app. **Sign in with
-Apple** on Android is still to come (docs/launch-plan.md, item 11).
+Sign-in on Android goes through Credential Manager for Google and the server's web flow for Apple
+(docs/sync.md, "Signing in"). The build compiles three Gradle properties into `BuildConfig`
+(`composeApp/android.gradle`): `gains.serverUrl` (the sync server), `gains.googleWebClientId`,
+the Google **Web application** OAuth client, which is Credential Manager's `serverClientId` and
+the audience of the tokens the phone sends, so the server lists it in `GOOGLE_CLIENT_IDS` too, and
+`gains.appleServicesId`, the same Services ID as the desktop's, which the server has as
+`APPLE_SERVICES_ID`. Each button shows only once its property is set, in `gradle.properties` or
+with `-P`. The Google Cloud project also needs an **Android** client with the package name
+`app.gains` and the SHA-1 of every signing key the app is built with (debug, upload, Play App
+Signing), or the chooser refuses the app.
 
 ```bash
-./gradlew :composeApp:assembleDebug -Pgains.googleWebClientId=…apps.googleusercontent.com
+./gradlew :composeApp:assembleDebug -Pgains.googleWebClientId=…apps.googleusercontent.com -Pgains.appleServicesId=app.gains.Gains.web
 ```
+
+**Sign in with Apple** ends on the App Link `https://gains.gerra.sh/auth/done`. Android opens it
+in the app only after checking `https://gains.gerra.sh/.well-known/assetlinks.json` for the SHA-256
+of the key the installed app is signed with, so `site/.well-known/assetlinks.json` lists the Play
+App Signing key and the upload key; add the debug key's for a debug build
+(`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`),
+then `python3 tools/deploy_server.py site`. Until the fingerprint is there the browser shows the
+site's `/auth/done` page, whose "Open Gains" button finishes the sign-in the same way. To check a
+verified install: `adb shell pm get-app-links app.gains` says `verified` next to `gains.gerra.sh`.
 
 ### iOS
 
@@ -206,9 +216,9 @@ in `iosApp/iosApp/Info.plist`.
 - The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request,
   but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
   hosted macOS runner for this).
-- Sign-in is wired up on iOS (Apple and Google), the desktop (Apple and Google) and Android
-  (Google only, once `gains.googleWebClientId` is set). [docs/launch-plan.md](launch-plan.md) has
-  the rest.
+- Sign-in is wired up on iOS, the desktop and Android, Apple and Google on each (Android once
+  `gains.googleWebClientId` and `gains.appleServicesId` are set). [docs/launch-plan.md](launch-plan.md)
+  has the rest.
 
 ## Roadmap
 

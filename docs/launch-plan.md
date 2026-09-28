@@ -47,7 +47,7 @@ The same rules as `auth-plan.md`:
 | 8 | Android package name and Play Console app | Android launch | Owner + Agent | — | [ ] |
 | 9 | Android: Sign in with Google | Android launch | Agent + Owner | 8 | [x] |
 | 10 | Server: Apple web sign-in (Services ID) | Android launch | Agent + Owner | — | [x] |
-| 11 | Android: Sign in with Apple | Android launch | Agent | 8, 10 | [ ] |
+| 11 | Android: Sign in with Apple | Android launch | Agent + Owner | 8, 10 | [x] |
 | 12 | Android: keep the token in the Keystore | Android launch | Agent | — | [x] |
 | 13 | Android: release workflow and Play closed testing | Android launch | Agent + Owner | 8, 9 | [ ] |
 | 14 | Publish on Google Play | Android launch | Owner | 9–13, test plan | [ ] |
@@ -68,6 +68,14 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
 - [ ] Google Auth Platform in production (item 5). Until then it stays in **Testing**, and
       only accounts under Audience → Test users can sign in with Google.
 - [ ] Contact email alias (item 4), then the [contact email table](#contact-email-where-it-is-used).
+- [ ] Android Sign in with Apple (item 11): `gains.appleServicesId` for the Android build, in
+      `gradle.properties` or the release workflow, the same Services ID as `APPLE_SERVICES_ID`.
+- [ ] Android Sign in with Apple (item 11): the SHA-256 fingerprints of the Play App Signing key
+      and the upload key (Play Console → App integrity; the debug key's too, from
+      `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`)
+      into `site/.well-known/assetlinks.json`, then `python3 tools/deploy_server.py nginx` (the
+      vhost gained a location for that file) and `python3 tools/deploy_server.py site`.
+      `adb shell pm get-app-links app.gains` then says `verified`.
 
 ---
 
@@ -341,20 +349,32 @@ expires, and an unlisted redirect is refused.
 
 ### 11. Android: Sign in with Apple
 
-- [ ] Done
+- [x] Done
+  Done in #95
+  Steps 1–3 are in. The owner's step 4 switches it on (`gains.appleServicesId`) and step 5 makes
+  the App Link verified; until step 5 the site's `/auth/done` page finishes the sign-in with its
+  "Open Gains" button. Android is not compiled in CI: build it in Android Studio and run the test
+  plan's Android section.
 
 **Milestone:** Android launch. **Depends on:** 8, 10.
 
-1. `AccountKind.APPLE` in `AndroidIdentityProvider`: open
-   `/auth/apple/start` in a Custom Tab with an App Link (`https://gains.gerra.sh/auth/done`) or a
-   custom scheme as the callback. Receive it in `MainActivity`, check the state, and call
-   `/auth/exchange`.
+1. `AccountKind.APPLE` in `AndroidIdentityProvider`: open `/auth/apple/start` in a Custom Tab
+   with the App Link `https://gains.gerra.sh/auth/done` (`AppleWebFlow.ANDROID_CALLBACK`, the
+   one URL the server allows) as the callback. `SignInCallbackActivity` receives it, hands the
+   URL to the waiting provider (`WebSignIn`) and returns to `MainActivity`; the provider checks
+   the state and returns the code.
 2. This flow ends with our token, not an identity token. Item 16 gave `AccountRepository` the
    entry point: the provider returns an `ExchangeCode` (a `SignInProof`, like `IdentityAssertion`)
    and the repository trades it at `/auth/exchange`, then stores the token on the same path.
    `AppleWebFlow.startUrl` and `parseCallback` do the URL work.
-3. Cancelling (back out of the Custom Tab) must behave like `SignInCancelledException`: no
-   error, and the buttons come back.
+3. Cancelling (back out of the Custom Tab) behaves like `SignInCancelledException`: no error, and
+   the buttons come back. `MainActivity` resuming with a sign-in still waiting is the cancel.
+4. **Owner:** set `gains.appleServicesId` for the Android build (the same Services ID as the
+   desktop's, `APPLE_SERVICES_ID` on the server) in `gradle.properties` or the release workflow.
+5. **Owner:** put the SHA-256 fingerprints of the Play App Signing key and the upload key (Play
+   Console → App integrity; the debug key's too for local builds) into
+   `site/.well-known/assetlinks.json` and run `python3 tools/deploy_server.py site`. Then
+   `adb shell pm get-app-links app.gains` says `verified`.
 
 ### 12. Android: keep the token in the Keystore
 
@@ -647,6 +667,17 @@ build fails a check, open an issue and link it next to the box.
 - [ ] Item 9: log a set on the iPhone, then bring the Android app back to the front: the set
       arrives without "Sync now".
 - [ ] Apple: the Custom Tab → Apple → back in the app, signed in. Backing out is silent.
+- [ ] Item 11: with `gains.appleServicesId` empty, the Apple button is hidden; with it set, it
+      shows. `https://gains.gerra.sh/.well-known/assetlinks.json` loads as JSON, and
+      `adb shell pm get-app-links app.gains` says `verified` for `gains.gerra.sh`.
+- [ ] Item 11: "Sign in with Apple" opens Apple's page in a Custom Tab; finishing it returns to
+      the app with no second copy of it (the back button leaves the app rather than showing the
+      tab again), signed in with your name and email. Settings then shows the account card.
+- [ ] Item 11: backing out of the Custom Tab, and "Cancel" on Apple's page, both show no error,
+      and the buttons come back.
+- [ ] Item 11: on a debug build (its key not in `assetlinks.json`), finishing lands on the site's
+      "Almost there" page, and "Open Gains" returns to the app signed in.
+- [ ] Item 11: the same Apple ID on the iPhone and on Android is one account (the workouts sync).
 - [ ] The whole "iOS sign-in" section above, on Android: linking, delete, sync status, 401.
 - [ ] Sync between an iPhone and an Android phone on one account, both ways, including a
       photo.

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Back to Gains</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/img/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="wrap top">
+    <a class="brand" href="/"><img src="/img/logo.png" alt="" width="36" height="36">Gains</a>
+    <nav>
+      <a href="/privacy">Privacy</a>
+      <a href="/support">Support</a>
+    </nav>
+  </header>
+
+  <!-- Where Sign in with Apple ends on Android (docs/sync.md, "Sign in with Apple without Apple's
+       sheet"). The server sends the browser to /auth/done?code=…&state=…, an App Link the Gains
+       app claims (composeApp/src/androidMain/AndroidManifest.xml), so a verified install never
+       shows this page: Android opens the app instead. It shows when the link is not verified
+       (a debug build, or before .well-known/assetlinks.json lists the signing key). The button
+       then hands the same URL to the app as an intent: link addressed to our package, which no
+       other app can receive. -->
+  <main class="wrap narrow doc">
+    <h1>Almost there</h1>
+    <p class="updated">Sign-in finished. Go back to Gains to continue.</p>
+    <div class="actions">
+      <a class="button primary" id="open-app" hidden>Open Gains</a>
+    </div>
+    <noscript>
+      <p class="note">If Gains didn't open by itself, go back to the app and try again.</p>
+    </noscript>
+    <p class="note" id="no-app" hidden>If Gains didn't open, go back to the app and try again.</p>
+  </main>
+
+  <script>
+    (function () {
+      var button = document.getElementById("open-app");
+      var note = document.getElementById("no-app");
+      // The query as the server sent it, whole: the app checks the state and takes the code.
+      var query = location.search || "";
+      if (query.indexOf("code=") === -1 && query.indexOf("error=") === -1) {
+        note.hidden = false;
+        return;
+      }
+      button.href = "intent://gains.gerra.sh/auth/done" + query + "#Intent;scheme=https;package=app.gains;end";
+      button.hidden = false;
+    })();
+  </script>
+</body>
+</html>

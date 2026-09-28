@@ -77,6 +77,8 @@ kotlin {
                 implementation(libs.androidx.credentials)
                 implementation(libs.androidx.credentials.play.services)
                 implementation(libs.googleid)
+                // Sign in with Apple through the server's web flow in a Custom Tab (AndroidIdentityProvider).
+                implementation(libs.androidx.browser)
             }
         }
         val desktopMain by getting {

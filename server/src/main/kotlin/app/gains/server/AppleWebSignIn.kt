@@ -1,5 +1,6 @@
 package app.gains.server
 
+import app.gains.auth.AppleWebFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -99,9 +100,9 @@ class AppleWebSignIn(
 
         /**
          * The app callbacks a sign-in may end at, besides the desktop's loopback: Android's App Link
-         * (launch plan item 11), which only the app signed with our key can open.
+         * ([AppleWebFlow.ANDROID_CALLBACK]), which only the app signed with our key can open.
          */
-        val APP_CALLBACKS = listOf("https://gains.gerra.sh/auth/done")
+        val APP_CALLBACKS = listOf(AppleWebFlow.ANDROID_CALLBACK)
 
         /**
          * Whether [url] may receive a one-time code: one of [APP_CALLBACKS] exactly, or

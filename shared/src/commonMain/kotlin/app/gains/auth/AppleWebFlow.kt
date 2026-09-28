@@ -8,12 +8,22 @@ class AppleSignInException(message: String) : Exception(message)
 
 /**
  * The app's side of Sign in with Apple without Apple's sheet (docs/sync.md, "Sign in with Apple
- * without Apple's sheet"), for the desktop now and Android next. The server runs the flow with
+ * without Apple's sheet"), on the desktop and Android. The server runs the flow with
  * Apple: the app only opens [startUrl] in a browser, waits for the browser to come back to its
  * callback, and reads the one-time code from it with [parseCallback]. The code goes to
  * `POST /auth/exchange` as an [ExchangeCode]; Apple's tokens never reach the app.
  */
 object AppleWebFlow {
+    /**
+     * Where the browser is sent back to on Android: an App Link, so that the browser hands the
+     * callback to the app signed with our key and to nothing else, unlike a custom scheme any app
+     * could claim. The server accepts exactly this URL (`AppleWebSignIn.APP_CALLBACKS`), the
+     * manifest's `SignInCallbackActivity` claims it, and the page at this address on the site
+     * catches the browser when the link is not verified (a debug build) and offers the app the
+     * same callback as an `intent:` link addressed to our package.
+     */
+    const val ANDROID_CALLBACK = "https://gains.gerra.sh/auth/done"
+
     /**
      * Where the browser is sent back to on the desktop: the listener the app opened on [port]. The
      * server accepts any port on `127.0.0.1` for this, and nothing else on plain HTTP.

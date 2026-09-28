@@ -164,6 +164,22 @@ is a cancel, so the sign-in screen stays quiet, and a closed tab times out as on
 minutes. The button shows once the Gradle property `gains.appleServicesId` is set (see
 docs/development.md, "Desktop").
 
+On Android, `AndroidIdentityProvider` opens the start URL in a Custom Tab (the browser's own tab
+over the app, with its cookies, so an Apple ID already signed in there is offered) with the App
+Link `https://gains.gerra.sh/auth/done` (`AppleWebFlow.ANDROID_CALLBACK`) as the callback. An
+App Link rather than a custom scheme because any app can claim a scheme, while Android hands a
+verified link only to the app whose signing key `site/.well-known/assetlinks.json` lists. The
+server redirects the tab there; Android opens
+[`SignInCallbackActivity`](../composeApp/src/androidMain/kotlin/app/gains/WebSignIn.kt), which
+hands the URL to the waiting provider through `WebSignIn` and brings `MainActivity` back to the
+front, clearing the tab. The provider checks the state and returns the `ExchangeCode` as the
+desktop does. Backing out of the tab leaves no callback, so `MainActivity` resuming with a sign-in
+still waiting is the cancel. When the link is not verified (a debug build, or before the
+fingerprints are on the site), the browser shows `site/auth/done.html` instead, whose button
+hands the same URL to the app as an `intent:` link addressed to the package `app.gains`, which no
+other app can receive. The button shows once `gains.appleServicesId` is set (see
+docs/development.md, "Android").
+
 The Apple subject is the same for the bundle id and the Services ID, so an Apple ID signed in on
 an iPhone and on Android is one user. Pending sign-ins and codes live in memory, capped at ten
 thousand: a restart only loses a sign-in in flight.
@@ -398,14 +414,15 @@ three taxes uses.
 - **End-to-end encryption.** Because the payload is opaque to the server, sealing it on the
   device is a client-side change with the same routes, the way fintrack's E2E note describes it.
 - **Multi-user features.** One user sees one user's documents. Nothing is shared.
-- **Sign in with Apple on Android.** Sign in with Apple and with Google work on iOS
+- **Other sign-in providers.** Sign in with Apple and with Google work on iOS
   (`IosIdentityProvider`, the `com.apple.developer.applesignin` entitlement, and the server URL
   and Google client from `GAINS_SERVER_URL` and `GOOGLE_IOS_CLIENT_ID` in `Config.xcconfig`);
   Apple's audience is the bundle id, Google's the iOS client id. The desktop has both
   (`DesktopIdentityProvider`, with the server URL, the Desktop app client and the Services ID
   from the Gradle properties `gains.serverUrl`, `gains.googleDesktopClientId`,
   `gains.googleDesktopClientSecret` and `gains.appleServicesId`), Apple through the server's web
-  flow (above). Android has Google (`AndroidIdentityProvider`, with the server URL and the Web
-  application client from `gains.serverUrl` and `gains.googleWebClientId`, through `BuildConfig`);
-  Apple through the same web flow is item 11 of the [launch plan](launch-plan.md). Until a
-  provider is wired up its button stays hidden, or disabled when neither is.
+  flow (above). Android has both too (`AndroidIdentityProvider`, with the server URL, the Web
+  application client and the Services ID from `gains.serverUrl`, `gains.googleWebClientId` and
+  `gains.appleServicesId`, through `BuildConfig`), Apple through the same web flow in a Custom
+  Tab. Email and password, and passkeys, are items 18 and 19 of the [launch plan](launch-plan.md).
+  Until a provider is wired up its button stays hidden, or disabled when neither is.

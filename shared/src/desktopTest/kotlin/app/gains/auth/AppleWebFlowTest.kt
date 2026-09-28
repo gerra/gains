@@ -31,6 +31,18 @@ class AppleWebFlowTest {
     }
 
     @Test
+    fun theAndroidCallbackIsAnAppLinkAndParsesLikeTheDesktopsLoopback() {
+        // https, so the browser can verify it against the site's assetlinks.json and hand it to the
+        // app alone; a custom scheme would be any app's to claim.
+        assertTrue(AppleWebFlow.ANDROID_CALLBACK.startsWith("https://gains.gerra.sh/"), AppleWebFlow.ANDROID_CALLBACK)
+        val url = AppleWebFlow.startUrl("https://api.gains.gerra.sh", AppleWebFlow.ANDROID_CALLBACK, state = "s1")
+        assertEquals(AppleWebFlow.ANDROID_CALLBACK, parseQueryString(url.substringAfter('?'))["redirect"])
+        assertEquals("one-time", AppleWebFlow.parseCallback("${AppleWebFlow.ANDROID_CALLBACK}?code=one-time&state=s1", "s1"))
+        assertFailsWith<SignInCancelledException> { AppleWebFlow.parseCallback("${AppleWebFlow.ANDROID_CALLBACK}?error=cancelled&state=s1", "s1") }
+        assertFailsWith<AppleSignInException> { AppleWebFlow.parseCallback("${AppleWebFlow.ANDROID_CALLBACK}?code=one-time&state=other", "s1") }
+    }
+
+    @Test
     fun aClosedApplePageIsACancelAndAnythingElseAFailure() {
         assertFailsWith<SignInCancelledException> { AppleWebFlow.parseCallback("http://127.0.0.1:1/?error=cancelled&state=s1", "s1") }
         assertFailsWith<AppleSignInException> { AppleWebFlow.parseCallback("http://127.0.0.1:1/?error=failed&state=s1", "s1") }
