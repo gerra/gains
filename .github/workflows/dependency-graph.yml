@@ -1,0 +1,32 @@
+name: Dependency graph
+
+# GitHub can't read a Gradle build by itself, so without this its dependency graph and the
+# Dependabot alerts see nothing of what the app and the server ship. On every push to main, the
+# Gradle action resolves every configuration of every project and submits the result as main's
+# snapshot (Insights → Dependency graph; the alerts under Security). The Android configurations
+# are in it: the SDK is on the runner, as for CI's android job. Pull requests submit their own
+# snapshot in ci.yml's dependency review, which compares it with this one
+# (docs/launch-plan.md, item 28).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: dependency-graph
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  submit:
+    name: Submit the Gradle dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/dependency-submission@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
