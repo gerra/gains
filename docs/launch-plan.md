@@ -909,7 +909,11 @@ Tests: the job. A pull request that breaks a Swift file or `Info.plist` must go 
      1.12.1, the current one: the first CI run showed its Jetpack Compose 1.12 artifacts refuse
      anything below compileSdk 37 and AGP 9.1, so 1.12 waits for the AGP 9 move under step 3.
      Material 3 has had its own version line since 1.9, so it is `compose-material3 = "1.9.0"`,
-     the one the 1.11.1 plugin pairs with;
+     the one the 1.11.1 plugin pairs with; Compose no longer publishes `iosX64`, so the Intel
+     simulator target is gone from both modules (the CI simulator build was arm64 only already);
+     and `runDesktopComposeUiTest` now wraps the test in `runTest`, whose one-minute default cut
+     the screenshot walk short, so `:composeApp`'s tests set
+     `kotlinx.coroutines.test.default_timeout` to the task's own timeout;
      `material-icons-core` still resolves at 1.7.3, its last release; the resources and desktop
      UI-test artifacts moved from the plugin's deprecated `compose.*` accessors into the
      catalog. `kotlin.native.enableKlibsCrossCompilation` is still needed: without it

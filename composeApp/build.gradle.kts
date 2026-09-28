@@ -30,7 +30,6 @@ kotlin {
     }
 
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
@@ -110,7 +109,12 @@ compose.resources {
 // `-Pgains.screenshotDir=<dir>` (relative to the repository root) points it elsewhere.
 tasks.withType<Test>().configureEach {
     // Recording the motion clips (-Pgains.animationDir) saves several hundred frames on top of the screenshots.
-    timeout.set(Duration.ofMinutes(if (project.hasProperty("gains.animationDir")) 25 else 10))
+    val minutes = if (project.hasProperty("gains.animationDir")) 25L else 10L
+    timeout.set(Duration.ofMinutes(minutes))
+    // runDesktopComposeUiTest wraps the test in kotlinx-coroutines-test's runTest, whose default
+    // limit is a minute, and ScreenshotTest walks the whole app for several. The task timeout above
+    // stays the one limit, as it was on Compose Multiplatform 1.7.
+    systemProperty("kotlinx.coroutines.test.default_timeout", "${minutes}m")
     // The UI tests look for English text and the screenshots are the README's, whatever the runner's locale.
     jvmArgs("-Duser.language=en", "-Duser.country=US")
     testLogging {
