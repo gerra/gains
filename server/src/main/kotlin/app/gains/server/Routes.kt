@@ -18,6 +18,7 @@ import app.gains.sync.SignInResponse
 import app.gains.sync.SyncApi
 import app.gains.sync.SyncJson
 import app.gains.sync.SyncKinds
+import app.gains.sync.UserInfo
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -99,11 +100,18 @@ fun Application.gainsServer(services: Services) {
     val store = services.store
     val tokens = services.tokens
 
-    /** The user a bearer token stands for, or a 401. */
-    fun ApplicationCall.userId(): Long {
+    /**
+     * The user a bearer token stands for, or a 401. The only way a protected route learns who is
+     * calling: the token is stateless and lives 30 days, so its signature alone would let a copy
+     * of it keep writing under an account that was deleted. Loading the row on every request
+     * (one primary-key lookup) makes a deleted account's tokens worthless at once, on every
+     * device. Deliberately not cached: a cache would reopen that window.
+     */
+    fun ApplicationCall.caller(): UserInfo {
         val header = request.headers["Authorization"] ?: throw HttpError(HttpStatusCode.Unauthorized, "no token")
         val token = header.removePrefix("Bearer ").trim()
-        return tokens.userId(token) ?: throw HttpError(HttpStatusCode.Unauthorized, "token expired or invalid")
+        val userId = tokens.userId(token) ?: throw HttpError(HttpStatusCode.Unauthorized, "token expired or invalid")
+        return store.user(userId) ?: throw HttpError(HttpStatusCode.Unauthorized, "no such user")
     }
 
     /**
@@ -270,18 +278,16 @@ fun Application.gainsServer(services: Services) {
         }
 
         post("/auth/refresh") {
-            val userId = call.userId()
-            val user = store.user(userId) ?: throw HttpError(HttpStatusCode.Unauthorized, "no such user")
-            call.respond(SignInResponse(tokens.issue(userId), user))
+            val user = call.caller()
+            call.respond(SignInResponse(tokens.issue(user.id), user))
         }
 
         get("/auth/me") {
-            val user = store.user(call.userId()) ?: throw HttpError(HttpStatusCode.Unauthorized, "no such user")
-            call.respond(user)
+            call.respond(call.caller())
         }
 
         delete("/auth/account") {
-            val userId = call.userId()
+            val userId = call.caller().id
             revokeAppleTokens(userId)
             store.deleteUser(userId)
             log.info("account deleted: user {}", userId)
@@ -299,7 +305,7 @@ fun Application.gainsServer(services: Services) {
         }
 
         post("/sync/push") {
-            val userId = call.userId()
+            val userId = call.caller().id
             val body = call.receive<PushRequest>()
             for (doc in body.documents) {
                 if (doc.kind !in SyncKinds.all) throw HttpError(HttpStatusCode.BadRequest, "unknown kind ${doc.kind}")
@@ -311,7 +317,7 @@ fun Application.gainsServer(services: Services) {
         }
 
         get("/sync/pull") {
-            val userId = call.userId()
+            val userId = call.caller().id
             val since = call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
             val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: SyncApi.PAGE).coerceIn(1, SyncApi.PAGE)
             val (documents, more) = store.pull(userId, since, limit)
@@ -319,7 +325,7 @@ fun Application.gainsServer(services: Services) {
         }
 
         put("/sync/blobs/{kind}/{id}") {
-            val userId = call.userId()
+            val userId = call.caller().id
             val kind = call.parameters["kind"]!!
             val id = call.parameters["id"]!!
             if (kind != SyncKinds.SESSION_PHOTO) throw HttpError(HttpStatusCode.BadRequest, "no blobs of kind $kind")
@@ -334,7 +340,7 @@ fun Application.gainsServer(services: Services) {
         }
 
         get("/sync/blobs/{kind}/{id}") {
-            val userId = call.userId()
+            val userId = call.caller().id
             val bytes = store.blob(userId, call.parameters["kind"]!!, call.parameters["id"]!!)
                 ?: throw HttpError(HttpStatusCode.NotFound, "no such blob")
             call.respondBytes(bytes, ContentType.Application.OctetStream)

@@ -56,7 +56,7 @@ The same rules as `auth-plan.md`:
 | 17 | Desktop: keep the token in the OS keychain | Desktop (P1) | Agent | — | [x] |
 | 18 | Email and password accounts | More sign-in | Agent + Owner | 2, 4 | [x] |
 | 19 | Passkeys | More sign-in | Agent + Owner | 3, 18 | [ ] |
-| 20 | Every authenticated route checks that the account still exists | iOS launch | Agent | — | [ ] |
+| 20 | Every authenticated route checks that the account still exists | iOS launch | Agent | — | [x] |
 | 21 | Android: target API 36 (Android 16) | Android launch | Agent + Owner | — | [ ] |
 | 22 | Server: run as an unprivileged user, with systemd hardening | Hardening (P1) | Agent + Owner | — | [ ] |
 | 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [ ] |
@@ -573,7 +573,8 @@ finds none. See docs/sync.md, "What the client does".
 
 ### 20. Every authenticated route checks that the account still exists
 
-- [ ] Done
+- [x] Done
+  Done in #101.
 
 **Milestone:** iOS launch. **Depends on:** nothing. **Launch blocker:** items 7 and 14 depend
 on it.
@@ -605,6 +606,7 @@ delete must not come back, and a token for a deleted account must be worth nothi
    is no "sign out everywhere" button). A `token_version` column on `user`, carried as a claim
    and compared on the same lookup, is the one-line path to per-account revocation when a screen
    wants it; it is listed under [After launch](#after-launch), not here.
+   *Decided:* keep the 30-day stateless token, with the lookup on every request.
 3. `docs/sync.md` "Signing in", step 4: a request is also refused once its account is gone, so a
    deleted account's tokens stop working at once, on every device. The client already treats a
    401 as "Signed out on the server" (`SyncApi`'s `unauthorized`), so nothing changes in the app.
