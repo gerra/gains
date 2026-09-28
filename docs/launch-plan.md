@@ -1025,7 +1025,7 @@ release round.
 ### 29. Supply chain: Dependabot, and Gradle dependency verification where practical
 
 - [x] Done
-  Done in #PR. Step 1 is `.github/dependabot.yml`: the actions weekly as one pull request, and
+  Done in #112. Step 1 is `.github/dependabot.yml`: the actions weekly as one pull request, and
   Gradle weekly in the five groups below. Kotlin and Compose Multiplatform get patches only,
   since a minor of either is the deliberate pass (Compose 1.12 needs AGP 9, item 38); Koin and
   AGP no majors; okhttp stays below 5.5.0 until item 38. Step 2 is not in: Dependabot doesn't
