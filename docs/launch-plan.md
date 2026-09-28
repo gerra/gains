@@ -903,7 +903,7 @@ Tests: the job. A pull request that breaks a Swift file or `Info.plist` must go 
 ### 27. A dependency modernization pass
 
 - [x] Done
-  Done in #PRNUM, one commit per group, each with `:shared:desktopTest`, `:server:test` and the
+  Done in #108, one commit per group, each with `:shared:desktopTest`, `:server:test` and the
   `:shared` iOS klib green locally, and the whole pass through the three CI jobs. What moved:
   1. Kotlin 2.4.20 and Compose Multiplatform 1.12.1. Material 3 has had its own version line
      since 1.9, so it is `compose-material3 = "1.9.0"`, the one the 1.12.1 plugin pairs with;
