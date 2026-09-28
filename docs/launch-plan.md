@@ -743,7 +743,7 @@ the style of the existing ones. The manual checks are step 4, repeated in the te
 ### 23. Server: rate limits on sign-in, sync and uploads
 
 - [x] Done
-  Done in #PR. Steps 1–4 are in. The numbers chosen: `/auth/` 10 a minute per address with a
+  Done in #104. Steps 1–4 are in. The numbers chosen: `/auth/` 10 a minute per address with a
   burst of 10; `/sync/` 10 a second with `burst=200 delay=100`, so past the first 100 a request
   is slowed rather than refused and one device syncing in sequence never sees a 429 (checked
   against a stub: 400 pulls in a row all pass, in 30 s); 8 blob requests at a time per address;
