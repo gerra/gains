@@ -59,7 +59,7 @@ The same rules as `auth-plan.md`:
 | 20 | Every authenticated route checks that the account still exists | iOS launch | Agent | — | [x] |
 | 21 | Android: target API 36 (Android 16) | Android launch | Agent + Owner | — | [x] |
 | 22 | Server: run as an unprivileged user, with systemd hardening | Hardening (P1) | Agent + Owner | — | [ ] |
-| 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [ ] |
+| 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [x] |
 | 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [ ] |
 | 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [ ] |
 | 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [ ] |
@@ -742,7 +742,15 @@ the style of the existing ones. The manual checks are step 4, repeated in the te
 
 ### 23. Server: rate limits on sign-in, sync and uploads
 
-- [ ] Done
+- [x] Done
+  Done in #104. Steps 1–4 are in. The numbers chosen: `/auth/` 10 a minute per address with a
+  burst of 10; `/sync/` 10 a second with `burst=200 delay=100`, so past the first 100 a request
+  is slowed rather than refused and one device syncing in sequence never sees a 429 (checked
+  against a stub: 400 pulls in a row all pass, in 30 s); 8 blob requests at a time per address;
+  the guest list's zone on `/guest-list` here too; per account, 200,000 feed rows (413) and 2 GB
+  of photo bytes (507). The client needed no change: only a 401 signs out, and a refused run
+  stays in the change log for the next one (`SyncRoundTripTest`). Merging deploys the vhost
+  through the Deploy site and nginx workflow; the test plan's item 23 check is left.
 
 **Milestone:** Hardening (P1). **Depends on:** nothing.
 
@@ -1192,7 +1200,7 @@ build fails a check, open an issue and link it next to the box.
       gains-server` has no permission error; `systemd-analyze security gains-server` scores
       better than before the item.
 - [ ] Item 23: twenty quick `POST /auth/google` with `{"token":"x"}` end in **429** after the
-      burst, and so do twenty to `api.gains.gerra.sh/guest-list`. A first sync of a long
+      eleventh, and twenty to `api.gains.gerra.sh/guest-list` after the sixth. A first sync of a long
       history with photos still completes, and a throttled device shows "Couldn't sync", not
       "Signed out on the server".
 - [ ] Item 24: `sqlite3 /var/lib/gains/gains-server.db 'SELECT refresh_token FROM identity'`

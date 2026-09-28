@@ -207,6 +207,11 @@ INSERT OR REPLACE INTO blob(user_id, kind, id, bytes) VALUES (?, ?, ?, ?);
 deleteBlob:
 DELETE FROM blob WHERE user_id = ? AND kind = ? AND id = ?;
 
+-- What the user's other blobs take, for the per-user ceiling: the one about to be replaced is left
+-- out. length() reads the size from the row header, not the bytes.
+sumOtherBlobBytesForUser:
+SELECT COALESCE(SUM(length(bytes)), 0) FROM blob WHERE user_id = ? AND (kind != ? OR id != ?);
+
 deleteBlobsForUser:
 DELETE FROM blob WHERE user_id = ?;
 
