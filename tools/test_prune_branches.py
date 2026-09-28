@@ -25,9 +25,11 @@ class Prunable(unittest.TestCase):
     def test_the_base_itself_stays(self):
         self.assertEqual(prunable({"main"}), [])
 
-    def test_release_branches_stay_even_when_merged(self):
-        """release.py counts the next version from these refs, so they outlive the merge."""
-        self.assertEqual(prunable({"main", "release/1.1", "claude/a"}), ["claude/a"])
+    def test_merged_release_branches_go_too(self):
+        """release.py falls back on the testflight tags once a release branch is gone."""
+        self.assertEqual(
+            prunable({"main", "release/1.1", "claude/a"}), ["claude/a", "release/1.1"]
+        )
 
     def test_master_and_head_stay(self):
         self.assertEqual(prunable({"main", "master", "HEAD", "claude/a"}), ["claude/a"])
@@ -48,9 +50,9 @@ class Kept(unittest.TestCase):
         reasons = kept({"main", "claude/open"}, {"main"})
         self.assertEqual(reasons["claude/open"], "has commits not on main")
 
-    def test_a_merged_release_branch_is_reported_as_protected(self):
-        reasons = kept({"main", "release/1.1"}, {"main", "release/1.1"})
-        self.assertEqual(reasons["release/1.1"], "protected")
+    def test_an_unmerged_release_branch_is_kept(self):
+        reasons = kept({"main", "release/1.1"}, {"main"})
+        self.assertEqual(reasons["release/1.1"], "has commits not on main")
 
     def test_a_branch_that_goes_is_not_reported_as_kept(self):
         self.assertEqual(kept({"main", "claude/a"}, {"main", "claude/a"}), {})

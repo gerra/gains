@@ -6,6 +6,9 @@ Three commands, one per step that used to be inline shell:
   cut     Branch release/<major>.<minor> off main and commit the new version on it.
           Used by .github/workflows/release-branch.yml, every even hour 08:00-22:00 UTC.
   pick    Choose the release branch to upload and the commit to upload it from.
+
+A release is its release/<major>.<minor> branch while that exists and its newest
+testflight/<version>/<build> tag after that, so a merged release branch can be deleted.
   finish  Tag the commit that shipped, open the branch's pull request back to main and
           publish the build as the latest GitHub release.
           Both used by .github/workflows/release.yml, every odd hour 09:00-23:00 UTC.
@@ -30,6 +33,7 @@ CONFIG = ROOT / "iosApp/Configuration/Config.xcconfig"
 
 VERSION = re.compile(r"^\d+\.\d+$")
 BRANCH = re.compile(r"^release/\d+\.\d+$")
+TAG = re.compile(r"^testflight/(\d+\.\d+)/(\d+)$")
 
 # The public TestFlight invite, which the README also gives. Every GitHub release leads with
 # it, so a release page is one tap away from installing the build.
@@ -92,6 +96,32 @@ def next_version(current, versions):
     return f"{major}.{max(same_major + [minor]) + 1}"
 
 
+def release_refs(branches, tags):
+    """Where each release lives, as {version: ref}: its branch, or failing that its last tag.
+
+    `branches` are the release/<major>.<minor> branches on origin, `tags` the
+    testflight/<version>/<build> tags. A branch wins while it exists, since it may carry a fix
+    that has not shipped yet; once a merged branch is deleted, the tag of its newest build
+    still holds the release, so deleting it changes neither the next version nor what the
+    next cut is compared against.
+    """
+    refs, builds = {}, {}
+    for tag in tags:
+        match = TAG.match(tag)
+        if match and int(match[2]) > builds.get(match[1], -1):
+            builds[match[1]] = int(match[2])
+            refs[match[1]] = f"refs/tags/{tag}"
+    for branch in branches:
+        if BRANCH.match(branch):
+            refs[branch.removeprefix("release/")] = f"refs/remotes/origin/{branch}"
+    return refs
+
+
+def ref_name(ref):
+    """'refs/remotes/origin/release/1.2' -> 'release/1.2', 'refs/tags/x' -> 'x', for messages."""
+    return ref.removeprefix("refs/remotes/origin/").removeprefix("refs/tags/")
+
+
 def previous_version(versions, version):
     """The version cut just before this one, or None if it is the first."""
     previous = None
@@ -114,24 +144,27 @@ def setting(name):
     gha.fail(f"{name} is not set in {CONFIG.relative_to(ROOT)}")
 
 
-def release_versions():
-    """Every release/<major>.<minor> branch on origin, as versions, lowest first."""
-    refs = gha.stdout(
+def releases():
+    """Every release there is, from the branches on origin and the tags: see release_refs."""
+    branches = gha.stdout(
         "git", "for-each-ref", "--format=%(refname:short)", "refs/remotes/origin/release/"
     )
-    versions = [
-        ref.removeprefix("origin/release/")
-        for ref in refs.splitlines()
-        if VERSION.match(ref.removeprefix("origin/release/"))
-    ]
-    return sort_versions(versions)
+    tags = gha.stdout("git", "tag", "--list", "testflight/*")
+    return release_refs(
+        [branch.removeprefix("origin/") for branch in branches.splitlines()], tags.splitlines()
+    )
 
 
-def app_changed_since(version):
-    """Has anything that reaches the iOS or Android app changed on main since that branch was cut?"""
+def release_versions():
+    """Every release version, from its branch or its tags, lowest first."""
+    return sort_versions(releases())
+
+
+def app_changed_since(ref):
+    """Has anything that reaches the iOS or Android app changed on main since that release?"""
     excludes = [f":(exclude){path}" for path in IGNORED]
     unchanged = gha.run(
-        "git", "diff", "--quiet", f"origin/release/{version}", "origin/main", "--", ".",
+        "git", "diff", "--quiet", ref, "origin/main", "--", ".",
         *excludes,
         check=False,
     )
@@ -156,7 +189,8 @@ def commit_as_bot():
 
 def cut(args):
     current = setting("MARKETING_VERSION")
-    existing = release_versions()
+    known = releases()
+    existing = sort_versions(known)
     newest = existing[-1] if existing else None
 
     if args.version:
@@ -170,15 +204,18 @@ def cut(args):
         gha.fail(f"main is already at version {version}; pick a higher one")
     if branch_exists_on_origin(f"release/{version}"):
         gha.fail(f"Branch release/{version} already exists")
+    if version in known:
+        gha.fail(f"Gains {version} already went to TestFlight as {ref_name(known[version])}")
 
-    if newest and not args.force and not app_changed_since(newest):
+    if newest and not args.force and not app_changed_since(known[newest]):
         gha.summary(
-            f"main has not changed since release/{newest} was cut; "
+            f"main has not changed since {ref_name(known[newest])}; "
             "nothing to release this round."
         )
         return
 
-    print(f"Next release: {version} (main is at {current}, newest branch: {newest or 'none'})")
+    newest_name = ref_name(known[newest]) if newest else "none"
+    print(f"Next release: {version} (main is at {current}, newest release: {newest_name})")
 
     branch = f"release/{version}"
     commit_as_bot()
@@ -217,16 +254,25 @@ def pick(args):
         )
         if known.returncode != 0:
             gha.fail(f"There is no branch {branch} on origin")
+        ref = f"refs/remotes/origin/{branch}"
     else:
-        existing = release_versions()
-        if not existing:
+        known = releases()
+        if not known:
             gha.summary("There is no release branch yet; nothing to upload.")
             gha.output(upload="false")
             return
-        branch = f"release/{existing[-1]}"
+        newest = sort_versions(known)[-1]
+        branch, ref = f"release/{newest}", known[newest]
+        # The newest release's branch was merged and deleted: its last tag is what shipped,
+        # so there is nothing new to upload, only its GitHub release to publish if missing.
+        if ref.startswith("refs/tags/") and args.force:
+            gha.fail(
+                f"{branch} was deleted; to upload Gains {newest} again, put it back with "
+                f"`git push origin {ref_name(ref)}^{{commit}}:refs/heads/{branch}` first"
+            )
 
     version = branch.removeprefix("release/")
-    sha = gha.stdout("git", "rev-parse", f"origin/{branch}")
+    sha = gha.stdout("git", "rev-parse", f"{ref}^{{commit}}")
 
     shipped = gha.stdout("git", "tag", "--points-at", sha, "--list", "testflight/*")
     if shipped and not args.force:
@@ -263,10 +309,10 @@ def tag_shipped_commit(version, build, sha):
 
 
 def changes_since(previous, sha):
-    """The subjects of the commits on the way from release/<previous> to `sha`, as a list."""
+    """The subjects of the commits on the way from release <previous> to `sha`, as a list."""
     return gha.stdout(
         "git", "log", "-n", "100", "--no-merges", "--format=- %s",
-        f"origin/release/{previous}..{sha}",
+        f"{releases()[previous]}..{sha}",
         "--", ".", ":(exclude)iosApp/Configuration/Config.xcconfig",
     )
 

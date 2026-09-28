@@ -66,9 +66,9 @@ and the last cut, at 22:00, ships at 23:00.
 
 1. **Every even hour, 08:00 to 22:00 UTC,
    [Cut release branch](../.github/workflows/release-branch.yml).** Branches
-   `release/<major>.<minor>` off `main`, with the minor one above the newest release branch
-   (or above `MARKETING_VERSION` on `main`, whichever is higher), and commits the new
-   `MARKETING_VERSION` on it. `1.0` on `main` gives `release/1.1`, then `release/1.2` two hours
+   `release/<major>.<minor>` off `main`, with the minor one above the newest release — its
+   branch, or its `testflight/` tags once the branch is deleted — or above `MARKETING_VERSION`
+   on `main`, whichever is higher, and commits the new `MARKETING_VERSION` on it. `1.0` on `main` gives `release/1.1`, then `release/1.2` two hours
    later, and so on, so a busy day walks through eight minors. When nothing that reaches the
    iOS or Android app changed since the previous branch (docs, samples, tests, workflows and
    the desktop-only sources do not count) no branch is cut, so quiet hours cost nothing.
@@ -87,12 +87,18 @@ and the last cut, at 22:00, ships at 23:00.
    minutes with the caches warm, well inside the two hours before the next one.
 3. **Merge the pull request** once the build looks good. That puts the version bump, and any
    fix committed on the branch, on `main`. An open pull request does not hold up the next cut —
-   the next version comes from the branch names, not from `main` — but a fix that lives only on
+   the next version comes from the release branches and tags, not from `main` — but a fix that lives only on
    `release/1.1` is not on `main`, so `release/1.2` ships without it. At this cadence that
    window is an hour, so either merge promptly or expect to carry a branch-only fix forward by
    hand. The same goes for a fix pushed to a release branch after its build: a scheduled run
    picks the *newest* branch, so once a newer one exists that fix needs a manual *Release* run
    for its own branch.
+4. **Delete the branch once merged**, if you like. A release whose branch is gone is still
+   known by its newest `testflight/<version>/<build>` tag, so the version numbers keep counting
+   up and the next cut is still compared with what that version shipped. Keep the tags: they
+   are the record of every build, and each one's GitHub release hangs off it. To bring a
+   branch back, push its tag's commit:
+   `git push origin 'testflight/1.11/24^{commit}:refs/heads/release/1.11'`.
 
 Both workflows also run from **Actions > Run workflow**:
 
