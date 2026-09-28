@@ -25,9 +25,9 @@ The same rules as `auth-plan.md`:
    pushing. They still apply: both `strings.xml` files, KDoc that says why, Koin for wiring,
    `docs/sync.md` kept true.
 3. **Android is not compiled in CI** (no Android SDK on the runner; see
-   [Known limitations](development.md#known-limitations)). Keep Android work small and
-   list every Android file you touched in the pull request body so the owner can build it in
-   Android Studio.
+   [Known limitations](development.md#known-limitations)) until item 25 lands. Keep Android
+   work small and list every Android file you touched in the pull request body so the owner can
+   build it in Android Studio.
 4. Steps marked **Owner** are console or account work. Agents assume they are done or in
    progress and don't block on them.
 5. Manual checks go in the [test plan](#test-plan), under the item's number. An item that
@@ -43,19 +43,38 @@ The same rules as `auth-plan.md`:
 | 4 | Contact email alias | iOS launch | Owner | — | [ ] |
 | 5 | Google sign-in in production | iOS launch | Owner | 3, 4 | [ ] |
 | 6 | Revoke the Apple token when an account is deleted | iOS launch | Agent + Owner | — | [x] |
-| 7 | Submit iOS for App Review | iOS launch | Owner | 1–6, test plan | [ ] |
+| 7 | Submit iOS for App Review | iOS launch | Owner | 1–6, 20, test plan | [ ] |
 | 8 | Android package name and Play Console app | Android launch | Owner + Agent | — | [ ] |
 | 9 | Android: Sign in with Google | Android launch | Agent + Owner | 8 | [x] |
 | 10 | Server: Apple web sign-in (Services ID) | Android launch | Agent + Owner | — | [x] |
 | 11 | Android: Sign in with Apple | Android launch | Agent + Owner | 8, 10 | [x] |
 | 12 | Android: keep the token in the Keystore | Android launch | Agent | — | [x] |
 | 13 | Android: release workflow and Play closed testing | Android launch | Agent + Owner | 8, 9 | [x] |
-| 14 | Publish on Google Play | Android launch | Owner | 9–13, test plan | [ ] |
+| 14 | Publish on Google Play | Android launch | Owner | 9–13, 20, 21, test plan | [ ] |
 | 15 | Desktop: Sign in with Google | Desktop (P1) | Agent + Owner | — | [x] |
 | 16 | Desktop: Sign in with Apple | Desktop (P1) | Agent | 10 | [x] |
 | 17 | Desktop: keep the token in the OS keychain | Desktop (P1) | Agent | — | [x] |
 | 18 | Email and password accounts | More sign-in | Agent + Owner | 2, 4 | [x] |
 | 19 | Passkeys | More sign-in | Agent + Owner | 3, 18 | [ ] |
+| 20 | Every authenticated route checks that the account still exists | iOS launch | Agent | — | [ ] |
+| 21 | Android: target API 36 (Android 16) | Android launch | Agent + Owner | — | [ ] |
+| 22 | Server: run as an unprivileged user, with systemd hardening | Hardening (P1) | Agent + Owner | — | [ ] |
+| 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [ ] |
+| 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [ ] |
+| 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [ ] |
+| 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [ ] |
+| 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [ ] |
+| 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [ ] |
+| 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [ ] |
+| 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [ ] |
+| 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
+
+**Blockers, P1, P2.** Items 20 and 21 are launch blockers: item 7 (App Review) depends on 20,
+and item 14 (Google Play) on 20 and 21. Items 22–31 came out of a production-readiness review
+after the sign-in work and don't hold either store back: `Hardening (P1)` and `CI (P1)` are
+wanted right after the first launch and can start now, `(P2)` when there is time. Within a
+milestone the numbers are the order: security and auth correctness (20, 22–24) before
+infrastructure polish (25–29), and API 36 (21) before Android goes public.
 
 ## Owner actions
 
@@ -88,6 +107,16 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
       and the `GAINS_GOOGLE_WEB_CLIENT_ID` / `GAINS_APPLE_SERVICES_ID` variables
       ([`docs/play.md`](play.md), "One-time setup"). Until then the Google Play job skips
       itself on every release round.
+- [ ] Android 16 (item 21): Android Studio with SDK 36, and an Android 16 device or emulator for
+      the test plan's Android 16 section.
+- [ ] Server user (item 22): once `/health` answers from `/opt/gains-server`, remove
+      `/root/Projects/gains-server` on the box.
+- [ ] Refresh-token key (item 24): `REFRESH_TOKEN_KEY` in `secrets/.env`
+      (`openssl rand -base64 32`), then `python3 tools/deploy_server.py secrets`; and the backup
+      decision under item 24, step 3.
+- [ ] iOS CI (item 26): where the macOS job runs, given what its minutes cost.
+- [ ] Dependabot alerts on (item 28): GitHub → Settings → Code security.
+- [ ] Backup decision (item 31), before item 14 if possible.
 
 ---
 
@@ -264,8 +293,9 @@ account deletion revokes it before deleting, and a failed revoke still deletes.
 
 - [ ] Done
 
-**Milestone:** iOS launch. **Who:** Owner. **Depends on:** 1–6, and the test plan's iOS
-sections passed on a TestFlight build containing them.
+**Milestone:** iOS launch. **Who:** Owner. **Depends on:** 1–6, 20 (a deleted account's token
+must be worth nothing before anyone can delete one), and the test plan's iOS sections passed on a
+TestFlight build containing them.
 
 1. App Store Connect: privacy policy URL, support URL (`/support`), screenshots, description,
    and the review notes. Reviewers can use Sign in with Apple, so no demo account is needed.
@@ -429,8 +459,8 @@ Update `docs/sync.md` "What the client does".
 
 - [ ] Done
 
-**Milestone:** Android launch. **Who:** Owner. **Depends on:** 9–13, the 14-day closed test,
-and the test plan's Android section.
+**Milestone:** Android launch. **Who:** Owner. **Depends on:** 9–13, 20, 21 (Play takes only
+API 36 bundles in production), the 14-day closed test, and the test plan's Android section.
 
 Apply for production access, then promote the build. Add the store link to the landing page.
 
@@ -540,6 +570,427 @@ finds none. See docs/sync.md, "What the client does".
 5. **Android:** Credential Manager's `CreatePublicKeyCredentialRequest` /
    `GetPublicKeyCredentialOption`.
 6. Desktop: out of scope for now.
+
+### 20. Every authenticated route checks that the account still exists
+
+- [ ] Done
+
+**Milestone:** iOS launch. **Depends on:** nothing. **Launch blocker:** items 7 and 14 depend
+on it.
+
+Our tokens are stateless: `SessionTokens` signs the user id into an HS256 JWT that lives 30 days,
+and `ApplicationCall.userId()` in `Routes.kt` checks the signature and the expiry, nothing else.
+`GET /auth/me` and `POST /auth/refresh` look the user up afterwards and answer 401 when the row is
+gone, but `POST /sync/push`, `GET /sync/pull`, `PUT /sync/blobs/{kind}/{id}` and
+`GET /sync/blobs/{kind}/{id}` take the id straight from the token, and `Store.push()` and
+`putBlob()` don't need a `user` row (`document` and `blob` have no foreign key to it). So after
+`DELETE /auth/account` a copy of the token still writes documents and photos under the deleted id
+for up to 30 days, and the person's other device, still signed in, keeps pushing there and only
+learns it is signed out at its weekly refresh. The id is never handed to anyone else (`user.id` is
+`AUTOINCREMENT`), so the rows are dead weight rather than a leak, but data the person asked us to
+delete must not come back, and a token for a deleted account must be worth nothing.
+
+1. One place that says who is calling: replace `ApplicationCall.userId()` with a helper that
+   verifies the token **and** loads the `user` row, 401 `no such user` when it is gone, and make
+   every protected route take the user from it: `GET /auth/me`, `POST /auth/refresh`,
+   `DELETE /auth/account` (deleting twice is then a 401, not a second 204) and the four `/sync/*`
+   routes. Nothing else calls `SessionTokens.userId`. One primary-key lookup per request on a
+   local SQLite file costs nothing worth measuring; don't cache it, a cache reopens the window.
+   *Alternative not taken:* Ktor's `ktor-server-auth` bearer provider would make the check
+   structural (`authenticate {}` around the routes), but it adds a module for what one helper
+   does with eight routes. Revisit if the route count grows.
+2. **Decide, and write the decision here:** keep the 30-day stateless token, or add revocation?
+   *Recommended:* keep it. With the lookup on every request a deleted account is out at once, and
+   rotating `JWT_SECRET` signs everyone out, which covers everything the app offers today (there
+   is no "sign out everywhere" button). A `token_version` column on `user`, carried as a claim
+   and compared on the same lookup, is the one-line path to per-account revocation when a screen
+   wants it; it is listed under [After launch](#after-launch), not here.
+3. `docs/sync.md` "Signing in", step 4: a request is also refused once its account is gone, so a
+   deleted account's tokens stop working at once, on every device. The client already treats a
+   401 as "Signed out on the server" (`SyncApi`'s `unauthorized`), so nothing changes in the app.
+
+Tests, in `ServerTest`: after `DELETE /auth/account` with token *a*, every route answers 401 to
+*a*: `GET /auth/me`, `POST /auth/refresh`, `DELETE /auth/account`, `POST /sync/push`,
+`GET /sync/pull`, `PUT /sync/blobs/session_photo/x` and `GET /sync/blobs/session_photo/x`; and
+the store holds no `document` or `blob` row for the old user id afterwards (the push wrote
+nothing). A token minted for a user id that never existed gets the same 401.
+
+### 21. Android: target API 36 (Android 16)
+
+- [ ] Done
+
+**Milestone:** Android launch. **Depends on:** nothing. Easier once item 25 is in, which then
+builds it; until then the owner builds it in Android Studio (rule 3). **Launch blocker:** item 14
+depends on it.
+
+`android-compileSdk` and `android-targetSdk` in `gradle/libs.versions.toml` are 35. Google Play's
+target API level requirement is now API 36 for new apps and for updates, so item 14 can't ship a
+bundle that targets 35.
+
+1. Set both to `36`, and the requirement line in `docs/development.md` ("SDK 35") with them. AGP
+   8.11.1 takes API 36; if it warns or refuses, lift **AGP alone** here, to the smallest version
+   that does, and leave the rest of the version catalog to item 27.
+2. Read Android 16's behaviour-changes page for apps targeting 36 and write down here what
+   touches Gains. Known so far: edge-to-edge is enforced and the opt-out attribute is ignored
+   (check `MainActivity`'s insets around the bottom bar and the keyboard, with
+   `adjustResize`); predictive back is on by default (Compose's back handling, and
+   `SignInCallbackActivity` returning to `MainActivity`); orientation and resizability
+   restrictions are ignored on large screens (Gains declares none, so nothing to do); Play's
+   16 KB page-size requirement for native libraries (Gains ships none of its own, so confirm
+   with `unzip -l` on the bundle that no dependency brings a `.so`); and anything new about
+   alarms and `BOOT_COMPLETED` receivers (`AndroidNudgeScheduler`'s `setWindow` with its
+   ten-minute window, and `BootReceiver`).
+3. Build (`assembleDebug`, `bundleRelease`) and run the JVM tests against the new SDK. Then, on
+   an Android 16 device or emulator, the test plan's Android 16 section: the workout
+   notification and its "Skip rest" action, a streak reminder firing (and after a reboot), CSV
+   "Open with" and the share sheet, the App Link `https://gains.gerra.sh/auth/done`, Sign in with
+   Google (Credential Manager) and with Apple (the Custom Tab), and backup and restore with
+   `bmgr` as under item 12.
+4. The Google Play workflow: `play.yml` relies on the runner image, or AGP, for the platform.
+   Run it by hand (*Run workflow*) and check in Play Console → App bundle explorer that the
+   uploaded bundle says target SDK 36. `docs/play.md` gets a line if anything about it changed.
+
+Tests: the existing JVM tests on the new SDK; the manual checks in the test plan.
+
+### 22. Server: run as an unprivileged user, with systemd hardening
+
+- [ ] Done
+
+**Milestone:** Hardening (P1). **Depends on:** nothing. The deploy does all of it; the owner
+watches the first one and removes the old tree afterwards.
+
+`deploy/gains-server.service` runs the JVM as `root`, from `/root/Projects/gains-server`, with
+`/var/lib/gains` and everything else on the box writable. One bug in the server or in a
+dependency is then root on the box that also serves `gains.gerra.sh` and the other sites.
+Proportional to one developer and one box: a system user, the standard sandboxing lines, and
+nothing that needs a second machine.
+
+1. A dedicated system user: `tools/deploy_server.py install` (already root on the box) creates
+   `gains-server` when it is missing (`useradd --system --home-dir /var/lib/gains --shell
+   /usr/sbin/nologin`) and makes `/var/lib/gains` `gains-server:gains-server`, mode 750, with a
+   `chown -R` of what is in it (the database, its `-wal` and `-shm`). Nothing else on the box
+   becomes writable.
+2. Move the install out of `/root`, which no other user can read and which `ProtectHome=` hides:
+   `HOME` in `deploy_server.py` becomes `/opt/gains-server` (`current/`, `secrets/`, the unit
+   copy), and with it the workflow's `remote_path`, the `prepare` and `secrets` commands, the
+   unit's `WorkingDirectory` and `ExecStart`, `tools/test_deploy_server.py` and `docs/sync.md`
+   "Deploying". `secrets/.env` is installed `root:gains-server` mode 640, so the server reads it
+   and nobody else does; `current/` stays root-owned and world-readable (jars are not secret).
+   On the first install with the new path, copy `/root/Projects/gains-server/secrets/.env` over
+   when the new one is missing, so that deploy needs no laptop step. **Owner:** once `/health`
+   answers from the new path, remove `/root/Projects/gains-server`.
+3. The unit: `User=gains-server`, `Group=gains-server`, `UMask=0077` (item 24 wants the database
+   files 600), `NoNewPrivileges=true`, `PrivateTmp=true`, `ProtectSystem=strict`,
+   `ProtectHome=true`, `ProtectKernelTunables=true`, `ProtectKernelModules=true`,
+   `ProtectControlGroups=true`, `RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX`,
+   `LockPersonality=true`, `RestrictRealtime=true`, `ReadWritePaths=/var/lib/gains`. **Not**
+   `MemoryDenyWriteExecute=true`: the JVM's JIT needs memory that is both writable and
+   executable. `SystemCallFilter=@system-service` is optional; try it, and drop it if the JVM is
+   killed at start. `systemd-analyze security gains-server` before and after is the measure.
+4. Verify on the box after the deploy: `systemctl show gains-server -p User`, `/health`, a
+   sign-in, a sync and a photo upload from a device (the blob write), `ls -l /var/lib/gains`
+   with the files owned by `gains-server`, a journal with no `EACCES` or `Read-only file
+   system`, and `sqlite3 /var/lib/gains/gains-server.db` still working as root for the
+   guest-list line under item 3. A restart (`deploy_server.py secrets`) and a second deploy both
+   come back healthy.
+
+Tests: `tools/test_deploy_server.py` for the new paths, the user step and the secrets copy, in
+the style of the existing ones. The manual checks are step 4, repeated in the test plan.
+
+### 23. Server: rate limits on sign-in, sync and uploads
+
+- [ ] Done
+
+**Milestone:** Hardening (P1). **Depends on:** nothing.
+
+Only `/guest-list` is rate-limited today, and only on the site's vhost
+(`gains.gerra.sh.conf`: zone `gains_guest_list`, six requests a minute per address). The API vhost
+proxies everything under `/`, so `POST https://api.gains.gerra.sh/guest-list` skips that limit, and
+`/auth/*`, `/sync/*` and the blob routes have none. A sign-in token is verified against Google's
+or Apple's keys, so an unlimited `/auth/google` is a free way to make us work; an unlimited
+`PUT /sync/blobs` is a free way to fill the disk 8 MB at a time.
+
+Keep it at the edge, in nginx, where the address is the real one (nginx terminates TLS, so
+`$binary_remote_addr` is the client), plus two ceilings in the server that a stolen token can't
+talk its way past:
+
+1. `deploy/nginx/api.gains.gerra.sh.conf`: a zone for `/auth/` (sign-in, exchange, refresh and
+   deletion; e.g. 10 a minute per address, `burst=10 nodelay`), a zone for `/sync/` that a first
+   sync of a long history still passes (a push is 200 documents a request, a pull 500, and every
+   photo is one `PUT`; e.g. 10 a second with `burst=100`), `limit_conn` of a handful per address
+   on the blob routes, and `limit_req zone=gains_guest_list` on `/guest-list` here too (zones
+   are global to nginx, so the site's zone works in this vhost). `limit_req_status 429` as the
+   site's vhost does. Then `python3 tools/deploy_server.py nginx`.
+2. Per-user ceilings in the server: a cap on the total blob bytes and on the document count per
+   user (say 2 GB and 200,000; write down the numbers chosen), checked in `Store.putBlob` and
+   `Store.push` and answered with 507 and 413. Nothing a person reaches; a bound on what one
+   account can cost.
+3. The client: a 429, 413 or 507 must land as "Couldn't sync" and be retried later, never as
+   "Signed out on the server". Check `SyncEngine` and `SyncApi.unauthorized`.
+4. `docs/sync.md`: the limits, under "The server" and "Deploying".
+
+Tests: server tests for the two ceilings (a push over the count is refused with the status and
+writes nothing; a blob over the byte cap likewise). The nginx limits are checked by hand (test
+plan, item 23).
+
+### 24. Server: the Apple refresh tokens and the database at rest
+
+- [ ] Done
+
+**Milestone:** Hardening (P1). **Depends on:** 22 (the file modes assume the unit's `UMask`).
+
+Item 6 keeps each Apple refresh token in plain text in `identity.refresh_token`, in
+`/var/lib/gains/gains-server.db`, a file the JVM created as root with the default umask, so
+world-readable. A refresh token lets whoever holds it act on that person's Sign in with Apple
+grant, so it deserves better than the workout data next to it, and the database itself deserves a
+mode that says who may read it.
+
+1. Encrypt the refresh tokens in the application: AES-256-GCM with a key from `secrets/.env`
+   (`REFRESH_TOKEN_KEY`, 32 random bytes, base64: `openssl rand -base64 32`), a random nonce per
+   row, and a `v1:` prefix on the stored value so a row from before is recognised as plain text
+   and re-encrypted at the person's next sign-in (or once at start, in a pass over the table).
+   Decrypt in one place, `revokeAppleTokens`. Without the key the server keeps storing plain
+   text and logs `refresh token encryption off` at start, like the other optional secrets;
+   **Owner** sets it and runs `deploy_server.py secrets`. A key of its own rather than
+   `JWT_SECRET`, so signing everyone out (rotating that) doesn't lose the tokens. Document it in
+   `secrets/README.md` and `secrets/.env.example`.
+2. The files: with item 22's `UMask=0077` new files are 600; `install` also runs `chmod 600` on
+   the existing database, `-wal` and `-shm` once. `secrets/.env` is 640 from item 22.
+3. Backups. `docs/sync.md` says "back it up by copying the file", and nothing does so today.
+   **Owner decides:** rely on the box's own backups, or add a nightly `sqlite3 … ".backup"`
+   (safe under WAL) into a 700 directory, kept for a few days, from a systemd timer that
+   `deploy_server.py install` puts in place. Any copy that leaves the box is encrypted first
+   (`age` or `gpg`), and the Hetzner backup or snapshot setting is checked for encryption at
+   rest. Write the decision under "Deploying".
+4. `docs/sync.md`: the schema note (`refresh_token` is ciphertext) and the configuration list.
+
+Tests: a round trip of the cipher; a plain-text row from before is still revoked on deletion, and
+is ciphertext after the next sign-in; with the key missing the row stays plain text and the log
+line says so.
+
+### 25. Android in CI: build, lint and the JVM tests
+
+- [ ] Done
+
+**Milestone:** CI (P1). **Depends on:** nothing.
+
+Every pull request runs the shared, desktop and server tests and compiles the iOS klibs, and
+none of it touches `androidMain`: a broken Android file is found by the release round (item 13)
+or in Android Studio. The Google Play job already shows the `ubuntu-latest` image carries the
+Android SDK and that AGP fetches what the image lacks. This item is compilation, lint and
+resources only: no emulator, no instrumented or UI tests, no screenshots, no scenario runs.
+
+1. A second job in `ci.yml`, `android`, next to the existing one, which stays exactly as it is
+   (`-Pgains.android=false`, so its iOS compile keeps its speed): `setup-java`, `setup-gradle`,
+   then `./gradlew :composeApp:assembleDebug :composeApp:lintDebug --no-daemon`, plus the
+   Android unit tests where a module has any (`:shared:testDebugUnitTest`,
+   `:composeApp:testDebugUnitTest`; don't write new ones for this item). The two sign-in
+   properties stay empty, as in a local build.
+2. Lint: `lint { abortOnError true }` in `android.gradle`, errors only. If the first run is loud,
+   check in a `lint-baseline.xml` next to it and burn it down in ordinary pull requests, not
+   here.
+3. Once it is green: rule 3 of [How to use this file](#how-to-use-this-file) becomes "Android is
+   compiled and linted in CI; a device is still needed for the test plan", the first bullet under
+   `docs/development.md` [Known limitations](development.md#known-limitations) goes, and the
+   checks in `auth-plan.md` gain the Gradle line. The notes in items 9, 11 and 13 stay as
+   history.
+
+Tests: the job itself. A pull request that breaks an `androidMain` file must go red.
+
+### 26. iOS in CI: an Xcode simulator build
+
+- [ ] Done
+
+**Milestone:** CI (P1). **Depends on:** nothing.
+
+The klib compile on Linux catches Kotlin that won't build for iOS, and nothing else: Swift,
+`project.pbxproj`, `Info.plist`, the entitlements, `Config.xcconfig`, the asset catalogue and the
+framework link are first checked by the TestFlight archive, after the release branch is cut.
+`auth-plan.md` says those edits "can't be checked"; a simulator build on a macOS runner checks
+them, without signing and without booting anything. Compile and link only: no simulator boot, no
+XCUITest, no screenshots, no scenario runs.
+
+1. A `tools/ios_build.py` (or a `build-simulator` command in `tools/testflight.py`, whichever
+   keeps the paths in one place) that runs
+   `xcodebuild build -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug
+   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO`, with tests for its
+   argument building like `tools/test_testflight.py`. The generic destination needs no
+   simulator device to exist.
+2. A job in `ci.yml`, `ios`, on the macOS image the TestFlight workflow archives with, with the
+   `setup-java`, `setup-gradle` and `~/.konan` cache steps copied from `testflight.yml`. Keep the
+   Linux klib step in the `test` job: it is the fast, cheap signal, and this one is the full one.
+3. **Owner decides** where it runs. macOS minutes cost ten times Linux ones on a private
+   repository (a public one pays nothing). *Recommended:* on pull requests and pushes to `main`
+   with `paths-ignore` for `docs/**`, `site/**`, `server/**`, `deploy/**` and `tools/**`; a
+   path-filtered job must not be a required check, or it hangs the merge. Not on the two-hourly
+   release branches, which archive anyway.
+4. Then the second bullet under `docs/development.md` Known limitations says the simulator build
+   runs in CI and only archiving needs the signing material, and `auth-plan.md`'s "No Mac or
+   Xcode is available to the agent" becomes "CI builds the Xcode project; the agent still can't
+   run it".
+
+Tests: the job. A pull request that breaks a Swift file or `Info.plist` must go red.
+
+### 27. A dependency modernization pass
+
+- [ ] Done
+
+**Milestone:** Maintenance (P2). **Depends on:** 25, 26 (an upgrade CI can't build for Android
+or Xcode is a guess).
+
+`gradle/libs.versions.toml` today: Kotlin 2.3.21, Compose Multiplatform 1.7.3, Koin 4.0.4, AGP
+8.11.1 (Gradle 8.14.3), SQLDelight 2.3.2, Ktor 3.6.0, coroutines 1.11.0, serialization 1.11.0,
+kotlinx-datetime 0.8.0, credentials 1.5.0, activity-compose 1.10.1, browser 1.8.0. Compose
+Multiplatform and Koin are several stable releases behind; Ktor, SQLDelight and the kotlinx
+libraries are current or a step off. This is one deliberate pass in groups, each group its own
+commit with the full check set green before the next, not a bump of everything at once and not
+one-off bumps in unrelated pull requests. If a group won't go (an API removal that spreads into
+many files), stop it, write down why here and move on: a partial pass that builds beats a full
+one that doesn't.
+
+The check set after each group: the CI set (`:shared:desktopTest`, `:composeApp:desktopTest`,
+`:server:test`, the iOS klibs), items 25 and 26, then one TestFlight round and one Play bundle
+from the release branch and a smoke of the test plan on each (sign in, sync, a photo, an import).
+
+1. **Kotlin and Compose Multiplatform together** (the Compose compiler plugin ships with
+   Kotlin): the current Compose Multiplatform stable and the Kotlin it is built with, or newer.
+   Watch: `material-icons-core` sits on its own line pinned to 1.7.3 because the icons no longer
+   ship with Compose (check it still resolves), the resources API, the `desktopTest` screenshot
+   rendering, the iOS release link's memory (`gradle.properties` has the story) and whether
+   `kotlin.native.enableKlibsCrossCompilation` is still needed.
+2. **Koin** to the current stable 4.x: `SharedModule.kt`, the Android and desktop modules, and
+   `koin-android`'s start-up in `GainsApplication`.
+3. **AGP** to the current supported generation with the Gradle wrapper it needs, unless item 21
+   already lifted it. AGP 9 rewires Kotlin (its own Kotlin support) and drops old DSL: read its
+   migration page first, and if it asks for more than a version bump, stay on the latest 8.x and
+   write that down here.
+4. **Ktor, SQLDelight, coroutines, serialization, kotlinx-datetime, the androidx libraries**: the
+   latest patch or minor of each, in one group.
+5. `docs/development.md` "Built with", and the JDK requirement if any of it moves.
+
+Tests: the check set above, after each group.
+
+### 28. Supply chain: pinned actions and dependency scanning
+
+- [ ] Done
+
+**Milestone:** Maintenance (P2). **Depends on:** nothing.
+
+The workflows reference actions by tag (`actions/checkout@v4`, `gradle/actions/setup-gradle@v4`,
+`burnett01/rsync-deployments@6.0.0`, …). A tag moves, and a compromised tag on a workflow that
+holds the App Store Connect key, the upload keystore, the Play service account or the deploy SSH
+key hands them over. The rsync action is the only third-party one, and it gets `DEPLOY_KEY`.
+
+1. Pin every `uses:` to a full commit SHA with the version as a trailing comment
+   (`actions/checkout@<sha> # v4.x.y`), the secret-holding workflows first (`release.yml`,
+   `testflight.yml`, `play.yml`, `deploy.yml`, `deploy-site.yml`), then `ci.yml`,
+   `screenshots.yml` and `release-branch.yml`. Local `uses: ./.github/workflows/…` need nothing.
+2. Drop `burnett01/rsync-deployments`: `tools/deploy_server.py` already runs `rsync` over the
+   deploy key for `site`, so a `build` command rsyncs `server/build/install/gains-server/` to
+   `current/` the same way, with the same `--delete`, and the workflow calls it. One fewer third
+   party with the key, and one fewer thing to pin. Tests in `tools/test_deploy_server.py`.
+3. The dependency graph: `gradle/actions/dependency-submission` on pushes to `main` (a small
+   workflow of its own), so GitHub knows the Gradle dependencies and Dependabot alerts cover
+   them (**Owner:** Settings → Code security → Dependabot alerts on). Then
+   `actions/dependency-review-action` in `ci.yml` for pull requests.
+4. CodeQL: try the default setup for Java and Kotlin. If its Kotlin extractor doesn't take the
+   Kotlin in the version catalog (it lags releases), skip it and note that here; for a repository
+   this size the graph and the alerts are most of the value.
+5. `docs/development.md` "Recipes": a short "Dependencies and actions" note, how a pinned action
+   is bumped and where the alerts show.
+
+Tests: `tools/test_deploy_server.py` for step 2; the workflows themselves by a deploy and a
+release round.
+
+### 29. Supply chain: Dependabot, and Gradle dependency verification where practical
+
+- [ ] Done
+
+**Milestone:** Maintenance (P2). **Depends on:** 27, 28 (Dependabot before the pass would open a
+dozen pull requests the pass then supersedes; the SHAs from 28 are what it keeps current).
+
+1. `.github/dependabot.yml`: `github-actions` weekly (it bumps pinned SHAs and their version
+   comments), and `gradle` weekly, grouped so a round is one or two pull requests rather than
+   twenty: a `kotlin-compose` group (Kotlin, Compose Multiplatform), `androidx`, `ktor`,
+   `kotlinx`, and the rest; majors of Kotlin, Compose, Koin and AGP `ignore`d, since each of those
+   is a deliberate pass like item 27. CI, with 25 and 26, is the review. Renovate does the same
+   with finer grouping but needs an app install; Dependabot is the default unless the owner
+   prefers otherwise.
+2. Gradle dependency verification: `./gradlew --write-verification-metadata sha256 help` writes
+   `gradle/verification-metadata.xml`, and from then on a changed artifact fails the build. Try
+   it with checksums only (no PGP), with the Android variants configured (`gains.android=true`).
+   If every Dependabot pull request then needs the file regenerated by hand, or the
+   Kotlin/Native toolchain downloads fight it, take it out again and write down why: the pins
+   from 28 and the grouping from step 1 are the proportional version for one developer.
+3. `docs/development.md`: the note from item 28 gains the two.
+
+Tests: a Dependabot pull request going through CI; a deliberately wrong checksum failing the
+build, if step 2 stays.
+
+### 30. Android: R8 for release builds
+
+- [ ] Done
+
+**Milestone:** Hardening (P2). **Depends on:** 21, 25 (a release build in CI to try it on).
+
+`android.gradle` has `minifyEnabled false`, so the Play bundle ships every class of Compose,
+Ktor, SQLDelight and Koin unshrunk. R8 makes it smaller and quicker to start and strips names; it
+is an optimization and ordinary hygiene, **not** a security boundary (the token is in the
+Keystore, not in the code) and not a launch blocker. It becomes one only if turning it on shows a
+real release-only bug that was hidden so far.
+
+1. `minifyEnabled true` and `shrinkResources true` on `release`, with
+   `proguard-android-optimize.txt` and a `composeApp/proguard-rules.pro`. Keep rules for what
+   reflects: kotlinx-serialization (the `@Serializable` classes in `Protocol.kt`, `Documents.kt`
+   and the auth requests; the plugin ships consumer rules, check they cover them), Ktor's engine
+   and logging (their consumer rules), SQLDelight (none needed), Koin (no reflection with the
+   constructor DSL; `koin-android` ships rules), Credential Manager and `googleid` (consumer
+   rules). Start with no rules of our own and add only what a crash asks for.
+2. `bundleRelease` in the Android CI job too (unsigned), so an R8 failure shows on the pull
+   request. Keep obfuscation on and send the mapping file to Play with the bundle
+   (`tools/play.py`: `mapping.txt` next to the bundle, uploaded as the deobfuscation file), so
+   Play Console stack traces read.
+3. On a device with the release build from the closed testing track: the test plan's Android
+   section end to end (both providers, sync both ways with a photo, a CSV import through "Open
+   with", the workout notification, a reminder) and the Android 16 checks. A
+   `ClassNotFoundException` or a serializer "not found" is a missing keep rule.
+
+Tests: the existing tests; the manual pass in step 3.
+
+### 31. Android backup: decide what a backup may carry
+
+- [ ] Done
+
+**Milestone:** Hardening (P2). **Depends on:** nothing. Best decided before item 14: what the
+first public build ships decides what a later restore brings back.
+
+`allowBackup="true"` with item 12's rules excludes the token file (`app.gains.sync.xml`) and
+nothing else, so Auto Backup to the cloud and device-to-device transfer carry the workout database
+(`databases/gains.db`: every session, body weight, programs), the photos under the app's files
+and the preferences. That is what a guest wants, since it is their only copy. It is also health
+data in Google's cloud under Google's terms, which the privacy policy says today ("Your device's
+own backups (iCloud or Google) may include the app's data"); on iOS the Keychain item is
+device-only while the database is in the iCloud backup on the same terms. So the current
+behaviour is consistent with the policy, and this item is a decision written down rather than a
+default nobody chose.
+
+1. **Owner decides**, one of:
+   - *Keep it* (recommended): a guest's data survives a lost phone; a signed-in account gets its
+     data back from the server anyway, and the token is never in the backup. The policy already
+     says so. Nothing changes but this paragraph.
+   - *Exclude the database and the photos from cloud backup, keep device-to-device transfer*
+     (`<cloud-backup>` excludes them, `<device-transfer>` doesn't): health data never sits in
+     Google's cloud, and a new phone still gets it over the cable or Wi-Fi. A guest who loses the
+     phone loses the data, and the sign-in screen and the policy must say so.
+   - *Exclude both*: only an account keeps its data across phones; a guest starts from nothing.
+2. Whatever is chosen: `backup_rules.xml` and `data_extraction_rules.xml` say it (with the
+   comments saying why), the privacy policy's sentence matches it, iOS is given the same answer
+   (the database file's `isExcludedFromBackup` if the choice is to exclude), and `docs/sync.md`
+   "What the client does" names it next to the token file.
+3. The test plan: `bmgr backupnow`, uninstall, reinstall, as item 12's check does, and what comes
+   back matches the decision.
+
+Tests: the manual check in step 3.
 
 ---
 
@@ -683,6 +1134,28 @@ build fails a check, open an issue and link it next to the box.
 - [ ] Cancelling on Apple's page lands on `…?error=cancelled&state=x`.
 - [ ] `redirect=https://example.com/` → 400.
 
+**20. Deleted-account tokens**
+- [ ] Take a token (the `POST /auth/exchange` answer in the item 10 check works), then Delete
+      account from a device signed into that account. `curl -H 'Authorization: Bearer <token>'
+      https://api.gains.gerra.sh/auth/me` → **401**, and so do `GET /sync/pull?since=0`,
+      `POST /sync/push` with `{"documents":[]}` and `PUT /sync/blobs/session_photo/x`.
+- [ ] The other device signed into the deleted account shows "Signed out on the server" on its
+      very next sync (the "Delete account" check above), not only at its weekly refresh.
+
+**22–24. Server hardening**
+- [ ] Item 22, after the deploy: `systemctl show gains-server -p User` says `gains-server`;
+      `/health` answers; a sign-in, a sync and a photo upload work from a device;
+      `ls -l /var/lib/gains` shows `gains-server` owning the files, mode 600; `journalctl -u
+      gains-server` has no permission error; `systemd-analyze security gains-server` scores
+      better than before the item.
+- [ ] Item 23: twenty quick `POST /auth/google` with `{"token":"x"}` end in **429** after the
+      burst, and so do twenty to `api.gains.gerra.sh/guest-list`. A first sync of a long
+      history with photos still completes, and a throttled device shows "Couldn't sync", not
+      "Signed out on the server".
+- [ ] Item 24: `sqlite3 /var/lib/gains/gains-server.db 'SELECT refresh_token FROM identity'`
+      shows `v1:` ciphertext after an Apple sign-in, and Delete account still removes Gains from
+      the Apple ID (the item 6 check).
+
 ### Android (items 9–13)
 
 - [ ] Install from the Play closed test track.
@@ -725,6 +1198,25 @@ build fails a check, open an issue and link it next to the box.
 - [ ] Item 12: `adb shell bmgr backupnow app.gains`, uninstall, reinstall and let the backup
       restore: the workouts are back, and the account card says "Signed out on the server"
       until you sign in again. No crash.
+
+### Android 16, R8 and backup (items 21, 30, 31)
+
+On an Android 16 device or emulator, with a build containing item 21.
+
+- [ ] Item 21: the app draws edge to edge with nothing hidden under the status or navigation
+      bars, the keyboard doesn't cover the field being typed in, and the back gesture previews
+      and lands where it should, including from the Sign in with Apple tab back into the app.
+- [ ] Item 21: the workout notification shows, follows the sets, and "Skip rest" works; a streak
+      reminder fires at its time, and again after a reboot.
+- [ ] Item 21: "Open with" for a CSV from Files and the share sheet open the import preview; the
+      App Link and both sign-in providers work (the item 11 checks); `bmgr backupnow`, uninstall,
+      reinstall restores (the item 12 check).
+- [ ] Item 21: Play Console → App bundle explorer shows target SDK 36 for the uploaded bundle.
+- [ ] Item 30: the release build from the closed testing track passes the Android section above
+      end to end, with no crash on sign-in, sync, import or the notification (a missing keep
+      rule shows there first).
+- [ ] Item 31: after `bmgr backupnow`, uninstall and reinstall, what comes back matches the
+      decision written under item 31, and the privacy policy's backup sentence matches it too.
 
 ### Desktop (items 15–17)
 
@@ -789,3 +1281,5 @@ Not needed for going public; kept here so nothing lives elsewhere.
 
 - [ ] More connectors: a `ColumnSpec` and a `match` function each, contributions welcome.
 - [ ] Undo for sync overwrites (a `document_version` table, see `docs/sync.md`).
+- [ ] Sign out everywhere: a `token_version` column on `user`, carried as a claim and compared on
+      item 20's lookup. Item 20 decided that the existence check is enough for launch.
