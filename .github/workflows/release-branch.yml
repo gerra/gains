@@ -7,7 +7,7 @@ name: Cut release branch
 # hour later, on the odd hours from 09:00 to 23:00 UTC, and opens its pull request back to
 # main.
 #
-# Nothing is cut when main carries no change that reaches the iOS app, so a quiet stretch
+# Nothing is cut when main carries no change that reaches the iOS or Android app, so a quiet stretch
 # produces no branch and no build. "Run workflow" cuts by hand, optionally with an explicit
 # version (the way to start a new major) or ignoring the no-change check.
 #

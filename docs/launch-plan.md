@@ -49,7 +49,7 @@ The same rules as `auth-plan.md`:
 | 10 | Server: Apple web sign-in (Services ID) | Android launch | Agent + Owner | — | [x] |
 | 11 | Android: Sign in with Apple | Android launch | Agent + Owner | 8, 10 | [x] |
 | 12 | Android: keep the token in the Keystore | Android launch | Agent | — | [x] |
-| 13 | Android: release workflow and Play closed testing | Android launch | Agent + Owner | 8, 9 | [ ] |
+| 13 | Android: release workflow and Play closed testing | Android launch | Agent + Owner | 8, 9 | [x] |
 | 14 | Publish on Google Play | Android launch | Owner | 9–13, test plan | [ ] |
 | 15 | Desktop: Sign in with Google | Desktop (P1) | Agent + Owner | — | [x] |
 | 16 | Desktop: Sign in with Apple | Desktop (P1) | Agent | 10 | [x] |
@@ -76,6 +76,11 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
       into `site/.well-known/assetlinks.json`, then `python3 tools/deploy_server.py nginx` (the
       vhost gained a location for that file) and `python3 tools/deploy_server.py site`.
       `adb shell pm get-app-links app.gains` then says `verified`.
+- [ ] Play upload (item 13): the upload key, the service account and the first closed-testing
+      release by hand, then the five `ANDROID_UPLOAD_*` / `PLAY_SERVICE_ACCOUNT_JSON` secrets
+      and the `GAINS_GOOGLE_WEB_CLIENT_ID` / `GAINS_APPLE_SERVICES_ID` variables
+      ([`docs/play.md`](play.md), "One-time setup"). Until then the Google Play job skips
+      itself on every release round.
 
 ---
 
@@ -391,7 +396,14 @@ Update `docs/sync.md` "What the client does".
 
 ### 13. Android: release workflow and Play closed testing
 
-- [ ] Done
+- [x] Done
+  Steps 1–4 are in: `composeApp/android.gradle` stamps the version, the Google Play workflow
+  (`.github/workflows/play.yml`, `tools/play.py`) bundles and uploads, and the Release workflow
+  calls it next to TestFlight. The owner's step 2 (the upload key) and step 3 (the service
+  account, the first release by hand) switch it on through the five secrets in
+  [`docs/play.md`](play.md); until they exist the job says so in the run summary and skips
+  itself, so TestFlight rounds are unaffected. Android is not compiled in CI: the first upload
+  proves the bundle, and a wrong `android.gradle` shows up in Android Studio.
 
 **Milestone:** Android launch. **Depends on:** 8, 9.
 
@@ -656,6 +668,13 @@ build fails a check, open an issue and link it next to the box.
 ### Android (items 9–13)
 
 - [ ] Install from the Play closed test track.
+- [ ] Item 13: with the Play secrets unset, a Release run's *Google Play* job is green and its
+      summary says *Play upload skipped* naming the secrets; TestFlight still ships.
+- [ ] Item 13: with them set, the same run's summary says *Uploaded Gains <version> (<run
+      number>)*, and Play Console → Closed testing lists that version code, with the version
+      name equal to the TestFlight version of the same run. The track's opt-in link installs it.
+- [ ] Item 13: the installed app's Google and Apple buttons show (the two repository variables
+      reached the build), and signing in works.
 - [ ] Google: the account chooser → signed in. Cancelling is silent.
 - [ ] Item 9: with `gains.googleWebClientId` empty, only the guest button shows and the app
       still works as a guest.

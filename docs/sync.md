@@ -63,7 +63,7 @@ real client databases through the real routes without a network.
 
 Two things the layout has to respect because of how releases are cut. The
 [release branch workflow](../.github/workflows/release-branch.yml) cuts a branch only when
-`main` carries a change that reaches the iOS app, so `server/`, `deploy/` and `secrets/`
+`main` carries a change that reaches the iOS or Android app, so `server/`, `deploy/` and `secrets/`
 are on the ignore list in [`tools/release.py`](../tools/release.py): a server change
 alone ships no app build. And the deploy workflow watches only the paths the server is built from,
 so a UI change does not restart the server.

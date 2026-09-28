@@ -70,12 +70,14 @@ and the last cut, at 22:00, ships at 23:00.
    (or above `MARKETING_VERSION` on `main`, whichever is higher), and commits the new
    `MARKETING_VERSION` on it. `1.0` on `main` gives `release/1.1`, then `release/1.2` two hours
    later, and so on, so a busy day walks through eight minors. When nothing that reaches the
-   iOS app changed since the previous branch (docs, samples, tests, workflows and the Android-
-   and desktop-only sources do not count) no branch is cut, so quiet hours cost nothing.
+   iOS or Android app changed since the previous branch (docs, samples, tests, workflows and
+   the desktop-only sources do not count) no branch is cut, so quiet hours cost nothing.
 2. **Every odd hour, 09:00 to 23:00 UTC, [Release](../.github/workflows/release.yml).** Takes
    the newest release branch — normally the one cut an hour earlier — archives and uploads it
-   through the [TestFlight workflow](../.github/workflows/testflight.yml), tags the shipped
-   commit `testflight/<version>/<build>`, opens a pull request
+   through the [TestFlight workflow](../.github/workflows/testflight.yml), sends the Android
+   bundle of the same commit to the Play closed testing track through the
+   [Google Play workflow](../.github/workflows/play.yml) ([docs/play.md](play.md)), tags the
+   shipped commit `testflight/<version>/<build>`, opens a pull request
    **Release \<version\>** from the branch to `main` and publishes the tag as a
    [GitHub release](https://github.com/gerra/gains/releases/latest) named
    **Gains \<version\> (\<build\>)** with the changes since the previous version; the newest
@@ -110,7 +112,8 @@ secrets; the steps themselves call [`tools/release.py`](../tools/release.py) —
 branch, picking what to upload, tagging the build, opening the pull request and publishing
 the release — and
 [`tools/testflight.py`](../tools/testflight.py) for the signing, archiving and uploading,
-with [`tools/gha.py`](../tools/gha.py) holding the handful of Actions helpers they share.
+[`tools/play.py`](../tools/play.py) for the Android bundle and its upload to Play, with
+[`tools/gha.py`](../tools/gha.py) holding the handful of Actions helpers they share.
 Each takes a command, so a step reads as `python3 tools/release.py cut`; `--help` lists the
 rest. The version arithmetic that decides which branch gets cut is covered by tests, which
 CI runs on every pull request:

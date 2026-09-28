@@ -1,0 +1,368 @@
+#!/usr/bin/env python3
+"""Signing, bundling and uploading the Android app to Google Play, for .github/workflows/play.yml.
+
+One command per step of that workflow, in the order it runs them, the way tools/testflight.py
+does it for iOS:
+
+  check-secrets    Say whether the Play secrets are all set. A missing one is not an error here:
+                   the step's `configured` output turns the rest of the job off, so a release
+                   round still ships to TestFlight while the Play Console is being set up.
+  paths            Where the upload key, the service account key and the bundle live on this runner.
+  settings         Read the application id out of android.gradle and MARKETING_VERSION out of
+                   Config.xcconfig; the bundle carries the same version as the iOS build.
+  install-signing  Write the upload keystore and the service account key out of the secrets.
+  bundle           `gradle bundleRelease`, signed with the upload key and stamped with the
+                   run number as versionCode.
+  upload           Send the bundle to the closed testing track through the Play Developer API.
+  cleanup          Remove the key material from the runner.
+
+The Play Developer API is called with the standard library and `openssl`, which signs the
+service account's JWT: no client library to install on the runner. One-time setup and the
+list of secrets: docs/play.md
+"""
+
+import argparse
+import base64
+import json
+import os
+import pathlib
+import re
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+import gha
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+CONFIG = ROOT / "iosApp/Configuration/Config.xcconfig"
+ANDROID_GRADLE = ROOT / "composeApp/android.gradle"
+BUNDLE = ROOT / "composeApp/build/outputs/bundle/release/composeApp-release.aab"
+
+SECRETS = [
+    "ANDROID_UPLOAD_KEYSTORE_BASE64",
+    "ANDROID_UPLOAD_KEYSTORE_PASSWORD",
+    "ANDROID_UPLOAD_KEY_ALIAS",
+    "ANDROID_UPLOAD_KEY_PASSWORD",
+    "PLAY_SERVICE_ACCOUNT_JSON",
+]
+
+# The closed testing track a release goes to. Play names the first one "alpha" in the API,
+# whatever the console shows; a track created by hand goes by its own name (docs/play.md).
+DEFAULT_TRACK = "alpha"
+
+API = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications"
+UPLOAD_API = "https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications"
+SCOPE = "https://www.googleapis.com/auth/androidpublisher"
+
+
+def keystore_path():
+    return gha.temp("upload.jks")
+
+
+def service_account_path():
+    return gha.temp("play-service-account.json")
+
+
+def setting(name):
+    """A setting from Config.xcconfig, e.g. MARKETING_VERSION."""
+    for line in CONFIG.read_text().splitlines():
+        key, separator, value = line.partition("=")
+        if separator and key.strip() == name:
+            return value.strip()
+    gha.fail(f"{name} is not set in {CONFIG.relative_to(ROOT)}")
+
+
+def application_id(gradle_text):
+    """The applicationId in android.gradle: what Play knows the app as."""
+    found = re.search(r'^\s*applicationId\s+"([^"]+)"', gradle_text, flags=re.M)
+    if not found:
+        gha.fail(f"applicationId is not set in {ANDROID_GRADLE.relative_to(ROOT)}")
+    return found.group(1)
+
+
+def decode_secret(name, destination):
+    """Write a base64 secret out as a file, readable only by this user."""
+    destination.write_bytes(base64.b64decode(gha.secret(name)))
+    destination.chmod(0o600)
+    return destination
+
+
+# --- the Play Developer API -------------------------------------------------
+
+
+def base64url(data):
+    """The unpadded base64 JWTs are made of."""
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def assertion(account, now):
+    """The unsigned part of the service account's JWT: `header.claims`, as bytes to sign.
+
+    Google trades this, signed with the account's private key, for an access token that is
+    good for an hour. `account` is the parsed service account JSON file.
+    """
+    header = {"alg": "RS256", "typ": "JWT"}
+    claims = {
+        "iss": account["client_email"],
+        "scope": SCOPE,
+        "aud": account["token_uri"],
+        "iat": now,
+        "exp": now + 3600,
+    }
+    return ".".join(
+        base64url(json.dumps(part, separators=(",", ":")).encode()) for part in (header, claims)
+    ).encode()
+
+
+def sign_with_openssl(key_pem_path, data):
+    """RS256 over `data` with the service account's private key, via the openssl on the runner.
+
+    Through files rather than pipes: gha.run speaks text, and a signature is bytes.
+    """
+    unsigned, signature = gha.temp("play-jwt.txt"), gha.temp("play-jwt.sig")
+    unsigned.write_bytes(data)
+    try:
+        gha.run(
+            "openssl", "dgst", "-sha256", "-sign", key_pem_path, "-out", signature, unsigned,
+            show=False,
+        )
+        return signature.read_bytes()
+    finally:
+        unsigned.unlink(missing_ok=True)
+        signature.unlink(missing_ok=True)
+
+
+def http(method, url, body=None, content_type="application/json", token=None, timeout=600):
+    """One request to Google, answered as parsed JSON. An error names the API's own message."""
+    headers = {}
+    if body is not None:
+        headers["Content-Type"] = content_type
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(url, data=body, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            text = response.read().decode()
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode(errors="replace")
+        gha.fail(f"{method} {url} answered {error.code}: {detail}")
+    return json.loads(text) if text else {}
+
+
+def access_token(account_path, sign=sign_with_openssl, request=http, now=None):
+    """An access token for the Play Developer API, from the service account key file."""
+    account = json.loads(account_path.read_text())
+    key = gha.temp("play-service-account-key.pem")
+    key.write_text(account["private_key"])
+    key.chmod(0o600)
+    try:
+        unsigned = assertion(account, int(now if now is not None else time.time()))
+        jwt = unsigned + b"." + base64url(sign(key, unsigned)).encode()
+    finally:
+        key.unlink(missing_ok=True)
+    answer = request(
+        "POST", account["token_uri"],
+        body=urllib.parse.urlencode({
+            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            "assertion": jwt.decode(),
+        }).encode(),
+        content_type="application/x-www-form-urlencoded",
+    )
+    return answer["access_token"]
+
+
+def release_body(track, version_code, version_name):
+    """What the track update says: one completed release carrying this bundle."""
+    return {
+        "track": track,
+        "releases": [
+            {
+                "name": f"{version_name} ({version_code})",
+                "versionCodes": [str(version_code)],
+                "status": "completed",
+            }
+        ],
+    }
+
+
+class PlayApi:
+    """The four calls an upload takes, in order: an edit is opened, the bundle goes into it,
+    the track is pointed at the bundle, and the edit is committed, which is when Play acts.
+
+    `request` is `http` on the runner and a fake in the tests, so nothing here talks to Google
+    unless asked to.
+    """
+
+    def __init__(self, token, package, request=http):
+        self.token = token
+        self.package = package
+        self.request = request
+
+    def call(self, method, url, body=None, content_type="application/json"):
+        return self.request(method, url, body=body, content_type=content_type, token=self.token)
+
+    def open_edit(self):
+        return self.call("POST", f"{API}/{self.package}/edits", body=b"{}")["id"]
+
+    def upload_bundle(self, edit, bundle):
+        answer = self.call(
+            "POST",
+            f"{UPLOAD_API}/{self.package}/edits/{edit}/bundles?uploadType=media",
+            body=bundle.read_bytes(),
+            content_type="application/octet-stream",
+        )
+        return answer["versionCode"]
+
+    def set_track(self, edit, track, version_code, version_name):
+        self.call(
+            "PUT",
+            f"{API}/{self.package}/edits/{edit}/tracks/{track}",
+            body=json.dumps(release_body(track, version_code, version_name)).encode(),
+        )
+
+    def commit(self, edit):
+        self.call("POST", f"{API}/{self.package}/edits/{edit}:commit", body=b"")
+
+    def release(self, bundle, track, version_name):
+        """The whole upload. Returns the versionCode Play read out of the bundle."""
+        edit = self.open_edit()
+        version_code = self.upload_bundle(edit, bundle)
+        self.set_track(edit, track, version_code, version_name)
+        self.commit(edit)
+        return version_code
+
+
+# --- the steps --------------------------------------------------------------
+
+
+def paths(args):
+    """The runner context is not available in job-level env, so the paths are set here."""
+    gha.export(
+        KEYSTORE_PATH=keystore_path(),
+        SERVICE_ACCOUNT_PATH=service_account_path(),
+        BUNDLE_PATH=BUNDLE,
+    )
+
+
+def check_secrets(args):
+    """`configured=true` when every Play secret is set; otherwise `false`, and the job skips.
+
+    Unlike TestFlight's check this does not fail the step. The Play upload runs in the same
+    release round as TestFlight, and the owner's Play Console setup (docs/play.md) must not
+    hold back the iOS build while it is in progress.
+    """
+    missing = [name for name in SECRETS if not os.environ.get(name)]
+    if missing:
+        gha.summary(
+            "Play upload skipped: repository secret(s) "
+            + ", ".join(f"`{name}`" for name in missing)
+            + " not set (see docs/play.md)."
+        )
+        gha.output(configured="false")
+        return
+    print(f"All {len(SECRETS)} Play secrets are set.")
+    gha.output(configured="true")
+
+
+def settings(args):
+    gha.export(
+        APPLICATION_ID=application_id(ANDROID_GRADLE.read_text()),
+        MARKETING_VERSION=setting("MARKETING_VERSION"),
+        PLAY_TRACK=os.environ.get("PLAY_TRACK") or DEFAULT_TRACK,
+    )
+    gha.run("java", "-version")
+
+
+def install_signing(args):
+    decode_secret("ANDROID_UPLOAD_KEYSTORE_BASE64", keystore_path())
+    account = service_account_path()
+    account.write_text(gha.secret("PLAY_SERVICE_ACCOUNT_JSON"))
+    account.chmod(0o600)
+    try:
+        email = json.loads(account.read_text())["client_email"]
+    except (ValueError, KeyError):
+        gha.fail("PLAY_SERVICE_ACCOUNT_JSON is not a service account key file (see docs/play.md)")
+    print(f"Installed the upload key and the service account key for {email}")
+
+
+def gradle_properties(environment):
+    """The -P arguments `bundle` passes: the version, the signing and the sign-in ids.
+
+    The Google web client id and the Apple Services ID are optional and public; when the
+    workflow has them as repository variables they override the (usually empty) values in
+    gradle.properties, which is how the release build gets its sign-in buttons.
+    """
+    properties = {
+        "gains.versionCode": environment["BUILD_NUMBER"],
+        "gains.uploadKeystore": environment["KEYSTORE_PATH"],
+        "gains.uploadKeystorePassword": environment["ANDROID_UPLOAD_KEYSTORE_PASSWORD"],
+        "gains.uploadKeyAlias": environment["ANDROID_UPLOAD_KEY_ALIAS"],
+        "gains.uploadKeyPassword": environment["ANDROID_UPLOAD_KEY_PASSWORD"],
+    }
+    for variable, name in (
+        ("GOOGLE_WEB_CLIENT_ID", "gains.googleWebClientId"),
+        ("APPLE_SERVICES_ID", "gains.appleServicesId"),
+    ):
+        if environment.get(variable):
+            properties[name] = environment[variable]
+    return [f"-P{name}={value}" for name, value in properties.items()]
+
+
+def bundle(args):
+    build = os.environ["BUILD_NUMBER"]
+    print(
+        f"Bundling Gains {os.environ['MARKETING_VERSION']} ({build}) for "
+        f"{os.environ['APPLICATION_ID']}"
+    )
+    # Not echoed: the key passwords travel on the command line, like the certificate
+    # password in tools/testflight.py.
+    gha.run(
+        str(ROOT / "gradlew"), ":composeApp:bundleRelease", "--no-daemon",
+        *gradle_properties(os.environ),
+        cwd=ROOT, show=False,
+    )
+    if not BUNDLE.exists():
+        gha.fail(f"bundleRelease left no bundle at {BUNDLE.relative_to(ROOT)}")
+    print(f"Built {BUNDLE.relative_to(ROOT)} ({BUNDLE.stat().st_size // 1024} KB)")
+
+
+def upload(args):
+    version = os.environ["MARKETING_VERSION"]
+    track = os.environ["PLAY_TRACK"]
+    token = access_token(service_account_path())
+    api = PlayApi(token, os.environ["APPLICATION_ID"])
+    version_code = api.release(BUNDLE, track, version)
+    gha.summary(
+        f"Uploaded **Gains {version} ({version_code})** to the Play `{track}` track. "
+        "Testers on it get the build once Play has processed it.",
+        echo=False,
+    )
+
+
+def cleanup(args):
+    """Leave nothing behind, whether or not the upload worked."""
+    keystore_path().unlink(missing_ok=True)
+    service_account_path().unlink(missing_ok=True)
+
+
+COMMANDS = {
+    "check-secrets": check_secrets,
+    "paths": paths,
+    "settings": settings,
+    "install-signing": install_signing,
+    "bundle": bundle,
+    "upload": upload,
+    "cleanup": cleanup,
+}
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("command", choices=list(COMMANDS))
+    args = parser.parse_args(argv)
+    COMMANDS[args.command](args)
+
+
+if __name__ == "__main__":
+    main()

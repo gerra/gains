@@ -42,11 +42,12 @@ TESTFLIGHT_BUTTON = (
 BOT_NAME = "github-actions[bot]"
 BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com"
 
-# What does not reach the iOS build, and so does not by itself justify cutting a branch.
-# The version line differs by design; docs, samples, the workflows, tests and the Android-
-# and desktop-only sources never make it into the app. `tools` is here for the same reason
-# `.github` is: this file lives in it, and a change to the release process is not a change
-# to the app. `site` is gains.gerra.sh, shipped by its own workflow.
+# What reaches neither the iOS build nor the Android bundle, and so does not by itself
+# justify cutting a branch. The version line differs by design; docs, samples, the
+# workflows, tests and the desktop-only sources never make it into either app. `tools` is
+# here for the same reason `.github` is: this file lives in it, and a change to the release
+# process is not a change to the app. `site` is gains.gerra.sh, shipped by its own workflow.
+# The Android-only sources count since the release round ships to Play too (tools/play.py).
 IGNORED = [
     "iosApp/Configuration/Config.xcconfig",
     "*.md",
@@ -58,9 +59,7 @@ IGNORED = [
     "deploy",
     "site",
     "secrets",
-    "composeApp/src/androidMain",
     "composeApp/src/desktopMain",
-    "shared/src/androidMain",
     "shared/src/desktopMain",
     "*/src/commonTest/*",
     "*/src/desktopTest/*",
@@ -129,7 +128,7 @@ def release_versions():
 
 
 def app_changed_since(version):
-    """Has anything that reaches the iOS app changed on main since that branch was cut?"""
+    """Has anything that reaches the iOS or Android app changed on main since that branch was cut?"""
     excludes = [f":(exclude){path}" for path in IGNORED]
     unchanged = gha.run(
         "git", "diff", "--quiet", f"origin/release/{version}", "origin/main", "--", ".",

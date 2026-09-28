@@ -2,7 +2,8 @@ name: Release
 
 # Every two hours through the day, on the odd hours from 09:00 to 23:00 UTC, uploads the
 # newest release branch (release/<major>.<minor>, cut by the "Cut release branch" workflow
-# an hour earlier) to TestFlight, tags the commit that shipped as
+# an hour earlier) to TestFlight and, with the same build number, to the Play closed testing
+# track (docs/play.md), tags the commit that shipped as
 # testflight/<version>/<build>, opens a pull request from the branch to main and publishes
 # the tag as the latest GitHub release, which the README's TestFlight badge shows. A branch
 # whose tip already carries such a tag is left alone, so a round without a new cut uploads
@@ -66,6 +67,22 @@ jobs:
       # The commit picked above, so a push to the branch during the build cannot slip in
       # untagged. The build number is this run's number; keep re-releases of a version on
       # this workflow so its numbers only ever go up.
+      ref: ${{ needs.pick.outputs.sha }}
+      build_number: ${{ github.run_number }}
+    secrets: inherit
+
+  # The Android bundle of the same commit, with the same number, to the Play closed testing
+  # track. Skips itself while the Play secrets are missing (docs/play.md). `finish` does not
+  # wait for it: the tag and the release record the TestFlight upload, and a Play failure
+  # must not leave a shipped iOS build untagged, or the next round would upload it again.
+  play:
+    name: Google Play
+    needs: pick
+    if: needs.pick.outputs.upload == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/play.yml
+    with:
       ref: ${{ needs.pick.outputs.sha }}
       build_number: ${{ github.run_number }}
     secrets: inherit
