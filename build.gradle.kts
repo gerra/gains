@@ -15,6 +15,17 @@ buildscript {
             classpath("com.android.tools.build:gradle:${libs.versions.agp.get()}")
         }
     }
+    // AGP 9.4.1 brings Bouncy Castle 1.80.2, which has open advisories (GHSA-9pwp-9qqc-pr26,
+    // GHSA-qp49-qgx5-5m26, GHSA-c3fc-8qff-9hwx) that fail CI's Dependency review. Every Bouncy
+    // Castle module moves to the server's version together; they are released in lockstep.
+    configurations.classpath {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.bouncycastle") {
+                useVersion(libs.versions.bouncycastle.get())
+                because("AGP's Bouncy Castle has open advisories")
+            }
+        }
+    }
 }
 
 plugins {
@@ -27,3 +38,16 @@ plugins {
 }
 
 extra["androidEnabled"] = androidEnabled
+
+// The same for the classpaths AGP resolves in the modules themselves (lint, R8, signing).
+val bouncycastleVersion = libs.versions.bouncycastle.get()
+allprojects {
+    configurations.configureEach {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.bouncycastle") {
+                useVersion(bouncycastleVersion)
+                because("AGP's Bouncy Castle has open advisories")
+            }
+        }
+    }
+}
