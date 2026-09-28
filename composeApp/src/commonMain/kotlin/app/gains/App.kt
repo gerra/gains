@@ -1,73 +1,48 @@
 package app.gains
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.updateTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.SaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import app.gains.platform.systemReducesMotion
-import app.gains.ui.theme.LocalReduceMotion
-import app.gains.ui.theme.Motion
-import app.gains.ui.theme.screenSlide
-import app.gains.ui.i18n.*
 import app.gains.auth.AccountRepository
 import app.gains.data.ExerciseRepository
 import app.gains.data.LiveSessionRepository
 import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
-import app.gains.domain.LiveSession
-import app.gains.root.LiveSessionNotices
-import app.gains.root.RootGate
-import app.gains.root.RootState
-import app.gains.root.StreakReminders
-import app.gains.root.UpNext
-import app.gains.root.openImportFor
-import app.gains.root.findUpNext
-import app.gains.sync.SyncController
-import kotlinx.coroutines.flow.combine
 import app.gains.data.ThemeMode
-import androidx.compose.foundation.isSystemInDarkTheme
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.LiveSessionNotifier
 import app.gains.platform.NudgeScheduler
 import app.gains.platform.PhotoPicker
 import app.gains.platform.ResumeRequests
-import app.gains.ui.components.dismissKeyboardOnTap
+import app.gains.platform.systemReducesMotion
+import app.gains.root.LiveSessionNotices
+import app.gains.root.RootGate
+import app.gains.root.RootState
+import app.gains.root.StreakReminders
+import app.gains.root.observeUpNext
+import app.gains.root.openImportFor
+import app.gains.sync.SyncController
+import app.gains.ui.i18n.InLanguage
+import app.gains.ui.i18n.rememberTexts
 import app.gains.ui.inject
-import app.gains.ui.nav.BottomNav
-import app.gains.ui.nav.LiveSessionBar
+import app.gains.ui.nav.AppFrame
 import app.gains.ui.nav.Navigator
-import app.gains.ui.nav.Screen
-import app.gains.ui.nav.ScreenContent
-import app.gains.ui.nav.SwipeBack
-import app.gains.ui.nav.TopBar
 import app.gains.ui.screens.OnboardingScreen
 import app.gains.ui.screens.SignInScreen
 import app.gains.ui.theme.GainsTheme
+import app.gains.ui.theme.LocalReduceMotion
+import app.gains.ui.theme.isDark
 
 /**
  * Root of the shared UI: the look it is drawn in, the language it is worded in, and [AppBody] with
@@ -105,12 +80,7 @@ internal fun App(
     // The stack and that state sit above the language, so a change of it leaves the lifter where they were.
     val stateHolder = rememberSaveableStateHolder()
     val navigator = remember { Navigator(onReleased = { stateHolder.removeState(it.id) }) }
-    val themeMode by settings.observeThemeMode().collectAsState(ThemeMode.DARK)
-    val dark = when (themeMode) {
-        ThemeMode.DARK -> true
-        ThemeMode.LIGHT -> false
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-    }
+    val dark = settings.observeThemeMode().collectAsState(ThemeMode.DARK).value.isDark()
     val reduceMotion = remember { systemReducesMotion() }
     systemBars(dark)
     GainsTheme(darkTheme = dark) { CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
@@ -126,12 +96,14 @@ internal fun App(
 }
 
 /**
- * Everything under the look and the language: the screens on [navigator]'s back stack, the workout
- * in progress, and the way between them. Composed afresh whenever the language changes, which is
- * what puts every word on screen into the new one; the stack and [stateHolder] outlive that.
+ * Everything under the look and the language: the gates, the pieces in `app.gains.root` that keep
+ * the app in step with its data, and [AppFrame] with the screens on [navigator]'s back stack.
+ * Composed afresh whenever the language changes, which is what puts every word on screen into the
+ * new one; the stack and [stateHolder] outlive that.
  *
- * The streak reminders are planned here too, so that a change of language re-words the ones still
- * to come: their text is settled when the plan is made, not when the platform shows them.
+ * Each piece is made with `remember` and run from a `LaunchedEffect` here, so none of them outlives
+ * the composition. The streak reminders are planned here too, so that a change of language re-words
+ * the ones still to come: their text is settled when the plan is made, not when the platform shows them.
  */
 @Composable
 private fun AppBody(
@@ -162,9 +134,7 @@ private fun AppBody(
 
     // The active program's next day, for the "+" menu.
     val texts = rememberTexts()
-    val upNext by remember(texts) {
-        combine(programs.observeState(), sessions.observeProgramLinks()) { state, links -> findUpNext(state, links, texts) }
-    }.collectAsState(initial = null)
+    val upNext by remember(texts) { observeUpNext(programs, sessions, texts) }.collectAsState(initial = null)
     // The workout in progress, if any: shown as a resume bar on every screen but its own.
     val liveSessions = remember { inject<LiveSessionRepository>() }
     val live by liveSessions.observe().collectAsState(initial = null)
@@ -178,59 +148,6 @@ private fun AppBody(
         RootState.Loading -> Unit
         RootState.SignIn -> SignInScreen()
         RootState.Onboarding -> OnboardingScreen(onDone = {})
-        RootState.Main -> Main(navigator, stateHolder, filePicker, photoPicker, upNext, live)
-    }
-}
-
-/**
- * The app past its gates: the top bar, the screen on top of [navigator]'s stack, the workout bar and
- * the tabs. The pieces are drawn in `ui/nav/` (`AppChrome.kt` for the bars, `Routes.kt` for the
- * screens); what is left here is how they are laid out and animated against each other.
- */
-@Composable
-private fun Main(
-    navigator: Navigator,
-    stateHolder: SaveableStateHolder,
-    filePicker: CsvFilePicker,
-    photoPicker: PhotoPicker,
-    upNext: UpNext?,
-    live: LiveSession?,
-) {
-    val screen = navigator.current
-    // Tapping outside a text field anywhere in the app puts the keyboard away.
-    Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
-        TopBar(navigator, screen, upNext)
-        val transition = updateTransition(navigator.currentEntry, label = "screen")
-        val reduceMotion = LocalReduceMotion.current
-        SwipeBack(
-            // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
-            enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
-            onBack = { navigator.pop(animated = false) },
-            modifier = Modifier.weight(1f),
-            previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, photoPicker, stateHolder) } },
-        ) {
-            transition.AnimatedContent(
-                transitionSpec = {
-                    // The swipe-back gesture has already slid the old screen away. Otherwise the new screen comes
-                    // in the way the lifter went: deeper or to a tab on the right from the right, back or left from the left.
-                    screenSlide(forward = navigator.direction > 0, reduce = navigator.skipTransition || reduceMotion)
-                },
-            ) { entry -> ScreenContent(entry, navigator, filePicker, photoPicker, stateHolder) }
-        }
-        // The bar rises in when a workout starts and folds away when it ends, rather than shoving the tabs.
-        // The workout it last showed, so the bar can still be drawn while it folds away after the workout ends.
-        var lastLive by remember { mutableStateOf(live) }
-        SideEffect { if (live != null) lastLive = live }
-        val shownLive = live ?: lastLive
-        AnimatedVisibility(
-            visible = live != null && !(screen is Screen.EditSession && screen.live),
-            enter = if (reduceMotion) EnterTransition.None else expandVertically(tween(Motion.STANDARD)) + fadeIn(tween(Motion.STANDARD)),
-            exit = if (reduceMotion) ExitTransition.None else shrinkVertically(tween(Motion.STANDARD)) + fadeOut(tween(Motion.EXIT)),
-        ) {
-            shownLive?.let { running ->
-                LiveSessionBar(running, onResume = { navigator.push(Screen.EditSession(null, running.program, live = true)) })
-            }
-        }
-        BottomNav(navigator)
+        RootState.Main -> AppFrame(navigator, stateHolder, filePicker, photoPicker, upNext, live)
     }
 }
