@@ -75,7 +75,7 @@ The same rules as `auth-plan.md`:
 | 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
 | 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [x] |
 | 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [x] |
-| 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [ ] |
+| 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [x] |
 | 35 | Explicit dependencies instead of `inject()` defaults | Maintenance (P2) | Agent | 34 | [ ] |
 | 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [ ] |
 | 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [ ] |
@@ -1287,7 +1287,8 @@ Tests: per step, as above.
 
 ### 34. ScreenModel actions: one way to launch them and to handle their failures
 
-- [ ] Done
+- [x] Done
+  Done in #124
 
 **Milestone:** Maintenance (P1). **Depends on:** nothing. Touches the same model files as
 item 35, so don't run the two at once.
