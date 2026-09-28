@@ -397,6 +397,7 @@ Update `docs/sync.md` "What the client does".
 ### 13. Android: release workflow and Play closed testing
 
 - [x] Done
+  Done in #97
   Steps 1–4 are in: `composeApp/android.gradle` stamps the version, the Google Play workflow
   (`.github/workflows/play.yml`, `tools/play.py`) bundles and uploads, and the Release workflow
   calls it next to TestFlight. The owner's step 2 (the upload key) and step 3 (the service
