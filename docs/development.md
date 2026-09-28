@@ -73,6 +73,11 @@ Open the project in Android Studio and run the `composeApp` configuration, or bu
 ./gradlew :composeApp:assembleDebug
 ```
 
+A debug build carries version code 1 and the version name from `MARKETING_VERSION` in
+`iosApp/Configuration/Config.xcconfig`, the same one the iOS build shows. Release bundles for
+Play come from the release workflow, signed with the upload key and stamped with the run
+number: [docs/play.md](play.md).
+
 The app registers as a handler for CSV files, so exports shared from other apps open directly in
 the import preview. Several files can be shared at once.
 
@@ -211,8 +216,10 @@ in `iosApp/iosApp/Info.plist`.
 
 ## Known limitations
 
-- The Android source set is written against the standard APIs but is not compiled in CI, which
-  runs without an Android SDK. Open the project in Android Studio to build it.
+- The Android source set is written against the standard APIs but is not compiled by the CI
+  workflow, which runs without an Android SDK. Open the project in Android Studio to build it.
+  The [Google Play workflow](play.md) does build it, on each release round once its secrets
+  are set.
 - The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request,
   but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
   hosted macOS runner for this).

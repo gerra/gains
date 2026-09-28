@@ -1,0 +1,121 @@
+name: Google Play
+
+# Builds the Android app bundle on a Linux runner, signs it with the upload key kept in the
+# repository secrets and sends it to the closed testing track through the Play Developer API,
+# with a service account. Testers on the track get it once Play has processed it.
+#
+# The Release workflow calls this next to TestFlight for the current release branch
+# (workflow_call), with the same run number as the build number, so a version's iOS build
+# and Android bundle carry one number. "Run workflow" uploads by hand. Until the owner adds
+# the Play secrets the job checks them, says so in the run summary and does nothing else,
+# so a release round is never held back by the Play Console setup.
+#
+# One-time setup, the secrets this needs and troubleshooting: docs/play.md
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch, tag or commit to bundle. Defaults to the caller's ref."
+        required: false
+        type: string
+      build_number:
+        description: "versionCode. Defaults to the workflow run number."
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "versionCode. Defaults to the workflow run number."
+        required: false
+        type: string
+
+jobs:
+  upload:
+    name: Bundle and upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Never upload two bundles at once: Play edits of one app collide. The group sits on
+    # the job so it also holds when the Release workflow calls this one.
+    concurrency:
+      group: play
+      cancel-in-progress: false
+    env:
+      BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Empty for manual runs, where the ref that started the run is checked out.
+          ref: ${{ inputs.ref }}
+
+      # Every later step is skipped while a secret is missing; the summary says which.
+      - name: Check secrets
+        id: secrets
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python3 tools/play.py check-secrets
+
+      # The runner context is not available in job-level env, so the temp paths are set
+      # here. tools/play.py holds them, and exports them for the steps below.
+      - name: Set paths
+        if: steps.secrets.outputs.configured == 'true'
+        run: python3 tools/play.py paths
+      - uses: actions/setup-java@v5
+        if: steps.secrets.outputs.configured == 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+      # Release branches are not the default branch, where this action would only read the
+      # cache and never write it. Write it here so the next bundle starts warm. The Android
+      # SDK itself is on the Ubuntu image; the Android Gradle Plugin fetches a platform or
+      # build-tools version the image lacks.
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.secrets.outputs.configured == 'true'
+        with:
+          cache-read-only: false
+
+      # PLAY_TRACK is an optional repository variable naming the closed testing track;
+      # unset means Play's first one, "alpha".
+      - name: Read app settings
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          PLAY_TRACK: ${{ vars.PLAY_TRACK }}
+        run: python3 tools/play.py settings
+
+      - name: Install the upload key and the service account key
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python3 tools/play.py install-signing
+
+      # The two sign-in ids are public and optional (docs/development.md, "Android"): as
+      # repository variables they override the values in gradle.properties for this build.
+      - name: Build the bundle
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GAINS_GOOGLE_WEB_CLIENT_ID }}
+          APPLE_SERVICES_ID: ${{ vars.GAINS_APPLE_SERVICES_ID }}
+        run: python3 tools/play.py bundle
+
+      - name: Upload to Google Play
+        if: steps.secrets.outputs.configured == 'true'
+        run: python3 tools/play.py upload
+
+      - name: Keep the bundle
+        if: always() && steps.secrets.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: play-bundle-${{ env.BUILD_NUMBER }}
+          path: ${{ env.BUNDLE_PATH }}
+          if-no-files-found: ignore
+
+      - name: Remove signing material
+        if: always()
+        run: python3 tools/play.py cleanup

@@ -48,7 +48,8 @@ Install [TestFlight](https://apps.apple.com/app/testflight/id899247664) (iOS 16+
 **https://testflight.apple.com/join/T4dqvPW7** on your iPhone. The newest build is the
 [latest release](https://github.com/gerra/gains/releases/latest).
 
-Builds ship from `main` every two hours through the day: [docs/testflight.md](docs/testflight.md).
+Builds ship from `main` every two hours through the day: [docs/testflight.md](docs/testflight.md),
+and the same rounds send the Android build to Play's closed test: [docs/play.md](docs/play.md).
 
 ## Build from source
 
@@ -74,11 +75,11 @@ Add `-Pgains.openFile=samples/liftoff-export.csv` to the desktop run to start fr
 | [`composeApp/`](composeApp) | Compose Multiplatform UI for iOS, Android and desktop. |
 | [`iosApp/`](iosApp) | The Xcode project. |
 | [`server/`](server) | The sync server (Ktor, SQLite). |
-| [`tools/`](tools) | Release, TestFlight and deploy scripts. |
+| [`tools/`](tools) | Release, TestFlight, Google Play and deploy scripts. |
 | [`site/`](site) | [gains.gerra.sh](https://gains.gerra.sh): landing page, privacy policy, support. Static HTML. |
 
 More: [how it works](docs/how-it-works.md) · [development](docs/development.md) ·
-[sync](docs/sync.md) · [TestFlight](docs/testflight.md) · [launch plan](docs/launch-plan.md)
+[sync](docs/sync.md) · [TestFlight](docs/testflight.md) · [Google Play](docs/play.md) · [launch plan](docs/launch-plan.md)
 
 ## License
 
