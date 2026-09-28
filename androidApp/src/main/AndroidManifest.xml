@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Empty on purpose. The application, its activities, receivers and permissions are declared in
+     :composeApp's manifest (composeApp/src/androidMain/AndroidManifest.xml), next to the code they
+     name, and merge into this one (docs/launch-plan.md, item 38). -->
+<manifest />

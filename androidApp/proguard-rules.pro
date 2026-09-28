@@ -1,4 +1,4 @@
-# R8 rules of the app's own for the release build (composeApp/android.gradle,
+# R8 rules of the app's own for the release build (androidApp/build.gradle.kts,
 # docs/launch-plan.md, item 30).
 #
 # Empty on purpose. What reflects brings its own consumer rules: kotlinx-serialization (the
@@ -10,4 +10,4 @@
 # Add a rule only when a release build asks for one, with a comment saying which crash it fixes:
 # a ClassNotFoundException or a serializer "not found" on the device is a missing keep rule, and
 # an R8 "Missing class" error in bundleRelease writes the -dontwarn lines it wants to
-# composeApp/build/outputs/mapping/release/missing_rules.txt.
+# androidApp/build/outputs/mapping/release/missing_rules.txt.

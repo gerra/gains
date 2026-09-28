@@ -1,5 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.time.Duration
 
 plugins {
@@ -10,24 +11,15 @@ plugins {
 
 val androidEnabled = rootProject.extra["androidEnabled"] as Boolean
 
+// Before the kotlin { } block: android.gradle creates the Android target that androidMain belongs
+// to. This module is an Android library; the application is :androidApp.
 if (androidEnabled) {
-    apply(plugin = "com.android.application")
+    apply(plugin = "com.android.kotlin.multiplatform.library")
+    apply(from = "android.gradle")
 }
 
 kotlin {
-    if (androidEnabled) {
-        androidTarget {
-            compilerOptions {
-                jvmTarget.set(JvmTarget.JVM_17)
-            }
-        }
-    }
-
-    jvm("desktop") {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-        }
-    }
+    jvm("desktop")
 
     listOf(
         iosArm64(),
@@ -153,6 +145,8 @@ compose.desktop {
     }
 }
 
-if (androidEnabled) {
-    apply(from = "android.gradle")
+// Java 17 bytecode on the desktop and Android targets alike. Set on the tasks, since the Android
+// library plugin's target has no compilerOptions block of its own to say it in.
+tasks.withType<KotlinJvmCompile>().configureEach {
+    compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
 }

@@ -1,12 +1,15 @@
-// Android library configuration for :shared (applied only when gains.android=true).
-android {
-    namespace "app.gains.shared"
-    compileSdk libs.versions.android.compileSdk.get().toInteger()
-    defaultConfig {
-        minSdk libs.versions.android.minSdk.get().toInteger()
-    }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+// Android target of :shared (applied only when gains.android=true), on the Kotlin Multiplatform
+// library plugin: AGP 9 no longer takes com.android.library next to the Kotlin Multiplatform plugin
+// (docs/launch-plan.md, item 38). Groovy, so the Kotlin DSL build file never names an AGP type,
+// and applied before the kotlin { } block there, which only exists once this creates the target.
+kotlin {
+    androidLibrary {
+        namespace = "app.gains.shared"
+        compileSdk = libs.versions.android.compileSdk.get().toInteger()
+        minSdk = libs.versions.android.minSdk.get().toInteger()
+        // commonTest on the Android JVM (:shared:testAndroidHostTest), as testDebugUnitTest did:
+        // the same tests against the Android SQLite driver and OkHttp engine. The new plugin
+        // creates no test compilation unless asked.
+        withHostTestBuilder {}
     }
 }

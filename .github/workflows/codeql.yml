@@ -42,9 +42,9 @@ jobs:
       - name: Compile the JVM and Android code
         run: >-
           ./gradlew
-          :protocol:compileKotlinJvm :protocol:compileDebugKotlinAndroid
-          :shared:compileKotlinDesktop :shared:compileDebugKotlinAndroid
-          :composeApp:compileKotlinDesktop :composeApp:compileDebugKotlinAndroid
+          :protocol:compileKotlinJvm :protocol:compileAndroidMain
+          :shared:compileKotlinDesktop :shared:compileAndroidMain
+          :composeApp:compileKotlinDesktop :composeApp:compileAndroidMain
           :server:compileKotlin
           -Pkotlin.compiler.execution.strategy=in-process
           --no-daemon --no-build-cache --rerun-tasks

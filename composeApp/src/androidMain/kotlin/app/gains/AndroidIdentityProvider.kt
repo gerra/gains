@@ -101,17 +101,17 @@ internal class AndroidIdentityProvider(
 }
 
 /**
- * The Android app's sign-in settings, from `BuildConfig`, which the build fills from the Gradle
- * properties `gains.serverUrl`, `gains.googleWebClientId`, `gains.appleServicesId` and
- * `gains.passwordSignIn` (`composeApp/android.gradle`; see docs/development.md, "Android"), so
- * they change without touching code. Google stays off until the web client id is there, and its button stays hidden.
- * Apple stays off until the Services ID is there, which the owner sets once the server has
- * `APPLE_SERVICES_ID`: before that `/auth/apple/start` answers 503, and the button would only
- * open an error page.
+ * The Android app's sign-in settings, from string resources that `:androidApp` fills from the
+ * Gradle properties `gains.serverUrl`, `gains.googleWebClientId`, `gains.appleServicesId` and
+ * `gains.passwordSignIn` (`androidApp/build.gradle.kts`, `res/values/sign_in_config.xml`; see
+ * docs/development.md, "Android"), so they change without touching code. Google stays off until
+ * the web client id is there, and its button stays hidden. Apple stays off until the Services ID
+ * is there, which the owner sets once the server has `APPLE_SERVICES_ID`: before that
+ * `/auth/apple/start` answers 503, and the button would only open an error page.
  */
-internal fun androidAuthConfig(): AuthConfig = AuthConfig(
-    serverBaseUrl = BuildConfig.SERVER_URL.trim().trimEnd('/').ifBlank { null },
-    googleClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim().ifBlank { null },
-    appleServiceId = BuildConfig.APPLE_SERVICES_ID.trim().ifBlank { null },
-    passwordSignIn = BuildConfig.PASSWORD_SIGN_IN.trim().toBoolean(),
+internal fun androidAuthConfig(context: Context): AuthConfig = AuthConfig(
+    serverBaseUrl = context.getString(R.string.gains_server_url).trim().trimEnd('/').ifBlank { null },
+    googleClientId = context.getString(R.string.gains_google_web_client_id).trim().ifBlank { null },
+    appleServiceId = context.getString(R.string.gains_apple_services_id).trim().ifBlank { null },
+    passwordSignIn = context.getString(R.string.gains_password_sign_in).trim().toBoolean(),
 )

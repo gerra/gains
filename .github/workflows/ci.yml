@@ -51,18 +51,19 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
-      # :composeApp has no tests of its own; :shared's commonTest runs as its Android unit tests.
-      # bundleRelease runs R8 (item 30), unsigned, so a shrinking failure shows on the pull
-      # request rather than in the release round's Google Play job.
-      - run: ./gradlew :composeApp:assembleDebug :composeApp:lintDebug :shared:testDebugUnitTest :composeApp:bundleRelease --no-daemon --stacktrace
+      # :androidApp is the application and :composeApp the library it wraps (item 38); lint
+      # follows the app into :composeApp. :composeApp has no tests of its own; :shared's
+      # commonTest runs as its Android host tests. bundleRelease runs R8 (item 30), unsigned, so a
+      # shrinking failure shows on the pull request rather than in the release round's Google Play job.
+      - run: ./gradlew :androidApp:assembleDebug :androidApp:lintDebug :shared:testAndroidHostTest :androidApp:bundleRelease --no-daemon --stacktrace
       # On an R8 "Missing class" failure, missing_rules.txt holds the -dontwarn lines it asks for.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
           name: android-reports
           path: |
-            composeApp/build/reports/lint-results-debug.*
-            composeApp/build/outputs/mapping/release/missing_rules.txt
+            androidApp/build/reports/lint-results-debug.*
+            androidApp/build/outputs/mapping/release/missing_rules.txt
           if-no-files-found: ignore
 
   # What a pull request adds to the dependencies, checked against GitHub's advisory database
