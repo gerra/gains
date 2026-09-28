@@ -905,8 +905,11 @@ Tests: the job. A pull request that breaks a Swift file or `Info.plist` must go 
 - [x] Done
   Done in #108, one commit per group, each with `:shared:desktopTest`, `:server:test` and the
   `:shared` iOS klib green locally, and the whole pass through the three CI jobs. What moved:
-  1. Kotlin 2.4.20 and Compose Multiplatform 1.12.1. Material 3 has had its own version line
-     since 1.9, so it is `compose-material3 = "1.9.0"`, the one the 1.12.1 plugin pairs with;
+  1. Kotlin 2.4.20 and Compose Multiplatform 1.11.1 (Jetpack Compose 1.11.2 on Android). Not
+     1.12.1, the current one: the first CI run showed its Jetpack Compose 1.12 artifacts refuse
+     anything below compileSdk 37 and AGP 9.1, so 1.12 waits for the AGP 9 move under step 3.
+     Material 3 has had its own version line since 1.9, so it is `compose-material3 = "1.9.0"`,
+     the one the 1.11.1 plugin pairs with;
      `material-icons-core` still resolves at 1.7.3, its last release; the resources and desktop
      UI-test artifacts moved from the plugin's deprecated `compose.*` accessors into the
      catalog. `kotlin.native.enableKlibsCrossCompilation` is still needed: without it
@@ -917,7 +920,7 @@ Tests: the job. A pull request that breaks a Swift file or `Info.plist` must go 
      Multiplatform plugin: `:composeApp` would have to become a KMP library with a new Android
      app module next to it, and `:shared` move to `com.android.kotlin.multiplatform.library`.
      That is its own item. AGP 8.13 supports API 36.1 at most, so the okhttp 5.4.0 pin from
-     item 25 stays until then.
+     item 25 stays until then, and so does Compose Multiplatform 1.11 (step 1).
   4. SQLDelight 2.4.0, activity-compose 1.13.0, credentials 1.6.0, browser 1.10.0, googleid
      1.2.1, and on the server logback 1.6.4 and Bouncy Castle 1.86. Ktor 3.6.0, coroutines
      1.11.0, serialization 1.11.0 and kotlinx-datetime 0.8.0 were already the latest stable.

@@ -1,9 +1,11 @@
 [versions]
 agp = "8.13.2"
 kotlin = "2.4.20"
-compose-multiplatform = "1.12.1"
+# Not 1.12: its Android artifacts (Jetpack Compose 1.12) need compileSdk 37 and AGP 9.1, and AGP
+# stays on 8.x until :composeApp is split (docs/launch-plan.md, item 27, step 3).
+compose-multiplatform = "1.11.1"
 # Material 3 has its own version line since Compose Multiplatform 1.9; 1.9.0 is the one the
-# Compose 1.12.1 plugin itself pairs with.
+# Compose 1.11.1 plugin itself pairs with.
 compose-material3 = "1.9.0"
 # The icons no longer ship with Compose Multiplatform, and 1.7.3 is their last release.
 compose-material-icons = "1.7.3"

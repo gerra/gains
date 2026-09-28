@@ -268,5 +268,6 @@ plus the iOS compile and the `tools/` tests listed under [the commands at the to
 
 The versions live in `gradle/libs.versions.toml`. The last deliberate pass over them was
 [launch-plan item 27](launch-plan.md#27-a-dependency-modernization-pass): Kotlin 2.4.20, Compose
-Multiplatform 1.12.1, Koin 4.2.2, AGP 8.13.2 on Gradle 8.14.5. AGP stays on 8.x until
-`:composeApp` is split into its own Android app module, which AGP 9 requires.
+Multiplatform 1.11.1, Koin 4.2.2, AGP 8.13.2 on Gradle 8.14.5. AGP stays on 8.x until
+`:composeApp` is split into its own Android app module, which AGP 9 requires, and Compose
+Multiplatform on 1.11 with it: 1.12's Android artifacts need AGP 9.1 and compileSdk 37.
