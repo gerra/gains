@@ -92,7 +92,7 @@ jobs:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: python3 tools/play.py install-signing
 
-      # The two sign-in ids are public and optional (docs/development.md, "Android"): as
+      # The sign-in ids and switches are public and optional (docs/development.md, "Android"): as
       # repository variables they override the values in gradle.properties for this build.
       - name: Build the bundle
         if: steps.secrets.outputs.configured == 'true'
@@ -103,6 +103,7 @@ jobs:
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GAINS_GOOGLE_WEB_CLIENT_ID }}
           APPLE_SERVICES_ID: ${{ vars.GAINS_APPLE_SERVICES_ID }}
           PASSWORD_SIGN_IN: ${{ vars.GAINS_PASSWORD_SIGN_IN }}
+          PASSKEYS: ${{ vars.GAINS_PASSKEYS }}
         run: python3 tools/play.py bundle
 
       - name: Upload to Google Play

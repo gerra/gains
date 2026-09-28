@@ -4,10 +4,16 @@ import android.app.Activity
 import android.content.Context
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.credentials.CreatePublicKeyCredentialRequest
+import androidx.credentials.CreatePublicKeyCredentialResponse
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetPublicKeyCredentialOption
+import androidx.credentials.PublicKeyCredential
+import androidx.credentials.exceptions.CreateCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.NoCredentialException
 import app.gains.auth.AccountKind
 import app.gains.auth.AppleWebFlow
 import app.gains.auth.AuthConfig
@@ -16,6 +22,7 @@ import app.gains.auth.ExchangeCode
 import app.gains.auth.GoogleOAuth
 import app.gains.auth.IdentityAssertion
 import app.gains.auth.IdentityProvider
+import app.gains.auth.NoPasskeyException
 import app.gains.auth.SignInCancelledException
 import app.gains.auth.SignInProof
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -36,7 +43,12 @@ import java.security.SecureRandom
  * tab to the App Link `https://gains.gerra.sh/auth/done` with a one-time code. [WebSignIn] carries
  * that URL back here, and the code goes to `AccountRepository` as an [ExchangeCode].
  *
- * Closing either sheet is a [SignInCancelledException], so the screen stays quiet.
+ * Passkeys go through Credential Manager as well, which takes the server's WebAuthn options as
+ * JSON and hands back its answer as JSON, so nothing here reads them. It makes and uses passkeys
+ * for `gains.gerra.sh` only once the site's `assetlinks.json` names this app's signing keys with
+ * `get_login_creds`, and the server accepts the origin it signs with (`PASSKEY_ORIGINS`).
+ *
+ * Closing any sheet is a [SignInCancelledException], so the screen stays quiet.
  */
 internal class AndroidIdentityProvider(
     private val config: AuthConfig,
@@ -46,8 +58,9 @@ internal class AndroidIdentityProvider(
     override suspend fun signIn(kind: AccountKind): SignInProof = when (kind) {
         AccountKind.GOOGLE -> signInWithGoogle()
         AccountKind.APPLE -> signInWithApple()
-        // An email account has no sheet: AccountRepository posts the password itself.
-        AccountKind.GUEST, AccountKind.EMAIL -> throw AuthNotConfiguredException(kind)
+        // An email account has no sheet: AccountRepository posts the password itself. A passkey
+        // has its own two calls below, which AccountRepository makes around the server's.
+        AccountKind.GUEST, AccountKind.EMAIL, AccountKind.PASSKEY -> throw AuthNotConfiguredException(kind)
     }
 
     /** The account chooser, then the token it returns. The server reads the name from Google's token. */
@@ -73,6 +86,34 @@ internal class AndroidIdentityProvider(
             "Unexpected credential: ${credential.type}"
         }
         return IdentityAssertion(GoogleIdTokenCredential.createFrom(credential.data).idToken, name = null)
+    }
+
+    /** Credential Manager's sheet to make a passkey from the server's creation [options]; returns the new passkey's JSON. */
+    override suspend fun createPasskey(options: String): String {
+        val host = activity() ?: error("No activity to show the passkey sheet from")
+        val response = try {
+            CredentialManager.create(context).createCredential(host, CreatePublicKeyCredentialRequest(options))
+        } catch (e: CreateCredentialCancellationException) {
+            throw SignInCancelledException()
+        }
+        check(response is CreatePublicKeyCredentialResponse) { "Unexpected response: ${response.type}" }
+        return response.registrationResponseJson
+    }
+
+    /** The passkeys the phone has for Gains, one picked and signed with; [NoPasskeyException] when it has none. */
+    override suspend fun getPasskey(options: String): String {
+        val host = activity() ?: error("No activity to show the passkey sheet from")
+        val request = GetCredentialRequest.Builder().addCredentialOption(GetPublicKeyCredentialOption(options)).build()
+        val response = try {
+            CredentialManager.create(context).getCredential(host, request)
+        } catch (e: GetCredentialCancellationException) {
+            throw SignInCancelledException()
+        } catch (e: NoCredentialException) {
+            throw NoPasskeyException()
+        }
+        val credential = response.credential
+        check(credential is PublicKeyCredential) { "Unexpected credential: ${credential.type}" }
+        return credential.authenticationResponseJson
     }
 
     /**
@@ -101,8 +142,8 @@ internal class AndroidIdentityProvider(
 
 /**
  * The Android app's sign-in settings, from `BuildConfig`, which the build fills from the Gradle
- * properties `gains.serverUrl`, `gains.googleWebClientId`, `gains.appleServicesId` and
- * `gains.passwordSignIn` (`composeApp/android.gradle`; see docs/development.md, "Android"), so
+ * properties `gains.serverUrl`, `gains.googleWebClientId`, `gains.appleServicesId`,
+ * `gains.passwordSignIn` and `gains.passkeys` (`composeApp/android.gradle`; see docs/development.md, "Android"), so
  * they change without touching code. Google stays off until the web client id is there, and its button stays hidden.
  * Apple stays off until the Services ID is there, which the owner sets once the server has
  * `APPLE_SERVICES_ID`: before that `/auth/apple/start` answers 503, and the button would only
@@ -113,4 +154,5 @@ internal fun androidAuthConfig(): AuthConfig = AuthConfig(
     googleClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim().ifBlank { null },
     appleServiceId = BuildConfig.APPLE_SERVICES_ID.trim().ifBlank { null },
     passwordSignIn = BuildConfig.PASSWORD_SIGN_IN.trim().toBoolean(),
+    passkeys = BuildConfig.PASSKEYS.trim().toBoolean(),
 )

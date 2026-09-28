@@ -61,7 +61,7 @@
     <h2 id="account">Signing in</h2>
     <p>Signing in is optional. It lets you keep your data when you change phones and sync it
       between devices. You sign in with Apple, with Google, or with an email address and a
-      password. With Apple or Google we receive the identity token they issue, and from it:</p>
+      password, and can then add a passkey to sign in with. With Apple or Google we receive the identity token they issue, and from it:</p>
     <ul>
       <li>an account identifier from Apple or Google, which is how we recognise you;</li>
       <li>your email address (with Sign in with Apple, this can be a private relay address);</li>
@@ -78,6 +78,10 @@
       Google sign-in with the same address only once it is confirmed, and only if that provider
       confirmed it too. The mails go out through a mail provider we use for sending only; it
       sees the address and the mail, and nothing about your training.</p>
+    <p id="passkeys">If you add a passkey to your account in Settings, your device keeps its
+      private key, behind Face ID, your fingerprint or your screen lock, and we store only its
+      public key, an identifier for it, and a random identifier your device keeps with it to tell
+      us which account it belongs to. Nothing biometric ever leaves your device.</p>
 
     <h3>What a signed-in account sends to the server</h3>
     <div class="table-scroll">
@@ -131,7 +135,8 @@
 
     <h2 id="delete">Deleting your account</h2>
     <p>In the app, open <strong>Settings → Delete account</strong>. This removes your account,
-      its Apple, Google and email sign-ins (the address and the password hash included), every
+      its Apple, Google and email sign-ins (the address and the password hash included), its
+      passkeys' public keys, every
       workout, setting and photo from the server, straight away. The data on your device stays, and you keep using Gains as a guest; delete the app
       to remove that too.</p>
     <p>If you used Sign in with Apple, deleting the account also revokes Gains' access to your

@@ -130,6 +130,7 @@ fun testServices(
     appleTokens: AppleTokens = NoAppleTokens,
     appleWeb: AppleWebSignIn? = null,
     passwords: ((Store) -> PasswordSignIn)? = null,
+    passkeys: ((Store) -> Passkeys)? = null,
 ) = Store.open(null).let { store -> Services(
     store = store,
     tokens = SessionTokens("a-test-secret-that-is-long-enough-for-hmac-256"),
@@ -142,5 +143,6 @@ fun testServices(
     appleTokens = appleTokens,
     appleWeb = appleWeb,
     passwords = passwords?.invoke(store),
+    passkeys = passkeys?.invoke(store),
     maxBlobBytes = 1024,
 ) }

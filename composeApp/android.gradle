@@ -39,9 +39,10 @@ android {
         buildConfigField "String", "GOOGLE_WEB_CLIENT_ID", "\"${project.findProperty('gains.googleWebClientId') ?: ''}\""
         buildConfigField "String", "APPLE_SERVICES_ID", "\"${project.findProperty('gains.appleServicesId') ?: ''}\""
         buildConfigField "String", "PASSWORD_SIGN_IN", "\"${project.findProperty('gains.passwordSignIn') ?: ''}\""
+        buildConfigField "String", "PASSKEYS", "\"${project.findProperty('gains.passkeys') ?: ''}\""
     }
     buildFeatures {
-        // AGP no longer generates BuildConfig unless asked; androidAuthConfig() reads the four fields above.
+        // AGP no longer generates BuildConfig unless asked; androidAuthConfig() reads the five fields above.
         buildConfig true
     }
     packaging {

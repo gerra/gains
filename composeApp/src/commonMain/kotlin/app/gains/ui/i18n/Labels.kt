@@ -143,6 +143,7 @@ internal val MuscleGroup.res: StringResource get() = when (this) {
     AccountKind.GOOGLE -> Res.string.account_google
     AccountKind.APPLE -> Res.string.account_apple
     AccountKind.EMAIL -> Res.string.account_email
+    AccountKind.PASSKEY -> Res.string.account_passkey
 })
 
 @Composable internal fun InsightKind.label(): String = stringResource(when (this) {

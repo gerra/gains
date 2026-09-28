@@ -74,10 +74,11 @@ class Store(private val db: ServerDatabase) {
             token to clientId
         }
 
-    /** Removes the user, their identities and password, every document and every blob. */
+    /** Removes the user, their identities, password and passkeys, every document and every blob. */
     fun deleteUser(id: Long) = db.transaction {
         for (email in q.selectCredentialEmailsForUser(id).executeAsList()) q.deleteEmailTokensForEmail(email)
         q.deleteCredentialsForUser(id)
+        q.deletePasskeysForUser(id)
         q.deleteBlobsForUser(id)
         q.deleteDocumentsForUser(id)
         q.deleteIdentitiesForUser(id)
@@ -126,6 +127,30 @@ class Store(private val db: ServerDatabase) {
         q.deleteEmailToken(tokenHash)
         row.email.takeIf { row.purpose == purpose && row.expires_at > now }
     }
+
+    // --- passkeys ---------------------------------------------------------------------------
+
+    /** A stored passkey ([Passkeys]): ids in base64url, the COSE public key, the last signature count seen. */
+    class Passkey(val credentialId: String, val userId: Long, val userHandle: String, val publicKey: ByteArray, val signCount: Long)
+
+    /** The user handle the user's passkeys were made with; null before their first. */
+    fun passkeyHandle(userId: Long): String? = q.selectPasskeyHandleForUser(userId).executeAsOneOrNull()
+
+    /** The user a passkey sign-in's user handle stands for; null when no stored passkey has it. */
+    fun userIdForPasskeyHandle(handle: String): Long? = q.selectUserIdForPasskeyHandle(handle).executeAsOneOrNull()
+
+    fun passkeyIds(userId: Long): List<String> = q.selectPasskeyIdsForUser(userId).executeAsList()
+
+    fun passkey(credentialId: String): Passkey? = q.selectPasskey(credentialId).executeAsOneOrNull()?.let {
+        Passkey(it.credential_id, it.user_id, it.user_handle, it.public_key, it.sign_count)
+    }
+
+    fun addPasskey(passkey: Passkey) = q.insertPasskey(
+        passkey.credentialId, passkey.userId, passkey.userHandle, passkey.publicKey, passkey.signCount, Instant.now().toString(),
+    )
+
+    /** Records a sign-in with the passkey: the counter it reported, and when. */
+    fun usePasskey(credentialId: String, signCount: Long) = q.updatePasskeyUse(signCount, Instant.now().toString(), credentialId)
 
     // --- documents --------------------------------------------------------------------------
 

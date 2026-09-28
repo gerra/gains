@@ -85,13 +85,13 @@ The app registers as a handler for CSV files, so exports shared from other apps 
 the import preview. Several files can be shared at once.
 
 Sign-in on Android goes through Credential Manager for Google and the server's web flow for Apple
-(docs/sync.md, "Signing in"). The build compiles four Gradle properties into `BuildConfig`
+(docs/sync.md, "Signing in"). The build compiles five Gradle properties into `BuildConfig`
 (`composeApp/android.gradle`): `gains.serverUrl` (the sync server), `gains.googleWebClientId`,
 the Google **Web application** OAuth client, which is Credential Manager's `serverClientId` and
 the audience of the tokens the phone sends, so the server lists it in `GOOGLE_CLIENT_IDS` too,
 `gains.appleServicesId`, the same Services ID as the desktop's, which the server has as
-`APPLE_SERVICES_ID`, and `gains.passwordSignIn`, `true` once the server has its mail account
-for the email form. Each button shows only once its property is set, in `gradle.properties` or
+`APPLE_SERVICES_ID`, `gains.passwordSignIn`, `true` once the server has its mail account
+for the email form, and `gains.passkeys`, `true` once passkeys can work (below). Each button shows only once its property is set, in `gradle.properties` or
 with `-P`. The Google Cloud project also needs an **Android** client with the package name
 `app.gains` and the SHA-1 of every signing key the app is built with (debug, upload, Play App
 Signing), or the chooser refuses the app.
@@ -109,6 +109,14 @@ then `python3 tools/deploy_server.py site`. Until the fingerprint is there the b
 site's `/auth/done` page, whose "Open Gains" button finishes the sign-in the same way. To check a
 verified install: `adb shell pm get-app-links app.gains` says `verified` next to `gains.gerra.sh`.
 
+**Passkeys** are bound to `gains.gerra.sh` too, and Credential Manager makes or offers one only
+when that same `assetlinks.json` names the key the app is signed with under the
+`delegate_permission/common.get_login_creds` relation (it is in the file next to the App Link's).
+The server must also accept the origin that key signs with: `android:apk-key-hash:<hash>` in
+`PASSKEY_ORIGINS` (`secrets/README.md` has the command that turns a fingerprint into the hash).
+With both in place, set `gains.passkeys=true`; a debug build needs the debug key's fingerprint
+and hash as well.
+
 ### iOS
 
 ```bash
@@ -120,6 +128,13 @@ in `iosApp/Configuration/Config.xcconfig`; change `TEAM_ID` there to build under
 The *Compile Kotlin Framework* phase runs Gradle with `-Pgains.android=false`, so a Mac needs a
 JDK but no Android SDK. The Xcode project wraps the `ComposeApp` framework in SwiftUI and
 registers the app as a CSV handler, so **Open in Gains** appears in the share sheet.
+
+**Passkeys** need the `webcredentials:gains.gerra.sh` associated domain (`iosApp.entitlements`),
+which the App ID must have as a capability (Associated Domains) and the provisioning profile must
+include, and `https://gains.gerra.sh/.well-known/apple-app-site-association` naming
+`V5Y8M5GKZ6.app.gains.Gains`. iOS fetches that file through Apple's CDN when the app is
+installed, so a change can take a while to reach a phone; `GAINS_PASSKEYS = YES` in
+`Config.xcconfig` then shows the passkey buttons.
 
 To put a build on a phone without a Mac and a cable, see [TestFlight](testflight.md).
 

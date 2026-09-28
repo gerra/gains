@@ -7,6 +7,7 @@ import app.gains.auth.GoogleOAuth
 import app.gains.auth.IdentityAssertion
 import app.gains.auth.IdentityProvider
 import app.gains.auth.SignInCancelledException
+import app.gains.auth.WebAuthnJson
 import io.ktor.client.HttpClient
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -23,6 +24,11 @@ import platform.AuthenticationServices.ASAuthorizationControllerDelegateProtocol
 import platform.AuthenticationServices.ASAuthorizationControllerPresentationContextProvidingProtocol
 import platform.AuthenticationServices.ASAuthorizationErrorCanceled
 import platform.AuthenticationServices.ASAuthorizationErrorDomain
+import platform.AuthenticationServices.ASAuthorizationPlatformPublicKeyCredentialAssertion
+import platform.AuthenticationServices.ASAuthorizationPlatformPublicKeyCredentialProvider
+import platform.AuthenticationServices.ASAuthorizationPlatformPublicKeyCredentialRegistration
+import platform.AuthenticationServices.ASAuthorizationPublicKeyCredentialUserVerificationPreferenceRequired
+import platform.AuthenticationServices.ASAuthorizationRequest
 import platform.AuthenticationServices.ASAuthorizationScopeEmail
 import platform.AuthenticationServices.ASAuthorizationScopeFullName
 import platform.AuthenticationServices.ASPresentationAnchor
@@ -32,10 +38,12 @@ import platform.AuthenticationServices.ASWebAuthenticationSessionErrorCodeCancel
 import platform.AuthenticationServices.ASWebAuthenticationSessionErrorDomain
 import platform.CoreCrypto.CC_SHA256
 import platform.CoreCrypto.CC_SHA256_DIGEST_LENGTH
+import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSPersonNameComponents
 import platform.Foundation.NSPersonNameComponentsFormatter
 import platform.Foundation.NSURL
+import platform.Foundation.dataWithBytes
 import platform.Security.SecRandomCopyBytes
 import platform.Security.kSecRandomDefault
 import platform.UIKit.UIApplication
@@ -48,6 +56,11 @@ import platform.darwin.NSObject
  * [GoogleOAuth]'s PKCE flow in an `ASWebAuthenticationSession` rather than the GoogleSignIn SDK, so
  * the project needs no Swift package and no bridge; its token's audience is [AuthConfig.googleClientId].
  * [http] is the app's client, used for the one call to Google's token endpoint.
+ *
+ * Passkeys go through the same AuthenticationServices controller, as platform public-key
+ * credentials for the server's relying party id (`gains.gerra.sh`). iOS makes and uses them only
+ * for an app that domain vouches for: the `webcredentials:gains.gerra.sh` associated domain in
+ * iosApp.entitlements, and the site's `apple-app-site-association` naming the app.
  */
 @OptIn(ExperimentalForeignApi::class)
 internal class IosIdentityProvider(private val config: AuthConfig, private val http: HttpClient) : IdentityProvider {
@@ -57,13 +70,16 @@ internal class IosIdentityProvider(private val config: AuthConfig, private val h
     private var controller: ASAuthorizationController? = null
     private var delegate: AppleDelegate? = null
     private var session: ASWebAuthenticationSession? = null
+    private var passkeyController: ASAuthorizationController? = null
+    private var passkeyDelegate: PasskeyDelegate? = null
     private val anchor = KeyWindowAnchor()
 
     override suspend fun signIn(kind: AccountKind): IdentityAssertion = when (kind) {
         AccountKind.APPLE -> withContext(Dispatchers.Main) { signInWithApple() }
         AccountKind.GOOGLE -> signInWithGoogle()
-        // An email account has no sheet: AccountRepository posts the password itself.
-        AccountKind.GUEST, AccountKind.EMAIL -> throw AuthNotConfiguredException(kind)
+        // An email account has no sheet: AccountRepository posts the password itself. A passkey
+        // has its own two calls below, which AccountRepository makes around the server's.
+        AccountKind.GUEST, AccountKind.EMAIL, AccountKind.PASSKEY -> throw AuthNotConfiguredException(kind)
     }
 
     /**
@@ -85,6 +101,64 @@ internal class IosIdentityProvider(private val config: AuthConfig, private val h
         controller.presentationContextProvider = anchor
         this.controller = controller
         this.delegate = delegate
+        controller.performRequests()
+    }
+
+    /** The passkey sheet for the server's creation [options]: Face ID or the passcode, then the new passkey as WebAuthn's JSON. */
+    override suspend fun createPasskey(options: String): String {
+        val creation = WebAuthnJson.creation(options)
+        val authorization = withContext(Dispatchers.Main) {
+            val request = ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier = creation.rpId)
+                .createCredentialRegistrationRequestWithChallenge(creation.challenge.toNSData(), creation.userName, creation.userId.toNSData())
+            request.userVerificationPreference = ASAuthorizationPublicKeyCredentialUserVerificationPreferenceRequired
+            authorize(request)
+        }
+        val credential = authorization.credential as? ASAuthorizationPlatformPublicKeyCredentialRegistration
+            ?: throw IllegalStateException("iOS returned no passkey.")
+        val attestation = credential.rawAttestationObject ?: throw IllegalStateException("iOS returned no attestation.")
+        return WebAuthnJson.registration(credential.credentialID.toByteArray(), credential.rawClientDataJSON.toByteArray(), attestation.toByteArray())
+    }
+
+    /**
+     * The passkey sheet for the server's request [options], which name no account: iOS offers the
+     * passkeys it has for the relying party, or one from a nearby device. Returns the signed
+     * challenge as WebAuthn's JSON.
+     */
+    override suspend fun getPasskey(options: String): String {
+        val request = WebAuthnJson.request(options)
+        val authorization = withContext(Dispatchers.Main) {
+            val assertion = ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier = request.rpId)
+                .createCredentialAssertionRequestWithChallenge(request.challenge.toNSData())
+            assertion.userVerificationPreference = ASAuthorizationPublicKeyCredentialUserVerificationPreferenceRequired
+            authorize(assertion)
+        }
+        val credential = authorization.credential as? ASAuthorizationPlatformPublicKeyCredentialAssertion
+            ?: throw IllegalStateException("iOS returned no passkey.")
+        // Optional in the protocol, always there for a platform passkey; the server needs all three.
+        val authenticatorData = credential.rawAuthenticatorData ?: throw IllegalStateException("iOS returned no authenticator data.")
+        val signature = credential.signature ?: throw IllegalStateException("iOS returned no signature.")
+        val userHandle = credential.userID ?: throw IllegalStateException("iOS returned no user handle.")
+        return WebAuthnJson.assertion(
+            credentialId = credential.credentialID.toByteArray(),
+            clientDataJson = credential.rawClientDataJSON.toByteArray(),
+            authenticatorData = authenticatorData.toByteArray(),
+            signature = signature.toByteArray(),
+            userHandle = userHandle.toByteArray(),
+        )
+    }
+
+    /** Runs one passkey request through a controller of its own, kept alive, like Apple's, until the sheet answers. */
+    private suspend fun authorize(request: ASAuthorizationRequest): ASAuthorization = suspendCancellableCoroutine { continuation ->
+        val controller = ASAuthorizationController(authorizationRequests = listOf(request))
+        val delegate = PasskeyDelegate { result ->
+            passkeyController = null
+            passkeyDelegate = null
+            continuation.resumeWith(result)
+        }
+        controller.delegate = delegate
+        controller.presentationContextProvider = anchor
+        passkeyController = controller
+        passkeyDelegate = delegate
         controller.performRequests()
     }
 
@@ -158,7 +232,22 @@ internal class IosIdentityProvider(private val config: AuthConfig, private val h
         }
     }
 
-    /** Where both sheets are presented: the app's key window. */
+    /** Hands back whatever the passkey sheet authorized; closing it is a [SignInCancelledException]. */
+    private class PasskeyDelegate(private val onResult: (Result<ASAuthorization>) -> Unit) :
+        NSObject(),
+        ASAuthorizationControllerDelegateProtocol {
+
+        override fun authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization: ASAuthorization) {
+            onResult(Result.success(didCompleteWithAuthorization))
+        }
+
+        override fun authorizationController(controller: ASAuthorizationController, didCompleteWithError: NSError) {
+            val cancelled = didCompleteWithError.domain == ASAuthorizationErrorDomain && didCompleteWithError.code == ASAuthorizationErrorCanceled
+            onResult(Result.failure(if (cancelled) SignInCancelledException() else IllegalStateException(didCompleteWithError.localizedDescription)))
+        }
+    }
+
+    /** Where the sheets are presented: the app's key window. */
     private class KeyWindowAnchor :
         NSObject(),
         ASAuthorizationControllerPresentationContextProvidingProtocol,
@@ -180,6 +269,11 @@ private fun randomBytes(count: Int): ByteArray {
     check(status == 0) { "SecRandomCopyBytes failed: $status" }
     return bytes
 }
+
+/** The bytes as NSData, for the passkey requests' challenge and user id. */
+@OptIn(ExperimentalForeignApi::class)
+private fun ByteArray.toNSData(): NSData =
+    if (isEmpty()) NSData() else usePinned { NSData.dataWithBytes(it.addressOf(0), size.convert()) }
 
 /** SHA-256 of [input], which turns the PKCE verifier into its challenge. [input] must not be empty. */
 @OptIn(ExperimentalForeignApi::class, ExperimentalUnsignedTypes::class)

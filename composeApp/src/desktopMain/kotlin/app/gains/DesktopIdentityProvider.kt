@@ -53,8 +53,9 @@ internal class DesktopIdentityProvider(
     override suspend fun signIn(kind: AccountKind): SignInProof = when (kind) {
         AccountKind.GOOGLE -> signInWithGoogle()
         AccountKind.APPLE -> signInWithApple()
-        // An email account has no sheet: AccountRepository posts the password itself.
-        AccountKind.GUEST, AccountKind.EMAIL -> throw AuthNotConfiguredException(kind)
+        // An email account has no sheet: AccountRepository posts the password itself. Passkeys
+        // are not offered on the desktop yet (docs/launch-plan.md, item 19).
+        AccountKind.GUEST, AccountKind.EMAIL, AccountKind.PASSKEY -> throw AuthNotConfiguredException(kind)
     }
 
     /** The account chooser in the browser, then the code it redirects with traded for an identity token. The server reads the name from Google's token. */

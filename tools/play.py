@@ -289,9 +289,10 @@ def install_signing(args):
 def gradle_properties(environment):
     """The -P arguments `bundle` passes: the version, the signing and the sign-in ids.
 
-    The Google web client id, the Apple Services ID and the email switch are optional and
-    public; when the workflow has them as repository variables they override the (usually empty)
-    values in gradle.properties, which is how the release build gets its sign-in buttons.
+    The Google web client id, the Apple Services ID and the email and passkey switches are
+    optional and public; when the workflow has them as repository variables they override the
+    (usually empty) values in gradle.properties, which is how the release build gets its sign-in
+    buttons.
     """
     properties = {
         "gains.versionCode": environment["BUILD_NUMBER"],
@@ -304,6 +305,7 @@ def gradle_properties(environment):
         ("GOOGLE_WEB_CLIENT_ID", "gains.googleWebClientId"),
         ("APPLE_SERVICES_ID", "gains.appleServicesId"),
         ("PASSWORD_SIGN_IN", "gains.passwordSignIn"),
+        ("PASSKEYS", "gains.passkeys"),
     ):
         if environment.get(variable):
             properties[name] = environment[variable]

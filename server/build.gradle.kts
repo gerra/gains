@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.jwks.rsa)
     implementation(libs.logback.classic)
     implementation(libs.bouncycastle)
+    implementation(libs.yubico.webauthn)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.ktor.server.test.host)

@@ -8,5 +8,13 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- Passkeys (docs/launch-plan.md, item 19): iOS makes and uses passkeys for gains.gerra.sh
+	     only for an app listed in https://gains.gerra.sh/.well-known/apple-app-site-association.
+	     The App ID needs the Associated Domains capability and the App Store profile must be
+	     regenerated with it (IOS_APP_STORE_PROFILE_BASE64), or signing this fails. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:gains.gerra.sh</string>
+	</array>
 </dict>
 </plist>

@@ -6,6 +6,7 @@ import app.gains.sync.EmailTokenRequest
 import app.gains.sync.ErrorResponse
 import app.gains.sync.ExchangeRequest
 import app.gains.sync.GuestListRequest
+import app.gains.sync.PasskeyFinishRequest
 import app.gains.sync.PasswordResetRequest
 import app.gains.sync.PasswordSignInRequest
 import app.gains.sync.PasswordSignUpRequest
@@ -66,6 +67,8 @@ class Services(
     val appleWeb: AppleWebSignIn? = null,
     /** Email and password accounts; null when the server has no mail account to send their links from. */
     val passwords: PasswordSignIn? = null,
+    /** Passkeys added from Settings and signed in with; null leaves their routes answering 503. */
+    val passkeys: Passkeys? = null,
     /** The largest blob accepted, in bytes. A workout photo is a few hundred kilobytes. */
     val maxBlobBytes: Int = 8 * 1024 * 1024,
     /** The most addresses the guest list holds; past it, joining answers 503. */
@@ -267,6 +270,35 @@ fun Application.gainsServer(services: Services) {
             val body = call.receive<PasswordResetRequest>()
             withContext(Dispatchers.IO) { passwords().reset(body.token, body.password) }
             call.respond(HttpStatusCode.NoContent)
+        }
+
+        // Passkeys (Passkeys): added to a signed-in account, then a way into it. Each ceremony is a
+        // start, which hands the device its options, and a finish with what the device made.
+        fun passkeys() = services.passkeys ?: throw HttpError(HttpStatusCode.ServiceUnavailable, "passkeys are not configured")
+
+        post("/auth/passkey/register/start") {
+            val user = store.user(call.userId()) ?: throw HttpError(HttpStatusCode.Unauthorized, "no such user")
+            call.respond(passkeys().startRegistration(user))
+        }
+
+        post("/auth/passkey/register/finish") {
+            val userId = call.userId()
+            val body = call.receive<PasskeyFinishRequest>()
+            if (store.user(userId) == null) throw HttpError(HttpStatusCode.Unauthorized, "no such user")
+            passkeys().finishRegistration(userId, body.id, body.credential)
+            call.respond(HttpStatusCode.NoContent)
+        }
+
+        post("/auth/passkey/signin/start") {
+            call.respond(passkeys().startSignIn(call.callerIp()))
+        }
+
+        post("/auth/passkey/signin/finish") {
+            val body = call.receive<PasskeyFinishRequest>()
+            val userId = passkeys().finishSignIn(body.id, body.credential)
+            val user = store.user(userId) ?: throw HttpError(HttpStatusCode.Unauthorized, "no such user")
+            log.info("sign-in: user {} via passkey", user.id)
+            call.respond(SignInResponse(tokens.issue(user.id), user))
         }
 
         post("/auth/refresh") {

@@ -39,6 +39,7 @@ class SyncApi(
             AccountKind.APPLE -> "apple"
             AccountKind.GUEST -> throw IllegalArgumentException("A guest does not sign in")
             AccountKind.EMAIL -> throw IllegalArgumentException("An email account signs in with its password")
+            AccountKind.PASSKEY -> throw IllegalArgumentException("A passkey signs in with its own routes")
         }
         val response = client.post("$baseUrl/auth/$route") {
             contentType(ContentType.Application.Json)
@@ -75,6 +76,27 @@ class SyncApi(
         client.post("$baseUrl/auth/password/reset-request") {
             contentType(ContentType.Application.Json)
             setBody(SyncJson.encodeToString(EmailRequest.serializer(), EmailRequest(email)))
+        }.check()
+    }
+
+    /** A passkey sign-in's challenge, which names no account; 429 past the server's limit for this caller. */
+    suspend fun startPasskeySignIn(): PasskeyChallenge = client.post("$baseUrl/auth/passkey/signin/start").read(PasskeyChallenge.serializer())
+
+    /** The signed challenge, traded for our token; 401 when the server doesn't know the passkey or the signature fails. */
+    suspend fun finishPasskeySignIn(id: String, credential: String): SignInResponse = client.post("$baseUrl/auth/passkey/signin/finish") {
+        contentType(ContentType.Application.Json)
+        setBody(SyncJson.encodeToString(PasskeyFinishRequest.serializer(), PasskeyFinishRequest(id, credential)))
+    }.read(SignInResponse.serializer())
+
+    /** Creation options for a new passkey on the signed-in account. */
+    suspend fun startPasskeyRegistration(): PasskeyChallenge = client.post("$baseUrl/auth/passkey/register/start") { bearer() }.read(PasskeyChallenge.serializer())
+
+    /** The new passkey, stored on the signed-in account; 409 when it already is. */
+    suspend fun finishPasskeyRegistration(id: String, credential: String) {
+        client.post("$baseUrl/auth/passkey/register/finish") {
+            bearer()
+            contentType(ContentType.Application.Json)
+            setBody(SyncJson.encodeToString(PasskeyFinishRequest.serializer(), PasskeyFinishRequest(id, credential)))
         }.check()
     }
 

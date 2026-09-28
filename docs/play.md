@@ -88,6 +88,7 @@ And, as **variables** rather than secrets since they are public and compiled int
 | `GAINS_GOOGLE_WEB_CLIENT_ID` | The Google **Web application** OAuth client id; without it the release build has no Google button. |
 | `GAINS_APPLE_SERVICES_ID` | The Apple Services ID (`APPLE_SERVICES_ID` on the server); without it, no Apple button. |
 | `GAINS_PASSWORD_SIGN_IN` | `true` once the server has its mail account (`SMTP_*` in `secrets/.env`); without it, no email form. |
+| `GAINS_PASSKEYS` | `true` once `assetlinks.json` vouches for the signing keys and the server's `PASSKEY_ORIGINS` has their hashes (launch plan item 19); without it, no passkeys. |
 | `PLAY_TRACK` | Optional. The track to release to; unset means `alpha`, which is what the API calls the first closed testing track whatever the console shows. A track created by hand goes by its own name. |
 
 The steps are [`tools/play.py`](../tools/play.py), one command each, in the style of

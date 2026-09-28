@@ -33,3 +33,9 @@ GOOGLE_IOS_CLIENT_ID = 95741411455-2fouqgkjlnault5cvd8lc17n4jekg7ea.apps.googleu
 // account for its confirmation links (SMTP_* in secrets/.env), since until then the form only
 // gets 503s. Empty keeps it hidden.
 GAINS_PASSWORD_SIGN_IN =
+
+// Passkeys (docs/launch-plan.md, item 19), read by the app through GainsPasskeys in Info.plist.
+// YES offers "Sign in with a passkey" and Settings' "Add a passkey". Set it once
+// https://gains.gerra.sh/.well-known/apple-app-site-association is live and the App ID has
+// Associated Domains, since iOS makes no passkey for gains.gerra.sh before both. Empty hides them.
+GAINS_PASSKEYS =
