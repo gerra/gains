@@ -27,12 +27,15 @@ compile:
 ./gradlew :composeApp:assembleDebug :composeApp:lintDebug :shared:testDebugUnitTest --no-daemon
 ```
 
-The last line needs the Android SDK; CI's `android` job runs it on every pull request.
+The last line needs the Android SDK; CI's `android` job runs it on every pull request. The
+Xcode project is built for the iOS Simulator by the `ios` job (`.github/workflows/ios.yml`,
+`python3 tools/testflight.py build-simulator`) on a macOS runner.
 
-- No Mac or Xcode is available to the agent. **Keep iOS work in Kotlin (`iosMain`)** wherever
-  possible, since that compiles above. Swift, `project.pbxproj`, `.plist` and `.entitlements`
-  edits can't be checked. Keep them minimal, copy the exact formats already in those files,
-  and list each one in the pull request body so the owner can check it in Xcode.
+- CI builds the Xcode project; the agent still can't run it. **Keep iOS work in Kotlin
+  (`iosMain`)** wherever possible, since that compiles above. Swift, `project.pbxproj`, `.plist`
+  and `.entitlements` edits are compiled and linked by the `ios` job, but nothing runs them.
+  Keep them minimal, copy the exact formats already in those files, and list each one in the
+  pull request body so the owner can check it on a device.
 - Every new user-facing string goes in **both**
   `composeApp/src/commonMain/composeResources/values/strings.xml` and `values-ru/strings.xml`.
   `LocalizationResourcesTest` fails otherwise.

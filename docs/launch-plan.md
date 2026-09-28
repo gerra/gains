@@ -24,10 +24,12 @@ The same rules as `auth-plan.md`:
 2. Run the checks from [`auth-plan.md`](auth-plan.md#checks-every-item-must-pass) before
    pushing. They still apply: both `strings.xml` files, KDoc that says why, Koin for wiring,
    `docs/sync.md` kept true.
-3. **Android is compiled and linted in CI; a device is still needed for the test plan.** The
-   `android` job in `ci.yml` builds the debug app, runs lint and the shared tests on the Android
-   JVM (item 25). List every Android file you touched in the pull request body so the owner
-   knows what to check on a device.
+3. **Android is compiled and linted in CI, and the Xcode project built for the simulator; a
+   device is still needed for the test plan.** The `android` job in `ci.yml` builds the debug
+   app, runs lint and the shared tests on the Android JVM (item 25); the `ios` job in `ios.yml`
+   builds the iOS app for the simulator, unsigned (item 26). List every Android, Swift and Xcode
+   project file you touched in the pull request body so the owner knows what to check on a
+   device.
 4. Steps marked **Owner** are console or account work. Agents assume they are done or in
    progress and don't block on them.
 5. Manual checks go in the [test plan](#test-plan), under the item's number. An item that
@@ -62,7 +64,7 @@ The same rules as `auth-plan.md`:
 | 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [x] |
 | 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [ ] |
 | 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [x] |
-| 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [ ] |
+| 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [x] |
 | 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [ ] |
 | 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [ ] |
 | 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [ ] |
@@ -114,7 +116,11 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
 - [ ] Refresh-token key (item 24): `REFRESH_TOKEN_KEY` in `secrets/.env`
       (`openssl rand -base64 32`), then `python3 tools/deploy_server.py secrets`; and the backup
       decision under item 24, step 3.
-- [ ] iOS CI (item 26): where the macOS job runs, given what its minutes cost.
+- [ ] iOS CI (item 26): where the macOS job runs, given what its minutes cost. Item 26 put the
+      recommended answer in place (pull requests and pushes to `main`, skipping `docs/`,
+      `site/`, `server/`, `deploy/` and `tools/`): keep it, or change the `paths` lists in
+      `.github/workflows/ios.yml`. Either way, don't make **iOS simulator build** a required
+      check.
 - [ ] Dependabot alerts on (item 28): GitHub → Settings → Code security.
 - [ ] Backup decision (item 31), before item 14 if possible.
 
@@ -851,7 +857,15 @@ Tests: the job itself. A pull request that breaks an `androidMain` file must go 
 
 ### 26. iOS in CI: an Xcode simulator build
 
-- [ ] Done
+- [x] Done
+  Done in #PR. Steps 1, 2 and 4 are in: `python3 tools/testflight.py build-simulator` (next to
+  the archive, so the project and scheme are named once; tests in `tools/test_testflight.py`)
+  and the `ios` job on `macos-26`, the TestFlight image, with its Gradle and `~/.konan` caches.
+  Two changes from the text below: the job lives in `.github/workflows/ios.yml`, not `ci.yml`,
+  because Actions filters paths per workflow, not per job; and the build passes `ARCHS=arm64`,
+  so Gradle links the simulator framework for the runner's architecture only rather than a fat
+  arm64 + x86_64 one. Step 3 has the recommended answer until the owner says otherwise (the
+  owner action above). The `test` job's Linux klib compile stays as it was.
 
 **Milestone:** CI (P1). **Depends on:** nothing.
 

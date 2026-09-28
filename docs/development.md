@@ -10,7 +10,7 @@ the importer, the insights, the programs, the schema and the languages.
 ./gradlew :server:test -Pgains.android=false                   # the sync server's routes and a two-device round trip
 ./gradlew :server:run -Pgains.android=false                    # the sync server on :5003 (needs JWT_SECRET, see secrets/README.md)
 ./gradlew :shared:compileKotlinIosArm64 :composeApp:compileKotlinIosArm64 -Pgains.android=false  # the iOS compile CI runs on Linux
-python3 -m unittest discover -s tools -p 'test_*.py'            # the release, deploy and pruning scripts
+python3 -m unittest discover -s tools -p 'test_*.py'            # the release, deploy, TestFlight and pruning scripts
 ```
 
 `-Pgains.android=false` configures the build without the Android Gradle Plugin, which is what
@@ -121,6 +121,13 @@ The *Compile Kotlin Framework* phase runs Gradle with `-Pgains.android=false`, s
 JDK but no Android SDK. The Xcode project wraps the `ComposeApp` framework in SwiftUI and
 registers the app as a CSV handler, so **Open in Gains** appears in the share sheet.
 
+To check that the project builds without opening Xcode or having a signing team, run what the
+[iOS workflow](../.github/workflows/ios.yml) runs on pull requests: an unsigned simulator build.
+
+```bash
+python3 tools/testflight.py build-simulator
+```
+
 To put a build on a phone without a Mac and a cable, see [TestFlight](testflight.md).
 
 ## Recipes
@@ -220,9 +227,11 @@ in `iosApp/iosApp/Info.plist`.
 
 ## Known limitations
 
-- The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request,
-  but linking, running and archiving it needs Xcode on a Mac (the TestFlight workflow uses a
-  hosted macOS runner for this).
+- The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request.
+  The iOS workflow builds the Xcode project for the simulator on a hosted macOS runner, unsigned,
+  on pull requests and pushes to `main` that touch more than the docs, the site, the server, the
+  deploy files or `tools/`; only archiving needs the signing material (the TestFlight workflow).
+  Running it still needs Xcode on a Mac or a device.
 - Sign-in is wired up on iOS, the desktop and Android, Apple and Google on each (Android once
   `gains.googleWebClientId` and `gains.appleServicesId` are set), and an email address and
   password on all three once the server has a mail account. [docs/launch-plan.md](launch-plan.md)
