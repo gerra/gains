@@ -858,7 +858,7 @@ Tests: the job itself. A pull request that breaks an `androidMain` file must go 
 ### 26. iOS in CI: an Xcode simulator build
 
 - [x] Done
-  Done in #PR. Steps 1, 2 and 4 are in: `python3 tools/testflight.py build-simulator` (next to
+  Done in #106. Steps 1, 2 and 4 are in: `python3 tools/testflight.py build-simulator` (next to
   the archive, so the project and scheme are named once; tests in `tools/test_testflight.py`)
   and the `ios` job on `macos-26`, the TestFlight image, with its Gradle and `~/.konan` caches.
   Two changes from the text below: the job lives in `.github/workflows/ios.yml`, not `ci.yml`,
