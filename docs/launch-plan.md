@@ -87,8 +87,8 @@ and 39, and item 14 (Google Play) on 20, 21 and 39. Items 22–31 came out of a
 production-readiness review after the sign-in work and don't hold either store back:
 `Hardening (P1)` and `CI (P1)` are wanted right after the first launch and can start now, `(P2)`
 when there is time. Within a milestone the numbers are the order: security and auth correctness
-(20, 22–24) before infrastructure polish (25–29), and API 36 (21) before Android goes public. Items 32–37 came out
-of an architecture review of the client and hold nothing back either: they keep the code easy to
+(20, 22–24) before infrastructure polish (25–29), and API 36 (21) before Android goes public.
+Items 32–37 came out of an architecture review of the client and hold nothing back either: they keep the code easy to
 change as it grows, and come after the P1 hardening and CI items. 32 goes first because it is the
 safety net for 33. Item 38 came out of item 27, which had to stop at AGP 8.x: it holds nothing back
 either, but every month on 8.x puts Compose, okhttp and the next androidx releases further out of
