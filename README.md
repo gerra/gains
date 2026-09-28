@@ -53,7 +53,7 @@ and the same rounds send the Android build to Play's closed test: [docs/play.md]
 
 ## Build from source
 
-JDK 17+. Android needs the Android SDK 35; iOS needs Xcode on a Mac.
+JDK 17+. Android needs the Android SDK 36; iOS needs Xcode on a Mac.
 
 ```bash
 ./gradlew :composeApp:run -Pgains.android=false   # desktop, the quickest way to try it

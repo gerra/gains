@@ -3,13 +3,16 @@ package app.gains
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.PhotoPicker
@@ -67,8 +70,23 @@ class MainActivity : ComponentActivity() {
                 notifier = notifier,
                 photoPicker = photoPicker,
                 nudges = nudges,
+                systemBars = { dark -> LaunchedEffect(dark) { systemBarIcons(dark) } },
             )
         }
+    }
+
+    /**
+     * Android 15 and later draw the app edge to edge under transparent system bars, and Android 16
+     * takes away the opt-out (docs/launch-plan.md, item 21). The bars' icons then sit on the app's
+     * own background, so they follow the theme chosen in Settings: dark icons on the light theme,
+     * light ones on the dark. The manifest's platform theme never asks for dark icons, which would
+     * leave the clock and the battery white on white in the light theme. Earlier versions keep the
+     * theme's opaque grey status bar, where its light icons are right, so they are left alone.
+     */
+    private fun systemBarIcons(dark: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
+        val light = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+        window.insetsController?.setSystemBarsAppearance(if (dark) 0 else light, light)
     }
 
     /**
