@@ -198,7 +198,7 @@ flowchart LR
 | [`androidApp/`](../androidApp) | The Android application around `composeApp`, which is an Android library: the application id, the version, the sign-in settings as `resValue`s, signing, R8 and lint. No code of its own; it exists because AGP 9 builds no application in a Kotlin Multiplatform module. Only configured when `gains.android` is on. |
 | [`iosApp/`](../iosApp) | Xcode project wrapping the `ComposeApp` framework in SwiftUI, plus the Xcode Cloud script. |
 | [`server/`](../server) | The sync server: Ktor on a SQLite file; sign-in with Google or Apple identity tokens, Apple's web flow for Android and the desktop, and email and password accounts; a per-user document feed and photo blobs. Built on `protocol` so both ends share the wire format; tested by syncing two real client databases (`shared`'s JVM target, a test dependency only) through the real routes. |
-| [`deploy/`](../deploy) | The server's systemd unit and the nginx sites (the API and `gains.gerra.sh`). |
+| [`deploy/`](../deploy) | The server's systemd unit, the nightly database backup's service and timer, and the nginx sites (the API and `gains.gerra.sh`). |
 | [`site/`](../site) | `gains.gerra.sh`: the landing page, the privacy policy, support, and the pages for Apple's web flow and the email links. Static HTML. |
 | [`tools/`](../tools) | Python for the release process, the TestFlight and Google Play uploads, the server and site deploy, branch pruning and the exercise photos, with their tests. |
 | [`samples/`](../samples) | A generated eight-month Liftoff export used by the screenshots and handy for trying the app. |

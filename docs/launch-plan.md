@@ -65,7 +65,7 @@ The same rules as `auth-plan.md`:
 | 21 | Android: target API 36 (Android 16) | Android launch | Agent + Owner | — | [x] |
 | 22 | Server: run as an unprivileged user, with systemd hardening | Hardening (P1) | Agent + Owner | — | [x] |
 | 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [x] |
-| 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [ ] |
+| 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [x] |
 | 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [x] |
 | 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [x] |
 | 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [x] |
@@ -836,7 +836,11 @@ plan, item 23).
 
 ### 24. Server: the Apple refresh tokens and the database at rest
 
-- [ ] Done
+- [x] Done
+  Done in #136. Steps 1–4 are in: `RefreshTokenCipher`, with a pass at start that seals the rows
+  from before; `chmod 600` on the database files in `install`; the nightly
+  `gains-server-backup.timer` into `/var/backups/gains`. Left: the owner's `REFRESH_TOKEN_KEY`
+  and Hetzner backups (Owner actions), and the test plan's item 24 checks.
 
 **Milestone:** Hardening (P1). **Depends on:** 22 (the file modes assume the unit's `UMask`).
 
@@ -2003,6 +2007,16 @@ build fails a check, open an issue and link it next to the box.
 - [ ] Item 24: `sqlite3 /var/lib/gains/gains-server.db 'SELECT refresh_token FROM identity'`
       shows `v1:` ciphertext after an Apple sign-in, and Delete account still removes Gains from
       the Apple ID (the item 6 check).
+- [ ] Item 24: after `REFRESH_TOKEN_KEY` is deployed, `journalctl -u gains-server` shows
+      `refresh token encryption on`, and the same query shows no row without `v1:`. An Apple
+      account signed in before the key is set, then deleted, still disappears from the Apple ID's
+      "Sign in with Apple" list.
+- [ ] Item 24: `ls -l /var/lib/gains` shows `gains-server.db`, `-wal` and `-shm` as 600.
+      `systemctl list-timers gains-server-backup` lists the timer; after
+      `systemctl start gains-server-backup`, `ls -la /var/backups/gains` shows a 700 directory with
+      today's `gains-server-<day>.db`, 600, and
+      `sqlite3 /var/backups/gains/gains-server-<day>.db 'SELECT count(*) FROM user'` matches the live
+      database. `journalctl -u gains-server-backup` has no error.
 
 **39. MPL-2.0 license**
 - [ ] The repository page on GitHub shows "MPL-2.0 license". `LICENSE` matches Mozilla's text

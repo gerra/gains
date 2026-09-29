@@ -13,7 +13,8 @@ CREATE TABLE user (
 -- word that the address belongs to this person; only such an email may join two identities
 -- (migrations/1.sqm). `refresh_token` is Apple's, from the code the app sent at its latest
 -- sign-in, kept only so deleting the account can revoke it; `refresh_client_id` is the client id
--- it was issued to (migrations/2.sqm).
+-- it was issued to (migrations/2.sqm). With `REFRESH_TOKEN_KEY` set, `refresh_token` is `v1:`
+-- ciphertext (RefreshTokenCipher); a value without the prefix is plain text from before.
 CREATE TABLE identity (
   provider TEXT NOT NULL,
   subject TEXT NOT NULL,
@@ -124,6 +125,12 @@ UPDATE identity SET refresh_token = ?, refresh_client_id = ? WHERE provider = ? 
 selectRefreshTokensForUser:
 SELECT refresh_token, refresh_client_id FROM identity
 WHERE user_id = ? AND provider = ? AND refresh_token IS NOT NULL AND refresh_client_id IS NOT NULL;
+
+selectAllRefreshTokens:
+SELECT provider, subject, refresh_token FROM identity WHERE refresh_token IS NOT NULL;
+
+updateIdentityRefreshTokenOnly:
+UPDATE identity SET refresh_token = ? WHERE provider = ? AND subject = ? AND refresh_token = ?;
 
 selectProvidersForUser:
 SELECT provider FROM identity WHERE user_id = ? ORDER BY provider;

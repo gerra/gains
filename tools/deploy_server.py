@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Putting the sync server on its box (docs/sync.md, "Deploying").
 
-Eight commands, in three groups. From the deploy workflows, with the DEPLOY_HOST, DEPLOY_USER and
+Nine commands, in four groups. From the deploy workflows, with the DEPLOY_HOST, DEPLOY_USER and
 DEPLOY_KEY secrets in the environment:
 
   prepare   Write the key file and make sure the target directories exist on the box.
@@ -13,8 +13,12 @@ DEPLOY_KEY secrets in the environment:
 
 On the box itself, run by `install` over ssh:
 
-  remote    Install a JDK if there is none, create the server's user, install the unit,
-            restart, smoke test /health.
+  remote    Install a JDK if there is none, create the server's user, install the unit and
+            the backup timer, restart, smoke test /health.
+
+On the box, run nightly by gains-server-backup.timer as the server's user:
+
+  backup    Copy the database with SQLite's online backup into /var/backups/gains, keep 7.
 
 From a laptop, against the host alias in REMOTE (hetzner_gb by default):
 
@@ -33,6 +37,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import sqlite3
 import subprocess
 import sys
 import time
@@ -57,7 +62,18 @@ USER = "gains-server"
 # What `:server:installDist` writes: bin/gains-server plus every jar under lib/.
 INSTALL_DIR = ROOT / "server" / "build" / "install" / UNIT
 DATA_DIR = pathlib.Path("/var/lib/gains")
+# The database and the two files SQLite keeps beside it in WAL mode; all three hold account data.
+DATABASE = DATA_DIR / "gains-server.db"
+DATABASE_FILES = [DATABASE, DATA_DIR / "gains-server.db-wal", DATA_DIR / "gains-server.db-shm"]
 HEALTH = "http://127.0.0.1:5003/health"
+
+# The nightly copy (launch plan, item 24): a oneshot service and its timer, both from deploy/.
+# Outside /var/lib/gains, so the copies are a directory of their own with a mode of their own,
+# and a server bug that empties its data directory leaves them alone.
+BACKUP_UNIT = "gains-server-backup"
+BACKUP_UNIT_FILES = [ROOT / "deploy" / f"{BACKUP_UNIT}.service", ROOT / "deploy" / f"{BACKUP_UNIT}.timer"]
+BACKUP_DIR = pathlib.Path("/var/backups/gains")
+KEEP_BACKUPS = 7
 
 # nginx: each deploy/nginx/<name>.conf becomes sites-available/<name>, linked from sites-enabled.
 NGINX_DIR = ROOT / "deploy" / "nginx"
@@ -135,7 +151,8 @@ def build(args):
 
 def install(args):
     remote = Remote.from_environment()
-    remote.scp(UNIT_FILE, HOME / UNIT_FILE.name)
+    for unit_file in [UNIT_FILE, *BACKUP_UNIT_FILES]:
+        remote.scp(unit_file, HOME / unit_file.name)
     remote.scp(pathlib.Path(__file__), HOME / "deploy_server.py")
     remote.ssh("python3", str(HOME / "deploy_server.py"), "remote")
 
@@ -207,14 +224,19 @@ def remote(args):
                 "(the service will not start without JWT_SECRET)"
             )
         DATA_DIR.mkdir(parents=True, exist_ok=True)
-        run("install", "-m", "644", str(HOME / UNIT_FILE.name), f"/etc/systemd/system/{UNIT}.service")
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        for unit_file in [UNIT_FILE, *BACKUP_UNIT_FILES]:
+            run("install", "-m", "644", str(HOME / unit_file.name), f"/etc/systemd/system/{unit_file.name}")
         run("systemctl", "daemon-reload")
         run("systemctl", "enable", UNIT, check=False)
         # Stopped while the data changes hands, so a server still running as root can't add a
         # file the new one then can't open.
         run("systemctl", "stop", UNIT, check=False)
-        for command in data_permissions():
+        for command in data_permissions([path for path in DATABASE_FILES if path.exists()]):
             run(*command)
+        for command in backup_permissions():
+            run(*command)
+        run("systemctl", "enable", "--now", f"{BACKUP_UNIT}.timer")
         run("systemctl", "start", UNIT)
         status, body = wait_for_health()
         print(f"smoke test: HTTP {status} {body}")
@@ -266,9 +288,22 @@ def secrets_permissions(include_file=True):
     return commands
 
 
-def data_permissions():
-    """The data directory and everything in it (the database, its -wal and -shm) to the server's user."""
-    return [["chown", "-R", f"{USER}:{USER}", str(DATA_DIR)], ["chmod", "750", str(DATA_DIR)]]
+def data_permissions(database_files=()):
+    """The data directory and everything in it to the server's user, and the database files 600.
+
+    The unit's UMask makes every new file 600, but the files from before it (created by a JVM
+    running as root with the default umask) were world-readable; `database_files` are the ones
+    that exist, so a new box's first install has nothing to chmod.
+    """
+    commands = [["chown", "-R", f"{USER}:{USER}", str(DATA_DIR)], ["chmod", "750", str(DATA_DIR)]]
+    if database_files:
+        commands.append(["chmod", "600", *(str(path) for path in database_files)])
+    return commands
+
+
+def backup_permissions():
+    """The backup directory: the server's user's, and nobody else may even list it."""
+    return [["chown", f"{USER}:{USER}", str(BACKUP_DIR)], ["chmod", "700", str(BACKUP_DIR)]]
 
 
 def wait_for_health(attempts=10, pause=1.0):
@@ -294,6 +329,58 @@ def healthy(status, body):
         return json.loads(body).get("status") == "ok"
     except (ValueError, AttributeError):
         return False
+
+
+# --- on the box, nightly -------------------------------------------------------
+
+
+def backup(args):
+    """Runs as the server's user from gains-server-backup.timer: today's copy, then the pruning."""
+    made = backup_database(DATABASE, BACKUP_DIR, time.strftime("%Y-%m-%d", time.gmtime()))
+    if made is None:
+        print(f"no database at {DATABASE}; nothing to back up")
+        return
+    pruned = prune_backups(BACKUP_DIR)
+    print(f"backup: {made} ({made.stat().st_size} bytes); removed {len(pruned)} older than the last {KEEP_BACKUPS}")
+
+
+def backup_database(database, directory, day):
+    """Copies `database` into `directory` as gains-server-<day>.db and returns its path.
+
+    SQLite's online backup, not a file copy: it reads a consistent state while the server keeps
+    writing under WAL, where copying the three files one after the other would not. It writes to
+    a partial file first, so a copy cut short never looks like a finished one; a second run on
+    the same day replaces that day's copy. None when there is no database yet (a new box).
+    """
+    if not database.is_file():
+        return None
+    target = directory / f"gains-server-{day}.db"
+    partial = directory / f".gains-server-{day}.db.partial"
+    partial.unlink(missing_ok=True)
+    try:
+        source = sqlite3.connect(database)
+        try:
+            copy = sqlite3.connect(partial)
+            try:
+                source.backup(copy)
+            finally:
+                copy.close()
+        finally:
+            source.close()
+        partial.chmod(0o600)
+        os.replace(partial, target)
+    finally:
+        partial.unlink(missing_ok=True)
+    return target
+
+
+def prune_backups(directory, keep=KEEP_BACKUPS):
+    """Deletes all but the newest `keep` copies (their names sort by day) and returns what went."""
+    copies = sorted(directory.glob("gains-server-*.db"))
+    old = copies[:-keep] if keep else copies
+    for path in old:
+        path.unlink()
+    return old
 
 
 # --- from a laptop -------------------------------------------------------------
@@ -360,6 +447,7 @@ def main(argv=None):
         ("build", build, "CI: rsync the server's install directory into current/ on the box"),
         ("install", install, "CI: copy the unit and this script to the box and run `remote` there"),
         ("remote", remote, "on the box: JDK, unit, restart, smoke test"),
+        ("backup", backup, "on the box, from the timer: copy the database, keep the last 7"),
         ("secrets", secrets, "laptop: push secrets/.env and restart the unit"),
         ("nginx", nginx, "CI or laptop: push every site in deploy/nginx/ and reload nginx"),
         ("site", site, "CI or laptop: rsync site/ to the web root on the box"),

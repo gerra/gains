@@ -1,6 +1,7 @@
 package app.gains.server
 
 import java.io.File
+import javax.crypto.SecretKey
 
 /**
  * What the server is told from outside. Read from the environment, with `secrets/.env` under
@@ -28,6 +29,8 @@ data class Config(
     val smtp: Smtp? = null,
     /** Where those links point: the site's pages, which post the token back to this server. */
     val siteUrl: String = DEFAULT_SITE_URL,
+    /** Seals the stored Apple refresh tokens ([RefreshTokenCipher]); null keeps them in plain text. */
+    val refreshTokenKey: SecretKey? = null,
 ) {
     /** A key from developer.apple.com → Keys with Sign in with Apple enabled. [privateKey] is the `.p8` file's contents. */
     data class AppleKey(val keyId: String, val teamId: String, val privateKey: String) {
@@ -75,6 +78,9 @@ data class Config(
                     Smtp(host, port, smtpUser, smtpPassword, mailFrom!!)
                 },
                 siteUrl = values["GAINS_SITE_URL"]?.trim()?.trimEnd('/')?.ifEmpty { null } ?: DEFAULT_SITE_URL,
+                // A key that doesn't decode to 32 bytes stops the server rather than silently
+                // leaving the tokens in plain text.
+                refreshTokenKey = values["REFRESH_TOKEN_KEY"]?.trim()?.ifEmpty { null }?.let(RefreshTokenCipher::key),
             )
         }
 

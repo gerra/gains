@@ -74,11 +74,28 @@ class Store(private val db: ServerDatabase) {
     /**
      * Keeps the refresh token Apple issued for this identity, replacing an older one: only the
      * latest is needed, since revoking any of them removes the app from the person's Apple ID.
+     * [refreshToken] is stored as given: the caller seals it first ([RefreshTokenCipher]).
      */
     fun setRefreshToken(provider: String, subject: String, refreshToken: String, clientId: String) =
         q.updateIdentityRefreshToken(refreshToken, clientId, provider, subject)
 
-    /** The [provider]'s refresh tokens stored for the user, each with the client id it was issued to. */
+    /**
+     * Rewrites every stored refresh token that [upgrade] has a new value for, and returns how many
+     * changed. The pass at start that seals the rows from before the key was set: without it, a
+     * person who never signs in again would keep a plain-text token in the file for good.
+     */
+    fun rewriteRefreshTokens(upgrade: (String) -> String?): Int = db.transactionWithResult {
+        var changed = 0
+        for (row in q.selectAllRefreshTokens().executeAsList()) {
+            val stored = row.refresh_token ?: continue
+            val next = upgrade(stored) ?: continue
+            q.updateIdentityRefreshTokenOnly(next, row.provider, row.subject, stored)
+            changed++
+        }
+        changed
+    }
+
+    /** The [provider]'s refresh tokens stored for the user, each with the client id it was issued to, as stored (sealed or not). */
     fun refreshTokens(userId: Long, provider: String): List<Pair<String, String>> =
         q.selectRefreshTokensForUser(userId, provider).executeAsList().mapNotNull { row ->
             val token = row.refresh_token ?: return@mapNotNull null

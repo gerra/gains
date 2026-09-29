@@ -122,7 +122,7 @@ fun testPasswords(store: Store, mailer: FakeMailer, perEmail: Int = 100, clock: 
     perIp = RateLimit(perEmail * 4, java.time.Duration.ofMinutes(15), clock),
 )
 
-/** A server with an in-memory database and both providers backed by [google] and [apple]; [apple] accepts the bundle id and the Services ID. */
+/** A server with an in-memory database (or [store]) and both providers backed by [google] and [apple]; [apple] accepts the bundle id and the Services ID. */
 fun testServices(
     google: FakeProvider,
     apple: FakeProvider,
@@ -130,7 +130,9 @@ fun testServices(
     appleTokens: AppleTokens = NoAppleTokens,
     appleWeb: AppleWebSignIn? = null,
     passwords: ((Store) -> PasswordSignIn)? = null,
-) = Store.open(null).let { store -> Services(
+    refreshTokenCipher: RefreshTokenCipher = RefreshTokenCipher(null),
+    store: Store = Store.open(null),
+) = Services(
     store = store,
     tokens = SessionTokens("a-test-secret-that-is-long-enough-for-hmac-256"),
     verifier = JwksIdentityVerifier(
@@ -140,7 +142,8 @@ fun testServices(
         appleKeys = apple.jwks,
     ),
     appleTokens = appleTokens,
+    refreshTokenCipher = refreshTokenCipher,
     appleWeb = appleWeb,
     passwords = passwords?.invoke(store),
     maxBlobBytes = 1024,
-) }
+)
