@@ -1,0 +1,14 @@
+# Runs gains-server-backup.service once a night (docs/launch-plan.md, item 24). Persistent, so a
+# night the box was down is made up at the next boot. Enabled by `tools/deploy_server.py install`;
+# `systemctl list-timers gains-server-backup` shows the next run.
+
+[Unit]
+Description=Nightly copy of the gains-server database
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

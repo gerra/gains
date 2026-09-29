@@ -63,6 +63,8 @@ class Services(
     val verifier: IdentityVerifier,
     /** Trades Apple sign-in codes for refresh tokens and revokes them when an account is deleted. */
     val appleTokens: AppleTokens = NoAppleTokens,
+    /** Seals the Apple refresh tokens before they are stored, and opens them to revoke; without a key they stay plain text. */
+    val refreshTokenCipher: RefreshTokenCipher = RefreshTokenCipher(null),
     /** Sign in with Apple through Apple's web page, for Android and the desktop; null when no Services ID is set. */
     val appleWeb: AppleWebSignIn? = null,
     /** Email and password accounts; null when the server has no mail account to send their links from. */
@@ -140,7 +142,7 @@ fun Application.gainsServer(services: Services) {
                 log.warn("apple code exchange: the code belongs to another subject, not stored")
                 return
             }
-            store.setRefreshToken(Providers.APPLE, identity.subject, grant.refreshToken, clientId)
+            store.setRefreshToken(Providers.APPLE, identity.subject, services.refreshTokenCipher.seal(grant.refreshToken), clientId)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -151,7 +153,9 @@ fun Application.gainsServer(services: Services) {
     /**
      * Revokes the user's Apple refresh tokens, which removes Gains from their Apple ID. Called
      * before the rows go, and never stops them going: Apple being unreachable must not keep
-     * anyone's data on our server.
+     * anyone's data on our server. The one place a stored token is opened: a row from before
+     * `REFRESH_TOKEN_KEY` is plain text and revoked as it is; one this server can't open (the key
+     * removed or changed) is logged and skipped like any other failure.
      */
     suspend fun revokeAppleTokens(userId: Long) {
         val stored = store.refreshTokens(userId, Providers.APPLE)
@@ -159,8 +163,9 @@ fun Application.gainsServer(services: Services) {
             log.warn("apple revoke skipped for user {}: no Sign in with Apple key configured", userId)
             return
         }
-        for ((refreshToken, clientId) in stored) {
+        for ((sealed, clientId) in stored) {
             try {
+                val refreshToken = services.refreshTokenCipher.open(sealed)
                 withContext(Dispatchers.IO) { services.appleTokens.revoke(refreshToken, clientId) }
                 log.info("apple token revoked: user {}", userId)
             } catch (e: CancellationException) {

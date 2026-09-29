@@ -425,6 +425,14 @@ password_credential (email, hash, user_id, created_at)   PRIMARY KEY (email COLL
 email_token (token_hash, email, purpose, expires_at)     the mailed links, hashed; deleted when taken
 ```
 
+`identity.refresh_token` is Apple's refresh token, kept only so deleting the account can revoke
+it. With `REFRESH_TOKEN_KEY` set it is ciphertext
+([`RefreshTokenCipher`](../server/src/main/kotlin/app/gains/server/RefreshTokenCipher.kt):
+AES-256-GCM, a random nonce per row, stored as `v1:` and base64), so a copy of the file alone
+can't act on anyone's Sign in with Apple grant. A value without the `v1:` prefix is plain text
+from before the key: it is still revoked as it is, and the server seals every such row once at
+start. Only `revokeAppleTokens` opens one.
+
 Sign-in tokens are RS256 identity tokens checked with `jwks-rsa` against the provider's key set
 (cached, rate limited); our own are HS256 with `JWT_SECRET`. The verifier is an interface so the
 tests hand the server a key pair of their own and sign real tokens with it.
@@ -450,12 +458,14 @@ hundred megabytes a year. The password routes also have their own per-address an
 Configuration is read from the environment, with `secrets/.env` under the working directory
 loaded first when it exists (the systemd unit deliberately has no `EnvironmentFile`, for the
 reason noted in www's unit): `JWT_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS`,
-`APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_TEAM_ID`, `APPLE_PRIVATE_KEY`, `GAINS_PUBLIC_URL`,
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`, `GAINS_SITE_URL`,
-`GAINS_DATA_DIR`, `PORT`. Without a
+`APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_TEAM_ID`, `APPLE_PRIVATE_KEY`, `REFRESH_TOKEN_KEY`,
+`GAINS_PUBLIC_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`,
+`GAINS_SITE_URL`, `GAINS_DATA_DIR`, `PORT`. Without a
 provider's ids that provider's route answers 503. Without the Apple key, sign-in codes are ignored
 and nothing is revoked; the start-up log line says `apple revoke on` or `off`. Without
 `APPLE_SERVICES_ID` the web flow's routes answer 503, and the log line says `apple web off`.
+Without `REFRESH_TOKEN_KEY` the refresh tokens are stored in plain text, and the log line says
+`refresh token encryption off`; a key that isn't 32 bytes of base64 stops the server at start.
 Without a mail account the password routes answer 503, and the log line says `email off`.
 
 ## Deploying
@@ -463,13 +473,14 @@ Without a mail account the password routes answer 503, and the log line says `em
 The same playbook as taxes and www, on the same Hetzner box:
 
 - Push to `main` touching `server/`, `protocol/`, the Gradle build files,
-  `deploy/gains-server.service`, `tools/deploy_server.py` or the workflow runs
+  `deploy/gains-server.service`, the backup's two units, `tools/deploy_server.py` or the workflow runs
   [`deploy.yml`](../.github/workflows/deploy.yml): `:server:test`, `:server:installDist`,
   `tools/deploy_server.py build` (rsync of the install directory to
   `/opt/gains-server/current/`), then
   `tools/deploy_server.py install`, which copies the unit and itself to the box and runs there:
   JDK 17 if the box lacks one, the `gains-server` system user if it is missing, the unit
-  installed, the data directory handed to that user, restart, smoke test of `/health`. No shell
+  and the backup timer installed, the data directory handed to that user, restart, smoke test
+  of `/health`. No shell
   anywhere in it, the same way the release workflows run `tools/release.py`.
 - The server runs as `gains-server`, not root, sandboxed by
   [`deploy/gains-server.service`](../deploy/gains-server.service): the whole file system is
@@ -492,7 +503,20 @@ The same playbook as taxes and www, on the same Hetzner box:
 - Secrets: `python3 tools/deploy_server.py secrets` copies `secrets/.env` to the box, gives it
   those modes and restarts the unit. It needs the `gains-server` user, so a new box gets a
   deploy first.
-- Data: `/var/lib/gains/gains-server.db`, outside the synced tree; back it up by copying the file.
+- Data: `/var/lib/gains/gains-server.db`, with its `-wal` and `-shm`, outside the synced tree.
+  All three are 600 (the unit's `UMask` for new files; `install` runs `chmod 600` on the ones
+  from before it, which the JVM made world-readable when it ran as root).
+- Backups ([launch plan](launch-plan.md), item 24; the owner's decision: both of the following).
+  `install` also puts in [`deploy/gains-server-backup.timer`](../deploy/gains-server-backup.timer)
+  and its service, which run `deploy_server.py backup` at 03:30 every night as `gains-server`,
+  without network: SQLite's online backup (safe while the server writes under WAL) into
+  `/var/backups/gains/gains-server-<day>.db`, a directory of that user's with mode 700, files
+  600, the last seven days kept. `systemctl list-timers gains-server-backup` shows the next run,
+  `journalctl -u gains-server-backup` the last. On top of that, the box's own Hetzner backups
+  cover the whole server, these copies included. Anything copied off the box by hand is
+  encrypted first (`age` or `gpg`); `REFRESH_TOKEN_KEY` is never copied along with a database.
+  To restore: stop the unit, copy a backup over `gains-server.db` (removing the `-wal` and
+  `-shm`), `chown gains-server:gains-server` and `chmod 600` it, start the unit.
 - The host is `api.gains.gerra.sh` rather than `gains.gerra.sh` on purpose: the bare name is the
   app's own site ([`site/`](../site): landing page, `/privacy`, `/support`), which App Store
   Connect needs for the privacy policy and support links, and the API stays on an origin of its

@@ -113,6 +113,16 @@ class UnprivilegedServerTest(unittest.TestCase):
             [["chown", "-R", "gains-server:gains-server", "/var/lib/gains"], ["chmod", "750", "/var/lib/gains"]],
             deploy_server.data_permissions(),
         )
+        # The database files from before the unit's UMask were world-readable (item 24).
+        self.assertEqual(
+            [["chown", "-R", "gains-server:gains-server", "/var/lib/gains"], ["chmod", "750", "/var/lib/gains"],
+             ["chmod", "600", "/var/lib/gains/gains-server.db", "/var/lib/gains/gains-server.db-wal"]],
+            deploy_server.data_permissions(deploy_server.DATABASE_FILES[:2]),
+        )
+        self.assertEqual(
+            [["chown", "gains-server:gains-server", "/var/backups/gains"], ["chmod", "700", "/var/backups/gains"]],
+            deploy_server.backup_permissions(),
+        )
         self.assertEqual(
             [["chown", "root:gains-server", "/opt/gains-server/secrets"], ["chmod", "750", "/opt/gains-server/secrets"],
              ["chown", "root:gains-server", "/opt/gains-server/secrets/.env"], ["chmod", "640", "/opt/gains-server/secrets/.env"]],
@@ -147,6 +157,72 @@ class UnprivilegedServerTest(unittest.TestCase):
             new = pathlib.Path(temp) / "secrets" / ".env"
             self.assertFalse(deploy_server.carry_over_secrets(pathlib.Path(temp) / "missing.env", new))
             self.assertFalse(new.exists())
+
+
+class BackupTest(unittest.TestCase):
+    """The nightly copy of the database (docs/launch-plan.md, item 24)."""
+
+    def directives(self, path, name):
+        return re.findall(rf"^{name}=(.*)$", path.read_text(), re.MULTILINE)
+
+    def test_the_timer_runs_this_script_as_the_servers_user(self):
+        service, timer = deploy_server.BACKUP_UNIT_FILES
+        self.assertEqual(f"{deploy_server.BACKUP_UNIT}.service", service.name)
+        self.assertEqual(f"{deploy_server.BACKUP_UNIT}.timer", timer.name)
+        self.assertEqual([f"/usr/bin/python3 {deploy_server.HOME}/deploy_server.py backup"], self.directives(service, "ExecStart"))
+        self.assertEqual([deploy_server.USER], self.directives(service, "User"))
+        self.assertEqual(["oneshot"], self.directives(service, "Type"))
+        self.assertEqual(["0077"], self.directives(service, "UMask"))
+        self.assertEqual([f"{deploy_server.DATA_DIR} {deploy_server.BACKUP_DIR}"], self.directives(service, "ReadWritePaths"))
+        self.assertEqual(["true"], self.directives(service, "PrivateNetwork"))
+        self.assertEqual(["*-*-* 03:30:00"], self.directives(timer, "OnCalendar"))
+        self.assertEqual(["true"], self.directives(timer, "Persistent"))
+
+    def test_the_deploy_workflow_ships_a_change_to_the_units(self):
+        workflow = (deploy_server.ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+        self.assertIn('"deploy/gains-server-backup.*"', workflow)
+
+    def test_a_copy_is_the_database_as_it_is_while_the_server_writes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data, backups = pathlib.Path(temp) / "data", pathlib.Path(temp) / "backups"
+            data.mkdir()
+            backups.mkdir()
+            database = data / "gains-server.db"
+            server = deploy_server.sqlite3.connect(database)
+            server.execute("PRAGMA journal_mode=WAL")
+            server.execute("CREATE TABLE user (id INTEGER PRIMARY KEY, email TEXT)")
+            server.execute("INSERT INTO user(email) VALUES ('ada@example.com')")
+            server.commit()
+            # Still open, with the row only in the -wal file: a plain file copy would miss it.
+            made = deploy_server.backup_database(database, backups, "2026-09-29")
+            server.close()
+
+            self.assertEqual(backups / "gains-server-2026-09-29.db", made)
+            self.assertEqual(0o600, made.stat().st_mode & 0o777)
+            copy = deploy_server.sqlite3.connect(made)
+            self.assertEqual([("ada@example.com",)], copy.execute("SELECT email FROM user").fetchall())
+            copy.close()
+            self.assertEqual(["gains-server-2026-09-29.db"], sorted(p.name for p in backups.iterdir()))
+
+    def test_no_database_no_copy(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = pathlib.Path(temp)
+            self.assertIsNone(deploy_server.backup_database(directory / "gains-server.db", directory, "2026-09-29"))
+            self.assertEqual([], list(directory.iterdir()), "connecting would have created an empty database")
+
+    def test_the_last_seven_days_are_kept(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = pathlib.Path(temp)
+            days = [f"2026-09-{day:02d}" for day in range(20, 30)]
+            for day in days:
+                (directory / f"gains-server-{day}.db").write_text(day)
+            (directory / "unrelated.txt").write_text("left alone")
+            pruned = deploy_server.prune_backups(directory)
+            self.assertEqual([f"gains-server-{day}.db" for day in days[:3]], [p.name for p in pruned])
+            self.assertEqual(
+                sorted([f"gains-server-{day}.db" for day in days[3:]] + ["unrelated.txt"]),
+                sorted(p.name for p in directory.iterdir()),
+            )
 
 
 class SiteSyncTest(unittest.TestCase):

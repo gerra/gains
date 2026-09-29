@@ -2003,6 +2003,16 @@ build fails a check, open an issue and link it next to the box.
 - [ ] Item 24: `sqlite3 /var/lib/gains/gains-server.db 'SELECT refresh_token FROM identity'`
       shows `v1:` ciphertext after an Apple sign-in, and Delete account still removes Gains from
       the Apple ID (the item 6 check).
+- [ ] Item 24: after `REFRESH_TOKEN_KEY` is deployed, `journalctl -u gains-server` shows
+      `refresh token encryption on`, and the same query shows no row without `v1:`. An Apple
+      account signed in before the key is set, then deleted, still disappears from the Apple ID's
+      "Sign in with Apple" list.
+- [ ] Item 24: `ls -l /var/lib/gains` shows `gains-server.db`, `-wal` and `-shm` as 600.
+      `systemctl list-timers gains-server-backup` lists the timer; after
+      `systemctl start gains-server-backup`, `ls -la /var/backups/gains` shows a 700 directory with
+      today's `gains-server-<day>.db`, 600, and
+      `sqlite3 /var/backups/gains/gains-server-<day>.db 'SELECT count(*) FROM user'` matches the live
+      database. `journalctl -u gains-server-backup` has no error.
 
 **39. MPL-2.0 license**
 - [ ] The repository page on GitHub shows "MPL-2.0 license". `LICENSE` matches Mozilla's text

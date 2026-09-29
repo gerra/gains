@@ -3,7 +3,8 @@ name: Deploy server
 # Ships the sync server (server/, docs/sync.md) to the Hetzner box the way taxes and www are
 # shipped: tests, `installDist`, rsync of the install directory, the systemd unit from the
 # repository, restart, smoke test. Runs only for changes that reach the server: the module,
-# the wire format it is built from (:protocol), the unit and this file. Changes to the app,
+# the wire format it is built from (:protocol), the units (the server's and the nightly backup's)
+# and this file. Changes to the app,
 # :shared included, leave it alone; CI runs the server's tests against them on the pull request.
 #
 # The steps are tools/deploy_server.py, not shell; the same file runs on the box for the
@@ -20,6 +21,7 @@ on:
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "deploy/gains-server.service"
+      - "deploy/gains-server-backup.*"
       - "tools/deploy_server.py"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:

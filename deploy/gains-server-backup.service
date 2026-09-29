@@ -1,0 +1,37 @@
+# The nightly copy of the sync server's database (docs/sync.md, "Deploying"; docs/launch-plan.md,
+# item 24). Installed with gains-server-backup.timer by `tools/deploy_server.py install`, which
+# also copies the script this runs to /opt/gains-server.
+#
+# `deploy_server.py backup` uses SQLite's online backup through the box's python3, so the server
+# keeps running while it reads, and keeps the last seven days in /var/backups/gains (the server's
+# user's, 700). The copies stay on the box; the box's own Hetzner backups carry them off it, and
+# anything copied off by hand is encrypted first.
+
+[Unit]
+Description=Nightly copy of the gains-server database
+
+[Service]
+Type=oneshot
+User=gains-server
+Group=gains-server
+WorkingDirectory=/opt/gains-server
+ExecStart=/usr/bin/python3 /opt/gains-server/deploy_server.py backup
+SyslogIdentifier=gains-server-backup
+
+# The same sandbox as the server, and no network at all: the copy never leaves the box here.
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateNetwork=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/gains /var/backups/gains
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+CapabilityBoundingSet=
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+PrivateDevices=true
