@@ -2102,8 +2102,14 @@ On an Android 16 device or emulator, with a build containing item 21.
 - [ ] Item 30: the release build from the closed testing track passes the Android section above
       end to end, with no crash on sign-in, sync, import or the notification (a missing keep
       rule shows there first).
-- [ ] Item 31: after `bmgr backupnow`, uninstall and reinstall, what comes back matches the
-      decision written under item 31, and the privacy policy's backup sentence matches it too.
+- [ ] Item 31: with a workout that has a photo, a changed setting (theme) and a streak reminder,
+      `adb shell bmgr backupnow app.gains`, uninstall, reinstall and let the backup restore: the
+      workouts, the photo, body weight, programs and the theme are back, and a signed-in account
+      says "Signed out on the server" until you sign in again.
+- [ ] Item 31: a new phone set up from the old one with Android's device-to-device transfer gets
+      the same things, and the same sign-in prompt.
+- [ ] Item 31: `https://gains.gerra.sh/privacy#guest`: the backup paragraph says the phone's
+      backups include workouts, photos and settings, and never the sign-in key.
 
 ### Architecture (items 32–37)
 
