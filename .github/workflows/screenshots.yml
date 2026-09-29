@@ -3,7 +3,8 @@ name: Screenshots
 # Re-renders the README screenshots by driving the desktop app headlessly
 # (composeApp/src/desktopTest/kotlin/app/gains/ScreenshotTest.kt) and commits
 # the result to the branch the workflow ran on. The same run records clips of the
-# app's motion frame by frame and encodes them into docs/animations as GIFs and MP4s.
+# app's motion frame by frame and encodes them into docs/animations as GIFs and MP4s,
+# and turns six of the screenshots into the site's pictures in site/img.
 on:
   workflow_dispatch:
 
@@ -44,6 +45,15 @@ jobs:
             echo "$name: $(ls "$dir" | wc -l) frames"
           done
           rm -rf frames
+      # The site's pictures are these same renders of the sample export, plain and unframed, so the
+      # site never shows anyone's real training (docs/launch-plan.md, item 39). site/index.html names
+      # them and gives their size, 600 × 1075.
+      - name: Site images
+        run: |
+          command -v cwebp >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q webp; }
+          for pair in 05-lifts:hero 03-home:shot-home 14-program-day:shot-workout 07-volume:shot-volume 17-summary:shot-summary 12-programs:shot-programs; do
+            cwebp -quiet -q 82 -resize 600 0 "docs/screenshots/${pair%%:*}.png" -o "site/img/${pair##*:}.webp"
+          done
       - name: Show test report on failure
         if: failure()
         run: |
@@ -56,8 +66,8 @@ jobs:
           mkdir -p docs/screenshots docs/animations
           # Raw frames are only ever an intermediate, even when encoding them failed.
           rm -rf docs/animations/frames
-          git add -A docs/screenshots docs/animations
+          git add -A docs/screenshots docs/animations site/img
           if git diff --cached --quiet; then echo "Screenshots unchanged"; exit 0; fi
-          git commit -m "Regenerate screenshots and animations"
+          git commit -m "Regenerate screenshots, animations and site images"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"

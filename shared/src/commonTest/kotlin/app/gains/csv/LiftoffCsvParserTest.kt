@@ -14,31 +14,32 @@ class LiftoffCsvParserTest {
     fun convertsLbsToRoundKgAndClassifiesSetTypes() {
         val parsed = parser.parse(Fixtures.SAMPLE)
         assertEquals(0, parsed.skipped.size)
-        val bench = parsed.sessions.first { it.id == "2026-02-18" }.exercises.first { it.name == "Bench Press" }
-        assertEquals(listOf(20.0, 50.0, 60.0), bench.sets.map { it.weightKg })
-        assertEquals(listOf(20, 12, 8), bench.sets.map { it.reps })
+        val bench = parsed.sessions.first { it.id == "2026-02-24" }.exercises.first { it.name == "Bench Press" }
+        assertEquals(listOf(20.0, 57.5, 70.0), bench.sets.map { it.weightKg })
+        assertEquals(listOf(15, 10, 6), bench.sets.map { it.reps })
         assertTrue(bench.sets.all { it.type == SetType.WEIGHTED })
 
-        val raise = parsed.sessions.first { it.id == "2026-02-18" }.exercises.first { it.name == "Dumbbell Lateral Raise" }
-        assertEquals(6.0, raise.sets.first().weightKg)
+        val raise = parsed.sessions.first { it.id == "2026-02-24" }.exercises.first { it.name == "Dumbbell Lateral Raise" }
+        assertEquals(8.0, raise.sets.first().weightKg)
+        assertEquals("Slow tempo, couldn’t keep the pause", raise.note)
 
-        val legPress = parsed.sessions.first { it.id == "2026-01-13" }.exercises.single()
-        assertEquals(53.0, legPress.sets.single().weightKg)
-        assertEquals("+53kg", legPress.note)
+        val legPress = parsed.sessions.first { it.id == "2025-10-02" }.exercises.single()
+        assertEquals(40.0, legPress.sets.single().weightKg)
+        assertEquals("+40kg", legPress.note)
 
-        val march = parsed.sessions.first { it.id == "2026-03-21" }
-        val hang = march.exercises.first { it.name == "Dead Hang" }.sets.single()
+        val december = parsed.sessions.first { it.id == "2025-12-14" }
+        val hang = december.exercises.first { it.name == "Dead Hang" }.sets.single()
         assertEquals(SetType.ISOMETRIC, hang.type)
-        assertEquals(60, hang.seconds)
+        assertEquals(45, hang.seconds)
         assertNull(hang.weightKg)
-        val pullUp = march.exercises.first { it.name == "Pull Up" }.sets.single()
+        val pullUp = december.exercises.first { it.name == "Pull Up" }.sets.single()
         assertEquals(SetType.BODYWEIGHT, pullUp.type)
-        assertEquals(8, pullUp.reps)
+        assertEquals(6, pullUp.reps)
 
-        val run = parsed.sessions.first { it.id == "2026-04-27" }.exercises.single().sets.single()
+        val run = parsed.sessions.first { it.id == "2026-05-09" }.exercises.single().sets.single()
         assertEquals(SetType.CARDIO, run.type)
-        assertEquals(6.437376, run.distanceKm)
-        assertEquals(1980, run.seconds)
+        assertEquals(5.2, run.distanceKm)
+        assertEquals(1560, run.seconds)
     }
 
     @Test
@@ -59,7 +60,7 @@ class LiftoffCsvParserTest {
         assertTrue(byId.getValue("2026-01-01").durationDiscarded)
         assertNull(byId.getValue("2026-01-02").durationMinutes)
         assertNull(byId.getValue("2026-01-03").durationMinutes)
-        assertEquals(101, byId.getValue("2026-01-04").durationMinutes)
+        assertEquals(97, byId.getValue("2026-01-04").durationMinutes)
         assertNull(byId.getValue("2026-01-05").durationMinutes)
         assertEquals(false, byId.getValue("2026-01-05").durationDiscarded)
         assertEquals(240, byId.getValue("2026-01-06").durationMinutes)
@@ -68,9 +69,9 @@ class LiftoffCsvParserTest {
 
     @Test
     fun parsesDurationVariants() {
-        assertEquals(101, parser.parseDuration("01 hours 41 minutes 04 seconds"))
-        assertEquals(109 * 60 + 36, parser.parseDuration("109 hours 36 minutes"))
-        assertEquals(33, parser.parseDuration("00 hours 33 minutes 08 seconds"))
+        assertEquals(97, parser.parseDuration("01 hours 37 minutes 12 seconds"))
+        assertEquals(130 * 60 + 5, parser.parseDuration("130 hours 05 minutes"))
+        assertEquals(27, parser.parseDuration("00 hours 27 minutes 10 seconds"))
         assertEquals(45, parser.parseDuration("45 minutes"))
         assertNull(parser.parseDuration(""))
         assertNull(parser.parseDuration("garbage"))
@@ -82,7 +83,7 @@ class LiftoffCsvParserTest {
         val session = parsed.sessions.single()
         val raise = session.exercises.first { it.name == "Dumbbell Lateral Raise" }
         assertEquals(3, raise.sets.size)
-        assertEquals("I used one dumbbell, no rest, \"almost\" none", raise.note)
+        assertEquals("Slow negatives, \"paused\" at the top", raise.note)
         val bench = session.exercises.first { it.name == "Bench Press" }
         assertEquals("Line one\nline two, with comma", bench.note)
         assertEquals(0, parsed.skipped.size)
@@ -124,7 +125,7 @@ class LiftoffCsvParserTest {
 
     @Test
     fun weightedHoldKeepsWeightAndIsIsometric() {
-        val text = Fixtures.HEADER + "\n2026-02-18 20:40:47,,,Weighted Plank,0,44.092452437,0,0,45,,\n"
+        val text = Fixtures.HEADER + "\n2026-02-20 19:00:00,,,Weighted Plank,0,44.092452437,0,0,45,,\n"
         val set = parser.parse(text).sessions.single().exercises.single().sets.single()
         assertEquals(SetType.ISOMETRIC, set.type)
         assertEquals(20.0, set.weightKg)

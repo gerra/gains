@@ -3,18 +3,21 @@ package app.gains.csv
 object Fixtures {
     const val HEADER = "Date,Duration,Workout Name,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,RPE,Notes"
 
-    /** The sample rows from the spec, plus warm-up sets for bench. */
+    /**
+     * One row of each kind a Liftoff export holds, with warm-up sets for bench out of order.
+     * Made up: the real export these once came from is personal data and stays out of the tree.
+     */
     val SAMPLE = """
         $HEADER
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,2,132.277357311,8,0,0,,
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,0,44.092452437,20,0,0,,
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,1,110.231131093,12,0,0,,
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Dumbbell Lateral Raise,0,13.2277357311,15,0,0,,"I used one dumbbell and didn't do any rest (almost) between sets "
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Dumbbell Lateral Raise,1,13.2277357311,15,0,0,,"I used one dumbbell and didn't do any rest (almost) between sets "
-        2026-01-13 22:04:26,01 hours 41 minutes 04 seconds,,Sled Leg Press,0,116.84499895805,15,0,0,,+53kg
-        2026-03-21 13:29:26,01 hours 01 minutes 45 seconds,,Dead Hang,0,0,0,0,60,,
-        2026-04-27 17:22:29,00 hours 33 minutes 08 seconds,,Running,0,0,0,6.437376,1980,,
-        2026-03-21 13:29:26,01 hours 01 minutes 45 seconds,,Pull Up,0,0,8,0,0,,
+        2026-02-24 18:15:00,00 hours 55 minutes 00 seconds,,Bench Press,2,154.3235835295,6,0,0,,
+        2026-02-24 18:15:00,00 hours 55 minutes 00 seconds,,Bench Press,0,44.092452437,15,0,0,,
+        2026-02-24 18:15:00,00 hours 55 minutes 00 seconds,,Bench Press,1,126.76580075638,10,0,0,,
+        2026-02-24 18:15:00,00 hours 55 minutes 00 seconds,,Dumbbell Lateral Raise,0,17.6369809748,12,0,0,,"Slow tempo, couldn’t keep the pause "
+        2026-02-24 18:15:00,00 hours 55 minutes 00 seconds,,Dumbbell Lateral Raise,1,17.6369809748,12,0,0,,"Slow tempo, couldn’t keep the pause "
+        2025-10-02 07:30:00,01 hours 12 minutes 30 seconds,,Sled Leg Press,0,88.184904874,12,0,0,,+40kg
+        2025-12-14 09:05:00,00 hours 48 minutes 20 seconds,,Dead Hang,0,0,0,0,45,,
+        2026-05-09 06:40:00,00 hours 27 minutes 10 seconds,,Running,0,0,0,5.2,1560,,
+        2025-12-14 09:05:00,00 hours 48 minutes 20 seconds,,Pull Up,0,0,6,0,0,,
     """.trimIndent()
 
     /** Rows from three years interleaved in no particular order. */
@@ -43,10 +46,10 @@ object Fixtures {
 
     val CORRUPT_DURATIONS = """
         $HEADER
-        2026-01-01 10:00:00,325 hours 03 minutes 37 seconds,,Bench Press,0,132.277357311,8,0,0,,
-        2026-01-02 10:00:00,109 hours 36 minutes,,Bench Press,0,132.277357311,8,0,0,,
-        2026-01-03 10:00:00,95 hours 38 minutes,,Bench Press,0,132.277357311,8,0,0,,
-        2026-01-04 10:00:00,01 hours 41 minutes 04 seconds,,Bench Press,0,132.277357311,8,0,0,,
+        2026-01-01 10:00:00,212 hours 14 minutes 09 seconds,,Bench Press,0,132.277357311,8,0,0,,
+        2026-01-02 10:00:00,130 hours 05 minutes,,Bench Press,0,132.277357311,8,0,0,,
+        2026-01-03 10:00:00,88 hours 20 minutes,,Bench Press,0,132.277357311,8,0,0,,
+        2026-01-04 10:00:00,01 hours 37 minutes 12 seconds,,Bench Press,0,132.277357311,8,0,0,,
         2026-01-05 10:00:00,,,Bench Press,0,132.277357311,8,0,0,,
         2026-01-06 10:00:00,03 hours 59 minutes 59 seconds,,Bench Press,0,132.277357311,8,0,0,,
     """.trimIndent()
@@ -64,32 +67,32 @@ object Fixtures {
 
     val QUOTED_NOTES = """
         $HEADER
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Dumbbell Lateral Raise,0,13.2277357311,15,0,0,,"I used one dumbbell, no rest, ""almost"" none"
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Dumbbell Lateral Raise,1,13.2277357311,15,0,0,,"I used one dumbbell, no rest, ""almost"" none"
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Dumbbell Lateral Raise,2,13.2277357311,12,0,0,,"I used one dumbbell, no rest, ""almost"" none"
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,0,132.277357311,8,0,0,,"Line one
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Dumbbell Lateral Raise,0,13.2277357311,15,0,0,,"Slow negatives, ""paused"" at the top"
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Dumbbell Lateral Raise,1,13.2277357311,15,0,0,,"Slow negatives, ""paused"" at the top"
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Dumbbell Lateral Raise,2,13.2277357311,12,0,0,,"Slow negatives, ""paused"" at the top"
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Bench Press,0,132.277357311,8,0,0,,"Line one
         line two, with comma"
     """.trimIndent()
 
     val EMPTY_ROWS = """
         $HEADER
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,,0,0,0,0,0,,
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,0,0,0,0,0,,
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,1,132.277357311,8,0,0,,
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,,0,0,0,0,0,,
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Bench Press,0,0,0,0,0,,
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Bench Press,1,132.277357311,8,0,0,,
         ,,,,,,,,,,
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,,0,132.277357311,8,0,0,,
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,,0,132.277357311,8,0,0,,
 
     """.trimIndent()
 
     val SHUFFLED_SET_ORDER = """
         $HEADER
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,3,121.254244339,8,0,0,,
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,0,44.092452437,20,0,0,,
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,2,132.277357311,10,0,0,,
-        2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,1,88.184904874,15,0,0,,
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Bench Press,3,121.254244339,8,0,0,,
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Bench Press,0,44.092452437,20,0,0,,
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Bench Press,2,132.277357311,10,0,0,,
+        2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Bench Press,1,88.184904874,15,0,0,,
     """.trimIndent()
 
     val CRLF = HEADER + "\r\n" +
-        "2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,0,132.277357311,8,0,0,7.5,\"note, with comma\"\r\n" +
-        "2026-02-18 20:40:47,01 hours 00 minutes 00 seconds,,Bench Press,1,132.277357311,8,0,0,,\r\n"
+        "2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Bench Press,0,132.277357311,8,0,0,7.5,\"note, with comma\"\r\n" +
+        "2026-02-20 19:00:00,01 hours 00 minutes 00 seconds,,Bench Press,1,132.277357311,8,0,0,,\r\n"
 }

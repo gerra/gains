@@ -235,7 +235,7 @@ internal class AccountDeletion(private val scope: CoroutineScope, private val ac
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}) {
+internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}, onOpenLicenses: () -> Unit = {}) {
     val texts = rememberTexts()
     val model = rememberScreenModel { SettingsModel(texts, inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
@@ -425,6 +425,14 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                 Text(stringResource(Res.string.data_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 SecondaryButton(stringResource(Res.string.delete_all_sessions), onClick = { confirmDelete = true })
+            }
+            SectionHeader(stringResource(Res.string.about))
+            GainsCard(Modifier.fillMaxWidth(), onClick = onOpenLicenses) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(Res.string.open_source_licenses), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onOpenLicenses) { Text(stringResource(Res.string.open), color = palette.volt) }
+                }
+                Text(stringResource(Res.string.open_source_licenses_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

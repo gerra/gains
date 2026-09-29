@@ -218,7 +218,7 @@ class NavigationTest {
         val hosted = mutableListOf<NavEntry>()
         // A tab root's screen among them, pushed on another tab, is an ordinary entry and not that tab's root.
         val screens = listOf(
-            Screen.Settings, Screen.Import, Screen.Programs, Screen.Trophies, Screen.History,
+            Screen.Settings, Screen.Import, Screen.Programs, Screen.Trophies, Screen.Licenses, Screen.History,
             Screen.ExerciseDetail("a"), Screen.ExerciseDetail("b"),
         )
 

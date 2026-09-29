@@ -80,7 +80,7 @@ The same rules as `auth-plan.md`:
 | 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [x] |
 | 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [x] |
 | 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [x] |
-| 39 | Open source under MPL-2.0: the license, its scope, the notices, no personal data | iOS launch | Agent + Owner | — | [ ] |
+| 39 | Open source under MPL-2.0: the license, its scope, the notices, no personal data | iOS launch | Agent + Owner | — | [x] |
 
 **Blockers, P1, P2.** Items 20, 21 and 39 are launch blockers: item 7 (App Review) depends on 20
 and 39, and item 14 (Google Play) on 20, 21 and 39. Items 22–31 came out of a
@@ -150,6 +150,10 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
       treatment of the name and logo, the license for docs and site text, the notices tool,
       whose workouts `liftoff_workout_data.csv` and the site's images hold, and whether the
       public history is rewritten to remove that export. *Decided:* see item 39's steps.
+- [ ] License (item 39): `curl -s https://www.mozilla.org/media/MPL/2.0/index.txt | diff - LICENSE`
+      prints nothing (take Mozilla's file if it does not); the App Store and Play screenshots
+      replaced with renders of the sample export (`docs/screenshots`); the App Store description
+      and the Play listing link `https://github.com/gerra/gains`.
 - [x] Passkey decision (item 19, step 1). *Decided:* see item 19.
 
 ---
@@ -1617,7 +1621,13 @@ test plan, "Android app module (item 38)".
 
 ### 39. Open source under MPL-2.0: the license, its scope, the notices, no personal data
 
-- [ ] Done
+- [x] Done
+  Done in #138. Steps 1–7 are in: `LICENSE`, `NOTICE.md` (the finished inventory), the export and
+  its fixture rows gone, the exercise photos dropped (step 2's *Found*), the site's pictures now
+  rendered by the Screenshots workflow, and Settings → About → Open-source licenses on every
+  platform with a per-target library list. Left for the owner: diff `LICENSE` against Mozilla's
+  file (this run could only reach GitHub's copy), replace the store screenshots, and link the
+  source in the App Store and Play descriptions.
 
 **Milestone:** iOS launch. **Depends on:** nothing. **Launch blocker:** items 7 and 14 depend on
 it. One pull request. The owner makes the decisions marked **Owner decides** first, and they are
@@ -1695,6 +1705,14 @@ make this more than adding a file:
      `DB_URL` and `IMAGE_URL` in the script to that commit instead of `main`, so the provenance
      can be reproduced.
      *Decided:* if the rights to the photos are unclear, drop them. The `SKIP` path takes over.
+     *Found:* the Unlicense covers the JSON, not the photos. free-exercise-db took them from
+     [wrkout/exercises.json](https://github.com/wrkout/exercises.json), whose CONTRIBUTING says
+     they "have been scraped off the internet" and that its author doesn't own their copyright.
+     The issues that ask (free-exercise-db #12 and #13, wrkout #305) point to bodybuilding.com by
+     reverse image search, and to ExRx.net for some. So they were dropped, all 548, with `ExerciseDemos.kt` and
+     `tools/exercise_demos.py`, which would only fetch them again. "How to do it" keeps the video
+     search. There was nothing left to pin. The catalogue's names from the JSON stay, credited in
+     `NOTICE.md`.
    - **react-native-body-highlighter.** `BodyMapPaths.kt` stays under MIT as a whole: it is
      generated from the upstream data, and the notice stays in its header. `NOTICE.md` and the
      app (step 5) carry the MIT notice in full.
@@ -1762,6 +1780,9 @@ make this more than adding a file:
      sample export. The Screenshots workflow renders the same screens.
      *Decided:* regenerate them from the sample export, with a frame made here or plain
      screenshots, and replace the store screenshots the same way.
+     *Done:* plain screenshots. The Screenshots workflow now also writes six of its renders to
+     `site/img` as WebP (the hero and five shots), so the site's pictures follow the app. The
+     store screenshots are the owner's to replace.
    - **History. Owner decides.** The repository is public, so the export and the fixtures are
      already in its history, and in any clone or fork. Deleting them from `main` doesn't remove
      them from past commits. The options:
@@ -2028,15 +2049,23 @@ build fails a check, open an issue and link it next to the box.
       `git grep -in "all rights reserved"` finds only this plan's history.
 - [ ] `NOTICE.md` has a row for every third-party path in item 39's table, and the body drawing's
       MIT notice in full. No page says that everything in the repository is MPL-2.0.
-- [ ] `liftoff_workout_data.csv` is gone, and `git grep -nE "In Vit gym|2026-02-18 20:40:47|\+53kg"`
-      finds nothing. If the owner chose the rewrite, `git log --all --oneline --
+- [ ] `liftoff_workout_data.csv` is gone, and
+      `git grep -nE "In Vit gym|2026-02-18 20:40:47|\+53kg" -- ':!docs/launch-plan.md'` finds
+      nothing. If the owner chose the rewrite, `git log --all --oneline --
       liftoff_workout_data.csv` on a fresh clone prints nothing.
 - [ ] The site's images show sample data only, or the owner's decision under item 39 says why not.
+      They are plain renders with no device frame, and none of them is missing (no broken image
+      on `/`).
 - [ ] On a TestFlight build and on a Play closed-testing build containing the item: Settings →
-      "Open-source licenses" opens. It shows MPL-2.0, and the source link opens
-      `github.com/gerra/gains`. The body drawing's MIT notice, the free-exercise-db credit, and a
-      dependency list naming Compose, Ktor, Koin and SQLDelight with their licenses are all there.
-      In Russian, the row and the headings are translated.
+      About → "Open-source licenses" opens. It shows the version and build, MPL-2.0, and the
+      source link opens `github.com/gerra/gains`. The body drawing's MIT notice, the
+      free-exercise-db credit, and a dependency list naming Compose, Ktor, Koin and SQLDelight
+      with their licenses are all there, then the Apache-2.0 text once. On Android the list also
+      has Play services (Android Software Development Kit License); on iOS it has
+      `ktor-client-darwin` and no Android library. In Russian, the row and the headings are
+      translated; the license texts stay in English.
+- [ ] A lift's page and an exercise card's "How to do it" show no photo, only **Watch a video**,
+      which opens the YouTube search.
 - [ ] Desktop: the same screen in `./gradlew :composeApp:run`. A local `packageDmg`,
       `packageMsi` or `packageDeb` (whichever the machine builds) carries `LICENSE`.
 - [ ] Every page of `gains.gerra.sh` has the license footer, with a working link to the
