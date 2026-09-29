@@ -111,12 +111,13 @@ The long version of the list in the [README](../README.md).
   `Seated Shoulder Press` are one lift. About 180 of them were curated from the public-domain
   [free-exercise-db](https://github.com/yuhonas/free-exercise-db). Unknown names become custom
   exercises you can merge later.
-- **How to do it.** Every built-in exercise but a handful has its start and end position from
-  free-exercise-db, cross-faded into a loop on the lift's page and under **How to do it** in an
-  exercise card's menu while you train; tap the picture to freeze it. The photos ship inside the
-  app, so they work in a basement gym with no signal. Every exercise, custom ones included, also
-  has a **Watch a video** button that opens a YouTube search in the browser, the one place the
-  app reaches outside itself, and only when you tap it.
+- **How to do it.** On the lift's page, and under **How to do it** in an exercise card's menu
+  while you train, every exercise, custom ones included, has a **Watch a video** button that
+  opens a YouTube search in the browser, the one place the app reaches outside itself, and only
+  when you tap it. (The start and end photos that used to be there were dropped when Gains went
+  open source: nobody could license them. [NOTICE.md](../NOTICE.md) says why.)
+- **Open-source licenses.** Settings → About shows the version, Gains' license (MPL-2.0) and where
+  its source is, the body drawing's notice, and every library in the build with its license.
 - **Careful with bad data.** Real RFC 4180 parsing, unit conversion and rounding, warm-up
   detection, timer-default holds flagged for review, corrupt durations dropped, empty rows
   listed with a reason.

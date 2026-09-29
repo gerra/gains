@@ -1695,6 +1695,14 @@ make this more than adding a file:
      `DB_URL` and `IMAGE_URL` in the script to that commit instead of `main`, so the provenance
      can be reproduced.
      *Decided:* if the rights to the photos are unclear, drop them. The `SKIP` path takes over.
+     *Found:* the Unlicense covers the JSON, not the photos. free-exercise-db took them from
+     [wrkout/exercises.json](https://github.com/wrkout/exercises.json), whose CONTRIBUTING says
+     they "have been scraped off the internet" and that its author doesn't own their copyright.
+     The issues that ask (free-exercise-db #12 and #13, wrkout #305) point to bodybuilding.com by
+     reverse image search, and to ExRx.net for some. So they were dropped, all 548, with `ExerciseDemos.kt` and
+     `tools/exercise_demos.py`, which would only fetch them again. "How to do it" keeps the video
+     search. There was nothing left to pin. The catalogue's names from the JSON stay, credited in
+     `NOTICE.md`.
    - **react-native-body-highlighter.** `BodyMapPaths.kt` stays under MIT as a whole: it is
      generated from the upstream data, and the notice stays in its header. `NOTICE.md` and the
      app (step 5) carry the MIT notice in full.
@@ -1762,6 +1770,9 @@ make this more than adding a file:
      sample export. The Screenshots workflow renders the same screens.
      *Decided:* regenerate them from the sample export, with a frame made here or plain
      screenshots, and replace the store screenshots the same way.
+     *Done:* plain screenshots. The Screenshots workflow now also writes six of its renders to
+     `site/img` as WebP (the hero and five shots), so the site's pictures follow the app. The
+     store screenshots are the owner's to replace.
    - **History. Owner decides.** The repository is public, so the export and the fixtures are
      already in its history, and in any clone or fork. Deleting them from `main` doesn't remove
      them from past commits. The options:
@@ -2028,15 +2039,23 @@ build fails a check, open an issue and link it next to the box.
       `git grep -in "all rights reserved"` finds only this plan's history.
 - [ ] `NOTICE.md` has a row for every third-party path in item 39's table, and the body drawing's
       MIT notice in full. No page says that everything in the repository is MPL-2.0.
-- [ ] `liftoff_workout_data.csv` is gone, and `git grep -nE "In Vit gym|2026-02-18 20:40:47|\+53kg"`
-      finds nothing. If the owner chose the rewrite, `git log --all --oneline --
+- [ ] `liftoff_workout_data.csv` is gone, and
+      `git grep -nE "In Vit gym|2026-02-18 20:40:47|\+53kg" -- ':!docs/launch-plan.md'` finds
+      nothing. If the owner chose the rewrite, `git log --all --oneline --
       liftoff_workout_data.csv` on a fresh clone prints nothing.
 - [ ] The site's images show sample data only, or the owner's decision under item 39 says why not.
+      They are plain renders with no device frame, and none of them is missing (no broken image
+      on `/`).
 - [ ] On a TestFlight build and on a Play closed-testing build containing the item: Settings →
-      "Open-source licenses" opens. It shows MPL-2.0, and the source link opens
-      `github.com/gerra/gains`. The body drawing's MIT notice, the free-exercise-db credit, and a
-      dependency list naming Compose, Ktor, Koin and SQLDelight with their licenses are all there.
-      In Russian, the row and the headings are translated.
+      About → "Open-source licenses" opens. It shows the version and build, MPL-2.0, and the
+      source link opens `github.com/gerra/gains`. The body drawing's MIT notice, the
+      free-exercise-db credit, and a dependency list naming Compose, Ktor, Koin and SQLDelight
+      with their licenses are all there, then the Apache-2.0 text once. On Android the list also
+      has Play services (Android Software Development Kit License); on iOS it has
+      `ktor-client-darwin` and no Android library. In Russian, the row and the headings are
+      translated; the license texts stay in English.
+- [ ] A lift's page and an exercise card's "How to do it" show no photo, only **Watch a video**,
+      which opens the YouTube search.
 - [ ] Desktop: the same screen in `./gradlew :composeApp:run`. A local `packageDmg`,
       `packageMsi` or `packageDeb` (whichever the machine builds) carries `LICENSE`.
 - [ ] Every page of `gains.gerra.sh` has the license footer, with a working link to the

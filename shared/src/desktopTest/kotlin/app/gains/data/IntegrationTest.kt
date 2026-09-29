@@ -50,28 +50,28 @@ class IntegrationTest {
         assertEquals(0, service.commit(again, emptySet()).sessionsWritten)
 
         // Overlapping export with one extra session: only the new one is written.
-        val extended = Fixtures.SAMPLE + "\n2026-05-01 10:00:00,00 hours 50 minutes 00 seconds,,Bench Press,0,137.788914,8,0,0,,"
+        val extended = Fixtures.SAMPLE + "\n2026-05-01 10:00:00,00 hours 50 minutes 00 seconds,,Bench Press,0,165.34669663875,8,0,0,,"
         val third = service.preview(extended)
         assertEquals(1, third.newCount)
         service.commit(third, emptySet())
 
         val snapshot = TrainingData(sessions, exercises).snapshot.first()
         assertEquals(5, snapshot.sessions.size)
-        val bench = snapshot.sessions.first { it.id == "2026-02-18" }.exercises.first { it.exerciseId == "bench_press" }
+        val bench = snapshot.sessions.first { it.id == "2026-02-24" }.exercises.first { it.exerciseId == "bench_press" }
         assertEquals(listOf(true, true, false), bench.sets.map { it.isWarmup })
-        assertEquals(60.0, bench.sets.last().weightKg)
+        assertEquals(70.0, bench.sets.last().weightKg)
 
         // Working-set override flows through the snapshot.
         exercises.setWorkingSetRatio("bench_press", 0.8)
         val updated = TrainingData(sessions, exercises).snapshot.first()
-        val benchAfter = updated.sessions.first { it.id == "2026-02-18" }.exercises.first { it.exerciseId == "bench_press" }
+        val benchAfter = updated.sessions.first { it.id == "2026-02-24" }.exercises.first { it.exerciseId == "bench_press" }
         assertEquals(listOf(true, false, false), benchAfter.sets.map { it.isWarmup })
 
         // Insights run over the stored data without error.
         val insights = InsightEngine().generate(updated.sessions, updated.exercises, LocalDate(2026, 5, 15))
         assertTrue(insights.any { it.kind == InsightKind.PROGRESS && it.exerciseId == "bench_press" })
 
-        val volume = VolumeAnalyzer.currentWeek(updated.sessions, updated.exercisesById, LocalDate(2026, 2, 18))
+        val volume = VolumeAnalyzer.currentWeek(updated.sessions, updated.exercisesById, LocalDate(2026, 2, 24))
         assertEquals(2.0, volume.sets[MuscleGroup.CHEST])
     }
 
@@ -105,7 +105,7 @@ class IntegrationTest {
         // An import's warm-ups were inferred; none are stored, so the ratio keeps deciding for them.
         val service = ImportService(sessions, exercises)
         service.commit(service.preview(Fixtures.SAMPLE), emptySet())
-        val imported = sessions.observeRawSessions().first().first { it.id == "2026-02-18" }.exercises.first { it.exerciseId == "bench_press" }
+        val imported = sessions.observeRawSessions().first().first { it.id == "2026-02-24" }.exercises.first { it.exerciseId == "bench_press" }
         assertTrue(imported.sets.none { it.isWarmup })
     }
 

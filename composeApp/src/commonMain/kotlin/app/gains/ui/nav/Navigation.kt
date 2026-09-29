@@ -42,6 +42,9 @@ internal sealed interface Screen {
 
     /** The level, every achievement with where the lifter stands on it, and the records lately set. */
     data object Trophies : Screen
+
+    /** Gains' own license and source, then every third-party work and library in the build (item 39). */
+    data object Licenses : Screen
 }
 
 internal enum class Tab(val root: Screen) {

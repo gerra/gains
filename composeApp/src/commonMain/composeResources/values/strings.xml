@@ -179,12 +179,8 @@
     <string name="sessions_tap_to_open">Sessions · tap to open</string>
     <string name="reset_to_default">Reset to default</string>
     <string name="how_to_do_it">How to do it</string>
-    <string name="demo_start_end">Start and end position, public-domain photos from free-exercise-db.</string>
-    <string name="demo_none">No photos for this exercise yet.</string>
     <string name="watch_video">Watch a video</string>
     <string name="watch_video_note">Opens a YouTube search for the exercise in your browser.</string>
-    <string name="demo_frame_start">Start</string>
-    <string name="demo_frame_end">End</string>
     <string name="demo_of">How to do %1$s</string>
     <string name="add_exercises">Add exercises</string>
     <string name="search_or_type_new">Search or type a new exercise</string>
@@ -278,6 +274,21 @@
     <string name="delete_all_sessions">Delete all imported sessions</string>
     <string name="delete_all_sessions_title">Delete all sessions?</string>
     <string name="delete_all_sessions_body">Imported workouts will be removed. Bodyweight entries, aliases and overrides are kept. You can re-import the CSV at any time.</string>
+    <!-- Settings → About, and the Open-source licenses screen (docs/launch-plan.md, item 39). The license texts themselves stay in English. -->
+    <string name="about">About</string>
+    <string name="open_source_licenses">Open-source licenses</string>
+    <string name="open_source_licenses_note">Gains is open source under MPL-2.0. See its license, where its source is, and the licenses of what it is built with.</string>
+    <string name="open">Open</string>
+    <string name="app_version">Version %1$s</string>
+    <string name="gains_license">Gains is licensed under the Mozilla Public License 2.0.</string>
+    <string name="gains_source">Its source is on GitHub, and every release is tagged there with its version and build.</string>
+    <string name="read_the_license">Read the license</string>
+    <string name="source_code">Source code</string>
+    <string name="name_and_logo">The name “Gains” and its logo are not licensed for use as a name or mark. A build from a fork takes a name and icon of its own, and doesn't suggest that it is Gains or endorsed by it.</string>
+    <string name="third_party_works">Third-party works</string>
+    <string name="libraries">Libraries</string>
+    <string name="libraries_note">Every library in this build, with its license. The license texts are below.</string>
+    <string name="license_texts">License texts</string>
     <string name="programs_title">Programs</string>
     <string name="set_a_goal_to_sort">Set a goal in Settings to sort these by fit</string>
     <string name="plus_new">+ New</string>

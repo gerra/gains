@@ -99,7 +99,7 @@ class ConnectorsTest {
     fun durationTextVariants() {
         assertEquals(65, WorkoutCsvParser.parseDurationText("1h 5m"))
         assertEquals(45, WorkoutCsvParser.parseDurationText("45m"))
-        assertEquals(101, WorkoutCsvParser.parseDurationText("01 hours 41 minutes 04 seconds"))
+        assertEquals(97, WorkoutCsvParser.parseDurationText("01 hours 37 minutes 12 seconds"))
         assertEquals(65, WorkoutCsvParser.parseDurationText("1:05:00"))
         assertEquals(65, WorkoutCsvParser.parseDurationText("65"))
         assertNull(WorkoutCsvParser.parseDurationText("garbage"))

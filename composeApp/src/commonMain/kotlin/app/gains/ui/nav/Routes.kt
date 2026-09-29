@@ -17,6 +17,7 @@ import app.gains.ui.screens.ExercisesScreen
 import app.gains.ui.screens.HistoryScreen
 import app.gains.ui.screens.HomeScreen
 import app.gains.ui.screens.ImportScreen
+import app.gains.ui.screens.LicensesScreen
 import app.gains.ui.screens.OnboardingScreen
 import app.gains.ui.screens.ProgramDetailScreen
 import app.gains.ui.screens.ProgramEditorScreen
@@ -87,7 +88,9 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
             Screen.Settings -> SettingsScreen(
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenOnboarding = { navigator.push(Screen.Onboarding) },
+                onOpenLicenses = { navigator.push(Screen.Licenses) },
             )
+            Screen.Licenses -> LicensesScreen()
             Screen.Onboarding -> OnboardingScreen(onDone = { navigator.pop() })
             Screen.Programs -> ProgramsScreen(
                 onOpen = { navigator.push(Screen.ProgramDetail(it)) },

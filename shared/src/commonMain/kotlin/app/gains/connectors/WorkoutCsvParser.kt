@@ -259,7 +259,7 @@ class WorkoutCsvParser(
             return (endMin - startMin).takeIf { it > 0 }
         }
 
-        /** "2026-02-18 20:40:47", "2026-02-18T20:40", "2026-02-18". */
+        /** "2026-02-20 19:00:00", "2026-02-20T19:00", "2026-02-20". */
         fun parseIsoLikeTimestamp(raw: String): LocalDateTime? {
             val m = Regex("^(\\d{4})-(\\d{2})-(\\d{2})(?:[ T](\\d{1,2}):(\\d{2})(?::(\\d{2}))?)?").find(raw) ?: return null
             val g = m.groupValues
@@ -301,7 +301,7 @@ class WorkoutCsvParser(
         private data class Six(val a: String, val b: String, val c: String, val d: String, val e: String, val f: String)
 
         /**
-         * "01 hours 41 minutes 04 seconds", "109 hours 36 minutes", "1h 5m", "45m", "1:05:00", "65".
+         * "01 hours 37 minutes 12 seconds", "130 hours 05 minutes", "1h 5m", "45m", "1:05:00", "65".
          * Returns whole minutes.
          */
         fun parseDurationText(raw: String): Int? {

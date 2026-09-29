@@ -179,12 +179,8 @@
     <string name="sessions_tap_to_open">Тренировки · нажми, чтобы открыть</string>
     <string name="reset_to_default">Вернуть по умолчанию</string>
     <string name="how_to_do_it">Как выполнять</string>
-    <string name="demo_start_end">Начальное и конечное положение, фотографии из free-exercise-db (общественное достояние).</string>
-    <string name="demo_none">Для этого упражнения пока нет фотографий.</string>
     <string name="watch_video">Смотреть видео</string>
     <string name="watch_video_note">Откроет в браузере поиск упражнения на YouTube.</string>
-    <string name="demo_frame_start">Начало</string>
-    <string name="demo_frame_end">Конец</string>
     <string name="demo_of">Как выполнять: %1$s</string>
     <string name="add_exercises">Добавить упражнения</string>
     <string name="search_or_type_new">Поиск или новое упражнение</string>
@@ -278,6 +274,21 @@
     <string name="delete_all_sessions">Удалить все импортированные тренировки</string>
     <string name="delete_all_sessions_title">Удалить все тренировки?</string>
     <string name="delete_all_sessions_body">Импортированные тренировки будут удалены. Записи веса, псевдонимы и правила останутся. CSV можно импортировать заново в любой момент.</string>
+    <!-- Настройки → О приложении и экран лицензий (docs/launch-plan.md, пункт 39). Тексты самих лицензий остаются на английском. -->
+    <string name="about">О приложении</string>
+    <string name="open_source_licenses">Лицензии открытого ПО</string>
+    <string name="open_source_licenses_note">Исходный код Gains открыт под лицензией MPL-2.0. Здесь её текст, где лежит код и лицензии всего, на чём Gains построен.</string>
+    <string name="open">Открыть</string>
+    <string name="app_version">Версия %1$s</string>
+    <string name="gains_license">Gains распространяется по лицензии Mozilla Public License 2.0.</string>
+    <string name="gains_source">Исходный код лежит на GitHub, и каждый выпуск отмечен там тегом с версией и номером сборки.</string>
+    <string name="read_the_license">Текст лицензии</string>
+    <string name="source_code">Исходный код</string>
+    <string name="name_and_logo">Название «Gains» и логотип не лицензируются для использования как название или знак. Сборка форка получает своё название и иконку и не выдаёт себя за Gains или за одобренную им.</string>
+    <string name="third_party_works">Сторонние работы</string>
+    <string name="libraries">Библиотеки</string>
+    <string name="libraries_note">Все библиотеки в этой сборке и их лицензии. Тексты лицензий ниже.</string>
+    <string name="license_texts">Тексты лицензий</string>
     <string name="programs_title">Программы</string>
     <string name="set_a_goal_to_sort">Задай цель в настройках, чтобы отсортировать по соответствию</string>
     <string name="plus_new">+ Новая</string>

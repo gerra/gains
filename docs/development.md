@@ -230,14 +230,21 @@ rewrote the file by hand ([launch-plan item 29](launch-plan.md#29-supply-chain-d
 work is already on `main`, and `prune` deletes them. Merged `release/*` branches go too: once a
 release branch is gone, `tools/release.py` works from its `testflight/<version>/<build>` tags.
 
-**Exercise photos.** `python3 tools/exercise_demos.py` (needs Pillow) matches every catalogue
-exercise to a [free-exercise-db](https://github.com/yuhonas/free-exercise-db) entry by its
-`// src:` comment, name and aliases, downloads the two photos, scales them to 480 px WebP under
-`composeApp/src/commonMain/composeResources/files/exercises/<id>/` and regenerates
-`ExerciseDemos.kt`, the table of which exercises have photos and where each came from. Pin a
-better photo set in the script's `OVERRIDES`, or list an exercise the database has no photos
-for in `SKIP`; `ExerciseDemosTest` checks the table, the files and the catalogue agree. A new
-catalogue exercise makes the script stop until it is in one of the two.
+**Licenses.** Gains is MPL-2.0 ([`LICENSE`](../LICENSE)), and [`NOTICE.md`](../NOTICE.md) lists
+the files that aren't. A file that comes from elsewhere keeps its own license and header and gets
+a row there before it is merged; a work that ships in the app (not a library) also gets an entry in
+`ui/licenses/ThirdPartyWorks.kt`, which `LicensesTest` checks against `NOTICE.md`. The libraries
+need nothing by hand: the AboutLibraries Gradle plugin writes each target's list, with its
+licenses, into that target's Compose resources as `files/libraries.json`, and the Open-source
+licenses screen (Settings → About) shows it. Its strict mode fails the build on a license outside
+`allowedLicenses` in `composeApp/build.gradle.kts` (Apache-2.0, MIT, and Google's Android SDK
+License for Play services): a dependency under another license is a decision to make, and to
+record in the launch plan, before it goes in.
+
+**Exercise photos.** There are none. The start and end photos from free-exercise-db were dropped
+in [launch-plan item 39](launch-plan.md#39-open-source-under-mpl-20-the-license-its-scope-the-notices-no-personal-data):
+they were scraped off the internet upstream, and nobody could license them. "How to do it" is a video search
+until there is a set of photos whose rights are clear.
 
 ## Languages
 
@@ -301,7 +308,8 @@ Everything still to do, before and after going public, lives in one file:
 
 ## Contributing
 
-Issues and pull requests are welcome. Keep the shared module free of platform code, add a test
+Issues and pull requests are welcome, and are accepted under MPL-2.0, the license they are
+contributed to; there is no CLA and no sign-off. Keep the shared module free of platform code, add a test
 for anything the parser or an insight rule should handle, and run what CI runs before opening a
 PR: `./gradlew :shared:desktopTest :composeApp:desktopTest :server:test -Pgains.android=false`,
 plus the iOS compile and the `tools/` tests listed under [the commands at the top of this page](#development).
@@ -313,9 +321,12 @@ plus the iOS compile and the `tools/` tests listed under [the commands at the to
 - [Koin](https://insert-koin.io/) for dependency injection
 - [kotlinx-datetime](https://github.com/Kotlin/kotlinx-datetime) for dates without tears
 - [react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter) (MIT,
-  © 2022 ELABBASSI Hicham) for the body drawing behind the muscle map, ported to Compose path data
+  © 2022 ELABBASSI Hicham) for the body drawing behind the muscle map, ported to Compose path data;
+  its notice is in [NOTICE.md](../NOTICE.md)
 - [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain, Unlicense) for
-  the exercise photos and for the names of about 180 catalogue exercises
+  the names of about 180 catalogue exercises ([NOTICE.md](../NOTICE.md))
+- [AboutLibraries](https://github.com/mikepenz/AboutLibraries)' Gradle plugin for the list of
+  libraries and licenses each build carries
 - The README layout borrows from the projects collected in [awesome-readme](https://github.com/matiassingers/awesome-readme)
 
 The versions live in `gradle/libs.versions.toml`. The last deliberate pass over them was

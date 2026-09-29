@@ -97,6 +97,8 @@ footer .wrap {
 }
 footer nav { display: flex; flex-wrap: wrap; gap: 20px; }
 footer a { color: var(--muted); }
+/* The license line under the rest (docs/launch-plan.md, item 39), on a row of its own. */
+footer .license { flex-basis: 100%; margin: 0; }
 
 /* --- landing page --- */
 
@@ -120,7 +122,8 @@ footer a { color: var(--muted); }
 }
 .hero h1 span { color: var(--accent); }
 .hero p { color: var(--muted); font-size: 19px; margin: 20px 0 28px; }
-.hero .hero-phone { justify-self: center; max-width: 300px; }
+/* A plain render of the app's screen, rounded and outlined like the shots below: no device frame. */
+.hero .hero-phone { justify-self: center; max-width: 300px; border-radius: 28px; border: 1px solid var(--outline); }
 
 .eyebrow {
   margin: 0 0 12px;

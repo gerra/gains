@@ -82,9 +82,23 @@ Add `-Pgains.openFile=samples/liftoff-export.csv` to the desktop run to start fr
 More: [how it works](docs/how-it-works.md) · [development](docs/development.md) ·
 [sync](docs/sync.md) · [TestFlight](docs/testflight.md) · [Google Play](docs/play.md) · [launch plan](docs/launch-plan.md)
 
+## Contributing
+
+Contributions are welcome, and are accepted under MPL-2.0, the license they are contributed to.
+There is no CLA and no sign-off.
+
 ## License
 
-No license yet; all rights reserved. Exercise photos from
-[free-exercise-db](https://github.com/yuhonas/free-exercise-db), the body drawing from
-[react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter)
-(MIT); the rest of the credits are in [docs/development.md](docs/development.md#built-with).
+Copyright © 2026 German Berezhko
+
+Gains' own source code is licensed under the [Mozilla Public License 2.0](LICENSE): this Source
+Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+Not everything in the repository is Gains' own. The body drawing comes from
+[react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter) and
+keeps its MIT license, and some of the exercise names from
+[free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain).
+[NOTICE.md](NOTICE.md) lists what the license covers and what it doesn't. The name "Gains" and its
+logo are not licensed for use as a name or mark: a build from a fork takes a name and icon of its
+own. The rest of the credits are in [docs/development.md](docs/development.md#built-with).

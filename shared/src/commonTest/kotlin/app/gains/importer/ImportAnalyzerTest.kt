@@ -48,11 +48,11 @@ class ImportAnalyzerTest {
     @Test
     fun flagsChangedSessionsForUpdate() {
         val original = preview(Fixtures.SAMPLE).sessionsToCommit(emptySet()).map { summary(it) }
-        val edited = Fixtures.SAMPLE + "\n2026-01-13 22:04:26,01 hours 41 minutes 04 seconds,,Sled Leg Press,1,116.84499895805,12,0,0,,+53kg"
+        val edited = Fixtures.SAMPLE + "\n2025-10-02 07:30:00,01 hours 12 minutes 30 seconds,,Sled Leg Press,1,88.184904874,10,0,0,,+40kg"
         val p = preview(edited, ExistingData(sessions = original))
         assertEquals(1, p.changedCount)
         assertEquals(3, p.unchangedCount)
-        assertEquals(listOf("2026-01-13"), p.sessionsToCommit(emptySet()).map { it.id })
+        assertEquals(listOf("2025-10-02"), p.sessionsToCommit(emptySet()).map { it.id })
     }
 
     @Test
@@ -101,13 +101,13 @@ class ImportAnalyzerTest {
     @Test
     fun infersWarmupsAndResolvesAliases() {
         val p = preview(Fixtures.SAMPLE)
-        val feb = p.candidates.first { it.session.id == "2026-02-18" }.session
+        val feb = p.candidates.first { it.session.id == "2026-02-24" }.session
         val bench = feb.exercises.first { it.exerciseId == "bench_press" }
-        // 20, 50 and 60 kg: only the 60 kg set is at or above 85% of the top weight (51 kg).
+        // 20, 57.5 and 70 kg: only the 70 kg set is at or above 85% of the top weight (59.5 kg).
         assertEquals(listOf(true, true, false), bench.sets.map { it.isWarmup })
         assertEquals(listOf("bench_press", "lateral_raise"), feb.exercises.map { it.exerciseId })
-        val jan = p.candidates.first { it.session.id == "2026-01-13" }.session
-        assertEquals("leg_press", jan.exercises.single().exerciseId)
+        val oct = p.candidates.first { it.session.id == "2025-10-02" }.session
+        assertEquals("leg_press", oct.exercises.single().exerciseId)
         assertEquals(0, p.newExercises.size)
     }
 
@@ -118,10 +118,10 @@ class ImportAnalyzerTest {
             workingSetRatios = mapOf("bench_press" to 0.80),
         )
         val p = preview(Fixtures.SAMPLE, existing)
-        val jan = p.candidates.first { it.session.id == "2026-01-13" }.session
-        assertEquals("hack_squat", jan.exercises.single().exerciseId)
-        val bench = p.candidates.first { it.session.id == "2026-02-18" }.session.exercises.first()
-        // With an 80% threshold (48 kg) the 50 kg set counts as a working set.
+        val oct = p.candidates.first { it.session.id == "2025-10-02" }.session
+        assertEquals("hack_squat", oct.exercises.single().exerciseId)
+        val bench = p.candidates.first { it.session.id == "2026-02-24" }.session.exercises.first()
+        // With an 80% threshold (56 kg) the 57.5 kg set counts as a working set.
         assertEquals(listOf(true, false, false), bench.sets.map { it.isWarmup })
     }
 
@@ -140,7 +140,7 @@ class ImportAnalyzerTest {
         val p = preview(Fixtures.EMPTY_ROWS + "\n" + Fixtures.CORRUPT_DURATIONS.lines().drop(1).joinToString("\n"))
         assertEquals(4, p.skippedByReason.values.sum())
         assertEquals(3, p.corruptDurationCount)
-        assertEquals(LocalDate(2026, 1, 1)..LocalDate(2026, 2, 18), p.dateRange)
+        assertEquals(LocalDate(2026, 1, 1)..LocalDate(2026, 2, 20), p.dateRange)
     }
 
     private fun summary(s: Session) = StoredSessionSummary(
@@ -172,11 +172,11 @@ class MultiFileImportTest {
     @Test
     fun fullerCopyOfASessionWins() {
         val fileA = Fixtures.SAMPLE
-        val extraSet = "2026-01-13 22:04:26,01 hours 41 minutes 04 seconds,,Sled Leg Press,1,116.84499895805,12,0,0,,+53kg"
+        val extraSet = "2025-10-02 07:30:00,01 hours 12 minutes 30 seconds,,Sled Leg Press,1,88.184904874,10,0,0,,+40kg"
         val fileB = Fixtures.SAMPLE + "\n" + extraSet
         val merged = MultiFileMerger.merge(listOf(parser.parse(fileA), parser.parse(fileB)))
-        val jan = merged.csv.sessions.first { it.id == "2026-01-13" }
-        assertEquals(2, jan.setCount)
+        val oct = merged.csv.sessions.first { it.id == "2025-10-02" }
+        assertEquals(2, oct.setCount)
     }
 
     @Test
