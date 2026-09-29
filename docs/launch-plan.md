@@ -65,7 +65,7 @@ The same rules as `auth-plan.md`:
 | 21 | Android: target API 36 (Android 16) | Android launch | Agent + Owner | — | [x] |
 | 22 | Server: run as an unprivileged user, with systemd hardening | Hardening (P1) | Agent + Owner | — | [x] |
 | 23 | Server: rate limits on sign-in, sync and uploads | Hardening (P1) | Agent | — | [x] |
-| 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [ ] |
+| 24 | Server: the Apple refresh tokens and the database at rest | Hardening (P1) | Agent + Owner | 22 | [x] |
 | 25 | Android in CI: build, lint and the JVM tests | CI (P1) | Agent | — | [x] |
 | 26 | iOS in CI: an Xcode simulator build | CI (P1) | Agent + Owner | — | [x] |
 | 27 | A dependency modernization pass | Maintenance (P2) | Agent | 25, 26 | [x] |
@@ -836,7 +836,11 @@ plan, item 23).
 
 ### 24. Server: the Apple refresh tokens and the database at rest
 
-- [ ] Done
+- [x] Done
+  Done in #136. Steps 1–4 are in: `RefreshTokenCipher`, with a pass at start that seals the rows
+  from before; `chmod 600` on the database files in `install`; the nightly
+  `gains-server-backup.timer` into `/var/backups/gains`. Left: the owner's `REFRESH_TOKEN_KEY`
+  and Hetzner backups (Owner actions), and the test plan's item 24 checks.
 
 **Milestone:** Hardening (P1). **Depends on:** 22 (the file modes assume the unit's `UMask`).
 
