@@ -72,7 +72,7 @@ The same rules as `auth-plan.md`:
 | 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [x] |
 | 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [x] |
 | 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [x] |
-| 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
+| 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [x] |
 | 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [x] |
 | 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [x] |
 | 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [x] |
@@ -1132,7 +1132,8 @@ Tests: the existing tests; the manual pass in step 3.
 
 ### 31. Android backup: decide what a backup may carry
 
-- [ ] Done
+- [x] Done
+  Done in #137
 
 **Milestone:** Hardening (P2). **Depends on:** nothing. Best decided before item 14: what the
 first public build ships decides what a later restore brings back.
