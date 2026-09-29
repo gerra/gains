@@ -80,7 +80,7 @@ The same rules as `auth-plan.md`:
 | 36 | Architecture docs back in step with the code | Maintenance (P2) | Agent | — | [x] |
 | 37 | Module boundaries: a wire-protocol module, and when to split features | Maintenance (P2, after launch) | Agent | 27 | [x] |
 | 38 | Android: an app module of its own, then AGP 9 and compileSdk 37 | Maintenance (P2) | Agent + Owner | 25, 26, 27 | [x] |
-| 39 | Open source under MPL-2.0: the license, its scope, the notices, no personal data | iOS launch | Agent + Owner | — | [ ] |
+| 39 | Open source under MPL-2.0: the license, its scope, the notices, no personal data | iOS launch | Agent + Owner | — | [x] |
 
 **Blockers, P1, P2.** Items 20, 21 and 39 are launch blockers: item 7 (App Review) depends on 20
 and 39, and item 14 (Google Play) on 20, 21 and 39. Items 22–31 came out of a
@@ -150,6 +150,10 @@ Carried over from `auth-plan.md` and still open, or needed by the items below:
       treatment of the name and logo, the license for docs and site text, the notices tool,
       whose workouts `liftoff_workout_data.csv` and the site's images hold, and whether the
       public history is rewritten to remove that export. *Decided:* see item 39's steps.
+- [ ] License (item 39): `curl -s https://www.mozilla.org/media/MPL/2.0/index.txt | diff - LICENSE`
+      prints nothing (take Mozilla's file if it does not); the App Store and Play screenshots
+      replaced with renders of the sample export (`docs/screenshots`); the App Store description
+      and the Play listing link `https://github.com/gerra/gains`.
 - [x] Passkey decision (item 19, step 1). *Decided:* see item 19.
 
 ---
@@ -1617,7 +1621,13 @@ test plan, "Android app module (item 38)".
 
 ### 39. Open source under MPL-2.0: the license, its scope, the notices, no personal data
 
-- [ ] Done
+- [x] Done
+  Done in #138. Steps 1–7 are in: `LICENSE`, `NOTICE.md` (the finished inventory), the export and
+  its fixture rows gone, the exercise photos dropped (step 2's *Found*), the site's pictures now
+  rendered by the Screenshots workflow, and Settings → About → Open-source licenses on every
+  platform with a per-target library list. Left for the owner: diff `LICENSE` against Mozilla's
+  file (this run could only reach GitHub's copy), replace the store screenshots, and link the
+  source in the App Store and Play descriptions.
 
 **Milestone:** iOS launch. **Depends on:** nothing. **Launch blocker:** items 7 and 14 depend on
 it. One pull request. The owner makes the decisions marked **Owner decides** first, and they are
