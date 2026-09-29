@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12 and newer: the same as backup_rules.xml, for cloud backups and device transfers. -->
+<!-- Android 12 and newer: the same as backup_rules.xml, for cloud backups and device transfers.
+     Both carry the database and the preferences (launch plan item 31): the cloud so a guest's
+     data survives a lost phone, the transfer so a new phone starts with it. Neither carries the
+     sync token's file, whose Keystore key stays on this phone. -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="app.gains.sync.xml" />

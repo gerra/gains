@@ -390,6 +390,10 @@ an AES-GCM key in the Android Keystore (alias `app.gains.sync.token`, no screen 
 background sync works) encrypts the token, and the IV and ciphertext sit in the private
 preferences file `app.gains.sync.xml`. That file is excluded from backups and device transfers
 (`res/xml/backup_rules.xml`, `data_extraction_rules.xml`), since the key never leaves the phone.
+It is the only exclusion, by the owner's decision in the [launch plan](launch-plan.md), item 31:
+`databases/gains.db` (every workout, body weight, program and photo) and the other preferences
+go in cloud backup and device-to-device transfer, so a guest's data survives a lost phone. On
+iOS the database is in the iCloud backup on the same terms, while the Keychain item never is.
 A value the key can't open is dropped and read as no token, so a signed-in account restored
 without it sees "Signed out on the server" and signs in again. The same move from `sync_state`
 happens on the first read. The key and the file go with the app, so a reinstall starts clean.

@@ -72,7 +72,7 @@ The same rules as `auth-plan.md`:
 | 28 | Supply chain: pinned actions and dependency scanning | Maintenance (P2) | Agent + Owner | — | [x] |
 | 29 | Supply chain: Dependabot, and Gradle dependency verification where practical | Maintenance (P2) | Agent | 27, 28 | [x] |
 | 30 | Android: R8 for release builds | Hardening (P2) | Agent + Owner | 21, 25 | [x] |
-| 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [ ] |
+| 31 | Android backup: decide what a backup may carry | Hardening (P2) | Owner + Agent | — | [x] |
 | 32 | Navigation lifecycle: pin its invariants in tests | Maintenance (P1) | Agent | — | [x] |
 | 33 | `App.kt`: move the root's coordination into small, tested pieces | Maintenance (P1) | Agent | 32 | [x] |
 | 34 | ScreenModel actions: one way to launch them and to handle their failures | Maintenance (P1) | Agent | — | [x] |
@@ -1132,7 +1132,8 @@ Tests: the existing tests; the manual pass in step 3.
 
 ### 31. Android backup: decide what a backup may carry
 
-- [ ] Done
+- [x] Done
+  Done in #137
 
 **Milestone:** Hardening (P2). **Depends on:** nothing. Best decided before item 14: what the
 first public build ships decides what a later restore brings back.
@@ -2102,8 +2103,14 @@ On an Android 16 device or emulator, with a build containing item 21.
 - [ ] Item 30: the release build from the closed testing track passes the Android section above
       end to end, with no crash on sign-in, sync, import or the notification (a missing keep
       rule shows there first).
-- [ ] Item 31: after `bmgr backupnow`, uninstall and reinstall, what comes back matches the
-      decision written under item 31, and the privacy policy's backup sentence matches it too.
+- [ ] Item 31: with a workout that has a photo, a changed setting (theme) and a streak reminder,
+      `adb shell bmgr backupnow app.gains`, uninstall, reinstall and let the backup restore: the
+      workouts, the photo, body weight, programs and the theme are back, and a signed-in account
+      says "Signed out on the server" until you sign in again.
+- [ ] Item 31: a new phone set up from the old one with Android's device-to-device transfer gets
+      the same things, and the same sign-in prompt.
+- [ ] Item 31: `https://gains.gerra.sh/privacy#guest`: the backup paragraph says the phone's
+      backups include workouts, photos and settings, and never the sign-in key.
 
 ### Architecture (items 32–37)
 

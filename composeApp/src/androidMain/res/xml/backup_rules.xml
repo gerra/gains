@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 11 and older. The sync token's file is encrypted with a Keystore key that never leaves
-     this phone, so a copy anywhere else can't be read (KeystoreTokenVault). Everything else is
-     backed up as before. -->
+<!-- Android 11 and older. What a backup may carry is the owner's decision, launch plan item 31:
+     the database (databases/gains.db: every workout, body weight, program and photo) and the
+     preferences go in, because for a guest the backup is the only copy that survives a lost
+     phone, and the privacy policy says the phone's backups include the app's data.
+     The sync token's file is the one exclusion: it is encrypted with a Keystore key that never
+     leaves this phone, so a copy anywhere else can't be read (KeystoreTokenVault). A restored
+     signed-in account signs in again. -->
 <full-backup-content>
     <exclude domain="sharedpref" path="app.gains.sync.xml" />
 </full-backup-content>
