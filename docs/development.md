@@ -87,7 +87,7 @@ Play come from the release workflow, signed with the upload key and stamped with
 number: [docs/play.md](play.md). A release build runs R8, which a debug build doesn't, so a
 crash only the release build has is usually a missing keep rule for
 `androidApp/proguard-rules.pro`; CI's Android job builds the release bundle on every pull
-request, so an R8 error shows there.
+request that touches the code, so an R8 error shows there.
 
 The app registers as a handler for CSV files, so exports shared from other apps open directly in
 the import preview. Several files can be shared at once.
@@ -215,6 +215,13 @@ every push to `main`, so Insights → Dependency graph lists them and the Depend
 Security cover them; on a pull request, CI's dependency review fails when the change brings in a
 dependency with a known advisory. [CodeQL](../.github/workflows/codeql.yml) scans the Kotlin on
 pull requests, on `main` and weekly, into Security → Code scanning.
+A pull request that only touches the docs, the site, `tools/`, `deploy/`, Markdown or the other
+workflows skips CI's Gradle jobs and the CodeQL analysis, and one that changes no build file or
+version catalog skips the dependency review ([`tools/changes.py`](../tools/changes.py)). They
+skip with a job-level condition, which GitHub reports as passed, so any of them can be made a
+required check; the script tests run on every pull request, and pushes to `main` run everything.
+GitHub's own *Automatic dependency submission* (Settings → Code security) stays off: the two
+workflows above already submit the Gradle graph, and it would resolve it a third time on every push.
 [Dependabot](../.github/dependabot.yml) opens its pull requests on Mondays: one for the actions
 (SHA and version comment together), and for Gradle one per group (`kotlin-compose`, `androidx`,
 `ktor`, `kotlinx`, `everything-else`), so a round is a few pull requests, each reviewed by CI.
@@ -282,7 +289,8 @@ in `iosApp/iosApp/Info.plist`.
 
 ## Known limitations
 
-- The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request.
+- The iOS app compiles to Kotlin/Native klibs on any host, and CI does so on every pull request
+  that touches the code.
   The iOS workflow builds the Xcode project for the simulator on a hosted macOS runner, unsigned,
   on pull requests and pushes to `main` that touch more than the docs, the site, the server, the
   deploy files or `tools/`; only archiving needs the signing material (the TestFlight workflow).
