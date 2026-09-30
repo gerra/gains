@@ -1780,9 +1780,11 @@ make this more than adding a file:
      sample export. The Screenshots workflow renders the same screens.
      *Decided:* regenerate them from the sample export, with a frame made here or plain
      screenshots, and replace the store screenshots the same way.
-     *Done:* plain screenshots. The Screenshots workflow now also writes six of its renders to
-     `site/img` as WebP (the hero and five shots), so the site's pictures follow the app. The
-     store screenshots are the owner's to replace.
+     *Done:* a frame made here. The Screenshots workflow runs `tools/store_screenshots.py` on its
+     renders: six App Store screenshots in `docs/store` (1290 × 2796, a headline over the screen
+     in a drawn phone with a status bar), five of them at 600 wide as the site's shots, and the
+     Lifts screen in the phone alone as the hero, so the site's pictures follow the app.
+     Uploading `docs/store` to App Store Connect in place of the old ones is the owner's.
    - **History. Owner decides.** The repository is public, so the export and the fixtures are
      already in its history, and in any clone or fork. Deleting them from `main` doesn't remove
      them from past commits. The options:

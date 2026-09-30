@@ -4,7 +4,8 @@ name: Screenshots
 # (composeApp/src/desktopTest/kotlin/app/gains/ScreenshotTest.kt) and commits
 # the result to the branch the workflow ran on. The same run records clips of the
 # app's motion frame by frame and encodes them into docs/animations as GIFs and MP4s,
-# and turns six of the screenshots into the site's pictures in site/img.
+# and turns six of the screenshots into App Store screenshots in docs/store and the site's
+# pictures in site/img (tools/store_screenshots.py).
 on:
   workflow_dispatch:
 
@@ -45,15 +46,14 @@ jobs:
             echo "$name: $(ls "$dir" | wc -l) frames"
           done
           rm -rf frames
-      # The site's pictures are these same renders of the sample export, plain and unframed, so the
-      # site never shows anyone's real training (docs/launch-plan.md, item 39). site/index.html names
-      # them and gives their size, 600 × 1075.
-      - name: Site images
+      # The App Store screenshots and the site's pictures are these same renders of the sample export,
+      # in a phone and under a headline drawn by the script, so neither ever shows anyone's real
+      # training (docs/launch-plan.md, item 39). site/index.html names them and gives their sizes.
+      - name: Store screenshots and site images
         run: |
-          command -v cwebp >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q webp; }
-          for pair in 05-lifts:hero 03-home:shot-home 14-program-day:shot-workout 07-volume:shot-volume 17-summary:shot-summary 12-programs:shot-programs; do
-            cwebp -quiet -q 82 -resize 600 0 "docs/screenshots/${pair%%:*}.png" -o "site/img/${pair##*:}.webp"
-          done
+          python3 -c 'import PIL' 2>/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q python3-pil; }
+          [ -f /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf ] || { sudo apt-get update -q && sudo apt-get install -y -q fonts-dejavu-core; }
+          python3 tools/store_screenshots.py
       - name: Show test report on failure
         if: failure()
         run: |
@@ -63,10 +63,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p docs/screenshots docs/animations
+          mkdir -p docs/screenshots docs/animations docs/store
           # Raw frames are only ever an intermediate, even when encoding them failed.
           rm -rf docs/animations/frames
-          git add -A docs/screenshots docs/animations site/img
+          git add -A docs/screenshots docs/animations docs/store site/img
           if git diff --cached --quiet; then echo "Screenshots unchanged"; exit 0; fi
           git commit -m "Regenerate screenshots, animations and site images"
           git pull --rebase origin "${GITHUB_REF_NAME}"
