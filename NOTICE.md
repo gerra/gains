@@ -19,6 +19,7 @@ These files are not Gains' own work, and MPL-2.0 doesn't change their license.
 | Path | Author | License | Link | What the license needs |
 |---|---|---|---|---|
 | `composeApp/src/commonMain/kotlin/app/gains/ui/charts/BodyMapPaths.kt` | ELABBASSI Hicham (react-native-body-highlighter) | MIT | https://github.com/HichamELBSI/react-native-body-highlighter | The notice below in every copy. It is in the file's header, here, and in every build on the Open-source licenses screen. The file is generated from the upstream path data (`assets/bodyFront.ts`, `assets/bodyBack.ts`, `components/SvgMaleWrapper.tsx`) and stays under MIT as a whole. |
+| `composeApp/src/commonMain/composeResources/files/exercises/` (the start and end drawings) | Everkinetic (everkinetic.com, Greg Priday) | CC BY-SA 4.0 | https://github.com/everkinetic/data | The notice below wherever the drawings go: credit, the license and its link, and that they were changed. Everkinetic's drawings are cropped, aligned, scaled and made transparent by `tools/exercise_demos.py`; the adapted files stay under CC BY-SA 4.0, and so does any further change to them. The caption under the drawings in the app names Everkinetic and the license, and the Open-source licenses screen carries the notice in every build. Share-alike covers the drawings only, not the code that shows them. |
 | `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar` | The Gradle authors | Apache-2.0 | https://github.com/gradle/gradle | Keep the headers the two scripts carry. Build tooling: never part of the app. |
 | `shared/src/desktopTest/kotlin/app/gains/auth/GoogleOAuthTest.kt`, the PKCE example values only | IETF Trust (RFC 7636, Appendix B) | The IETF Trust Legal Provisions | https://www.rfc-editor.org/rfc/rfc7636#appendix-B | Nothing beyond the reference: they are the RFC's published test vector, used in a test and never shipped. |
 
@@ -46,16 +47,25 @@ The body drawing's notice, word for word:
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
+The exercise drawings' notice, word for word:
+
+> Exercise drawings by Everkinetic (https://github.com/everkinetic/data), from everkinetic.com by
+> Greg Priday, licensed under the Creative Commons Attribution-ShareAlike 4.0 International
+> License (CC BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0/). Gains adapted them:
+> each pair is cropped and aligned together, scaled, and its white made transparent so the app can
+> draw the lines in its own colours. The adapted drawings are licensed under CC BY-SA 4.0 too.
+> They are provided as is, without warranties.
+
 ## Credits that owe nothing
 
 - **free-exercise-db** (https://github.com/yuhonas/free-exercise-db, Unlicense, public domain):
   some of the built-in exercises' names and muscle groups in
   `shared/src/commonMain/kotlin/app/gains/catalogue/ExerciseCatalogue.kt` come from its JSON data.
-  Its **photos are not in Gains**. Until September 2026 the app bundled 548 of them; the project
-  free-exercise-db took them from (wrkout/exercises.json) says they were scraped off the internet
-  and that its author doesn't own their copyright, so no license covers them and they were removed
-  before the license was applied. They remain in this
-  repository's history, as the upstream repository still hosts them.
+  Its **photos are not in Gains** (the drawings under "How to do it" are Everkinetic's, above).
+  Until September 2026 the app bundled 548 of them; the project free-exercise-db took them from
+  (wrkout/exercises.json) says they were scraped off the internet and that its author doesn't own
+  their copyright, so no license covers them and they were removed before the license was applied.
+  They remain in this repository's history, as the upstream repository still hosts them.
 - **Program names** in `shared/src/commonMain/kotlin/app/gains/catalogue/ProgramCatalogue.kt`
   (GZCLP, 5/3/1 for Beginners, Reddit PPL and the others) name their authors' programs. The
   descriptions, days and progression rules there are written for Gains.

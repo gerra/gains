@@ -50,6 +50,23 @@ internal object ThirdPartyWorks {
         """.trimIndent(),
     )
 
+    /** CC BY-SA 4.0: every copy credits Everkinetic, links the license, and says the drawings were changed. */
+    val exerciseDrawings = ThirdPartyWork(
+        name = "Everkinetic",
+        author = "Everkinetic (everkinetic.com, Greg Priday)",
+        license = "CC BY-SA 4.0",
+        url = "https://github.com/everkinetic/data",
+        usedFor = "The start and end drawings under \"How to do it\" (composeResources/files/exercises), adapted by tools/exercise_demos.py.",
+        notice = """
+            Exercise drawings by Everkinetic (https://github.com/everkinetic/data), from everkinetic.com
+            by Greg Priday, licensed under the Creative Commons Attribution-ShareAlike 4.0 International
+            License (CC BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0/). Gains adapted them:
+            each pair is cropped and aligned together, scaled, and its white made transparent so the app
+            can draw the lines in its own colours. The adapted drawings are licensed under CC BY-SA 4.0
+            too. They are provided as is, without warranties.
+        """.trimIndent(),
+    )
+
     /** Public domain, so nothing is owed; credited because some of the catalogue's names and muscles come from it. */
     val exerciseData = ThirdPartyWork(
         name = "free-exercise-db",
@@ -60,5 +77,5 @@ internal object ThirdPartyWorks {
         notice = null,
     )
 
-    val all = listOf(bodyDrawing, exerciseData)
+    val all = listOf(bodyDrawing, exerciseDrawings, exerciseData)
 }
