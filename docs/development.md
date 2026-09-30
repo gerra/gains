@@ -250,12 +250,14 @@ record in the launch plan, before it goes in.
 
 **Exercise drawings.** About 115 built-in exercises show a start and end drawing under "How to do it",
 adapted from [Everkinetic](https://github.com/everkinetic/data) (CC BY-SA 4.0) by
-`tools/exercise_demos.py` (`python3 tools/exercise_demos.py`, needs Pillow). Its `MATCHES` table is
-written by hand: an exercise gets a drawing only when Everkinetic draws that exercise, not a near
-relative, and everything else keeps the video search alone. The script crops each pair together,
-lines up pairs drawn out of place, and turns the white transparent, so the app tints the lines to
-the theme. The drawings stay under CC BY-SA 4.0 ([NOTICE.md](../NOTICE.md)); a change to one is
-shared under it too. The photos from free-exercise-db that used to be there were dropped in
+`tools/exercise_demos.py` (`python3 tools/exercise_demos.py`, needs Pillow and CairoSVG). Its
+`MATCHES` table is written by hand: an exercise gets a drawing only when Everkinetic draws that
+exercise, not a near relative, and everything else keeps the video search alone. The script renders
+each pair from Everkinetic's SVGs, which hold the whole drawing on a canvas the pair shares (their
+PNGs are cropped closer, each on its own, and cut feet and plates off), crops the pair together, and
+turns the white transparent, so the app tints the lines to the theme. The drawings stay under
+CC BY-SA 4.0 ([NOTICE.md](../NOTICE.md)); a change to one is shared under it too. The photos from
+free-exercise-db that used to be there were dropped in
 [launch-plan item 39](launch-plan.md#39-open-source-under-mpl-20-the-license-its-scope-the-notices-no-personal-data):
 they were scraped off the internet upstream, and nobody could license them.
 

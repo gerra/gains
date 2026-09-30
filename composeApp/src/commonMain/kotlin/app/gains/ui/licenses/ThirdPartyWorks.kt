@@ -61,9 +61,9 @@ internal object ThirdPartyWorks {
             Exercise drawings by Everkinetic (https://github.com/everkinetic/data), from everkinetic.com
             by Greg Priday, licensed under the Creative Commons Attribution-ShareAlike 4.0 International
             License (CC BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0/). Gains adapted them:
-            each pair is cropped and aligned together, scaled, and its white made transparent so the app
-            can draw the lines in its own colours. The adapted drawings are licensed under CC BY-SA 4.0
-            too. They are provided as is, without warranties.
+            each pair is cropped together, scaled, and its white made transparent so the app can draw the
+            lines in its own colours. The adapted drawings are licensed under CC BY-SA 4.0 too. They are
+            provided as is, without warranties.
         """.trimIndent(),
     )
 
