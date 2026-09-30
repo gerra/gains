@@ -97,8 +97,10 @@ not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.
 
 Not everything in the repository is Gains' own. The body drawing comes from
 [react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter) and
-keeps its MIT license, and some of the exercise names from
-[free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain).
+keeps its MIT license, the exercise drawings come from
+[Everkinetic](https://github.com/everkinetic/data) and keep their CC BY-SA 4.0 license, and some
+of the exercise names come from [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
+(public domain).
 [NOTICE.md](NOTICE.md) lists what the license covers and what it doesn't. The name "Gains" and its
 logo are not licensed for use as a name or mark: a build from a fork takes a name and icon of its
 own. The rest of the credits are in [docs/development.md](docs/development.md#built-with).

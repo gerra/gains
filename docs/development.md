@@ -248,10 +248,16 @@ licenses screen (Settings → About) shows it. Its strict mode fails the build o
 License for Play services): a dependency under another license is a decision to make, and to
 record in the launch plan, before it goes in.
 
-**Exercise photos.** There are none. The start and end photos from free-exercise-db were dropped
-in [launch-plan item 39](launch-plan.md#39-open-source-under-mpl-20-the-license-its-scope-the-notices-no-personal-data):
-they were scraped off the internet upstream, and nobody could license them. "How to do it" is a video search
-until there is a set of photos whose rights are clear.
+**Exercise drawings.** About 115 built-in exercises show a start and end drawing under "How to do it",
+adapted from [Everkinetic](https://github.com/everkinetic/data) (CC BY-SA 4.0) by
+`tools/exercise_demos.py` (`python3 tools/exercise_demos.py`, needs Pillow). Its `MATCHES` table is
+written by hand: an exercise gets a drawing only when Everkinetic draws that exercise, not a near
+relative, and everything else keeps the video search alone. The script crops each pair together,
+lines up pairs drawn out of place, and turns the white transparent, so the app tints the lines to
+the theme. The drawings stay under CC BY-SA 4.0 ([NOTICE.md](../NOTICE.md)); a change to one is
+shared under it too. The photos from free-exercise-db that used to be there were dropped in
+[launch-plan item 39](launch-plan.md#39-open-source-under-mpl-20-the-license-its-scope-the-notices-no-personal-data):
+they were scraped off the internet upstream, and nobody could license them.
 
 ## Languages
 
@@ -331,6 +337,8 @@ plus the iOS compile and the `tools/` tests listed under [the commands at the to
 - [react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter) (MIT,
   © 2022 ELABBASSI Hicham) for the body drawing behind the muscle map, ported to Compose path data;
   its notice is in [NOTICE.md](../NOTICE.md)
+- [Everkinetic](https://github.com/everkinetic/data) (CC BY-SA 4.0) for the start and end drawings
+  under "How to do it", adapted ([NOTICE.md](../NOTICE.md))
 - [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain, Unlicense) for
   the names of about 180 catalogue exercises ([NOTICE.md](../NOTICE.md))
 - [AboutLibraries](https://github.com/mikepenz/AboutLibraries)' Gradle plugin for the list of

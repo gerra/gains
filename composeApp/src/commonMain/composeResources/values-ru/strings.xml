@@ -179,6 +179,9 @@
     <string name="sessions_tap_to_open">Тренировки · нажми, чтобы открыть</string>
     <string name="reset_to_default">Вернуть по умолчанию</string>
     <string name="how_to_do_it">Как выполнять</string>
+    <string name="demo_start_end">Начальное и конечное положение. Рисунки Everkinetic, CC BY-SA 4.0.</string>
+    <string name="demo_frame_start">Начало</string>
+    <string name="demo_frame_end">Конец</string>
     <string name="watch_video">Смотреть видео</string>
     <string name="watch_video_note">Откроет в браузере поиск упражнения на YouTube.</string>
     <string name="demo_of">Как выполнять: %1$s</string>
