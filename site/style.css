@@ -122,8 +122,8 @@ footer .license { flex-basis: 100%; margin: 0; }
 }
 .hero h1 span { color: var(--accent); }
 .hero p { color: var(--muted); font-size: 19px; margin: 20px 0 28px; }
-/* A plain render of the app's screen, rounded and outlined like the shots below: no device frame. */
-.hero .hero-phone { justify-self: center; max-width: 300px; border-radius: 28px; border: 1px solid var(--outline); }
+/* The app's screen in a phone drawn by tools/store_screenshots.py, on a transparent background. */
+.hero .hero-phone { justify-self: center; max-width: 300px; }
 
 .eyebrow {
   margin: 0 0 12px;
