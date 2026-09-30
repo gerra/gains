@@ -171,9 +171,13 @@ def adapt(frames):
     """Crops every frame to the box that holds all of them, so the figure stays put between frames, and fits it on one canvas."""
     frames = [ink(f) for f in frames]
     size = (max(f.width for f in frames), max(f.height for f in frames))
-    frames = [f if f.size == size else _pad(f, size) for f in frames]
-    # Some pairs are drawn at different places on their canvas; line the later frames up with the first.
-    frames = [frames[0]] + [_shift(f, *_offset(frames[0], f)) for f in frames[1:]]
+    frames = [f if f.size == size else _place(f, size, 0, 0) for f in frames]
+    # Some pairs are drawn at different places on their canvas; line the later frames up with the first,
+    # on a canvas grown by the moves so that nothing is pushed off its edge.
+    moves = [(0, 0)] + [_offset(frames[0], f) for f in frames[1:]]
+    left, top = max(0, -min(dx for dx, _ in moves)), max(0, -min(dy for _, dy in moves))
+    grown = (size[0] + left + max(0, max(dx for dx, _ in moves)), size[1] + top + max(0, max(dy for _, dy in moves)))
+    frames = [_place(f, grown, left + dx, top + dy) for f, (dx, dy) in zip(frames, moves)]
     box = None
     for f in frames:
         b = f.getchannel("A").getbbox()
@@ -216,13 +220,9 @@ def _offset(first, other):
     return dx, dy
 
 
-def _shift(image, dx, dy):
-    return image.crop((-dx, -dy, image.width - dx, image.height - dy))
-
-
-def _pad(image, size):
+def _place(image, size, x, y):
     canvas = Image.new("LA", size, 0)
-    canvas.paste(image, (0, 0))
+    canvas.paste(image, (x, y))
     return canvas
 
 
