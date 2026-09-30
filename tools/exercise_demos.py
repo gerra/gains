@@ -6,16 +6,23 @@ tint them to its theme, and writes them under
 composeApp/src/commonMain/composeResources/files/exercises/<catalogue id>/{0,1}.webp, plus the
 Kotlin table (ExerciseDemos.kt) that says which exercises have a demo and which drawing it is.
 
-Run from the repository root:  python3 tools/exercise_demos.py   (needs Pillow: pip install pillow)
+Run from the repository root:  python3 tools/exercise_demos.py
+(needs Pillow and CairoSVG: pip install pillow cairosvg. CairoSVG needs the cairo library, which
+apt calls libcairo2 and Homebrew cairo.)
+
+The drawings are rendered from Everkinetic's SVGs, which hold each drawing whole on a canvas the
+start and end share, so a pair is placed as drawn. Everkinetic's PNGs are renders of the same
+drawings, but each one cropped on its own and closer, and they cut things off: the deadlift's
+start lost its feet and a plate, the squat's start its whole lower body. Only an exercise with no
+SVG pair (the Cuban press) is made from its PNGs, lined up as well as a move can.
 
 MATCHES is written by hand: an exercise gets a drawing only when Everkinetic draws that exercise,
 not a near relative, so most of the catalogue keeps the video search alone. The drawings are
-adapted (cropped together, scaled, their white turned transparent), so the files written here are
-under CC BY-SA 4.0 like their source; NOTICE.md and the Open-source licenses screen say so.
+adapted (rendered, cropped together, scaled, their white turned transparent), so the files written
+here are under CC BY-SA 4.0 like their source; NOTICE.md and the Open-source licenses screen say so.
 """
-import http.client, io, json, os, sys, time, urllib.request
+import http.client, io, json, os, re, sys, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from PIL import Image, ImageChops, ImageStat
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "composeApp/src/commonMain/composeResources/files/exercises")
@@ -24,7 +31,8 @@ BASE = "https://raw.githubusercontent.com/everkinetic/data/main/dist"
 WIDTH, HEIGHT = 480, 360
 MARGIN = 12
 QUALITY = 80
-IN_PLACE = 0.8  # share of the best overlap at which a pair counts as drawn in place
+SCALE = 4  # pixels per unit of an SVG's viewBox when it is rendered; the pair is scaled down from there
+IN_PLACE = 0.8  # share of the best overlap at which a PNG pair counts as drawn in place
 
 # catalogue id -> Everkinetic id.
 MATCHES = {
@@ -158,8 +166,37 @@ def fetch(url, attempts=4):
             time.sleep(2 ** attempt)
 
 
+def sources(entry):
+    """Where an exercise is drawn from: its SVGs, or its PNGs when it has no SVG pair."""
+    svgs = entry.get("svg") or []
+    return ("svg", svgs) if len(svgs) >= 2 else ("png", entry.get("png") or [])
+
+
+def ink_svg(svg):
+    """
+    An Everkinetic SVG ready to render: its width and height go (one is in points, and neither
+    matches the viewBox), so the render is sized by the viewBox alone, and every fill but white
+    turns black, so the lines come out at full strength whatever grey the source drew them in. The
+    white stays: it fills the body, hiding the lines behind it.
+    """
+    tag = re.match(r"<svg[^>]*>", svg).group(0)
+    svg = svg.replace(tag, re.sub(r'\s(?:width|height)="[^"]*"', "", tag), 1)
+    return re.sub(r'fill="#(?!fff\b|ffffff\b)[0-9a-f]{3,6}"', 'fill="#000"', svg, flags=re.I)
+
+
+def render(svg):
+    """The SVG as black lines on white, at SCALE pixels per unit of its viewBox."""
+    import cairosvg
+    from PIL import Image
+
+    png = cairosvg.svg2png(bytestring=ink_svg(svg.decode()).encode(), scale=SCALE, background_color="white")
+    return Image.open(io.BytesIO(png))
+
+
 def ink(image):
     """Black lines on white -> the lines' darkness as alpha, so the app can draw them in any colour."""
+    from PIL import Image
+
     gray = image.convert("L")
     alpha = gray.point(lambda v: 0 if v > 245 else 255 - v)
     out = Image.new("LA", gray.size, 0)
@@ -167,17 +204,17 @@ def ink(image):
     return out
 
 
-def adapt(frames):
-    """Crops every frame to the box that holds all of them, so the figure stays put between frames, and fits it on one canvas."""
+def adapt(frames, in_place):
+    """
+    Fits a pair on one canvas: cropped to the box that holds every frame, so the figure stays put
+    between them, scaled to the canvas and centred. A pair drawn in place already (an SVG pair,
+    on its shared canvas) is kept as drawn; any other is lined up first.
+    """
+    from PIL import Image
+
     frames = [ink(f) for f in frames]
-    size = (max(f.width for f in frames), max(f.height for f in frames))
-    frames = [f if f.size == size else _place(f, size, 0, 0) for f in frames]
-    # Some pairs are drawn at different places on their canvas; line the later frames up with the first,
-    # on a canvas grown by the moves so that nothing is pushed off its edge.
-    moves = [(0, 0)] + [_offset(frames[0], f) for f in frames[1:]]
-    left, top = max(0, -min(dx for dx, _ in moves)), max(0, -min(dy for _, dy in moves))
-    grown = (size[0] + left + max(0, max(dx for dx, _ in moves)), size[1] + top + max(0, max(dy for _, dy in moves)))
-    frames = [_place(f, grown, left + dx, top + dy) for f, (dx, dy) in zip(frames, moves)]
+    if not in_place:
+        frames = _line_up(frames)
     box = None
     for f in frames:
         b = f.getchannel("A").getbbox()
@@ -193,8 +230,24 @@ def adapt(frames):
     return result
 
 
+def _line_up(frames):
+    """
+    Frames cropped each on their own, padded to one size and the later ones moved onto the first,
+    where most of their ink overlaps it, on a canvas grown by the moves so that nothing is pushed
+    off its edge.
+    """
+    size = (max(f.width for f in frames), max(f.height for f in frames))
+    frames = [f if f.size == size else _place(f, size, 0, 0) for f in frames]
+    moves = [(0, 0)] + [_offset(frames[0], f) for f in frames[1:]]
+    left, top = max(0, -min(dx for dx, _ in moves)), max(0, -min(dy for _, dy in moves))
+    grown = (size[0] + left + max(0, max(dx for dx, _ in moves)), size[1] + top + max(0, max(dy for _, dy in moves)))
+    return [_place(f, grown, left + dx, top + dy) for f, (dx, dy) in zip(frames, moves)]
+
+
 def _overlap(a, b, dx, dy):
     """How much ink b, moved by (dx, dy), shares with a."""
+    from PIL import ImageChops, ImageStat
+
     moved = b.crop((-dx, -dy, b.width - dx, b.height - dy))
     return ImageStat.Stat(ImageChops.multiply(a, moved)).sum[0]
 
@@ -202,9 +255,11 @@ def _overlap(a, b, dx, dy):
 def _offset(first, other):
     """
     The move that puts the most of other's ink on first's: searched on small copies, then refined at
-    full size. Most pairs are drawn in place already, and there the body moving would pull the
-    search off the floor or the bar, so a pair that already shares most of its best overlap stays put.
+    full size. A pair drawn in place already would have the body's move pull the search off the
+    floor or the bar, so a pair that already shares most of its best overlap stays put.
     """
+    from PIL import Image
+
     a, b = first.getchannel("A"), other.getchannel("A")
     step = max(1, a.width // 100)
     small = (a.width // step, a.height // step)
@@ -221,34 +276,42 @@ def _offset(first, other):
 
 
 def _place(image, size, x, y):
+    from PIL import Image
+
     canvas = Image.new("LA", size, 0)
     canvas.paste(image, (x, y))
     return canvas
 
 
 def main():
+    from PIL import Image
+
     db = {e["id"]: e for e in json.loads(fetch(f"{BASE}/exercises.json"))}
     for id_, source in MATCHES.items():
-        if source not in db or len(db[source]["png"]) < 2:
+        if source not in db or len(sources(db[source])[1]) < 2:
             sys.exit(f"{id_}: Everkinetic {source} has no start and end drawing")
 
     def process(item):
         id_, source = item
-        pngs = db[source]["png"]
+        kind, paths = sources(db[source])
         # Start and end: Cuban press has a middle drawing too, and the loop shows only two.
-        frames = adapt([Image.open(io.BytesIO(fetch(f"{BASE}/{p}"))) for p in (pngs[0], pngs[-1])])
+        drawings = [fetch(f"{BASE}/{p}") for p in (paths[0], paths[-1])]
+        if kind == "svg":
+            frames = adapt([render(d) for d in drawings], in_place=True)
+        else:
+            frames = adapt([Image.open(io.BytesIO(d)) for d in drawings], in_place=False)
         target = os.path.join(OUT_DIR, id_)
         os.makedirs(target, exist_ok=True)
         for n, frame in enumerate(frames):
             frame.save(os.path.join(target, f"{n}.webp"), "WEBP", quality=QUALITY, method=6)
-        return id_
+        return kind
 
     with ThreadPoolExecutor(16) as pool:
-        for _ in pool.map(process, sorted(MATCHES.items())):
-            pass
+        kinds = list(pool.map(process, sorted(MATCHES.items())))
 
     total = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk(OUT_DIR) for f in fs)
-    print(f"{len(MATCHES)} exercises, {total / 1e6:.1f} MB of drawings under {os.path.relpath(OUT_DIR, ROOT)}")
+    print(f"{len(MATCHES)} exercises ({kinds.count('svg')} from SVGs, {kinds.count('png')} from PNGs), "
+          f"{total / 1e6:.1f} MB of drawings under {os.path.relpath(OUT_DIR, ROOT)}")
 
     with open(KOTLIN, "w") as k:
         k.write("package app.gains.ui.demo\n\n")
