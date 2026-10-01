@@ -410,6 +410,7 @@
     <string name="column_seconds">SECONDS</string>
     <string name="column_km">KM</string>
     <string name="plus_add_set">+ Add set</string>
+    <string name="plus_add_warm_up">+ Add warm-up</string>
     <string name="change_exercise">Change exercise</string>
     <string name="move_up">Move up</string>
     <string name="move_down">Move down</string>
