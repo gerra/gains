@@ -25,7 +25,9 @@ The long version of the list in the [README](../README.md).
   and 60%; T3: one light set on cables and machines), labelled `W1, W2…` so the work sets stay
   1–5. They are stored as warm-ups and never count towards volume, records or progression, can
   be hidden or removed per exercise, and can be switched off in Settings along with the bar
-  weight. Each tier shows its rest (T1 3–5 min, T2 2–3 min, T3 60–90 s).
+  weight. Any exercise in any workout takes more with **+ Add warm-up** next to **+ Add set**:
+  the new row joins the warm-ups above the work sets, filled like the last one, or blank when it
+  is the first. Each tier shows its rest (T1 3–5 min, T2 2–3 min, T3 60–90 s).
 - **Tick sets off as you go.** Every set row ends in a Liftoff-style check: tap it when the set is
   done to mark the row and start the rest timer, tap again to undo. An empty row can't be ticked.
   If you save with some work sets ticked and others left unticked, you're asked whether to leave

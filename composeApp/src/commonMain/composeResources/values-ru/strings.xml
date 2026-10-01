@@ -410,6 +410,7 @@
     <string name="column_seconds">СЕК</string>
     <string name="column_km">КМ</string>
     <string name="plus_add_set">+ Добавить подход</string>
+    <string name="plus_add_warm_up">+ Добавить разминку</string>
     <string name="change_exercise">Заменить упражнение</string>
     <string name="move_up">Выше</string>
     <string name="move_down">Ниже</string>

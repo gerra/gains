@@ -23,6 +23,8 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -187,6 +189,17 @@ internal data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraf
             val ordinal = if (set.isWarmup) ++warmup else ++work
             PreviousSets.matching(previous, set.isWarmup, ordinal)?.let { PreviousSets.label(it, exercise.modality, unit, labels) }
         }
+    }
+
+    /**
+     * The card with one more warm-up. It goes right after the last warm-up, so the warm-ups stay
+     * together above the work sets, and is filled like that one, unticked, as [SessionEditorModel.addSet]
+     * copies the last work set; the first warm-up starts blank at the top of the table.
+     */
+    fun addingWarmup(): ExerciseDraft {
+        val last = sets.indexOfLast { it.isWarmup }
+        val row = if (last >= 0) sets[last].copy(done = false) else SetDraft(isWarmup = true)
+        return copy(sets = sets.toMutableList().apply { add(last + 1, row) })
     }
 }
 
@@ -604,6 +617,17 @@ internal class SessionEditorModel(
         s.copy(exercises = s.exercises.mapIndexed { i, e ->
             if (i != index) e else e.copy(sets = e.sets + (e.workSets.lastOrNull()?.copy(done = false) ?: SetDraft()))
         })
+    }
+
+    /**
+     * Adds a warm-up set after the exercise's last one (see [ExerciseDraft.addingWarmup]): how a free
+     * workout, or a day the planner gave none, gets its warm-ups. Folded warm-ups unfold so the new row shows.
+     */
+    fun addWarmup(index: Int) = edit { s ->
+        s.copy(
+            exercises = s.exercises.mapIndexed { i, e -> if (i != index) e else e.addingWarmup() },
+            collapsedWarmups = s.collapsedWarmups - s.exercises[index].exercise.id,
+        )
     }
 
     /** Clearing every field of a ticked set un-ticks it: an empty set cannot count as done. */
@@ -1242,6 +1266,7 @@ private fun DayChoice(label: String, selected: Boolean, accent: Color, onClick: 
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ExerciseCard(
     exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
@@ -1387,7 +1412,12 @@ private fun ExerciseCard(
                 }
             }
         }
-        TextButton(onClick = { model.addSet(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.plus_add_set), color = if (editable) palette.volt else disabledColor()) }
+        // Add set leads, in the accent; Add warm-up follows in the warm-ups' muted colour. On a narrow
+        // screen in a wordier language the second wraps under the first rather than being cut off.
+        FlowRow(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center) {
+            TextButton(onClick = { model.addSet(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.plus_add_set), color = if (editable) palette.volt else disabledColor()) }
+            TextButton(onClick = { model.addWarmup(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.plus_add_warm_up), color = if (editable) muted else disabledColor()) }
+        }
         OutlinedTextField(
             draft.note, { model.setNote(exerciseIndex, it) }, placeholder = { Text(stringResource(Res.string.note)) }, singleLine = true, enabled = editable,
             modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium,
