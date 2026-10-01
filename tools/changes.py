@@ -7,7 +7,8 @@ Two step outputs, each "true" or "false":
 
   build         Anything the Gradle builds, their tests or CodeQL could see changed. False only
                 when every file is one Gradle never reads: docs, the site, the Python and
-                deploy files in tools/ and deploy/, Markdown anywhere, and the other workflows.
+                deploy files in tools/ and deploy/, the research rounds' files in research/,
+                Markdown anywhere, and the other workflows.
   dependencies  A build file or the version catalog changed, so the dependency review has
                 something to compare.
 
@@ -26,8 +27,9 @@ import os
 import gha
 
 # Directories Gradle never reads. tools/ holds Python and deploy/ the server's unit and nginx,
-# both run by deploy_server.py; site/ is rsynced as is. Their tests are the Python ones.
-NO_BUILD_DIRS = ("docs/", "site/", "tools/", "deploy/", ".github/")
+# both run by deploy_server.py; site/ is rsynced as is; research/ is the research rounds' notes,
+# backlog and ledger (research/README.md). Their tests are the Python ones.
+NO_BUILD_DIRS = ("docs/", "site/", "tools/", "deploy/", ".github/", "research/")
 
 # The workflows that run Gradle themselves: a change to one of them runs it.
 BUILD_WORKFLOWS = (".github/workflows/ci.yml", ".github/workflows/codeql.yml")

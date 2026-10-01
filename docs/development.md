@@ -154,6 +154,13 @@ GitHub release and opens the pull request back to `main`.
 [docs/testflight.md](testflight.md#releases-through-the-day) covers the schedule, the secrets and
 the manual route through Xcode.
 
+**Research rounds.** Once a week the box runs [`tools/research_run.py`](../tools/research_run.py)
+(`deploy/gains-research.timer`): Claude Code, headless, finds out what lifters are asking gym
+apps for, scores each wish, builds the top five and opens them as stacked pull requests, with the
+reasoning, the sources and the cost in every description. What it learned stays under
+[`research/`](../research) so the next round builds on it; [`research/README.md`](../research/README.md)
+has the setup and the files. Merging is the approval.
+
 **Adding a connector.** Declare a `ColumnSpec` and a `match` function in
 [`CsvConnectors.kt`](../shared/src/commonMain/kotlin/app/gains/connectors/CsvConnectors.kt), register
 it in `Connectors`, and add a fixture to `ConnectorsTest`.

@@ -1,0 +1,16 @@
+# Runs gains-research.service once a week, early Monday UTC: the release branches are cut from
+# 08:00 UTC (release-branch.yml), so a round's pull requests are open before the day's first cut
+# and never race it. Persistent, so a Monday the box was down is made up at the next boot.
+# `systemctl list-timers gains-research` shows the next run; change OnCalendar for another
+# cadence (`Mon,Thu *-*-* 02:00:00 UTC` for twice a week, `*-*-* 02:00:00 UTC` for nightly).
+
+[Unit]
+Description=Weekly research round for Gains
+
+[Timer]
+OnCalendar=Mon *-*-* 02:00:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

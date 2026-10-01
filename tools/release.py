@@ -51,6 +51,7 @@ BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com"
 # workflows, tests and the desktop-only sources never make it into either app. `tools` is
 # here for the same reason `.github` is: this file lives in it, and a change to the release
 # process is not a change to the app. `site` is gains.gerra.sh, shipped by its own workflow.
+# `research` is the research rounds' backlog, ledger and reports (research/README.md).
 # The Android-only sources count since the release round ships to Play too (tools/play.py).
 IGNORED = [
     "iosApp/Configuration/Config.xcconfig",
@@ -63,6 +64,7 @@ IGNORED = [
     "deploy",
     "site",
     "secrets",
+    "research",
     "composeApp/src/desktopMain",
     "shared/src/desktopMain",
     "*/src/commonTest/*",

@@ -1,0 +1,61 @@
+# The weekly research round (research/README.md): what lifters ask gym apps for, found on the
+# web, then the top items built and opened as stacked pull requests for the owner to merge.
+# Started by gains-research.timer; `systemctl start gains-research` runs a round by hand and
+# `journalctl -u gains-research -f` follows it.
+#
+# It runs as its own user from a clone of its own under /opt/gains-research, with the box
+# read-only beyond that directory: the agent inside it runs Gradle, git and whatever the web
+# hands it with no permission prompts (tools/research_run.py, "Permissions"), so the unit is
+# the boundary. The two secrets it needs, ANTHROPIC_API_KEY and GH_TOKEN, come from
+# /opt/gains-research/env (root:gains-research, 640).
+
+[Unit]
+Description=Research round: what lifters ask gym apps for, built as stacked pull requests
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=gains-research
+Group=gains-research
+WorkingDirectory=/opt/gains-research/gains
+EnvironmentFile=/opt/gains-research/env
+Environment=HOME=/opt/gains-research
+# claude installs itself into ~/.local/bin; gh and git are the box's.
+Environment=PATH=/opt/gains-research/.local/bin:/usr/local/bin:/usr/bin:/bin
+# The Compose UI tests render off screen; there is no display on the box.
+Environment=JAVA_TOOL_OPTIONS=-Djava.awt.headless=true
+ExecStart=/usr/bin/python3 tools/research_run.py run
+# Research, then up to five items with Gradle in between: hours, not minutes.
+TimeoutStartSec=10h
+SyslogIdentifier=gains-research
+# The sync server on the same box comes first: the round yields CPU and disk to it.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# Gradle's own heap is capped in /opt/gains-research/.gradle/gradle.properties (the README); this
+# is the ceiling for everything the round starts together. Raise it on a bigger box.
+MemoryMax=6G
+
+# The same sandbox as the server, with the home directory writable: the clone, Gradle's caches
+# and Claude Code's state all live there. New files are the user's own.
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/gains-research
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+RestrictRealtime=true
+CapabilityBoundingSet=
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+PrivateDevices=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+SystemCallArchitectures=native

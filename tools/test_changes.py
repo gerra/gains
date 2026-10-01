@@ -32,6 +32,7 @@ class Build(unittest.TestCase):
             ["deploy/nginx/gains.conf", "deploy/gains-server.service"],
             [".github/workflows/testflight.yml", ".github/dependabot.yml"],
             ["docs/screenshots/today.png", "LICENSE"],
+            ["research/backlog.json", "research/ledger.csv", "research/findings/20261001-0200.md"],
         ):
             with self.subTest(paths=paths):
                 self.assertFalse(classify(paths)["build"])
