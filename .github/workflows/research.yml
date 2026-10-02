@@ -1,0 +1,89 @@
+name: Research round
+
+# Once a week, early Monday UTC and before the day's first release branch is cut at 08:00,
+# runs tools/research_run.py: Claude Code, headless, finds out what lifters are asking gym
+# apps for, scores every wish, builds the top five and opens them as stacked pull requests,
+# with the reasoning, the quotes and the cost in every description. What a round learns stays
+# under research/ for the next one. Merging is the approval: research/README.md.
+#
+# Here rather than on the box because a round builds the app: the Compose compile and the
+# desktop UI tests want a few gigabytes and a few cores, which this runner has and the box
+# that serves the API does not. The minutes cost nothing on a public repository.
+#
+# Two secrets. ANTHROPIC_API_KEY (the Claude Console) pays for the agent. RESEARCH_TOKEN, a
+# fine-grained token with contents and pull-requests write access on this repository, pushes
+# the branches and opens the pull requests, so CI runs on them; without it the round falls
+# back to RELEASE_TOKEN, then to the default token, whose pushes trigger no workflows.
+# "Run workflow" starts a round by hand.
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      tasks:
+        description: "Items to build after the research (0 for research only)"
+        required: false
+        type: string
+        default: "5"
+      skip_research:
+        description: "No research this round: build from the backlog as it is"
+        required: false
+        type: boolean
+        default: false
+
+# For the default-token fallback only; a configured token carries its own access.
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: research-round
+  cancel-in-progress: false
+
+jobs:
+  round:
+    name: Research, then the top items
+    runs-on: ubuntu-latest
+    # Research, then up to five items with Gradle in between. GitHub stops a job at six hours;
+    # the ledger is committed after every item, so a round cut short has still recorded what
+    # it spent, and its pull requests are already open.
+    timeout-minutes: 360
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GH_TOKEN: ${{ secrets.RESEARCH_TOKEN || secrets.RELEASE_TOKEN || github.token }}
+      # The agent's logs, its JSON results and the pull request bodies it drafts, kept as the
+      # run's artifact below.
+      GAINS_RESEARCH_RUNS: ${{ runner.temp }}/research-runs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          token: ${{ secrets.RESEARCH_TOKEN || secrets.RELEASE_TOKEN || github.token }}
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      # The native installer on the stable channel (a release about a week old), into
+      # ~/.local/bin. The script needs it, gh (on the runner already) and git on PATH.
+      - name: Install Claude Code
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash -s stable
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/claude" --version
+      # The inputs go through the environment, not the command line: tools/research_run.py
+      # reads them there, as tools/release.py does.
+      - name: Run the round
+        env:
+          GAINS_RESEARCH_TASKS: ${{ inputs.tasks || '5' }}
+          GAINS_RESEARCH_SKIP_RESEARCH: ${{ inputs.skip_research || 'false' }}
+        run: python3 tools/research_run.py run
+      - name: Time and money so far
+        if: always()
+        run: python3 tools/research_run.py totals --summary
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: research-run
+          path: ${{ runner.temp }}/research-runs
+          if-no-files-found: ignore

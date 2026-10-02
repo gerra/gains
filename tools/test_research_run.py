@@ -245,7 +245,19 @@ class CommandLine(unittest.TestCase):
 
 
 class Units(unittest.TestCase):
-    """The systemd units run this script from the clone; read as text, like the workflows are."""
+    """The workflow and the systemd units run this script; read as text, like the workflows are."""
+
+    def test_the_workflow_runs_the_script_weekly_with_the_inputs_in_the_environment(self):
+        workflow = (ROOT / ".github/workflows/research.yml").read_text()
+        self.assertIn('cron: "0 2 * * 1"', workflow)
+        self.assertIn("run: python3 tools/research_run.py run", workflow)
+        self.assertIn("GAINS_RESEARCH_TASKS:", workflow)
+        self.assertIn("GAINS_RESEARCH_SKIP_RESEARCH:", workflow)
+        self.assertIn("ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}", workflow)
+        self.assertIn("timeout-minutes: 360", workflow)
+        for line in workflow.splitlines():
+            if "uses:" in line and "./.github" not in line:
+                self.assertRegex(line, r"@[0-9a-f]{40} # v", f"not pinned to a commit: {line.strip()}")
 
     def test_the_service_runs_the_script_as_its_own_user(self):
         unit = (ROOT / "deploy" / "gains-research.service").read_text()

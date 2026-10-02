@@ -10,7 +10,8 @@ at the rack. Feel, polish and small conveniences before big new systems.
 
 - [How a round runs](#how-a-round-runs)
 - [What you approve](#what-you-approve)
-- [Setting it up on the box](#setting-it-up-on-the-box)
+- [Where it runs: GitHub Actions](#where-it-runs-github-actions)
+- [Or a box of your own](#or-a-box-of-your-own)
 - [Time and money](#time-and-money)
 - [Cadence, and running it by hand](#cadence-and-running-it-by-hand)
 - [The files](#the-files)
@@ -19,10 +20,11 @@ at the rack. Feel, polish and small conveniences before big new systems.
 
 ## How a round runs
 
-[`tools/research_run.py`](../tools/research_run.py) drives it; the systemd timer in
-[`deploy/`](../deploy) starts it. Each step is one headless Claude Code call (`claude -p`), paid
-for with the API key, with a dollar cap and a turn cap. The script does the git and GitHub work
-itself, so the agent never pushes and the round always has the same shape:
+[`tools/research_run.py`](../tools/research_run.py) drives it; the
+[Research round workflow](../.github/workflows/research.yml) starts it once a week. Each step is
+one headless Claude Code call (`claude -p`), paid for with the API key, with a dollar cap and a
+turn cap. The script does the git and GitHub work itself, so the agent never pushes and the
+round always has the same shape:
 
 1. **A fresh branch off `main`**, `research/<run>/report`, where `<run>` is the start minute in
    UTC, `20261001-0200`.
@@ -74,18 +76,47 @@ cuts no release branch (`tools/release.py`), so the report merges without a buil
 TestFlight round. An item's pull request runs the full CI, Android and the iOS simulator build
 included, before it can merge, and ships with the next cut like any other change.
 
-## Setting it up on the box
+## Where it runs: GitHub Actions
 
-Once, as root on the Hetzner box (the one that runs `gains-server`; any Linux box with a JDK and
-a few gigabytes free does as well). The round runs as a user of its own from a clone of its own,
-and the systemd unit makes the rest of the box read-only to it.
+[`research.yml`](../.github/workflows/research.yml) runs the round on a GitHub-hosted runner
+every Monday at 02:00 UTC, and on **Actions → Research round → Run workflow** by hand, with the
+number of items and a research-or-not switch as inputs. The runner has four cores, 16 GB and a
+JDK, which the Compose compile and the desktop UI tests want and the box that serves the API
+doesn't have (2 GB, one core, no swap: see below), and the minutes are free on a public
+repository. The Gradle cache the CI jobs already keep makes a round's builds warm.
+
+Two repository secrets, under **Settings → Secrets and variables → Actions**:
+
+- `ANTHROPIC_API_KEY`: a key from the Claude Console. It pays for every step; the ledger says
+  how much.
+- `RESEARCH_TOKEN`: a fine-grained personal access token for this repository with **Contents:
+  read and write**, **Pull requests: read and write** and **Metadata: read**. It pushes the
+  branches and opens the pull requests, so CI runs on them: a push made with the workflow's own
+  token triggers no workflows. Without it the workflow falls back to `RELEASE_TOKEN` (the
+  release workflows' token, the same shape), then to the default token.
+
+Then run it once by hand with `tasks` set to `0` for a research-only round, and read the report
+it opens. The agent's logs, its JSON results and the pull request bodies it drafted are the run's
+`research-run` artifact; the run summary ends with the ledger's totals.
+
+A change to the prompts or the script takes effect once it is on `main`: the workflow checks
+`main` out.
+
+## Or a box of your own
+
+The same script runs from a systemd timer on any Linux box with at least 4 GB of memory, two
+cores and 8 GB free: Claude Code wants 4 GB on its own, the Compose compile and the UI tests
+want about as much again, and Gradle's caches take a few gigabytes. The Hetzner box that serves
+`api.gains.gerra.sh` (2 GB, one core, no swap, 4 GB free) is under all three, so the workflow
+above is the setup for this repository; the units in [`deploy/`](../deploy) are kept for a
+bigger box. Once, as root:
 
 ```bash
 # 1. The user and its home. Not a system user: the clone, Gradle's caches and Claude Code's
 #    state live in the home directory, and a login shell makes the by-hand commands easier.
 useradd --create-home --home-dir /opt/gains-research --shell /bin/bash gains-research
 
-# 2. Tools the box may lack: a JDK (the server's is enough), git, GitHub's CLI
+# 2. Tools the box may lack: a JDK, git, GitHub's CLI
 #    (https://github.com/cli/cli/blob/trunk/docs/install_linux.md) and Claude Code, which
 #    installs itself into ~/.local/bin for that user. The stable channel: the native install
 #    updates itself in the background, and a server wants the release that is a week old.
@@ -95,17 +126,16 @@ sudo -u gains-research -H bash -lc 'curl -fsSL https://claude.ai/install.sh | ba
 # 3. The clone.
 sudo -u gains-research -H git clone https://github.com/gerra/gains.git /opt/gains-research/gains
 
-# 4. The two secrets, in a file only root and that user read. ANTHROPIC_API_KEY from the Claude
-#    Console; GH_TOKEN a fine-grained personal access token for gerra/gains with Contents:
-#    read and write, Pull requests: read and write, Metadata: read.
+# 4. The two secrets, in a file only root and that user read: the same key and token as the
+#    workflow's.
 install -m 640 -o root -g gains-research /dev/null /opt/gains-research/env
 printf 'ANTHROPIC_API_KEY=sk-ant-...\nGH_TOKEN=github_pat_...\n' > /opt/gains-research/env
 
 # 5. git pushes through gh's credentials (GH_TOKEN), so no key file is on disk.
 sudo -u gains-research -H bash -lc 'set -a; . /opt/gains-research/env; set +a; gh auth setup-git && gh auth status'
 
-# 6. Gradle on a box that also serves the API: a smaller heap than gradle.properties' 5 GB (set
-#    for the iOS release link, which never runs here) and no daemon left behind.
+# 6. Gradle next to other services: a smaller heap than gradle.properties' 5 GB (set for the
+#    iOS release link, which never runs here) and no daemon left behind.
 sudo -u gains-research -H bash -lc 'mkdir -p ~/.gradle && printf "org.gradle.jvmargs=-Xmx3g\norg.gradle.daemon=false\n" > ~/.gradle/gradle.properties'
 
 # 7. A dry run says what a round would do and checks the tools, without spending anything;
@@ -119,15 +149,11 @@ systemctl daemon-reload && systemctl enable --now gains-research.timer
 systemctl list-timers gains-research
 ```
 
-The first real round is worth watching: `systemctl start gains-research` and `journalctl -u
-gains-research -f`. The first Gradle build downloads the toolchain and the dependencies, which
-takes a while and a few gigabytes; after that a build is minutes. The agent's own logs, the JSON
-results and the pull request descriptions it drafted are under
-`/opt/gains-research/.gains-research/runs/<run>/`.
-
-The clone is updated by the round itself (`git fetch origin main` and a branch off it), so the
-box never needs a pull by hand. A change to the prompts or the script takes effect once it is on
-`main`.
+Watch the first round: `systemctl start gains-research` and `journalctl -u gains-research -f`.
+The agent's logs and drafts are under `/opt/gains-research/.gains-research/runs/<run>/`. The
+clone updates itself (`git fetch origin main` and a branch off it), so the box never needs a
+pull by hand. Run the workflow or the timer, not both: two rounds a week would pick the same
+items.
 
 ## Time and money
 
@@ -138,7 +164,7 @@ Every step appends a row to [`ledger.csv`](ledger.csv): the run, the step (`rese
 report's and every item's pull request repeat their row in the description.
 
 ```bash
-python3 tools/research_run.py totals     # per run and overall
+python3 tools/research_run.py totals     # per run and overall; the workflow writes it to the run summary
 ```
 
 Caps, all in `tools/research_run.py` and overridable on the command line: $20 for the research
@@ -146,16 +172,16 @@ step, $25 per item, $150 for the round; 300 and 400 turns; 90 and 120 minutes. T
 itself at the dollar cap (`--max-budget-usd`), and the script doesn't start the next item once
 the round's total is reached. What a round actually costs depends on how much the agent reads
 and builds; the first rounds will say. The research step also pays per web search on top of the
-tokens (see Anthropic's pricing for the web search tool). The box's time is the owner's.
+tokens (see Anthropic's pricing for the web search tool). The runner's minutes are free on a
+public repository; a job stops at six hours, and the ledger is committed after every item.
 
 ## Cadence, and running it by hand
 
-The timer runs `Mon *-*-* 02:00:00 UTC`: once a week, before the day's first release branch is
-cut at 08:00 UTC, so the pull requests are open before the cut and never race it. Edit
-`OnCalendar` in [`deploy/gains-research.timer`](../deploy/gains-research.timer), reinstall the
-file and `systemctl daemon-reload`; `Mon,Thu *-*-* 02:00:00 UTC` is twice a week.
+The workflow's `cron: "0 2 * * 1"` is once a week, before the day's first release branch is cut
+at 08:00 UTC, so the pull requests are open before the cut and never race it. `"0 2 * * 1,4"`
+is twice a week. The timer's `OnCalendar` is the same line in systemd's spelling.
 
-By hand, as `gains-research` in the clone:
+By hand, from **Run workflow** (the inputs are `tasks` and `skip_research`), or in a clone:
 
 ```bash
 python3 tools/research_run.py run                    # the whole round
@@ -168,8 +194,8 @@ python3 tools/research_run.py run --dry-run          # the plan and the commands
 
 To retry an item the round marked `blocked`, set its `status` back to `new` in `backlog.json`
 (on `main`, through a pull request like anything else) and the next round takes it; its note
-says what went wrong, and the logs under `runs/<run>/` say more. To hand an item to a person, set
-it to `rejected` or leave it at complexity 4 or 5: the round never takes those.
+says what went wrong, and the run's artifact says more. To hand an item to a person, set it to
+`rejected` or leave it at complexity 4 or 5: the round never takes those.
 
 ## The files
 
@@ -202,35 +228,29 @@ it to `rejected` or leave it at complexity 4 or 5: the round never takes those.
 The agent runs with `--permission-mode bypassPermissions`: Gradle, git, the web and the file
 system without a prompt, which is what unattended means. Two things bound it. The script passes
 `--disallowedTools "Bash(git push:*),Bash(gh:*)"`, so the agent can't reach GitHub at all; the
-script pushes, and only ever a `research/<run>/…` branch. And the systemd unit runs it as
+script pushes, and only ever a `research/<run>/…` branch. And the machine is throwaway or
+sandboxed: a GitHub-hosted runner is discarded after the job, and the systemd unit runs it as
 `gains-research` with the box read-only outside `/opt/gains-research`, no capabilities, no
-devices, so the worst the agent can do is to its own clone and caches. The two secrets in
-`/opt/gains-research/env` are the only ones it holds: an API key the Console can revoke and a
-token scoped to this one repository's contents and pull requests.
+devices. The two secrets it holds are an API key the Console can revoke and a token scoped to
+this one repository's contents and pull requests.
 
-Where that isn't enough (a box that isn't sandboxed), `GAINS_RESEARCH_PERMISSION_MODE=dontAsk`
-makes Claude Code deny anything not on an allow list, and the clone's `.claude/settings.json`
-`permissions.allow` is where the list goes (`Bash(./gradlew:*)`, `Bash(git:*)`, `Edit`, `Write`,
-`WebSearch`, `WebFetch`, …). Denied calls are counted in the log; expect to widen the list over
-the first rounds.
+Where that isn't enough, `GAINS_RESEARCH_PERMISSION_MODE=dontAsk` makes Claude Code deny
+anything not on an allow list, and the clone's `.claude/settings.json` `permissions.allow` is
+where the list goes (`Bash(./gradlew:*)`, `Bash(git:*)`, `Edit`, `Write`, `WebSearch`,
+`WebFetch`, …). Denied calls are counted in the log; expect to widen the list over the first
+rounds.
 
 ## Why this shape, and the alternatives
 
-Claude Code headless on your own box is the one option that gives all four things the round
-needs at once: the built-in web tools for the research, the file and Bash tools for Gradle and
-git, a JSON result with the cost and the time of every step, and a machine with a JDK where the
-app's own tests can run before anything is pushed. The orchestration is a few hundred lines of
-the same Python the release and deploy scripts are written in, tested the same way.
+Claude Code headless is the one option that gives all four things the round needs at once: the
+built-in web tools for the research, the file and Bash tools for Gradle and git, a JSON result
+with the cost and the time of every step, and a machine with a JDK where the app's own tests can
+run before anything is pushed. The orchestration is a few hundred lines of the same Python the
+release and deploy scripts are written in, tested the same way, and runs the same on a runner
+and on a box.
 
-The same script runs unchanged elsewhere:
-
-- **GitHub Actions on a `schedule:`** instead of the box: a job that installs Claude Code, sets
-  `ANTHROPIC_API_KEY` and a personal access token as secrets (the built-in `GITHUB_TOKEN` can
-  open pull requests, but CI doesn't run on them, so a token it has to be) and runs
-  `python3 tools/research_run.py run`. The ubuntu runner has the JDK and the Android SDK. The
-  cost is the same; what's lost is the box's warm Gradle cache and the sandbox being yours.
-- **Hosted by Anthropic**: Claude Code on the web has Routines (scheduled, against a Claude
-  subscription, not an API key), and the Claude API has Managed Agents with scheduled
-  deployments (against the API key, in Anthropic's own sandbox). Both run the loop for you; both
-  would need the Gradle checks moved to CI only, since their sandboxes have no JDK or Android SDK
-  of this project's, and neither reports a per-step cost the way the JSON result does.
+Hosted by Anthropic instead: Claude Code on the web has Routines (scheduled, against a Claude
+subscription, not an API key), and the Claude API has Managed Agents with scheduled deployments
+(against the API key, in Anthropic's own sandbox). Both run the loop for you; both would need
+the Gradle checks moved to CI only, since their sandboxes have no JDK or Android SDK of this
+project's, and neither reports a per-step cost the way the JSON result does.

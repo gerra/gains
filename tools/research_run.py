@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """One research-and-build round: what lifters ask gym apps for, then the top items as stacked pull requests.
 
-Run from a clone of its own on the box (research/README.md), as the gains-research timer does:
+Run by the Research round workflow (.github/workflows/research.yml), or from a clone of its own
+on a box with a few gigabytes to spare (research/README.md):
 
   python3 tools/research_run.py run                       Research, then the top items (five by default).
   python3 tools/research_run.py run --tasks 0             Research only.
@@ -696,15 +697,19 @@ def show_next(args):
 
 def show_totals(args):
     by_run, overall = totals(read_ledger(LEDGER))
-    print(format_totals(by_run, overall))
+    table = format_totals(by_run, overall)
+    print(table)
+    if args.summary:
+        gha.summary("```\n" + table + "\n```")
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
     runner = commands.add_parser("run", help="research, then the top items as stacked pull requests")
-    runner.add_argument("--tasks", type=int, default=5, help="how many items to take on (default 5; 0 for research only)")
-    runner.add_argument("--skip-research", action="store_true", help="no research round; take items from the backlog as it is")
+    # The two a workflow sets: through the environment, as tools/release.py takes its inputs.
+    runner.add_argument("--tasks", type=int, default=int(os.environ.get("GAINS_RESEARCH_TASKS", "5")), help="how many items to take on (default 5; 0 for research only)")
+    runner.add_argument("--skip-research", action="store_true", default=os.environ.get("GAINS_RESEARCH_SKIP_RESEARCH", "").lower() == "true", help="no research round; take items from the backlog as it is")
     runner.add_argument("--no-verify", action="store_true", help="don't run the Gradle checks here (the agent still runs them)")
     runner.add_argument("--dry-run", action="store_true", help="print the plan and the commands; run nothing, push nothing")
     runner.add_argument("--model", default=DEFAULT_MODEL)
@@ -717,6 +722,7 @@ def main(argv=None):
     nxt.add_argument("--tasks", type=int, default=5)
     nxt.set_defaults(func=show_next)
     tot = commands.add_parser("totals", help="time and money so far")
+    tot.add_argument("--summary", action="store_true", help="also write the table to the Actions run summary")
     tot.set_defaults(func=show_totals)
     args = parser.parse_args(argv)
     args.func(args)
