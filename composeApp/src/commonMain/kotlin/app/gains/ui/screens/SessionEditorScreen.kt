@@ -23,8 +23,6 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,6 +41,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -56,13 +55,19 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -75,6 +80,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -1266,7 +1272,6 @@ private fun DayChoice(label: String, selected: Boolean, accent: Color, onClick: 
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ExerciseCard(
     exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
@@ -1307,6 +1312,7 @@ private fun ExerciseCard(
                 canMoveUp = exerciseIndex > 0, canMoveDown = exerciseIndex < count - 1,
                 onDemo = onShowDemo,
                 onChange = onChangeExercise,
+                onAddWarmup = { model.addWarmup(exerciseIndex) },
                 onMoveUp = { model.moveExercise(exerciseIndex, -1) },
                 onMoveDown = { model.moveExercise(exerciseIndex, 1) },
                 onRemove = { model.removeExercise(exerciseIndex) },
@@ -1357,8 +1363,13 @@ private fun ExerciseCard(
                 Pill(stringResource(Res.string.warm_up), muted)
                 Spacer(Modifier.width(8.dp))
                 Text(if (warmupsCollapsed) stringResource(Res.string.n_hidden, warmups.size) else setsText(warmups.size), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted)
-                TextButton(onClick = { model.toggleWarmups(exerciseIndex) }) { Text(if (warmupsCollapsed) stringResource(Res.string.show) else stringResource(Res.string.hide), color = muted) }
-                TextButton(onClick = { model.removeWarmups(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.remove), color = if (editable) muted else disabledColor()) }
+                // Icons rather than words, so the row stays one line: add one more, fold or unfold, remove them all.
+                CardIconButton(Icons.Default.Add, stringResource(Res.string.add_warm_up), muted, editable) { model.addWarmup(exerciseIndex) }
+                CardIconButton(
+                    if (warmupsCollapsed) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                    if (warmupsCollapsed) stringResource(Res.string.show_warm_ups) else stringResource(Res.string.hide_warm_ups), muted,
+                ) { model.toggleWarmups(exerciseIndex) }
+                CardIconButton(Icons.Default.Delete, stringResource(Res.string.remove_warm_ups), muted, editable) { model.removeWarmups(exerciseIndex) }
             }
         }
         for ((setIndex, set) in draft.sets.withIndex()) {
@@ -1412,12 +1423,8 @@ private fun ExerciseCard(
                 }
             }
         }
-        // Add set leads, in the accent; Add warm-up follows in the warm-ups' muted colour. On a narrow
-        // screen in a wordier language the second wraps under the first rather than being cut off.
-        FlowRow(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center) {
-            TextButton(onClick = { model.addSet(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.plus_add_set), color = if (editable) palette.volt else disabledColor()) }
-            TextButton(onClick = { model.addWarmup(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.plus_add_warm_up), color = if (editable) muted else disabledColor()) }
-        }
+        AddSetBar(editable) { model.addSet(exerciseIndex) }
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             draft.note, { model.setNote(exerciseIndex, it) }, placeholder = { Text(stringResource(Res.string.note)) }, singleLine = true, enabled = editable,
             modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium,
@@ -1427,14 +1434,15 @@ private fun ExerciseCard(
 
 /**
  * The ⋯ at the top right of an exercise card, Hevy-style: everything that changes the card rather than
- * a set. "Change exercise" swaps the lift and keeps every set typed so far, the arrows move the card
+ * a set. "Change exercise" swaps the lift and keeps every set typed so far, "Add warm-up" adds one
+ * (the way to a card's first, before it has a warm-up row with its own +), the arrows move the card
  * through the workout, and Remove drops it. "How to do it" opens the exercise's demo. While the plan
  * waits for Start the menu still opens, for the demo, but everything that edits the card is inert.
  */
 @Composable
 private fun ExerciseMenu(
     name: String, enabled: Boolean, canMoveUp: Boolean, canMoveDown: Boolean,
-    onDemo: () -> Unit, onChange: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit,
+    onDemo: () -> Unit, onChange: () -> Unit, onAddWarmup: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit,
 ) {
     val palette = GainsColors.palette
     var open by remember { mutableStateOf(false) }
@@ -1456,6 +1464,11 @@ private fun ExerciseMenu(
                 text = { Text(stringResource(Res.string.change_exercise)) }, enabled = enabled,
                 leadingIcon = { Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp)) },
                 onClick = { open = false; onChange() },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.add_warm_up)) }, enabled = enabled,
+                leadingIcon = { Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp)) },
+                onClick = { open = false; onAddWarmup() },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.move_up)) }, enabled = enabled && canMoveUp,
@@ -1485,6 +1498,7 @@ private val CellShape = RoundedCornerShape(12.dp)
 /** Tap targets of the two controls at the end of a row; what is drawn inside is smaller. */
 private val CHECK_HIT = 36.dp
 private val REMOVE_HIT = 32.dp
+private val ADD_SET_HEIGHT = 36.dp
 private val CHECK_SIZE = 28.dp
 
 /** How far a control fades while the plan waits for Start: Material's disabled content alpha. */
@@ -1636,6 +1650,43 @@ private fun RemoveSetButton(label: String, enabled: Boolean, onClick: () -> Unit
     ) {
         Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.7f else DISABLED_ALPHA), modifier = Modifier.size(16.dp))
     }
+}
+
+/**
+ * A bare icon in place of a word, the height of the check: what it does is its content description,
+ * and a long press (or a hover on the desktop) shows the same words as a tooltip.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CardIconButton(icon: ImageVector, description: String, tint: Color, enabled: Boolean = true, onClick: () -> Unit) {
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+        tooltip = { PlainTooltip { Text(description) } },
+        state = rememberTooltipState(),
+    ) {
+        Box(
+            Modifier.size(CHECK_HIT).clip(CellShape).clickable(enabled = enabled, onClick = onClick)
+                .semantics { role = Role.Button; contentDescription = description },
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, tint = if (enabled) tint else disabledColor(), modifier = Modifier.size(20.dp)) }
+    }
+}
+
+/**
+ * Add set, as a + across the foot of the table: a row-shaped button in the accent where the next
+ * set will go, so it reads as "one more row" without a word.
+ */
+@Composable
+private fun AddSetBar(enabled: Boolean, onClick: () -> Unit) {
+    val palette = GainsColors.palette
+    val description = stringResource(Res.string.add_set)
+    Box(
+        Modifier.fillMaxWidth().padding(top = 3.dp).height(ADD_SET_HEIGHT).clip(CellShape)
+            .background(if (enabled) palette.volt.copy(alpha = 0.12f) else cellFill(done = false, enabled = false))
+            .clickable(enabled = enabled, onClick = onClick)
+            .semantics { role = Role.Button; contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) { Icon(Icons.Default.Add, null, tint = if (enabled) palette.volt else disabledColor(), modifier = Modifier.size(22.dp)) }
 }
 
 @Composable
