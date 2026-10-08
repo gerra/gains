@@ -26,15 +26,18 @@ import app.gains.platform.CsvFilePicker
 import app.gains.platform.PhotoPicker
 import app.gains.root.UpNext
 import app.gains.ui.components.dismissKeyboardOnTap
+import app.gains.ui.screens.SyncUi
+import app.gains.ui.screens.needsAttention
 import app.gains.ui.theme.LocalReduceMotion
 import app.gains.ui.theme.Motion
 import app.gains.ui.theme.screenSlide
 
 /**
  * The app past its gates: the top bar, the screen on top of [navigator]'s stack, the workout bar and
- * the tabs. The pieces are drawn in `AppChrome.kt` (the bars) and `Routes.kt` (the screens); what is
- * here is how they are laid out and animated against each other. Out of `App.kt` so that the root
- * only assembles, and this layout sits beside the pieces it lays out.
+ * the tabs, with [sync]'s warning under the top bar on Home when it needs attention. The pieces are
+ * drawn in `AppChrome.kt` (the bars) and `Routes.kt` (the screens); what is here is how they are
+ * laid out and animated against each other. Out of `App.kt` so that the root only assembles, and
+ * this layout sits beside the pieces it lays out.
  */
 @Composable
 internal fun AppFrame(
@@ -44,13 +47,29 @@ internal fun AppFrame(
     photoPicker: PhotoPicker,
     upNext: UpNext?,
     live: LiveSession?,
+    sync: SyncUi,
+    onRetrySync: () -> Unit,
 ) {
     val screen = navigator.current
     // Tapping outside a text field anywhere in the app puts the keyboard away.
     Column(Modifier.fillMaxSize().statusBarsPadding().dismissKeyboardOnTap()) {
-        TopBar(navigator, screen, upNext)
-        val transition = updateTransition(navigator.currentEntry, label = "screen")
+        TopBar(navigator, screen, upNext, syncAttention = sync.needsAttention)
         val reduceMotion = LocalReduceMotion.current
+        // Kept while it folds away, like the workout bar below, so the last words go with it.
+        var lastSync by remember { mutableStateOf(sync) }
+        SideEffect { if (sync.needsAttention) lastSync = sync }
+        AnimatedVisibility(
+            visible = sync.needsAttention && screen == Screen.Home,
+            enter = if (reduceMotion) EnterTransition.None else expandVertically(tween(Motion.STANDARD)) + fadeIn(tween(Motion.STANDARD)),
+            exit = if (reduceMotion) ExitTransition.None else shrinkVertically(tween(Motion.STANDARD)) + fadeOut(tween(Motion.EXIT)),
+        ) {
+            SyncBanner(
+                if (sync.needsAttention) sync else lastSync,
+                onOpenSettings = { navigator.push(Screen.Settings) },
+                onRetry = onRetrySync,
+            )
+        }
+        val transition = updateTransition(navigator.currentEntry, label = "screen")
         SwipeBack(
             // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
             enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,

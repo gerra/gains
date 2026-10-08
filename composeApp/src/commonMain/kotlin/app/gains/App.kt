@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.SaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import app.gains.auth.AccountRepository
+import app.gains.auth.AuthConfig
 import app.gains.data.ExerciseRepository
 import app.gains.data.LiveSessionRepository
 import app.gains.data.ProgramRepository
@@ -33,6 +34,8 @@ import app.gains.root.StreakReminders
 import app.gains.root.observeUpNext
 import app.gains.root.openImportFor
 import app.gains.sync.SyncController
+import app.gains.sync.SyncEngine
+import app.gains.sync.SyncStore
 import app.gains.ui.i18n.InLanguage
 import app.gains.ui.i18n.rememberTexts
 import app.gains.ui.inject
@@ -40,6 +43,8 @@ import app.gains.ui.nav.AppFrame
 import app.gains.ui.nav.Navigator
 import app.gains.ui.screens.OnboardingScreen
 import app.gains.ui.screens.SignInScreen
+import app.gains.ui.screens.SyncUi
+import app.gains.ui.screens.observeSyncUi
 import app.gains.ui.theme.GainsTheme
 import app.gains.ui.theme.LocalReduceMotion
 import app.gains.ui.theme.isDark
@@ -74,7 +79,7 @@ internal fun App(
     nudges: NudgeScheduler = NudgeScheduler.None,
     systemBars: @Composable (dark: Boolean) -> Unit = {},
 ) {
-    val graph = remember { RootGraph(inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
+    val graph = remember { RootGraph(inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
     val settings = graph.settings
     // Each screen's saved UI state (scroll positions and the like) is kept under its stack entry's id
     // while the entry lives, so a screen comes back as it was left once the one covering it is popped.
@@ -110,6 +115,9 @@ private class RootGraph(
     val sessions: SessionRepository,
     val liveSessions: LiveSessionRepository,
     val sync: SyncController,
+    val syncEngine: SyncEngine,
+    val syncStore: SyncStore,
+    val authConfig: AuthConfig,
 )
 
 /**
@@ -159,10 +167,13 @@ private fun AppBody(
     // The streak reminders, re-worded when the texts change.
     val reminders = remember { StreakReminders(sessions, programs, graph.settings, nudges) }
     LaunchedEffect(texts) { reminders.run(texts) }
+    // A failed sync or a sign-out by the server, shown on Home and on the Settings button rather than only inside Settings.
+    val sync by remember { observeSyncUi(graph.authConfig.syncEnabled, graph.accounts, graph.syncEngine, graph.syncStore) }
+        .collectAsState(initial = SyncUi.Hidden)
     when (rootState) {
         RootState.Loading -> Unit
         RootState.SignIn -> SignInScreen()
         RootState.Onboarding -> OnboardingScreen(onDone = {})
-        RootState.Main -> AppFrame(navigator, stateHolder, filePicker, photoPicker, upNext, live)
+        RootState.Main -> AppFrame(navigator, stateHolder, filePicker, photoPicker, upNext, live, sync, onRetrySync = graph.sync::requestSync)
     }
 }

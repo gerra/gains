@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -42,6 +43,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,6 +66,7 @@ import app.gains.ui.components.indicatorSlot
 import app.gains.ui.components.rememberSlidingIndicator
 import app.gains.ui.components.slidingIndicator
 import app.gains.ui.nowMs
+import app.gains.ui.screens.SyncUi
 import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.LocalReduceMotion
 import app.gains.ui.theme.Motion
@@ -77,10 +80,11 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * The bar above every screen: the wordmark or the back arrow, the "+" menu (with [upNext] offered
  * first when the active program has one) and the way to Settings, each hidden on the screen it
- * would only lead back to.
+ * would only lead back to. [syncAttention] puts a dot on the Settings button, on every screen, while
+ * the sync has failed or the server has signed the lifter out.
  */
 @Composable
-internal fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
+internal fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?, syncAttention: Boolean = false) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -140,7 +144,21 @@ internal fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?) {
         }
         Spacer(Modifier.size(8.dp))
         AnimatedVisibility(screen != Screen.Settings, enter = iconEnter, exit = iconExit) {
-            IconCircle(Icons.Default.Settings, stringResource(Res.string.settings_description)) { navigator.push(Screen.Settings) }
+            Box {
+                val description = stringResource(if (syncAttention) Res.string.settings_sync_attention else Res.string.settings_description)
+                IconCircle(Icons.Default.Settings, description) { navigator.push(Screen.Settings) }
+                if (syncAttention) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .size(12.dp)
+                            .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
+                            .padding(2.dp)
+                            .clip(CircleShape)
+                            .background(GainsColors.palette.coral),
+                    )
+                }
+            }
         }
     }
 }
@@ -197,6 +215,38 @@ internal fun BottomNav(navigator: Navigator) {
                     Text(label, style = MaterialTheme.typography.labelSmall, color = content)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Under the top bar on Home while the sync needs attention, so a failed sync or a sign-out by the
+ * server is seen without opening Settings. Signed out, the way back is Settings' sign-in buttons;
+ * failed, a retry here asks for a run (the line folds away while it runs, and comes back if it fails again).
+ */
+@Composable
+internal fun SyncBanner(sync: SyncUi, onOpenSettings: () -> Unit, onRetry: () -> Unit) {
+    val coral = GainsColors.palette.coral
+    val signedOut = sync is SyncUi.SignedOut
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 8.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .background(coral.copy(alpha = 0.14f))
+            .clickable(onClick = onOpenSettings)
+            .padding(start = 16.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            stringResource(if (signedOut) Res.string.sync_banner_signed_out else Res.string.sync_banner_failed),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+        )
+        TextButton(onClick = if (signedOut) onOpenSettings else onRetry) {
+            Text(stringResource(if (signedOut) Res.string.sync_banner_sign_in else Res.string.sync_banner_retry), color = coral)
         }
     }
 }

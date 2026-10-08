@@ -245,6 +245,11 @@
     <string name="sync_failed">Couldn't sync. Tap Sync now to retry.</string>
     <string name="sync_signed_out">Signed out on the server. Sign in again.</string>
     <string name="sync_now">Sync now</string>
+    <string name="sync_banner_signed_out">You're signed out. Workouts aren't backing up.</string>
+    <string name="sync_banner_failed">Not synced. Changes are kept on this device.</string>
+    <string name="sync_banner_sign_in">Sign in</string>
+    <string name="sync_banner_retry">Retry</string>
+    <string name="settings_sync_attention">Settings, sync needs attention</string>
     <string name="sign_out">Sign out</string>
     <string name="delete_account">Delete account</string>
     <string name="delete_account_title">Delete your account?</string>

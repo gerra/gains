@@ -245,6 +245,11 @@
     <string name="sync_failed">Не удалось синхронизировать. Нажмите «Синхронизировать», чтобы повторить.</string>
     <string name="sync_signed_out">Сервер завершил сеанс. Войдите снова.</string>
     <string name="sync_now">Синхронизировать</string>
+    <string name="sync_banner_signed_out">Вы вышли из аккаунта. Тренировки не сохраняются на сервере.</string>
+    <string name="sync_banner_failed">Не синхронизировано. Изменения сохранены на устройстве.</string>
+    <string name="sync_banner_sign_in">Войти</string>
+    <string name="sync_banner_retry">Повторить</string>
+    <string name="settings_sync_attention">Настройки, синхронизация требует внимания</string>
     <string name="sign_out">Выйти</string>
     <string name="delete_account">Удалить аккаунт</string>
     <string name="delete_account_title">Удалить аккаунт?</string>
