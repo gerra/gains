@@ -6,12 +6,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import app.gains.auth.Account
+import app.gains.auth.AccountRepository
 import app.gains.resources.Res
 import app.gains.resources.*
+import app.gains.sync.SyncEngine
 import app.gains.sync.SyncStatus
+import app.gains.sync.SyncStore
 import app.gains.ui.i18n.daysText
 import app.gains.ui.i18n.minutesText
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Clock
@@ -43,6 +48,17 @@ internal fun syncUi(enabled: Boolean, account: Account?, status: SyncStatus, pen
     status is SyncStatus.Failed -> if (status.signedOut) SyncUi.SignedOut else SyncUi.Failed
     else -> SyncUi.Synced(lastSyncedAt?.let { runCatching { Instant.parse(it) }.getOrNull() }, pending.toInt())
 }
+
+/** The same, read live from the account, the engine and the change log: the account card, Home's banner and the top bar's dot. */
+internal fun observeSyncUi(enabled: Boolean, accounts: AccountRepository, engine: SyncEngine, store: SyncStore): Flow<SyncUi> = combine(
+    accounts.observeAccount(), engine.status, store.observePendingCount(), store.observeLastSyncedAt(),
+) { account, status, pending, last -> syncUi(enabled, account, status, pending, last) }
+
+/**
+ * Something the lifter should know without opening Settings: the last run failed, so changes are
+ * only on this device, or the server signed them out and nothing will sync until they sign in again.
+ */
+internal val SyncUi.needsAttention: Boolean get() = this is SyncUi.Failed || this is SyncUi.SignedOut
 
 /** The card's sync line: "Synced 5 min ago · 3 changes waiting", "Syncing…" or what went wrong. */
 @Composable

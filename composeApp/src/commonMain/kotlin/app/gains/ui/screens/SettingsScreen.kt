@@ -148,9 +148,7 @@ internal class SettingsModel(
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), SettingsState())
 
     /** The account card's sync line; see [syncUi]. */
-    val sync: StateFlow<SyncUi> = combine(
-        accounts.observeAccount(), syncEngine.status, syncStore.observePendingCount(), syncStore.observeLastSyncedAt(),
-    ) { account, status, pending, last -> syncUi(authConfig.syncEnabled, account, status, pending, last) }
+    val sync: StateFlow<SyncUi> = observeSyncUi(authConfig.syncEnabled, accounts, syncEngine, syncStore)
         .stateIn(scope, SharingStarted.WhileSubscribed(5_000), SyncUi.Hidden)
 
     /** "Sync now": the controller runs it after its usual short wait, never alongside another run. */
