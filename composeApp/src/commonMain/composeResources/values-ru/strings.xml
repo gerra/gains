@@ -409,8 +409,11 @@
     <string name="column_reps">ПОВТ</string>
     <string name="column_seconds">СЕК</string>
     <string name="column_km">КМ</string>
-    <string name="plus_add_set">+ Добавить подход</string>
-    <string name="plus_add_warm_up">+ Добавить разминку</string>
+    <string name="add_set">Добавить подход</string>
+    <string name="add_warm_up">Добавить разминку</string>
+    <string name="show_warm_ups">Показать разминку</string>
+    <string name="hide_warm_ups">Скрыть разминку</string>
+    <string name="remove_warm_ups">Убрать разминку</string>
     <string name="change_exercise">Заменить упражнение</string>
     <string name="move_up">Выше</string>
     <string name="move_down">Ниже</string>
