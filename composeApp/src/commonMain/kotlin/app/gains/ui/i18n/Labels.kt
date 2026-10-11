@@ -305,9 +305,11 @@ internal fun setDoneText(set: String, done: Boolean): String = stringResource(if
 
 @Composable
 internal fun onboardingDaysNote(days: Int): String = stringResource(when (days) {
+    1 -> Res.string.onboarding_days_note_1
     2 -> Res.string.onboarding_days_note_2
     3 -> Res.string.onboarding_days_note_3
     4 -> Res.string.onboarding_days_note_4
     5 -> Res.string.onboarding_days_note_5
-    else -> Res.string.onboarding_days_note_6
+    6 -> Res.string.onboarding_days_note_6
+    else -> Res.string.onboarding_days_note_7
 })

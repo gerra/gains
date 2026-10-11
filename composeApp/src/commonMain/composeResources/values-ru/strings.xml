@@ -584,11 +584,13 @@
     <string name="csv_missing_columns">Нет столбцов: %1$s.</string>
     <string name="csv_not_liftoff">Это не экспорт Liftoff: нет столбцов %1$s.</string>
     <string name="csv_none_readable">Ни один из файлов не удалось прочитать.</string>
+    <string name="onboarding_days_note_1">Одна тренировка на всё тело. Поддерживает силу; прогресс будет медленным.</string>
     <string name="onboarding_days_note_2">Две тренировки на всё тело. Хватит, чтобы стать сильнее; масса пойдёт медленнее.</string>
     <string name="onboarding_days_note_3">Классика. Всё тело или цикл жим/тяга/ноги раз в неделю.</string>
     <string name="onboarding_days_note_4">Сплит верх/низ хорошо ложится на четыре дня.</string>
     <string name="onboarding_days_note_5">Есть место для акцента на группу мышц или верх/низ плюс один день.</string>
     <string name="onboarding_days_note_6">Жим/тяга/ноги дважды в неделю. Ограничением становится восстановление.</string>
+    <string name="onboarding_days_note_7">Тренировки каждый день. Делайте большинство из них лёгкими и следите за восстановлением.</string>
     <string name="window_3m">3 мес</string>
     <string name="window_6m">6 мес</string>
     <string name="window_1y">1 год</string>

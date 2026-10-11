@@ -19,8 +19,8 @@ data class GoalProfile(val goal: Goal, val experience: Experience, val daysPerWe
     fun encode(): String = "${goal.name}|${experience.name}|$daysPerWeek"
 
     companion object {
-        const val MIN_DAYS = 2
-        const val MAX_DAYS = 6
+        const val MIN_DAYS = 1
+        const val MAX_DAYS = 7
         /** Days a week assumed of someone who has not answered the goal questions. */
         const val DEFAULT_DAYS = 3
 
