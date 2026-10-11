@@ -306,10 +306,10 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                 Spacer(Modifier.height(10.dp))
                 ChipRow(Experience.entries, profile?.experience ?: Experience.BEGINNER, { it.label() }, { model.setExperience(it) })
                 Spacer(Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(Res.string.days_a_week_label), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                    ChipRow((GoalProfile.MIN_DAYS..GoalProfile.MAX_DAYS).toList(), profile?.daysPerWeek ?: 3, { it.toString() }, { model.setDays(it) })
-                }
+                // Seven chips leave no room for the label beside them on a phone, so it sits above.
+                Text(stringResource(Res.string.days_a_week_label), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                ChipRow((GoalProfile.MIN_DAYS..GoalProfile.MAX_DAYS).toList(), profile?.daysPerWeek ?: 3, { it.toString() }, { model.setDays(it) }, Modifier.fillMaxWidth())
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     KeyValueRow(stringResource(Res.string.active_program), state.activeProgramName ?: stringResource(Res.string.none), Modifier.weight(1f))

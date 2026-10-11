@@ -584,11 +584,13 @@
     <string name="csv_missing_columns">Missing column(s): %1$s.</string>
     <string name="csv_not_liftoff">Not a Liftoff export: missing column(s) %1$s.</string>
     <string name="csv_none_readable">None of the files could be read.</string>
+    <string name="onboarding_days_note_1">One full-body session. Keeps strength ticking over; progress will be slow.</string>
     <string name="onboarding_days_note_2">Two full-body sessions. Enough to get stronger; expect slower size gains.</string>
     <string name="onboarding_days_note_3">The classic. Full body or a push/pull/legs cycle run once a week.</string>
     <string name="onboarding_days_note_4">Upper/lower splits fit four days well.</string>
     <string name="onboarding_days_note_5">Room for a body-part focus or an upper/lower plus one.</string>
     <string name="onboarding_days_note_6">Push/pull/legs twice a week. Recovery becomes the limit.</string>
+    <string name="onboarding_days_note_7">Training every day. Keep most sessions light and listen to recovery.</string>
     <string name="window_3m">3M</string>
     <string name="window_6m">6M</string>
     <string name="window_1y">1Y</string>
