@@ -228,20 +228,22 @@ internal fun BodyMap(
 /**
  * A [BodyMap] small enough for a calendar day: the same two figures, the trained groups shaded
  * against the most-trained one, with hairline edges so the muscles still read at a few dozen pixels.
- * Nothing to tap and nothing animated, since a month of them is drawn at once.
+ * Nothing to tap and nothing animated, since a month of them is drawn at once. [gap] is the space
+ * between the figures in figure units, wide enough for a calendar day's number to sit between them.
  */
 @Composable
-internal fun MiniBodyMap(sets: Map<MuscleGroup, Double>, modifier: Modifier = Modifier) {
+internal fun MiniBodyMap(sets: Map<MuscleGroup, Double>, modifier: Modifier = Modifier, gap: Float = BodyMapModel.FIGURE_GAP) {
     val resting = bodyRestingColor()
     val accent = GainsColors.palette.volt
     val edge = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (GainsColors.palette.isDark) 0.35f else 0.3f)
     val regions = remember { BodyMapModel.regions }
     val most = (sets.values.maxOrNull() ?: 0.0).coerceAtLeast(4.0)
-    Canvas(modifier.aspectRatio(BodyMapModel.TOTAL_WIDTH / BodyMapModel.TOTAL_HEIGHT)) {
-        val scale = size.width / BodyMapModel.TOTAL_WIDTH
+    val totalWidth = BodyMapPaths.WIDTH * 2 + gap
+    Canvas(modifier.aspectRatio(totalWidth / BodyMapModel.TOTAL_HEIGHT)) {
+        val scale = size.width / totalWidth
         val hairline = Stroke(width = 0.5.dp.toPx() / scale)
         for (side in BodySide.entries) {
-            val dx = if (side == BodySide.FRONT) 0f else (BodyMapPaths.WIDTH + BodyMapModel.FIGURE_GAP) * scale
+            val dx = if (side == BodySide.FRONT) 0f else (BodyMapPaths.WIDTH + gap) * scale
             withTransform({
                 translate(left = dx)
                 scale(scale, scale, pivot = Offset.Zero)

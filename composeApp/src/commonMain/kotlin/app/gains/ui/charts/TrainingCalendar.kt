@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -168,16 +169,23 @@ private fun RowScope.DayCell(date: LocalDate, day: CalendarDay?, today: LocalDat
             sessions > 0 -> MaterialTheme.colorScheme.onSurface
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         }
+        // As in Liftoff, the number stays in the middle of the cell and a trained day's figures stand
+        // either side of it, a shadow keeping it clear of their arms.
         if (day != null && sessions > 0) {
-            Column(Modifier.fillMaxWidth().padding(top = 3.dp, start = 3.dp, end = 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(number, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = numberColor, maxLines = 1)
-                MiniBodyMap(day.muscles, Modifier.fillMaxWidth().padding(top = 2.dp))
-            }
-        } else {
-            Text(number, style = MaterialTheme.typography.bodyMedium, color = numberColor, maxLines = 1)
+            MiniBodyMap(day.muscles, Modifier.fillMaxWidth().padding(horizontal = 2.dp), gap = CALENDAR_FIGURE_GAP)
         }
+        Text(
+            number, maxLines = 1, color = numberColor,
+            style = if (sessions > 0) MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.Bold,
+                shadow = Shadow(MaterialTheme.colorScheme.surface, blurRadius = 6f),
+            ) else MaterialTheme.typography.bodyMedium,
+        )
     }
 }
+
+/** Figure units between a day's front and back figures: room for its number between them. */
+private const val CALENDAR_FIGURE_GAP = 560f
 
 /** What the tinted weeks mean. */
 @Composable
