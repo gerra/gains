@@ -41,6 +41,16 @@ class ExerciseDemosTest {
     }
 
     @Test
+    fun everyDemoHasAThumbnailAtThePickersTileSize() {
+        for (id in ExerciseDemos.sources.keys) {
+            val thumb = File(drawings, "$id/thumb.webp")
+            assertTrue(thumb.isFile, "$id has no thumbnail")
+            val image = decodeImage(thumb.readBytes())
+            assertEquals(168 to 126, image.width to image.height, "$id's thumbnail")
+        }
+    }
+
+    @Test
     fun videoSearchEscapesTheName() {
         assertEquals("https://www.youtube.com/results?search_query=Farmer%27s+Walk+exercise+form", videoSearchUrl("Farmer's Walk"))
         assertEquals("https://www.youtube.com/results?search_query=%D0%96%D0%B8%D0%BC+exercise+form", videoSearchUrl("Жим"))

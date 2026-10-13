@@ -55,6 +55,8 @@ import app.gains.domain.MuscleGroup
 import app.gains.ui.components.Pill
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.RoundedIconBox
+import app.gains.ui.demo.ExerciseThumbnail
+import app.gains.ui.demo.hasThumbnail
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.i18n.*
@@ -66,8 +68,9 @@ import kotlinx.coroutines.launch
 /**
  * Full-height exercise picker in the style of Hevy / Strong / Liftoff: search on top, muscle-group
  * filter chips, a "Recent" section, then the catalogue in alphabetical sections. Rows are
- * multi-select; the sticky button at the bottom adds everything ticked at once. A name that matches
- * nothing can be created as a custom exercise straight from the search box.
+ * multi-select, and each shows the exercise's start position where there is a drawing of it; the
+ * sticky button at the bottom adds everything ticked at once. A name that matches nothing can be
+ * created as a custom exercise straight from the search box.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +114,7 @@ internal fun ExercisePickerSheet(
     val showRecent = q.isEmpty() && group == null && recent.isNotEmpty()
     val canCreate = onCreate != null && q.isNotEmpty() && catalogue.none { it.name.equals(q, ignoreCase = true) || name(it).equals(q, ignoreCase = true) }
     val byId = remember(catalogue) { catalogue.associateBy { it.id } }
+    val showsDrawings = remember(filtered, showRecent, recent) { (filtered + if (showRecent) recent else emptyList()).any { hasThumbnail(it.id) } }
 
     fun close(then: () -> Unit = {}) {
         scope.launch { sheetState.hide() }.invokeOnCompletion { then(); onDismiss() }
@@ -202,6 +206,16 @@ internal fun ExercisePickerSheet(
                         PickerRow(e, name(e), selected = e.id in selected, added = e.id in alreadyAdded) { toggle(e.id) }
                     }
                 }
+                // The drawings are CC BY-SA: wherever they show, they are credited.
+                if (showsDrawings) {
+                    item(key = "credit") {
+                        Text(
+                            stringResource(Res.string.picker_drawings_credit),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+                        )
+                    }
+                }
             }
 
             // Sticky action
@@ -250,7 +264,7 @@ private fun CreateRow(name: String, onClick: () -> Unit) {
         Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable(onClick = onClick).padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RoundedIconBox(palette.volt) { Icon(Icons.Default.Add, null, tint = palette.volt, modifier = Modifier.size(20.dp)) }
+        RoundedIconBox(palette.volt, Modifier.size(TILE_WIDTH, TILE_HEIGHT)) { Icon(Icons.Default.Add, null, tint = palette.volt, modifier = Modifier.size(20.dp)) }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(stringResource(Res.string.create_named, name), style = MaterialTheme.typography.titleMedium, color = palette.volt)
@@ -278,8 +292,10 @@ private fun PickerRow(e: Exercise, name: String, selected: Boolean, added: Boole
             .padding(horizontal = 6.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RoundedIconBox(muscleColor(primary)) {
-            Text(muscleInitials(primary, name), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = muscleColor(primary))
+        // The start position where Everkinetic draws the exercise, so a lift can be spotted by its look; its initials otherwise.
+        RoundedIconBox(muscleColor(primary), Modifier.size(TILE_WIDTH, TILE_HEIGHT)) {
+            if (hasThumbnail(e.id)) ExerciseThumbnail(e.id, muscleColor(primary))
+            else Text(muscleInitials(primary, name), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = muscleColor(primary))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -303,6 +319,10 @@ private fun PickerRow(e: Exercise, name: String, selected: Boolean, added: Boole
         }
     }
 }
+
+/** A row's tile: the size of the exercise drawings' thumbnails (4:3), wider than the usual icon box so a figure reads at a glance. */
+private val TILE_WIDTH = 56.dp
+private val TILE_HEIGHT = 42.dp
 
 /** Two-letter tag for the icon box, e.g. "CH" for chest, "QU" for quads; falls back to the exercise initial. */
 private fun muscleInitials(group: MuscleGroup?, name: String): String = when (group) {

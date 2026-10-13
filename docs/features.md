@@ -118,7 +118,8 @@ The long version of the list in the [README](../README.md).
 - **How to do it.** On the lift's page, and under **How to do it** in an exercise card's menu
   while you train, about 115 of the built-in exercises show their start and end position: line
   drawings by [Everkinetic](https://github.com/everkinetic/data) (CC BY-SA 4.0), cross-faded into a
-  loop that a tap pauses. Every exercise, custom ones included, has a **Watch a video** button that
+  loop that a tap pauses. The exercise picker shows the same start position, small, beside each of
+  those exercises, so a lift can be found by its look as well as its name. Every exercise, custom ones included, has a **Watch a video** button that
   opens a YouTube search in the browser, the one place the app reaches outside itself, and only
   when you tap it.
 - **Open-source licenses.** Settings → About shows the version, Gains' license (MPL-2.0) and where
