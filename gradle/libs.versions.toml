@@ -1,6 +1,6 @@
 [versions]
 agp = "9.4.1"
-kotlin = "2.4.20"
+kotlin = "2.4.21"
 # 1.12's Android artifacts (Jetpack Compose 1.12) need compileSdk 37 and AGP 9.1, which the
 # :androidApp split made possible (docs/launch-plan.md, item 38).
 compose-multiplatform = "1.12.1"
