@@ -156,6 +156,8 @@ data class ProgramState(
     val profile: GoalProfile? = null,
     val programs: List<Program> = emptyList(),
     val activeProgramId: String? = null,
+    /** When each program was last started over, by id; see [app.gains.program.Rotation.run]. */
+    val starts: Map<String, kotlinx.datetime.LocalDateTime> = emptyMap(),
 ) {
     val active: Program? get() = programs.firstOrNull { it.id == activeProgramId }
 

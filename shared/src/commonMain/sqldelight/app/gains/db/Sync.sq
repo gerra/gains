@@ -141,11 +141,11 @@ END;
 
 -- setting: the keys that are the person's, not the device's. Same list as SyncedSettings.keys.
 CREATE TRIGGER sync_setting_insert AFTER INSERT ON setting
-WHEN new.key IN ('weight_unit', 'bar_weight_kg', 'auto_warmups', 'goal_profile', 'active_program', 'onboarding_done') BEGIN
+WHEN new.key IN ('weight_unit', 'bar_weight_kg', 'auto_warmups', 'goal_profile', 'active_program', 'onboarding_done', 'program_starts') BEGIN
   INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('setting', new.key, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
 END;
 CREATE TRIGGER sync_setting_update AFTER UPDATE ON setting
-WHEN new.key IN ('weight_unit', 'bar_weight_kg', 'auto_warmups', 'goal_profile', 'active_program', 'onboarding_done') BEGIN
+WHEN new.key IN ('weight_unit', 'bar_weight_kg', 'auto_warmups', 'goal_profile', 'active_program', 'onboarding_done', 'program_starts') BEGIN
   INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('setting', new.key, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
 END;
 

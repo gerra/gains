@@ -103,6 +103,8 @@ internal data class HomeState(
     val upNext: ProgramDay? = null,
     /** Sessions of the active program this week. */
     val programSessionsThisWeek: Int = 0,
+    /** Which week and cycle of the active program the next day falls in. */
+    val programPosition: Rotation.Position? = null,
     /** The score and the achievements are shown; off in Settings hides the card. */
     val trophiesOn: Boolean = true,
     val level: Level = Scoring.level(0),
@@ -134,6 +136,7 @@ internal class HomeModel(
                 val weekStart = Dates.weekStart(today)
                 val goal = programState.profile?.goal
                 val active = programState.active
+                val run = active?.let { Rotation.run(it, links, programState.starts[it.id]) }.orEmpty()
                 val statuses = if (trophies) Achievements.evaluate(snapshot.sessions, snapshot.exercisesById, unit, programState.weeklyGoal) else emptyList()
                 val records = Records.timeline(snapshot.sessions, snapshot.exercisesById)
                 HomeState(
@@ -153,7 +156,8 @@ internal class HomeModel(
                     unit = unit,
                     profile = programState.profile,
                     activeProgram = active,
-                    upNext = active?.let { Rotation.nextDay(it, links) },
+                    upNext = active?.let { Rotation.nextDay(it, run) },
+                    programPosition = active?.let { Rotation.position(it, run) },
                     programSessionsThisWeek = active?.let { Rotation.completedSince(it, links, weekStart) } ?: 0,
                 )
             }
@@ -307,6 +311,9 @@ private fun ProgramCard(
                             stringResource(Res.string.exercises_and_week_count, exercisesText(day.slots.size), state.programSessionsThisWeek, program.daysPerWeek),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        state.programPosition?.let {
+                            Text(programPositionText(it), style = MaterialTheme.typography.labelSmall, color = palette.volt)
+                        }
                     }
                     Spacer(Modifier.width(12.dp))
                     PrimaryButton(stringResource(Res.string.start), onClick = { onStartDay(ProgramDayRef(program.id, day.id)) })

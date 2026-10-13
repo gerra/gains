@@ -29,6 +29,30 @@ class ProgramRepositoryTest {
     private fun newDb(): GainsDatabase = GainsDatabase(DesktopDriverFactory(file = null).createDriver())
 
     @Test
+    fun startingOverRecordsWhenAndActivates() = runTest {
+        val db = newDb()
+        val repo = ProgramRepository(db, SettingsRepository(db, Dispatchers.Unconfined), Dispatchers.Unconfined)
+        assertEquals(emptyMap(), repo.observeState().first().starts)
+
+        repo.startOver("gzclp")
+        val state = repo.observeState().first()
+        assertEquals("gzclp", state.activeProgramId)
+        assertEquals(setOf("gzclp"), state.starts.keys)
+
+        // Carrying on with another program keeps the first one's start.
+        repo.setActive("ppl_6")
+        assertEquals(state.starts, repo.observeState().first().starts)
+    }
+
+    @Test
+    fun startsSurviveTheirTextForm() {
+        val starts = mapOf("gzclp" to LocalDateTime.parse("2026-10-13T09:15:30.123"), "custom_1" to LocalDateTime.parse("2026-01-02T03:04"))
+        assertEquals(starts, ProgramRepository.decodeStarts(ProgramRepository.encodeStarts(starts)))
+        assertEquals(emptyMap(), ProgramRepository.decodeStarts(null))
+        assertEquals(mapOf("gzclp" to LocalDateTime.parse("2026-01-02T03:04")), ProgramRepository.decodeStarts("gzclp=2026-01-02T03:04\nbroken\n=2026-01-02T03:04\nppl=never"))
+    }
+
+    @Test
     fun customProgramRoundTrip() = runTest {
         val db = newDb()
         val settings = SettingsRepository(db, Dispatchers.Unconfined)
@@ -56,7 +80,7 @@ class ProgramRepositoryTest {
         assertEquals("Mine v2", edited.name)
         assertEquals(1, edited.days.size)
 
-        repo.setActive("custom_1")
+        repo.startOver("custom_1")
         repo.setProfile(GoalProfile(Goal.LOSE_FAT, Experience.BEGINNER, 4))
         val state = repo.observeState().first()
         assertEquals("custom_1", state.active?.id)
@@ -65,6 +89,7 @@ class ProgramRepositoryTest {
         repo.delete("custom_1")
         assertTrue(repo.observeCustomPrograms().first().isEmpty())
         assertNull(repo.observeActiveProgramId().first())
+        assertEquals(emptyMap(), repo.observeStarts().first())
     }
 
     @Test
