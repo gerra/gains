@@ -136,7 +136,7 @@ internal fun NewExerciseDialog(onDismiss: () -> Unit, onOpen: (String) -> Unit) 
                     for (g in MuscleGroup.entries) {
                         val credit = credits[g] ?: Credit.NONE
                         Chip(g.label(), credit) {
-                            val next = when (credit) { Credit.NONE -> Credit.PRIMARY; Credit.PRIMARY -> Credit.SECONDARY; Credit.SECONDARY -> Credit.NONE }
+                            val next = when (credits[g] ?: Credit.NONE) { Credit.NONE -> Credit.PRIMARY; Credit.PRIMARY -> Credit.SECONDARY; Credit.SECONDARY -> Credit.NONE }
                             credits = if (next == Credit.NONE) credits - g else credits + (g to next)
                         }
                     }

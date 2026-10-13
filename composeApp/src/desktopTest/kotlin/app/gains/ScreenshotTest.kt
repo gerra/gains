@@ -18,11 +18,13 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
@@ -529,19 +531,23 @@ class ScreenshotTest {
         onNode(hasContentDescription("Back") and hasClickAction()).performClick()
         require(text("What's moving"), 60_000)
         // 9d. "+ → New exercise" makes a custom exercise by hand: how it is logged and what it trains,
-        // one tap for a main muscle and two for a secondary one. It opens on its own page.
+        // one tap for a main muscle and two for a secondary one. It opens on its own page. Taps are kept to
+        // the dialog, since Home behind it has muscle buttons of its own.
+        fun inDialog(matcher: SemanticsMatcher) = onNode(matcher and hasAnyAncestor(isDialog()))
         onNode(hasContentDescription("Add") and hasClickAction()).performClick()
         require(text("New exercise"))
         onNode(text("New exercise") and hasClickAction()).performClick()
         require(hasText("Logged as", ignoreCase = true))
-        onAllNodes(hasSetTextAction()).onLast().performTextInput("Bouldering")
-        onAllNodes(hasText("Cardio") and hasClickAction()).onLast().performClick()
-        onAllNodes(hasText("Forearms") and hasClickAction()).onLast().performClick()
-        onAllNodes(hasText("Lats") and hasClickAction()).onLast().performClick()
-        repeat(2) { onAllNodes(hasText("Biceps") and hasClickAction()).onLast().performClick() }
+        inDialog(hasSetTextAction()).performTextInput("Bouldering")
+        // Each tap settles first: picking Cardio drops the per-dumbbell row and moves the muscles up.
+        fun tapInDialog(label: String) { inDialog(hasText(label) and hasClickAction()).performClick(); settle(300) }
+        tapInDialog("Cardio")
+        tapInDialog("Forearms")
+        tapInDialog("Lats")
+        repeat(2) { tapInDialog("Biceps") }
         settle(1_000)
         shot("21-new-exercise")
-        onAllNodes(hasText("Create") and hasClickAction()).onLast().performClick()
+        inDialog(hasText("Create") and hasClickAction()).performClick()
         require(hasText("How to do it", ignoreCase = true))
         require(text("Forearms · Lats · Biceps"))
         settle(1_000)
@@ -551,10 +557,12 @@ class ScreenshotTest {
         require(text("New exercise"))
         onNode(text("New exercise") and hasClickAction()).performClick()
         require(hasText("Logged as", ignoreCase = true))
-        onAllNodes(hasSetTextAction()).onLast().performTextInput("bouldering")
+        inDialog(hasSetTextAction()).performTextInput("bouldering")
         require(text("Already here as"))
+        settle(500)
         check(!exists(hasText("Create") and hasClickAction())) { "The dialog offers to make an exercise that already exists" }
-        onNode(hasText("Cancel") and hasClickAction()).performClick()
+        tapInDialog("Cancel")
+        check(!exists(isDialog())) { "Cancel left the new-exercise dialog open" }
         onNode(hasContentDescription("Back") and hasClickAction()).performClick()
         require(text("What's moving"), 60_000)
         // The ended workout is an ordinary logged session in history, tagged with its day. The session
