@@ -5,10 +5,15 @@ https://github.com/everkinetic/data), turns them into ink on a transparent canva
 tint them to its theme, and writes them under
 composeApp/src/commonMain/composeResources/files/exercises/<catalogue id>/{0,1}.webp, plus the
 Kotlin table (ExerciseDemos.kt) that says which exercises have a demo and which drawing it is.
+Beside each pair goes thumb.webp, the start drawing cropped close and made small, which the
+exercise picker shows in each row so a lift can be found by its look as well as its name.
 
 Run from the repository root:  python3 tools/exercise_demos.py
 (needs Pillow and CairoSVG: pip install pillow cairosvg. CairoSVG needs the cairo library, which
 apt calls libcairo2 and Homebrew cairo.)
+
+python3 tools/exercise_demos.py --thumbnails  remakes only the thumbnails, from the start drawings
+already bundled: no network and no CairoSVG, Pillow alone.
 
 The drawings are rendered from Everkinetic's SVGs, which hold each drawing whole on a canvas the
 start and end share, so a pair is placed as drawn. Everkinetic's PNGs are renders of the same
@@ -33,6 +38,8 @@ MARGIN = 12
 QUALITY = 80
 SCALE = 4  # pixels per unit of an SVG's viewBox when it is rendered; the pair is scaled down from there
 IN_PLACE = 0.8  # share of the best overlap at which a PNG pair counts as drawn in place
+THUMB_WIDTH, THUMB_HEIGHT = 168, 126  # the picker's 56x42 dp tile at 3x
+THUMB_MARGIN = 4
 
 # catalogue id -> Everkinetic id.
 MATCHES = {
@@ -275,6 +282,39 @@ def _offset(first, other):
     return dx, dy
 
 
+def thumbnail(frame):
+    """
+    The start drawing for a list row: cropped to its own ink rather than the pair's box, so the
+    figure fills the tile, and fitted to the thumbnail's canvas, centred.
+    """
+    from PIL import Image
+
+    frame = frame.convert("RGBA")
+    box = frame.getchannel("A").getbbox()
+    if box:
+        frame = frame.crop(box)
+    scale = min((THUMB_WIDTH - 2 * THUMB_MARGIN) / frame.width, (THUMB_HEIGHT - 2 * THUMB_MARGIN) / frame.height)
+    frame = frame.resize((max(1, round(frame.width * scale)), max(1, round(frame.height * scale))), Image.LANCZOS)
+    canvas = Image.new("RGBA", (THUMB_WIDTH, THUMB_HEIGHT), (0, 0, 0, 0))
+    canvas.paste(frame, ((THUMB_WIDTH - frame.width) // 2, (THUMB_HEIGHT - frame.height) // 2))
+    return canvas
+
+
+def save_thumbnail(target, start):
+    thumbnail(start).save(os.path.join(target, "thumb.webp"), "WEBP", quality=QUALITY, method=6)
+
+
+def thumbnails_only():
+    """Remakes every thumb.webp from the bundled start drawing."""
+    from PIL import Image
+
+    for id_ in sorted(MATCHES):
+        target = os.path.join(OUT_DIR, id_)
+        with Image.open(os.path.join(target, "0.webp")) as start:
+            save_thumbnail(target, start)
+    print(f"{len(MATCHES)} thumbnails under {os.path.relpath(OUT_DIR, ROOT)}")
+
+
 def _place(image, size, x, y):
     from PIL import Image
 
@@ -304,6 +344,7 @@ def main():
         os.makedirs(target, exist_ok=True)
         for n, frame in enumerate(frames):
             frame.save(os.path.join(target, f"{n}.webp"), "WEBP", quality=QUALITY, method=6)
+        save_thumbnail(target, frames[0])
         return kind
 
     with ThreadPoolExecutor(16) as pool:
@@ -319,6 +360,7 @@ def main():
         k.write("/**\n")
         k.write(" * Built-in exercises with start/end drawings under composeResources/files/exercises, and the\n")
         k.write(" * Everkinetic drawing each was adapted from (CC BY-SA 4.0, https://github.com/everkinetic/data).\n")
+        k.write(" * Each also has thumb.webp, its start drawing cropped close for the exercise picker's rows.\n")
         k.write(" */\n")
         k.write("internal object ExerciseDemos {\n")
         k.write("    val sources: Map<String, String> = mapOf(\n")
@@ -330,4 +372,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    thumbnails_only() if "--thumbnails" in sys.argv[1:] else main()

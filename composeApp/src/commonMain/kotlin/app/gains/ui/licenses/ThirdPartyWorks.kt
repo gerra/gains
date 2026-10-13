@@ -56,14 +56,15 @@ internal object ThirdPartyWorks {
         author = "Everkinetic (everkinetic.com, Greg Priday)",
         license = "CC BY-SA 4.0",
         url = "https://github.com/everkinetic/data",
-        usedFor = "The start and end drawings under \"How to do it\" (composeResources/files/exercises), adapted by tools/exercise_demos.py.",
+        usedFor = "The start and end drawings under \"How to do it\", and the start drawings beside the exercises in the exercise picker (composeResources/files/exercises), adapted by tools/exercise_demos.py.",
         notice = """
             Exercise drawings by Everkinetic (https://github.com/everkinetic/data), from everkinetic.com
             by Greg Priday, licensed under the Creative Commons Attribution-ShareAlike 4.0 International
             License (CC BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0/). Gains adapted them:
             each pair is cropped together, scaled, and its white made transparent so the app can draw the
-            lines in its own colours. The adapted drawings are licensed under CC BY-SA 4.0 too. They are
-            provided as is, without warranties.
+            lines in its own colours, and a small copy of each start drawing, cropped closer, marks the
+            exercise in the exercise picker. The adapted drawings are licensed under CC BY-SA 4.0 too. They
+            are provided as is, without warranties.
         """.trimIndent(),
     )
 

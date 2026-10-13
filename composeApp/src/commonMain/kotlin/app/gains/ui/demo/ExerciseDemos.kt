@@ -4,6 +4,7 @@ package app.gains.ui.demo
 /**
  * Built-in exercises with start/end drawings under composeResources/files/exercises, and the
  * Everkinetic drawing each was adapted from (CC BY-SA 4.0, https://github.com/everkinetic/data).
+ * Each also has thumb.webp, its start drawing cropped close for the exercise picker's rows.
  */
 internal object ExerciseDemos {
     val sources: Map<String, String> = mapOf(

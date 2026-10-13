@@ -41,6 +41,7 @@ import app.gains.analysis.Dates.plusDays
 import app.gains.analysis.Streak
 import app.gains.analysis.StreakStatus
 import app.gains.auth.AccountRepository
+import app.gains.catalogue.ExerciseCatalogue
 import app.gains.data.BodyweightRepository
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.DesktopDriverFactory
@@ -59,6 +60,7 @@ import app.gains.platform.PickedFile
 import app.gains.ui.charts.BodyMapModel
 import app.gains.ui.components.GainsLogo
 import app.gains.ui.components.StreakCard
+import app.gains.ui.screens.ExercisePickerSheet
 import app.gains.ui.theme.GainsTheme
 import app.gains.ui.inject
 import kotlinx.coroutines.runBlocking
@@ -588,6 +590,39 @@ class ScreenshotTest {
         // The at-risk ring is a slow pulse; land on a frame where it is drawn close to full.
         repeat(90) { mainClock.advanceTimeByFrame() }
         ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(outDir, "18-streak-states.png"))
+    }
+
+    /**
+     * The exercise picker with the whole built-in catalogue, as "Add exercises" opens it, then filtered
+     * to chest: the rows Everkinetic draws show the start position, the rest their initials.
+     */
+    @Test
+    fun captureTheExercisePicker() = runDesktopComposeUiTest(width = 960, height = 1720) {
+        mainClock.autoAdvance = false
+        setContent {
+            CompositionLocalProvider(LocalDensity provides Density(2f)) {
+                GainsTheme(darkTheme = true) {
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        ExercisePickerSheet(
+                            catalogue = ExerciseCatalogue.builtIn, recent = emptyList(), alreadyAdded = emptySet(),
+                            onAdd = {}, onCreate = null, onDismiss = {},
+                        )
+                    }
+                }
+            }
+        }
+        /** The thumbnails decode off the main thread, so frames run until real time has passed too. */
+        fun settle() {
+            val until = System.nanoTime() + 1_500_000_000L
+            while (System.nanoTime() < until) { mainClock.advanceTimeByFrame(); Thread.sleep(5) }
+        }
+        fun shot(name: String) {
+            settle()
+            ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(outDir, "$name.png"))
+        }
+        shot("20-exercise-picker")
+        onNode(hasText("Chest") and hasClickAction()).performClick()
+        shot("20b-exercise-picker-chest")
     }
 
     /**
