@@ -306,6 +306,13 @@ class ScreenshotTest {
         require(text("Calendar"))
         settle(1_500)
         shot("04-history")
+        // View all: every month as a calendar, this one first.
+        onNode(text("View all") and hasClickAction()).performClick()
+        require(text("sessions on record"))
+        settle(1_500)
+        shot("04b-calendar")
+        onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        require(text("Calendar"))
 
         // 5. Lifts list and a lift's detail.
         tab("Lifts")
