@@ -2,6 +2,7 @@ package app.gains.analysis
 
 import app.gains.domain.ExerciseEntry
 import app.gains.domain.Modality
+import app.gains.domain.Session
 import app.gains.domain.SetEntry
 import app.gains.domain.WeightUnit
 import kotlinx.datetime.LocalDateTime
@@ -18,11 +19,22 @@ object PreviousSets {
      * so neither the workout itself nor anything logged after it counts as "previous".
      */
     fun lastEntry(snapshot: TrainingSnapshot, exerciseId: String, before: LocalDateTime? = null, excludeSessionId: String? = null): ExerciseEntry? =
+        lastSession(snapshot, exerciseId, before, excludeSessionId)?.exercises?.first { it.exerciseId == exerciseId }
+
+    /**
+     * The session [lastEntry] reads, narrowed by [filter]: a GZCLP card passes one that keeps only the
+     * sessions of its own slot's scheme, so a T1 squat compares with the last T1 squat rather than
+     * with Monday's T2.
+     */
+    fun lastSession(
+        snapshot: TrainingSnapshot, exerciseId: String, before: LocalDateTime? = null, excludeSessionId: String? = null,
+        filter: (Session) -> Boolean = { true },
+    ): Session? =
         snapshot.sessions.asSequence()
             .filter { s -> s.id != excludeSessionId && (before == null || s.timestamp < before) }
             .filter { s -> s.exercises.any { it.exerciseId == exerciseId && it.workingSets.isNotEmpty() } }
+            .filter(filter)
             .maxByOrNull { it.timestamp }
-            ?.exercises?.first { it.exerciseId == exerciseId }
 
     /**
      * The set of [previous] that the [ordinal]-th (1-based) warm-up or work set lines up with: work

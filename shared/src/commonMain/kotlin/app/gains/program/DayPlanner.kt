@@ -101,10 +101,15 @@ object DayPlanner {
     private fun Session.entry(exerciseId: String): ExerciseEntry = exercises.first { it.exerciseId == exerciseId }
 
     /** The session was started from a day of [program] whose slot for the exercise matches [slot]'s scheme. */
-    private fun onSameScheme(program: Program, slot: ExerciseSlot, session: Session): Boolean {
-        val ref = session.program ?: return false
-        if (ref.programId != program.id) return false
-        val logged = program.day(ref.dayId)?.slots?.firstOrNull { it.exerciseId == slot.exerciseId } ?: return false
-        return logged.sameScheme(slot)
+    fun onSameScheme(program: Program, slot: ExerciseSlot, session: Session): Boolean {
+        if (session.program?.programId != program.id) return false
+        return loggedSlot(listOf(program), session, slot.exerciseId)?.sameScheme(slot) == true
+    }
+
+    /** The slot [exerciseId] filled on the program day [session] was logged against, or null for a free session or a day that is gone. */
+    fun loggedSlot(programs: List<Program>, session: Session, exerciseId: String): ExerciseSlot? {
+        val ref = session.program ?: return null
+        val program = programs.firstOrNull { it.id == ref.programId } ?: return null
+        return program.day(ref.dayId)?.slots?.firstOrNull { it.exerciseId == exerciseId }
     }
 }

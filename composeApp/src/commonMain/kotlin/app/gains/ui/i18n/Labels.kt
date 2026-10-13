@@ -297,6 +297,11 @@ internal fun weightForSetText(set: String, value: String?): String = stringResou
 @Composable
 internal fun previousSetText(set: String, value: String?): String = stringResource(Res.string.previous_set, set, value ?: stringResource(Res.string.none_value))
 
+/** "Compare with T1 · 9 Oct, selected": a chip that picks which session the PREV column reads. */
+@Composable
+internal fun prevSourceText(source: String, selected: Boolean): String =
+    stringResource(if (selected) Res.string.prev_source_selected else Res.string.prev_source, source)
+
 @Composable
 internal fun setRecordText(set: String): String = stringResource(Res.string.set_record, set)
 
