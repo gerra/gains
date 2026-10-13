@@ -317,6 +317,12 @@
     <string name="up_next_pill">Up next</string>
     <string name="not_done_yet">Not done yet</string>
     <string name="rotation_note">Days come in this order as you finish them, whatever the weekday. Start a different day and the rest follow on from it.</string>
+    <string name="program_position">Week %1$d of %2$d · Cycle %3$d</string>
+    <string name="left_off_at">Left off at %1$s</string>
+    <string name="resume_program_title">Continue %1$s?</string>
+    <string name="resume_program_body">You left off at %1$s, with %2$s up next. Pick up there, or start over from %3$s in week 1. Your weights carry over either way.</string>
+    <string name="continue_program">Continue</string>
+    <string name="start_over">Start over</string>
     <string name="no_automatic_rule">No automatic rule. Each day pre-fills the weights and reps from your last session of the exercise.</string>
     <string name="warm_up_rest_or_as_needed">or as needed</string>
     <string name="new_program">New program</string>

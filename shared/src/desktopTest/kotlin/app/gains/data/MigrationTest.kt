@@ -105,6 +105,9 @@ class MigrationTest {
         // A session logged before summaries existed has no caption and no photo.
         assertEquals(null, session.caption)
         assertEquals(emptyList(), db.sessionQueries.selectPhotoIds().executeAsList())
-        assertTrue(GainsDatabase.Schema.version >= 6)
+        // When a program was started over syncs on an upgraded install as on a fresh one.
+        db.settingsQueries.upsert("program_starts", "gzclp=2026-01-01T10:00")
+        assertEquals(listOf("program_starts"), db.syncQueries.selectChanges().executeAsList().filter { it.kind == "setting" }.map { it.id })
+        assertTrue(GainsDatabase.Schema.version >= 8)
     }
 }

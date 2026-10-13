@@ -317,6 +317,12 @@
     <string name="up_next_pill">Следующий</string>
     <string name="not_done_yet">Ещё не был</string>
     <string name="rotation_note">Дни идут в этом порядке по мере выполнения, независимо от дня недели. Начни другой день — и остальные пойдут за ним.</string>
+    <string name="program_position">Неделя %1$d из %2$d · Цикл %3$d</string>
+    <string name="left_off_at">Пауза на: %1$s</string>
+    <string name="resume_program_title">Продолжить %1$s?</string>
+    <string name="resume_program_body">Программа на паузе: %1$s, дальше — %2$s. Можно продолжить с этого места или начать заново с %3$s, неделя 1. Рабочие веса сохранятся в любом случае.</string>
+    <string name="continue_program">Продолжить</string>
+    <string name="start_over">Начать заново</string>
     <string name="no_automatic_rule">Без автоматического правила. Каждый день заполняется весами и повторами из последней тренировки с этим упражнением.</string>
     <string name="warm_up_rest_or_as_needed">или по самочувствию</string>
     <string name="new_program">Новая программа</string>

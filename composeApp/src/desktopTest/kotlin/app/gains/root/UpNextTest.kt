@@ -82,6 +82,18 @@ class UpNextTest {
     }
 
     @Test
+    fun aProgramStartedOverBeginsAgainAtItsFirstDay() {
+        val english = textsIn(AppLanguage.ENGLISH)
+        runTest {
+            val links = listOf(done(ab, day = 0, on = 1))
+            val restarted = ProgramState(programs = listOf(ab), activeProgramId = "ab", starts = mapOf("ab" to LocalDateTime(2026, 9, 2, 8, 0)))
+            assertEquals("ab/Workout A", findUpNext(restarted, links, english)?.ref?.dayId)
+            // Sessions after the restart move it on as before.
+            assertEquals("ab/Workout B", findUpNext(restarted, links + done(ab, day = 0, on = 3), english)?.ref?.dayId)
+        }
+    }
+
+    @Test
     fun theDayIsNamedInTheTextsLanguage() {
         val russian = textsIn(AppLanguage.RUSSIAN)
         runTest {
