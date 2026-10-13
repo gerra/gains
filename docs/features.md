@@ -107,7 +107,7 @@ The long version of the list in the [README](../README.md).
   onto a body, front and back; tap a muscle to see its numbers and filter the list to it.
 - **A calendar of what you trained.** History opens on the last two weeks, Monday to Sunday,
   every trained day showing the muscles it worked on a small body and today ringed; **View all**
-  has every month back to the first session. A week a rest week carried the streak through is
+  has every month in date order, opening on this one at the bottom and scrolling up into the past. A week a rest week carried the streak through is
   tinted, and a line under the grid says so. Tap a day to open its workout.
 - **Log and edit workouts.** Add sessions in the app, edit imported ones (date, duration,
   exercises, sets, notes) and have the edits flow into the same analyses. Each exercise card
