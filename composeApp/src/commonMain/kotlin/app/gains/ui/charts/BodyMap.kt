@@ -226,16 +226,17 @@ internal fun BodyMap(
 }
 
 /**
- * A [BodyMap] small enough for a calendar day: the same two figures, the trained groups shaded
- * against the most-trained one, with hairline edges so the muscles still read at a few dozen pixels.
+ * A [BodyMap] small enough for a calendar day, drawn the way Liftoff draws its days: light figures,
+ * the trained groups in the accent shaded against the most-trained one, and hairlines in the body
+ * colour that show the separate muscles only where they are lit.
  * Nothing to tap and nothing animated, since a month of them is drawn at once. [gap] is the space
  * between the figures in figure units, wide enough for a calendar day's number to sit between them.
  */
 @Composable
 internal fun MiniBodyMap(sets: Map<MuscleGroup, Double>, modifier: Modifier = Modifier, gap: Float = BodyMapModel.FIGURE_GAP) {
-    val resting = bodyRestingColor()
+    val resting = if (GainsColors.palette.isDark) Color(0xFFCDD2DE) else Color(0xFFC6CCD8)
     val accent = GainsColors.palette.volt
-    val edge = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (GainsColors.palette.isDark) 0.35f else 0.3f)
+    val edge = resting
     val regions = remember { BodyMapModel.regions }
     val most = (sets.values.maxOrNull() ?: 0.0).coerceAtLeast(4.0)
     val totalWidth = BodyMapPaths.WIDTH * 2 + gap
@@ -248,10 +249,12 @@ internal fun MiniBodyMap(sets: Map<MuscleGroup, Double>, modifier: Modifier = Mo
                 translate(left = dx)
                 scale(scale, scale, pivot = Offset.Zero)
             }) {
+                // The silhouette first, so the slivers between the regions read as body, not as holes.
+                drawPath(if (side == BodySide.FRONT) BodyMapModel.frontOutline else BodyMapModel.backOutline, resting)
                 for (region in regions) {
                     if (region.side != side) continue
                     val value = region.groups.maxOfOrNull { sets[it] ?: 0.0 } ?: 0.0
-                    val fill = if (value <= 0.0) resting else lerp(resting, accent, 0.35f + 0.65f * (value / most).coerceIn(0.0, 1.0).toFloat())
+                    val fill = if (value <= 0.0) resting else lerp(resting, accent, 0.7f + 0.3f * (value / most).coerceIn(0.0, 1.0).toFloat())
                     for (path in region.paths) {
                         drawPath(path, fill)
                         drawPath(path, edge, style = hairline)

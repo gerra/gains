@@ -24,7 +24,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Dates
@@ -143,7 +142,8 @@ private fun RowScope.DayCell(date: LocalDate, day: CalendarDay?, today: LocalDat
     val isToday = date == today
     val background = when {
         rested -> palette.cyan.copy(alpha = 0.18f)
-        sessions > 0 -> MaterialTheme.colorScheme.surfaceContainerHighest
+        // A trained day is cut out of the card, darker, with a light rim: the figures carry it.
+        sessions > 0 -> MaterialTheme.colorScheme.surface
         else -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
     val description = heatmapDayText(date, sessions, rested)
@@ -154,7 +154,7 @@ private fun RowScope.DayCell(date: LocalDate, day: CalendarDay?, today: LocalDat
             .then(
                 when {
                     isToday -> Modifier.border(1.5.dp, palette.volt, shape)
-                    sessions > 0 -> Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                    sessions > 0 -> Modifier.border(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f), shape)
                     else -> Modifier
                 },
             )
@@ -169,23 +169,21 @@ private fun RowScope.DayCell(date: LocalDate, day: CalendarDay?, today: LocalDat
             sessions > 0 -> MaterialTheme.colorScheme.onSurface
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         }
-        // As in Liftoff, the number stays in the middle of the cell and a trained day's figures stand
-        // either side of it, a shadow keeping it clear of their arms.
+        // As in Liftoff, a trained day's figures fill the cell and its number, the same size as any
+        // other day's, sits over them in the middle, a soft shadow lifting it off the light bodies.
         if (day != null && sessions > 0) {
-            MiniBodyMap(day.muscles, Modifier.fillMaxWidth().padding(horizontal = 2.dp), gap = CALENDAR_FIGURE_GAP)
+            MiniBodyMap(day.muscles, Modifier.fillMaxWidth().padding(horizontal = 3.dp), gap = CALENDAR_FIGURE_GAP)
         }
         Text(
             number, maxLines = 1, color = numberColor,
-            style = if (sessions > 0) MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Bold,
-                shadow = Shadow(MaterialTheme.colorScheme.surface, blurRadius = 6f),
-            ) else MaterialTheme.typography.bodyMedium,
+            style = if (sessions > 0) MaterialTheme.typography.bodyLarge.copy(shadow = Shadow(MaterialTheme.colorScheme.surface, blurRadius = 8f))
+            else MaterialTheme.typography.bodyLarge,
         )
     }
 }
 
-/** Figure units between a day's front and back figures: room for its number between them. */
-private const val CALENDAR_FIGURE_GAP = 560f
+/** Figure units between a day's front and back figures: the number overlaps both, as in Liftoff. */
+private const val CALENDAR_FIGURE_GAP = 180f
 
 /** What the tinted weeks mean. */
 @Composable
