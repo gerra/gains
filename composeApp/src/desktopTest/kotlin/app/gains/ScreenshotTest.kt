@@ -542,10 +542,15 @@ class ScreenshotTest {
         onNode(text("New exercise") and hasClickAction()).performClick()
         require(hasText("Logged as", ignoreCase = true))
         onAllNodes(hasSetTextAction()).onLast().performTextInput("Bouldering")
+        // The clock is driven by hand, so a frame is let through after every tap: picking Cardio
+        // swaps in a longer hint that moves the muscle chips down, and a tap made before that layout
+        // lands where a chip used to be.
         onAllNodes(hasText("Cardio") and hasClickAction()).onLast().performClick()
-        onAllNodes(hasText("Forearms") and hasClickAction()).onLast().performClick()
-        onAllNodes(hasText("Lats") and hasClickAction()).onLast().performClick()
-        repeat(2) { onAllNodes(hasText("Biceps") and hasClickAction()).onLast().performClick() }
+        settle(100)
+        for (muscle in listOf("Forearms", "Lats", "Biceps", "Biceps")) {
+            onAllNodes(hasText(muscle) and hasClickAction()).onLast().performClick()
+            settle(100)
+        }
         settle(1_000)
         shot("21-new-exercise")
         onAllNodes(hasText("Create") and hasClickAction()).onLast().performClick()
@@ -561,7 +566,11 @@ class ScreenshotTest {
         onAllNodes(hasSetTextAction()).onLast().performTextInput("bouldering")
         require(text("Already here as"))
         check(!exists(hasText("Create") and hasClickAction())) { "The dialog offers to make an exercise that already exists" }
+        // The note and the button that replaced Create have changed the dialog's size: let it settle
+        // first, or the tap lands where Cancel was a frame ago and the dialog stays.
+        settle()
         onNode(hasText("Cancel") and hasClickAction()).performClick()
+        settle()
         onNode(hasContentDescription("Back") and hasClickAction()).performClick()
         require(text("What's moving"), 60_000)
         // The ended workout is an ordinary logged session in history, tagged with its day. The session
