@@ -17,6 +17,7 @@ import app.gains.domain.Modality
 import app.gains.domain.MuscleGroup
 import app.gains.domain.WeightUnit
 import app.gains.program.Progression
+import app.gains.program.Rotation
 import app.gains.resources.Res
 import app.gains.resources.*
 import kotlinx.datetime.DayOfWeek
@@ -233,6 +234,11 @@ internal fun clockHour(hour: Int): String = hour.toString().padStart(2, '0') + "
 @Composable internal fun setsText(n: Int): String = pluralStringResource(Res.plurals.sets, n, n)
 @Composable internal fun exercisesText(n: Int): String = pluralStringResource(Res.plurals.exercises, n, n)
 @Composable internal fun weeksText(n: Int): String = pluralStringResource(Res.plurals.weeks, n, n)
+
+/** "Week 2 of 4 · Cycle 3"; just "Week 5" when a cycle is a single week, as every week then starts one. */
+@Composable internal fun programPositionText(position: Rotation.Position): String =
+    if (position.weeks == 1) stringResource(Res.string.week_n, position.cycle)
+    else stringResource(Res.string.program_position, position.week, position.weeks, position.cycle)
 /** "13 weeks" after "in", "for", "ago": the accusative in languages that have one. */
 @Composable internal fun weeksAccusative(n: Int): String = pluralStringResource(Res.plurals.weeks_accusative, n, n)
 @Composable internal fun daysAWeekText(n: Int): String = pluralStringResource(Res.plurals.days_a_week, n, n)

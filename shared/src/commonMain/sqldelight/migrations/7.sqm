@@ -1,0 +1,12 @@
+-- When each program was last started over is the person's, so it syncs like the active program.
+DROP TRIGGER sync_setting_insert;
+DROP TRIGGER sync_setting_update;
+
+CREATE TRIGGER sync_setting_insert AFTER INSERT ON setting
+WHEN new.key IN ('weight_unit', 'bar_weight_kg', 'auto_warmups', 'goal_profile', 'active_program', 'onboarding_done', 'program_starts') BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('setting', new.key, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;
+CREATE TRIGGER sync_setting_update AFTER UPDATE ON setting
+WHEN new.key IN ('weight_unit', 'bar_weight_kg', 'auto_warmups', 'goal_profile', 'active_program', 'onboarding_done', 'program_starts') BEGIN
+  INSERT OR REPLACE INTO sync_change(kind, id, changed_at, deleted) VALUES ('setting', new.key, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0);
+END;

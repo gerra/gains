@@ -41,6 +41,7 @@ object SyncedSettings {
         ProgramRepository.KEY_GOAL_PROFILE,
         ProgramRepository.KEY_ACTIVE_PROGRAM,
         ProgramRepository.KEY_ONBOARDING,
+        ProgramRepository.KEY_PROGRAM_STARTS,
     )
 }
 

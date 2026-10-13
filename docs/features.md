@@ -9,9 +9,12 @@ The long version of the list in the [README](../README.md).
   Beginners, Reddit PPL (6-day and 3-day), an Upper/Lower split and the r/bodyweightfitness
   Recommended Routine ship built in, each as named days of exercises with sets, reps and a
   progression rule. Days rotate on completion, never by weekday; Home shows the next one with
-  the rotation order, and the program page lays out a full cycle week by week, every day's
-  exercises and how each lift progresses. Any day can be started with a tap. Duplicate a
-  built-in to edit it, or build your own.
+  the rotation order and where it falls (`Week 2 of 4 · Cycle 3`, counted in sessions, so a
+  week off leaves you where you were), and the program page lays out the current cycle week by
+  week, every day's exercises and how each lift progresses. Any day can be started with a tap.
+  Switch back to a program you had under way and it asks whether to carry on where you left off
+  or start over from week 1; your weights carry over either way. Duplicate a built-in to edit
+  it, or build your own.
 - **Pre-filled workouts.** Starting a day opens the editor with every set loaded from your last
   session of that exercise and a hint such as `Last: 60 kg × 5,5,5 → try 62.5 kg` from the
   program's rule (linear, double progression or the GZCLP stage ladder). The first session of a
@@ -118,7 +121,10 @@ The long version of the list in the [README](../README.md).
   contributions, equipment tags and aliases, so `Seated Dumbbell Shoulder Press` and
   `Seated Shoulder Press` are one lift. About 180 of them were curated from the public-domain
   [free-exercise-db](https://github.com/yuhonas/free-exercise-db). Unknown names become custom
-  exercises you can merge later.
+  exercises you can merge later. **+ → New exercise** makes one by hand: a name, how its sets are
+  logged (weight × reps, reps, time held, or time and distance) and the muscles it trains, main or
+  secondary, which count towards weekly volume unless it is cardio. A name the app already knows
+  opens the existing exercise instead.
 - **How to do it.** On the lift's page, and under **How to do it** in an exercise card's menu
   while you train, about 115 of the built-in exercises show their start and end position: line
   drawings by [Everkinetic](https://github.com/everkinetic/data) (CC BY-SA 4.0), cross-faded into a

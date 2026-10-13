@@ -21,7 +21,7 @@ internal data class UpNext(val ref: ProgramDayRef, val dayName: String)
  */
 internal suspend fun findUpNext(state: ProgramState, links: List<ProgramLink>, texts: Texts): UpNext? {
     val program = state.active ?: return null
-    val day = Rotation.nextDay(program, links) ?: return null
+    val day = Rotation.nextDay(program, Rotation.run(program, links, state.starts[program.id])) ?: return null
     return UpNext(ProgramDayRef(program.id, day.id), day.resolvedName(texts))
 }
 

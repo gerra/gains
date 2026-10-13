@@ -58,14 +58,49 @@ class RotationTest {
     }
 
     @Test
-    fun cycleStartsAtNextDayAndCoversEveryWeekdaySlot() {
-        // Four days at three a week: four weeks until A1 opens a week again.
+    fun cycleIsTheCurrentOneWithTheNextDayInItsPlace() {
+        // Four days at three a week: four weeks until A1 opens a week again. One session in, B1 is second.
         val weeks = Rotation.cycle(gzclp, listOf(link("gzclp", "gzclp/a1", 1)))
         assertEquals(4, weeks.size)
+        assertEquals(listOf("A1", "B1", "A2"), weeks[0].map { it.name })
+        assertEquals(listOf("B2", "A1", "B1"), weeks[1].map { it.name })
+        assertEquals(listOf("A2", "B2", "A1"), weeks[2].map { it.name })
+        assertEquals(listOf("B1", "A2", "B2"), weeks[3].map { it.name })
+    }
+
+    @Test
+    fun cycleFollowsADayStartedOutOfTurn() {
+        // A1 then A2: B2 is next, in the third slot of week 1.
+        val weeks = Rotation.cycle(gzclp, listOf(link("gzclp", "gzclp/a1", 1), link("gzclp", "gzclp/a2", 3)))
+        assertEquals("B2", weeks[0][2].name)
         assertEquals(listOf("B1", "A2", "B2"), weeks[0].map { it.name })
-        assertEquals(listOf("A1", "B1", "A2"), weeks[1].map { it.name })
-        assertEquals(listOf("B2", "A1", "B1"), weeks[2].map { it.name })
-        assertEquals(listOf("A2", "B2", "A1"), weeks[3].map { it.name })
+    }
+
+    @Test
+    fun positionCountsSessionsNotCalendarWeeks() {
+        assertEquals(Rotation.Position(done = 0, cycle = 1, week = 1, weeks = 4, index = 0), Rotation.position(gzclp, emptyList()))
+        // Three sessions a month apart are still one week's worth.
+        val three = listOf(link("gzclp", "gzclp/a1", 1), link("gzclp", "gzclp/b1", 30), link("gzclp", "gzclp/a2", 31))
+        assertEquals(Rotation.Position(done = 3, cycle = 1, week = 2, weeks = 4, index = 3), Rotation.position(gzclp, three))
+        // Twelve make a whole cycle: the thirteenth is week 1 of the second.
+        val twelve = List(12) { link("gzclp", gzclp.days[it % 4].id, it + 1) }
+        assertEquals(Rotation.Position(done = 12, cycle = 2, week = 1, weeks = 4, index = 0), Rotation.position(gzclp, twelve))
+        assertEquals(Rotation.Position(done = 0, cycle = 1, week = 1, weeks = 4, index = 0), Rotation.position(gzclp, listOf(link("ppl_6", "ppl_6/pull_a", 1))))
+        assertEquals(null, Rotation.position(gzclp.copy(days = emptyList()), emptyList()))
+    }
+
+    @Test
+    fun aRunStartsWhereTheProgramWasLastStartedOver() {
+        val links = listOf(link("gzclp", "gzclp/a1", 1), link("gzclp", "gzclp/b1", 3), link("ppl_6", "ppl_6/pull_a", 4), link("gzclp", "gzclp/a1", 10))
+        assertEquals(3, Rotation.run(gzclp, links, null).size)
+        val run = Rotation.run(gzclp, links, LocalDateTime(LocalDate(2026, 3, 5), LocalTime(9, 0)))
+        assertEquals(listOf("10-18"), run.map { it.sessionId })
+        assertEquals("gzclp/b1", Rotation.nextDay(gzclp, run)!!.id)
+        assertEquals(1, Rotation.position(gzclp, run)!!.done)
+        // Started over and nothing done since: day one of week one.
+        val fresh = Rotation.run(gzclp, links, LocalDateTime(LocalDate(2026, 3, 20), LocalTime(9, 0)))
+        assertEquals("gzclp/a1", Rotation.nextDay(gzclp, fresh)!!.id)
+        assertEquals(1, Rotation.position(gzclp, fresh)!!.week)
     }
 
     @Test

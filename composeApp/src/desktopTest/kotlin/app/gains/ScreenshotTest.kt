@@ -535,6 +535,35 @@ class ScreenshotTest {
         shot("19b-trophies-records")
         onNode(hasContentDescription("Back") and hasClickAction()).performClick()
         require(text("What's moving"), 60_000)
+        // 9d. "+ → New exercise" makes a custom exercise by hand: how it is logged and what it trains,
+        // one tap for a main muscle and two for a secondary one. It opens on its own page.
+        onNode(hasContentDescription("Add") and hasClickAction()).performClick()
+        require(text("New exercise"))
+        onNode(text("New exercise") and hasClickAction()).performClick()
+        require(hasText("Logged as", ignoreCase = true))
+        onAllNodes(hasSetTextAction()).onLast().performTextInput("Bouldering")
+        onAllNodes(hasText("Cardio") and hasClickAction()).onLast().performClick()
+        onAllNodes(hasText("Forearms") and hasClickAction()).onLast().performClick()
+        onAllNodes(hasText("Lats") and hasClickAction()).onLast().performClick()
+        repeat(2) { onAllNodes(hasText("Biceps") and hasClickAction()).onLast().performClick() }
+        settle(1_000)
+        shot("21-new-exercise")
+        onAllNodes(hasText("Create") and hasClickAction()).onLast().performClick()
+        require(hasText("How to do it", ignoreCase = true))
+        require(text("Forearms · Lats · Biceps"))
+        settle(1_000)
+        shot("21b-new-exercise-page")
+        // A name the app already knows is not made twice: the dialog points at the one there is.
+        onNode(hasContentDescription("Add") and hasClickAction()).performClick()
+        require(text("New exercise"))
+        onNode(text("New exercise") and hasClickAction()).performClick()
+        require(hasText("Logged as", ignoreCase = true))
+        onAllNodes(hasSetTextAction()).onLast().performTextInput("bouldering")
+        require(text("Already here as"))
+        check(!exists(hasText("Create") and hasClickAction())) { "The dialog offers to make an exercise that already exists" }
+        onNode(hasText("Cancel") and hasClickAction()).performClick()
+        onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        require(text("What's moving"), 60_000)
         // The ended workout is an ordinary logged session in history, tagged with its day. The session
         // rows sit below the calendar and the weekly chart, past the end of the list's first viewport.
         tab("History")

@@ -36,13 +36,18 @@ class ExerciseResolver(
 
     fun exercise(id: String): Exercise? = exercises[id] ?: created[id]
 
-    fun resolve(rawName: String, setTypes: Collection<SetType>): Exercise {
+    /** The exercise [rawName] already names (an alias, a name or an unambiguous loose spelling), or null for a new name. */
+    fun find(rawName: String): Exercise? {
         val normalized = NameNormalizer.normalize(rawName)
         userAliases[normalized]?.let { id -> exercise(id)?.let { return it } }
         ExerciseCatalogue.builtInAliases[normalized]?.let { id -> exercises[id]?.let { return it } }
         exercises.values.firstOrNull { NameNormalizer.normalize(it.name) == normalized }?.let { return it }
         created.values.firstOrNull { NameNormalizer.normalize(it.name) == normalized }?.let { return it }
-        looseIndex[NameNormalizer.loose(rawName)]?.let { id -> exercise(id)?.let { return it } }
+        return looseIndex[NameNormalizer.loose(rawName)]?.let { id -> exercise(id) }
+    }
+
+    fun resolve(rawName: String, setTypes: Collection<SetType>): Exercise {
+        find(rawName)?.let { return it }
 
         val guessed = ExerciseCatalogue.guess(rawName, modalityHint(setTypes))
         val existing = exercises[guessed.id] ?: created[guessed.id]

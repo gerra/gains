@@ -75,8 +75,10 @@ internal data class ProgramDetailState(
     val lastByDay: Map<String, LocalDate> = emptyMap(),
     val exercisesById: Map<String, Exercise> = emptyMap(),
     val unit: WeightUnit = WeightUnit.KG,
-    /** The rotation from the next day up, one list per week; see [Rotation.cycle]. */
+    /** The current cycle of the rotation, one list per week; see [Rotation.cycle]. */
     val cycle: List<List<ProgramDay>> = emptyList(),
+    /** Where the lifter is in it, counted since the program was last started over. */
+    val position: Rotation.Position? = null,
     /** Set after the program was deleted or duplicated, so the screen can navigate away. */
     val navigateTo: String? = null,
     val deleted: Boolean = false,
@@ -95,22 +97,26 @@ internal class ProgramDetailModel(
 
     val state: StateFlow<ProgramDetailState> = combine(programs.observeState(), sessions.observeProgramLinks(), trainingData.snapshot, settings.observeUnit()) { s, links, snapshot, unit ->
         val program = s.programs.firstOrNull { it.id == programId }
+        val run = program?.let { Rotation.run(it, links, s.starts[it.id]) }.orEmpty()
         ProgramDetailState(
             loading = false,
             program = program,
             isActive = s.activeProgramId == programId,
-            upNextDayId = program?.let { Rotation.nextDay(it, links)?.id },
+            upNextDayId = program?.let { Rotation.nextDay(it, run)?.id },
             lastByDay = program?.let { Rotation.lastCompletedByDay(it, links) } ?: emptyMap(),
             exercisesById = snapshot.exercisesById,
             unit = unit,
-            cycle = program?.let { Rotation.cycle(it, links) } ?: emptyList(),
+            cycle = program?.let { Rotation.cycle(it, run) } ?: emptyList(),
+            position = program?.let { Rotation.position(it, run) },
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), ProgramDetailState())
 
     val pendingNavigation: String? get() = navigateTo
     val wasDeleted: Boolean get() = deleted
 
+    /** Activates the program where it was left; see [startOver] for the other way back in. */
     fun activate() { scope.launchAction { programs.setActive(programId) } }
+    fun startOver() { scope.launchAction { programs.startOver(programId) } }
     fun deactivate() { scope.launchAction { programs.setActive(null) } }
 
     /** Copies the program as [newName] so it can be edited; the caller opens the editor on the new id. */
@@ -131,6 +137,7 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var confirmDelete by remember { mutableStateOf(false) }
+    var askResume by remember { mutableStateOf(false) }
     if (model.wasDeleted) { onDeleted(); return }
     model.pendingNavigation?.let { onEdit(it); return }
     if (state.loading) return
@@ -142,6 +149,14 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
             Text(program.displayName(), style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(8.dp))
             ProgramTags(program, state.isActive)
+            // Where the program stands, once a session has been logged from it: the place it carries on from.
+            state.position?.takeIf { it.done > 0 }?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (state.isActive) programPositionText(it) else stringResource(Res.string.left_off_at, programPositionText(it)),
+                    style = MaterialTheme.typography.labelMedium, color = palette.volt,
+                )
+            }
             Spacer(Modifier.height(10.dp))
             Text(program.displayDescription(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(14.dp))
@@ -150,7 +165,10 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
                 val reduce = LocalReduceMotion.current
                 AnimatedContent(state.isActive, Modifier.weight(1f), transitionSpec = { fadeThrough(reduce) }, label = "activate") { active ->
                     if (active) SecondaryButton(stringResource(Res.string.deactivate), onClick = { model.deactivate() }, Modifier.fillMaxWidth())
-                    else PrimaryButton(stringResource(Res.string.activate), onClick = { model.activate() }, Modifier.fillMaxWidth())
+                    // Coming back to a program already under way: carry on from there, or start it over.
+                    else PrimaryButton(stringResource(Res.string.activate), onClick = {
+                        if ((state.position?.done ?: 0) > 0) askResume = true else model.activate()
+                    }, Modifier.fillMaxWidth())
                 }
                 val copyName = stringResource(Res.string.copy_of, program.displayName())
                 if (program.isBuiltIn) SecondaryButton(stringResource(Res.string.duplicate_to_edit), onClick = { model.duplicate(program, copyName) }, Modifier.weight(1f))
@@ -163,7 +181,7 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 })
-                ScheduleCard(state.cycle, state.upNextDayId)
+                ScheduleCard(state.cycle, state.position?.index ?: 0)
             }
             SectionHeader(stringResource(Res.string.days), action = {
                 Text(stringResource(Res.string.tap_any_day_to_start), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -184,6 +202,18 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
                 TextButton(onClick = { confirmDelete = true }) { Text(stringResource(Res.string.delete_program), color = palette.coral) }
             }
         }
+    }
+    val position = state.position
+    if (askResume && position != null) {
+        val nextName = program.days.firstOrNull { it.id == state.upNextDayId }?.displayName().orEmpty()
+        AlertDialog(
+            onDismissRequest = { askResume = false },
+            shape = MaterialTheme.shapes.large,
+            title = { Text(stringResource(Res.string.resume_program_title, program.displayName())) },
+            text = { Text(stringResource(Res.string.resume_program_body, programPositionText(position), nextName, program.days.first().displayName())) },
+            confirmButton = { PrimaryButton(stringResource(Res.string.continue_program), onClick = { model.activate(); askResume = false }) },
+            dismissButton = { TextButton(onClick = { model.startOver(); askResume = false }) { Text(stringResource(Res.string.start_over)) } },
+        )
     }
     if (confirmDelete) {
         AlertDialog(
@@ -227,22 +257,30 @@ private fun DayCard(day: ProgramDay, program: Program, upNext: Boolean, last: Lo
 }
 
 /**
- * One full cycle of the rotation, a row per week, so the whole program is visible at once rather
- * than just the next day. Only the very next session is highlighted: the rest is a projection that
- * shifts if a different day is started.
+ * The current cycle of the rotation, a row per week, so the whole program is visible at once rather
+ * than just the next day. The next session, at [next] counted through the cycle, is highlighted and
+ * its week's label with it; the sessions before it are done and fade back. The rest is a projection
+ * that shifts if a different day is started.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ScheduleCard(cycle: List<List<ProgramDay>>, upNextDayId: String?) {
+private fun ScheduleCard(cycle: List<List<ProgramDay>>, next: Int) {
     val palette = GainsColors.palette
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val perWeek = cycle.firstOrNull()?.size ?: 1
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
         cycle.forEachIndexed { week, days ->
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(Res.string.week_n, week + 1), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(52.dp))
+                val thisWeek = week == next / perWeek
+                Text(stringResource(Res.string.week_n, week + 1), style = MaterialTheme.typography.labelSmall, color = if (thisWeek) palette.volt else muted, modifier = Modifier.width(52.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     days.forEachIndexed { i, day ->
-                        val next = week == 0 && i == 0 && day.id == upNextDayId
-                        Pill(day.displayName(), if (next) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant, filled = next)
+                        val at = week * perWeek + i
+                        Pill(day.displayName(), when {
+                            at == next -> palette.volt
+                            at < next -> muted.copy(alpha = 0.45f)
+                            else -> muted
+                        }, filled = at == next)
                     }
                 }
             }
