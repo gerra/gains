@@ -225,6 +225,42 @@ internal fun BodyMap(
     }
 }
 
+/**
+ * A [BodyMap] small enough for a calendar day: the same two figures, the trained groups shaded
+ * against the most-trained one, with hairline edges so the muscles still read at a few dozen pixels.
+ * Nothing to tap and nothing animated, since a month of them is drawn at once.
+ */
+@Composable
+internal fun MiniBodyMap(sets: Map<MuscleGroup, Double>, modifier: Modifier = Modifier) {
+    val resting = bodyRestingColor()
+    val accent = GainsColors.palette.volt
+    val edge = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (GainsColors.palette.isDark) 0.35f else 0.3f)
+    val regions = remember { BodyMapModel.regions }
+    val most = (sets.values.maxOrNull() ?: 0.0).coerceAtLeast(4.0)
+    Canvas(modifier.aspectRatio(BodyMapModel.TOTAL_WIDTH / BodyMapModel.TOTAL_HEIGHT)) {
+        val scale = size.width / BodyMapModel.TOTAL_WIDTH
+        val hairline = Stroke(width = 0.5.dp.toPx() / scale)
+        for (side in BodySide.entries) {
+            val dx = if (side == BodySide.FRONT) 0f else (BodyMapPaths.WIDTH + BodyMapModel.FIGURE_GAP) * scale
+            withTransform({
+                translate(left = dx)
+                scale(scale, scale, pivot = Offset.Zero)
+            }) {
+                for (region in regions) {
+                    if (region.side != side) continue
+                    val value = region.groups.maxOfOrNull { sets[it] ?: 0.0 } ?: 0.0
+                    val fill = if (value <= 0.0) resting else lerp(resting, accent, 0.35f + 0.65f * (value / most).coerceIn(0.0, 1.0).toFloat())
+                    for (path in region.paths) {
+                        drawPath(path, fill)
+                        drawPath(path, edge, style = hairline)
+                    }
+                }
+                drawPath(if (side == BodySide.FRONT) BodyMapModel.frontOutline else BodyMapModel.backOutline, edge, style = hairline)
+            }
+        }
+    }
+}
+
 /** Colour of untrained body on the current theme: a step away from the card so the figure has a silhouette. */
 @Composable
 internal fun bodyRestingColor(): Color = if (GainsColors.palette.isDark) Color(0xFF2B3140) else Color(0xFFDDE2EA)

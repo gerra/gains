@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.PhotoPicker
 import app.gains.ui.screens.BodyweightScreen
+import app.gains.ui.screens.CalendarScreen
 import app.gains.ui.screens.ExerciseDetailScreen
 import app.gains.ui.screens.ExercisesScreen
 import app.gains.ui.screens.HistoryScreen
@@ -76,7 +77,9 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
             Screen.History -> HistoryScreen(
                 onOpen = { navigator.push(Screen.EditSession(it)) },
                 onLog = { navigator.push(Screen.EditSession(null)) },
+                onOpenCalendar = { navigator.push(Screen.Calendar) },
             )
+            Screen.Calendar -> CalendarScreen(onOpen = { navigator.push(Screen.EditSession(it)) })
             is Screen.EditSession -> SessionEditorScreen(
                 screen.sessionId, screen.programDay, screen.live,
                 onDone = { navigator.pop() },

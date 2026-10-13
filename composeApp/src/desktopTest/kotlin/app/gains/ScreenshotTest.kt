@@ -303,7 +303,7 @@ class ScreenshotTest {
 
         // 4. History.
         tab("History")
-        require(text("Last 26 weeks"))
+        require(text("Calendar"))
         settle(1_500)
         shot("04-history")
 
@@ -531,8 +531,8 @@ class ScreenshotTest {
         // The ended workout is an ordinary logged session in history, tagged with its day. The session
         // rows sit below the calendar and the weekly chart, past the end of the list's first viewport.
         tab("History")
-        require(text("Last 26 weeks"))
-        scrollUntil(text("Last 26 weeks"), text("logged"))
+        require(text("Calendar"))
+        scrollUntil(text("Calendar"), text("logged"))
         onNode(hasContentDescription("Settings") and hasClickAction()).performClick()
         require(text("Appearance"))
         onNode(text("Light") and hasClickAction()).performClick()
