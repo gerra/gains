@@ -12,8 +12,11 @@ import app.gains.program.Progression
 import app.gains.ui.screens.DayDraft
 import app.gains.ui.screens.EditorState
 import app.gains.ui.screens.ExerciseDraft
+import app.gains.ui.screens.PastSession
+import app.gains.ui.screens.PreviousSources
 import app.gains.ui.screens.ProgressionChoice
 import app.gains.ui.screens.SlotDraft
+import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -67,6 +70,23 @@ class ExerciseArrangementTest {
         assertEquals(emptySet(), next.seeded)
         assertEquals(emptyMap(), next.sources)
         assertEquals(mapOf("front-squat" to previous), next.previous)
+    }
+
+    @Test
+    fun aProgramCardReadsItsSlotsLastSessionUntilSwitched() {
+        val t1 = ExerciseEntry("squat", listOf(SetEntry(0, SetType.WEIGHTED, 75.0, 3)))
+        val t2 = state.previous.getValue("squat")
+        val sources = PreviousSources(PastSession(t1, LocalDate(2025, 3, 3), "T1"), PastSession(t2, LocalDate(2025, 3, 7), "T2"))
+        val gzclp = state.copy(previousSources = mapOf("squat" to sources))
+        assertSame(t1, gzclp.previousShown("squat"))
+        assertSame(t2, gzclp.copy(previousLatest = setOf("squat")).previousShown("squat"))
+        // Before the slot's first session there is only the lift's last one to show.
+        assertSame(t2, gzclp.copy(previousSources = mapOf("squat" to sources.copy(slot = null))).previousShown("squat"))
+        assertSame(t2, state.previousShown("squat"))
+        // A swapped-in lift has no history on the slot to choose from.
+        val swapped = gzclp.copy(previousLatest = setOf("squat")).replacing(0, frontSquat, null)
+        assertEquals(emptyMap(), swapped.previousSources)
+        assertEquals(emptySet(), swapped.previousLatest)
     }
 
     @Test

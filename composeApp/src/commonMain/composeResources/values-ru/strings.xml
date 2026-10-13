@@ -621,6 +621,10 @@
     <string name="logged_twice_stored">%1$s · записано дважды (уже сохранено)</string>
     <string name="weight_for_set">Вес подхода %1$s, %2$s</string>
     <string name="previous_set">Прошлый подход %1$s, %2$s</string>
+    <string name="prev_from">БЫЛО:</string>
+    <string name="free_workout_short">Свободная</string>
+    <string name="prev_source">Сравнивать с %1$s</string>
+    <string name="prev_source_selected">Сравнивать с %1$s, выбрано</string>
     <string name="none_value">нет</string>
     <string name="set_done">Подход %1$s выполнен</string>
     <string name="set_not_done">Подход %1$s не выполнен</string>

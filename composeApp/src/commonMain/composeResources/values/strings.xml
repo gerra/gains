@@ -621,6 +621,10 @@
     <string name="logged_twice_stored">%1$s · logged twice (already stored)</string>
     <string name="weight_for_set">Weight for set %1$s, %2$s</string>
     <string name="previous_set">Previous set %1$s, %2$s</string>
+    <string name="prev_from">PREV FROM</string>
+    <string name="free_workout_short">Free</string>
+    <string name="prev_source">Compare with %1$s</string>
+    <string name="prev_source_selected">Compare with %1$s, selected</string>
     <string name="none_value">none</string>
     <string name="set_done">Set %1$s done</string>
     <string name="set_not_done">Set %1$s not done</string>

@@ -20,6 +20,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -209,6 +210,21 @@ internal data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraf
     }
 }
 
+/**
+ * A past session the PREV column can read: the lift's sets in it, its date, and what it was logged
+ * as, the tier or scheme of its program slot ("T2", "3 × 10"). [scheme] is null and [free] set for
+ * a workout logged without a program day.
+ */
+internal data class PastSession(val entry: ExerciseEntry, val date: LocalDate, val scheme: String?, val free: Boolean = false)
+
+/**
+ * The two sessions a program card's PREV column can show, when they differ: [slot], the last one
+ * logged on this slot's scheme (a GZCLP T1 squat's last T1 squat), and [latest], the lift's last
+ * session from anywhere (the T2 squat two days ago). [slot] is null before the slot's first session,
+ * when the column can only show [latest] and says where it came from.
+ */
+internal data class PreviousSources(val slot: PastSession?, val latest: PastSession)
+
 /** A program day the workout can be tagged with: "GZCLP · A1". */
 internal data class ProgramDayOption(val ref: ProgramDayRef, val programName: String, val dayName: String) {
     val label: String get() = "$programName · $dayName"
@@ -251,6 +267,13 @@ internal data class EditorState(
     val hints: Map<String, Progression.Hint> = emptyMap(),
     /** exercise id -> the exercise's most recent session before this one, for the PREV column of its set table. */
     val previous: Map<String, ExerciseEntry> = emptyMap(),
+    /**
+     * exercise id -> where its PREV column can read from, for a program card whose slot's last session
+     * is not the lift's last session: a GZCLP lift alternates between T1 and T2, and each wants its own.
+     */
+    val previousSources: Map<String, PreviousSources> = emptyMap(),
+    /** Program cards switched to compare with the lift's last session from anywhere rather than their slot's. */
+    val previousLatest: Set<String> = emptySet(),
     /** exercise id -> its standing records before this workout, for the star on a set that beats one. */
     val standing: Map<String, Map<RecordKind, RecordHolder>> = emptyMap(),
     /** exercise id -> program note */
@@ -282,6 +305,17 @@ internal data class EditorState(
     val longSessionMinutes: Int? = null,
 ) {
     val programDayOption: ProgramDayOption? get() = programDay?.let { ref -> programDays.firstOrNull { it.ref == ref } }
+
+    /**
+     * The session the PREV column of [exerciseId]'s card reads: the slot's own last session unless the
+     * card was switched to the latest one, and the lift's last session from anywhere otherwise.
+     */
+    fun previousShown(exerciseId: String): ExerciseEntry? {
+        val sources = previousSources[exerciseId]
+        val slot = sources?.slot
+        return if (slot != null && exerciseId !in previousLatest) slot.entry else previous[exerciseId]
+    }
+
     /** The clock is running. */
     val isRunning: Boolean get() = startedAtMs != null
     /** Whether the plan can be changed: always for a logged workout, and once started for a timed one. */
@@ -307,6 +341,8 @@ internal data class EditorState(
             seeded = seeded - from, sources = sources - from,
             collapsedWarmups = if (from in collapsedWarmups) collapsedWarmups - from + to else collapsedWarmups,
             previous = if (previous != null) (this.previous - from) + (to to previous) else this.previous - from,
+            // The slot was written for the old lift: the new one has no history on it to choose from.
+            previousSources = previousSources - from, previousLatest = previousLatest - from,
             restTimer = restTimer?.let { if (it.exerciseId == from) it.copy(exerciseId = to) else it },
         )
     }
@@ -366,6 +402,29 @@ internal class SessionEditorModel(
         /** The exercise's last session before this workout, for the PREV column; null when it has never been trained. */
         fun previousFor(exerciseId: String): ExerciseEntry? =
             PreviousSets.lastEntry(snapshot, exerciseId, before = editing?.timestamp, excludeSessionId = editing?.id)
+
+        /**
+         * Where the PREV column of [exerciseId] can read from when the workout counts towards [ref]: null
+         * outside a program, for a lift the day has no slot for, or when the slot's last session is the
+         * lift's last session anyway, so there is nothing to choose.
+         */
+        fun previousSources(exerciseId: String, ref: ProgramDayRef?): PreviousSources? {
+            if (ref == null) return null
+            val program = programs.firstOrNull { it.id == ref.programId } ?: return null
+            val slot = program.day(ref.dayId)?.slots?.firstOrNull { it.exerciseId == exerciseId } ?: return null
+            val latest = PreviousSets.lastSession(snapshot, exerciseId, editing?.timestamp, editing?.id) ?: return null
+            val own = PreviousSets.lastSession(snapshot, exerciseId, editing?.timestamp, editing?.id) { DayPlanner.onSameScheme(program, slot, it) }
+            if (own?.id == latest.id) return null
+            return PreviousSources(own?.let { past(it, exerciseId) }, past(latest, exerciseId))
+        }
+
+        private fun past(session: Session, exerciseId: String): PastSession {
+            val slot = DayPlanner.loggedSlot(programs, session, exerciseId)
+            return PastSession(
+                session.exercises.first { it.exerciseId == exerciseId }, session.date,
+                scheme = slot?.let { Gzclp.tierOf(it)?.label ?: it.targetLabel }, free = session.program == null,
+            )
+        }
 
         /** Every lift's standing records before this workout, so a set can be starred as it is ticked. */
         val standing: Map<String, Map<RecordKind, RecordHolder>> by lazy {
@@ -502,6 +561,11 @@ internal class SessionEditorModel(
     /** The PREV column's data for every exercise in the editor. */
     private fun EditorState.withPrevious(ctx: Context): EditorState =
         copy(previous = exercises.mapNotNull { e -> ctx.previousFor(e.exercise.id)?.let { e.exercise.id to it } }.toMap(), standing = ctx.standing)
+            .withPreviousSources(ctx)
+
+    /** Which past sessions each card's PREV column can choose between, for the day the workout counts towards. */
+    private fun EditorState.withPreviousSources(ctx: Context): EditorState =
+        copy(previousSources = exercises.mapNotNull { e -> ctx.previousSources(e.exercise.id, programDay)?.let { e.exercise.id to it } }.toMap())
 
     private fun update(f: (EditorState) -> EditorState) { _state.value = f(_state.value) }
 
@@ -535,9 +599,11 @@ internal class SessionEditorModel(
         if (s.exercises.any { it.exercise.id == exercise.id }) s
         else {
             val previous = context?.previousFor(exercise.id)
+            val sources = context?.previousSources(exercise.id, s.programDay)
             s.copy(
                 exercises = s.exercises + ExerciseDraft(exercise, listOf(SetDraft())),
                 previous = if (previous != null) s.previous + (exercise.id to previous) else s.previous,
+                previousSources = if (sources != null) s.previousSources + (exercise.id to sources) else s.previousSources,
             )
         }
     }
@@ -562,7 +628,16 @@ internal class SessionEditorModel(
     fun moveExercise(index: Int, delta: Int) = edit { it.moved(index, delta) }
 
     /** Tag the workout with a program day, or none for a free workout. */
-    fun setProgramDay(ref: ProgramDayRef?) = update { it.copy(programDay = ref) }
+    fun setProgramDay(ref: ProgramDayRef?) = update { s ->
+        val tagged = s.copy(programDay = ref)
+        context?.let { tagged.withPreviousSources(it) } ?: tagged
+    }
+
+    /** Point a card's PREV column at its slot's last session, or with [latest] at the lift's last session from anywhere. */
+    fun showLatestPrevious(index: Int, latest: Boolean) = update { s ->
+        val id = s.exercises.getOrNull(index)?.exercise?.id ?: return@update s
+        s.copy(previousLatest = if (latest) s.previousLatest + id else s.previousLatest - id)
+    }
 
     /** Drop the weights borrowed from outside the slot's scheme; sets and reps stay as prescribed. Warm-ups built on those weights go too. */
     fun startBlank(index: Int) = edit { s ->
@@ -927,7 +1002,9 @@ internal fun SessionEditorScreen(
                     source = state.sources[draft.exercise.id],
                     tier = state.tiers[draft.exercise.id],
                     warmupsCollapsed = draft.exercise.id in state.collapsedWarmups,
-                    previous = state.previous[draft.exercise.id],
+                    previous = state.previousShown(draft.exercise.id),
+                    previousSources = state.previousSources[draft.exercise.id],
+                    previousLatest = draft.exercise.id in state.previousLatest,
                     standing = state.standing[draft.exercise.id],
                     editable = state.editable,
                     count = state.exercises.size,
@@ -1279,6 +1356,10 @@ private fun ExerciseCard(
     source: Progression.Source? = null, tier: Gzclp.Tier? = null, warmupsCollapsed: Boolean = false,
     /** The exercise's last session, whose sets fill the PREV column row by row. */
     previous: ExerciseEntry? = null,
+    /** The sessions a program card's PREV column can choose between; null when there is no choice to show. */
+    previousSources: PreviousSources? = null,
+    /** The PREV column reads [PreviousSources.latest] rather than the slot's own last session. */
+    previousLatest: Boolean = false,
     /** The exercise's standing records, for the star on a ticked set that beats one. Null when it has none. */
     standing: Map<RecordKind, RecordHolder>? = null,
     /** False while a timed workout has not started: every control of the plan waits for Start, shown disabled. */
@@ -1346,6 +1427,10 @@ private fun ExerciseCard(
             )
         }
         Spacer(Modifier.height(8.dp))
+        if (previousSources != null) {
+            PreviousSourceRow(previousSources, previousLatest) { model.showLatestPrevious(exerciseIndex, it) }
+            Spacer(Modifier.height(6.dp))
+        }
         Row(Modifier.fillMaxWidth().padding(bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.column_set), Modifier.width(LABEL_WIDTH), style = MaterialTheme.typography.labelSmall, color = muted)
             Header(stringResource(Res.string.column_prev), Modifier.width(PREVIOUS_WIDTH))
@@ -1573,6 +1658,42 @@ private fun WeightCell(value: String, done: Boolean, muted: Boolean, enabled: Bo
         if (value.isEmpty()) CellPlaceholder(enabled)
         else Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1, color = text)
     }
+}
+
+/**
+ * Which session the PREV column reads, named so a GZCLP lift that alternates tiers never compares a
+ * T1 day with last week's T2: "PREV  [T1 · 9 Oct] [T2 · 11 Oct]", the slot's own session first and
+ * chosen by default. Before the slot's first session there is only the other one to show, named
+ * the same way but not a choice.
+ */
+@Composable
+private fun PreviousSourceRow(sources: PreviousSources, latest: Boolean, onSelect: (latest: Boolean) -> Unit) {
+    val palette = GainsColors.palette
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(stringResource(Res.string.prev_from), style = MaterialTheme.typography.labelSmall, color = muted)
+        val slot = sources.slot
+        if (slot == null) {
+            Pill(pastSessionText(sources.latest), muted)
+        } else {
+            val slotText = pastSessionText(slot)
+            val latestText = pastSessionText(sources.latest)
+            val slotDescription = prevSourceText(slotText, !latest)
+            val latestDescription = prevSourceText(latestText, latest)
+            Pill(slotText, palette.volt, Modifier.semantics { contentDescription = slotDescription }, filled = !latest) { onSelect(false) }
+            Pill(latestText, palette.volt, Modifier.semantics { contentDescription = latestDescription }, filled = latest) { onSelect(true) }
+        }
+    }
+}
+
+/** "T1 · 9 Oct", "3 × 10 · 9 Oct", or "Free · 9 Oct" for a workout outside the program. */
+@Composable
+private fun pastSessionText(past: PastSession): String {
+    val kind = past.scheme ?: if (past.free) stringResource(Res.string.free_workout_short) else null
+    return listOfNotNull(kind, dateShort(past.date)).joinToString(" · ")
 }
 
 /**
