@@ -42,7 +42,7 @@ class SwipeBackTest {
         val harness = Harness(this)
         setContent {
             val swipe = rememberSwipeBackState()
-            Box(Modifier.fillMaxSize().swipeBack(swipe, enabled = enabled, onBack = { harness.backs++ })) {
+            Box(Modifier.fillMaxSize().swipeBack(swipe, enabled = { enabled }, onBack = { harness.backs++ })) {
                 if (swipe.dragging) Box(Modifier.fillMaxSize().beneathSwipe(swipe)) { Text("previous") }
                 Box(Modifier.fillMaxSize().draggedBySwipe(swipe)) {
                     val state = rememberLazyListState().also { harness.list = it }

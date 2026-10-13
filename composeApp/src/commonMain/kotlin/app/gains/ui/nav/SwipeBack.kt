@@ -72,11 +72,13 @@ internal fun rememberSwipeBackState(): SwipeBackState = remember { SwipeBackStat
  * horizontal, lists and other scrollables inside do not fight it; a mostly vertical movement is left
  * entirely to them.
  *
+ * [enabled] is asked as each touch comes down, so it can read state no composition is reading.
+ *
  * [onBack] is called before the drag offset is reset, so the caller should switch to the revealed
  * screen without its own transition; the gesture has already animated it.
  */
 @Composable
-internal fun Modifier.swipeBack(state: SwipeBackState, enabled: Boolean, onBack: () -> Unit): Modifier {
+internal fun Modifier.swipeBack(state: SwipeBackState, enabled: () -> Boolean, onBack: () -> Unit): Modifier {
     val scope = rememberCoroutineScope()
     val currentEnabled by rememberUpdatedState(enabled)
     val currentOnBack by rememberUpdatedState(onBack)
@@ -91,7 +93,7 @@ internal fun Modifier.swipeBack(state: SwipeBackState, enabled: Boolean, onBack:
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                 val width = state.widthPx.toFloat()
-                if (!currentEnabled || width <= 0f || down.position.x > edgePx) return@awaitEachGesture
+                if (!currentEnabled() || width <= 0f || down.position.x > edgePx) return@awaitEachGesture
 
                 velocity.resetTracking()
                 velocity.addPosition(down.uptimeMillis, down.position)
