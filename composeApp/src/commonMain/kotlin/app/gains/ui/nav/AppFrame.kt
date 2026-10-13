@@ -1,6 +1,5 @@
 package app.gains.ui.nav
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -10,17 +9,20 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.SaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import app.gains.domain.LiveSession
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.PhotoPicker
@@ -69,21 +71,37 @@ internal fun AppFrame(
                 onRetry = onRetrySync,
             )
         }
-        val transition = updateTransition(navigator.currentEntry, label = "screen")
-        SwipeBack(
-            // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
-            enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
-            onBack = { navigator.pop(animated = false) },
-            modifier = Modifier.weight(1f),
-            previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, photoPicker, stateHolder) } },
+        val top = navigator.currentEntry
+        val transition = updateTransition(top, label = "screen")
+        val swipe = rememberSwipeBackState()
+        Box(
+            Modifier.weight(1f).clipToBounds().swipeBack(
+                swipe,
+                // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
+                enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
+                onBack = { navigator.pop(animated = false) },
+            ),
         ) {
-            transition.AnimatedContent(
-                transitionSpec = {
-                    // The swipe-back gesture has already slid the old screen away. Otherwise the new screen comes
-                    // in the way the lifter went: deeper or to a tab on the right from the right, back or left from the left.
-                    screenSlide(forward = navigator.direction > 0, reduce = navigator.skipTransition || reduceMotion)
-                },
-            ) { entry -> ScreenContent(entry, navigator, filePicker, photoPicker, stateHolder) }
+            // The swipe-back gesture has already slid the old screen away, so it goes at once. Otherwise
+            // the new screen comes in the way the lifter went: deeper or to a tab on the right from the
+            // right, back or left from the left.
+            val cut = navigator.skipTransition || reduceMotion
+            val beneath = if (swipe.dragging) navigator.previousEntry else null
+            val leaving = transition.currentState.takeIf { it !== top && !cut }
+            // Every screen is drawn from this one loop, keyed by its entry, whether it is on top, sliding
+            // in or out, or uncovered by a swipe. The keys its saved state (a list's scroll position) is
+            // kept under come from where it sits in the composition, so drawn anywhere else it would come
+            // back as new. The last one drawn is on top.
+            for (entry in listOfNotNull(beneath, leaving, top).distinct()) key(entry.id) {
+                val layer = when (entry) {
+                    beneath -> Modifier.beneathSwipe(swipe)
+                    top -> Modifier.draggedBySwipe(swipe)
+                    else -> Modifier
+                }
+                Box(Modifier.fillMaxSize().screenSlide(transition, entry, forward = navigator.direction > 0, cut = cut).then(layer)) {
+                    ScreenContent(entry, navigator, filePicker, photoPicker, stateHolder)
+                }
+            }
         }
         // The bar rises in when a workout starts and folds away when it ends, rather than shoving the tabs.
         // The workout it last showed, so the bar can still be drawn while it folds away after the workout ends.

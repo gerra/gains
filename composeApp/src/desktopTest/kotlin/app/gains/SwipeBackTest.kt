@@ -17,7 +17,10 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.test.swipe
-import app.gains.ui.nav.SwipeBack
+import app.gains.ui.nav.beneathSwipe
+import app.gains.ui.nav.draggedBySwipe
+import app.gains.ui.nav.rememberSwipeBackState
+import app.gains.ui.nav.swipeBack
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -38,10 +41,14 @@ class SwipeBackTest {
     private fun swipeBack(enabled: Boolean = true, body: Harness.() -> Unit) = runDesktopComposeUiTest(width, height) {
         val harness = Harness(this)
         setContent {
-            SwipeBack(enabled = enabled, onBack = { harness.backs++ }, previous = { Text("previous") }) {
-                val state = rememberLazyListState().also { harness.list = it }
-                LazyColumn(Modifier.fillMaxSize(), state = state) {
-                    items(200) { Box(Modifier.fillMaxWidth().height(80.dp)) { Text("row $it") } }
+            val swipe = rememberSwipeBackState()
+            Box(Modifier.fillMaxSize().swipeBack(swipe, enabled = enabled, onBack = { harness.backs++ })) {
+                if (swipe.dragging) Box(Modifier.fillMaxSize().beneathSwipe(swipe)) { Text("previous") }
+                Box(Modifier.fillMaxSize().draggedBySwipe(swipe)) {
+                    val state = rememberLazyListState().also { harness.list = it }
+                    LazyColumn(Modifier.fillMaxSize(), state = state) {
+                        items(200) { Box(Modifier.fillMaxWidth().height(80.dp)) { Text("row $it") } }
+                    }
                 }
             }
         }
