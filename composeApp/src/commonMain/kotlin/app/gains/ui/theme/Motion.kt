@@ -9,6 +9,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.Transition
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -81,13 +83,41 @@ internal val LocalReduceMotion = staticCompositionLocalOf { false }
 
 /**
  * One screen giving way to the next: the new one fades in a short way from the side it is coming
- * from ([forward]: the right), the old one drifts a shorter way out to the other side. Used for the
- * screens themselves and for anything that pages like them (onboarding's questions, calendar months).
+ * from ([forward]: the right), the old one drifts a shorter way out to the other side. Used for
+ * anything that pages like the screens (onboarding's questions, calendar months); the screens
+ * themselves move the same way through the [Modifier.screenSlide] below.
  */
 internal fun <S> AnimatedContentTransitionScope<S>.screenSlide(forward: Boolean, reduce: Boolean): ContentTransform =
     if (reduce) EnterTransition.None togetherWith ExitTransition.None
     else (fadeIn(tween(Motion.STANDARD)) + slideInHorizontally(tween(Motion.STANDARD + 40)) { if (forward) it / 12 else -it / 12 }) togetherWith
         (fadeOut(tween(Motion.EXIT)) + slideOutHorizontally(tween(Motion.STANDARD)) { if (forward) -it / 16 else it / 16 })
+
+/**
+ * The same move as the [screenSlide] above, worn by one screen as [shown] brings it in or takes it
+ * out: for a caller that draws each screen itself rather than through `AnimatedContent`, so that
+ * the screen keeps its place in the composition.
+ */
+@Composable
+internal fun Modifier.screenSlide(shown: Transition<Boolean>, forward: Boolean): Modifier {
+    val alpha by shown.animateFloat(
+        transitionSpec = { if (targetState) tween(Motion.STANDARD) else tween(Motion.EXIT) },
+        label = "screen-alpha",
+    ) { if (it) 1f else 0f }
+    val shift by shown.animateFloat(
+        transitionSpec = { if (targetState) tween(Motion.STANDARD + 40) else tween(Motion.STANDARD) },
+        label = "screen-shift",
+    ) {
+        when {
+            it -> 0f
+            shown.targetState -> if (forward) 1f / 12 else -1f / 12
+            else -> if (forward) -1f / 16 else 1f / 16
+        }
+    }
+    return graphicsLayer {
+        this.alpha = alpha
+        translationX = shift * size.width
+    }
+}
 
 /** One piece of content fading into another in place, the container easing to the new size. */
 internal fun <S> AnimatedContentTransitionScope<S>.fadeThrough(reduce: Boolean): ContentTransform =

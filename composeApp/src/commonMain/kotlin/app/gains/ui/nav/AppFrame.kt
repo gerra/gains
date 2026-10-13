@@ -1,11 +1,9 @@
 package app.gains.ui.nav
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,14 +28,13 @@ import app.gains.ui.screens.SyncUi
 import app.gains.ui.screens.needsAttention
 import app.gains.ui.theme.LocalReduceMotion
 import app.gains.ui.theme.Motion
-import app.gains.ui.theme.screenSlide
 
 /**
  * The app past its gates: the top bar, the screen on top of [navigator]'s stack, the workout bar and
  * the tabs, with [sync]'s warning under the top bar on Home when it needs attention. The pieces are
- * drawn in `AppChrome.kt` (the bars) and `Routes.kt` (the screens); what is here is how they are
- * laid out and animated against each other. Out of `App.kt` so that the root only assembles, and
- * this layout sits beside the pieces it lays out.
+ * drawn in `AppChrome.kt` (the bars), `Routes.kt` (the screens) and `ScreenStack.kt` (the screens'
+ * moves and the swipe back); what is here is how they are laid out and animated against each other.
+ * Out of `App.kt` so that the root only assembles, and this layout sits beside the pieces it lays out.
  */
 @Composable
 internal fun AppFrame(
@@ -69,22 +66,7 @@ internal fun AppFrame(
                 onRetry = onRetrySync,
             )
         }
-        val transition = updateTransition(navigator.currentEntry, label = "screen")
-        SwipeBack(
-            // While a screen is still sliding out it is on screen already; the swipe would draw it a second time.
-            enabled = navigator.canGoBack && !transition.isRunning && transition.currentState === transition.targetState,
-            onBack = { navigator.pop(animated = false) },
-            modifier = Modifier.weight(1f),
-            previous = { navigator.previousEntry?.let { ScreenContent(it, navigator, filePicker, photoPicker, stateHolder) } },
-        ) {
-            transition.AnimatedContent(
-                transitionSpec = {
-                    // The swipe-back gesture has already slid the old screen away. Otherwise the new screen comes
-                    // in the way the lifter went: deeper or to a tab on the right from the right, back or left from the left.
-                    screenSlide(forward = navigator.direction > 0, reduce = navigator.skipTransition || reduceMotion)
-                },
-            ) { entry -> ScreenContent(entry, navigator, filePicker, photoPicker, stateHolder) }
-        }
+        ScreenStack(navigator, Modifier.weight(1f)) { entry -> ScreenContent(entry, navigator, filePicker, photoPicker, stateHolder) }
         // The bar rises in when a workout starts and folds away when it ends, rather than shoving the tabs.
         // The workout it last showed, so the bar can still be drawn while it folds away after the workout ends.
         var lastLive by remember { mutableStateOf(live) }
