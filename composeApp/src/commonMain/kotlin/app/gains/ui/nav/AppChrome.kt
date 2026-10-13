@@ -66,6 +66,7 @@ import app.gains.ui.components.indicatorSlot
 import app.gains.ui.components.rememberSlidingIndicator
 import app.gains.ui.components.slidingIndicator
 import app.gains.ui.nowMs
+import app.gains.ui.screens.NewExerciseDialog
 import app.gains.ui.screens.SyncUi
 import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.LocalReduceMotion
@@ -104,7 +105,15 @@ internal fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?, syncA
         Spacer(Modifier.weight(1f))
         val iconEnter = if (reduce) EnterTransition.None else fadeIn(tween(Motion.STANDARD)) + scaleIn(tween(Motion.STANDARD), initialScale = 0.8f)
         val iconExit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT)) + scaleOut(tween(Motion.EXIT), targetScale = 0.8f)
-        // "+" offers both ways of getting a session in; hidden on the screens that already are one of them.
+        // "+" offers both ways of getting a session in, and a new exercise; hidden on the screens that
+        // already are one of them (a session's own picker makes exercises too).
+        var newExerciseOpen by remember { mutableStateOf(false) }
+        if (newExerciseOpen) {
+            NewExerciseDialog(
+                onDismiss = { newExerciseOpen = false },
+                onOpen = { newExerciseOpen = false; navigator.push(Screen.ExerciseDetail(it)) },
+            )
+        }
         AnimatedVisibility(screen != Screen.Import && screen !is Screen.EditSession && screen !is Screen.SessionSummary, enter = iconEnter, exit = iconExit) {
             var menuOpen by remember { mutableStateOf(false) }
             Box {
@@ -126,6 +135,11 @@ internal fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?, syncA
                         text = { Text(stringResource(Res.string.menu_log_past_workout)) },
                         leadingIcon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp)) },
                         onClick = { menuOpen = false; navigator.push(Screen.EditSession(null)) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.menu_new_exercise)) },
+                        leadingIcon = { Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp)) },
+                        onClick = { menuOpen = false; newExerciseOpen = true },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(Res.string.menu_import_csv)) },

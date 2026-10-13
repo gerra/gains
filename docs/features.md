@@ -114,7 +114,10 @@ The long version of the list in the [README](../README.md).
   contributions, equipment tags and aliases, so `Seated Dumbbell Shoulder Press` and
   `Seated Shoulder Press` are one lift. About 180 of them were curated from the public-domain
   [free-exercise-db](https://github.com/yuhonas/free-exercise-db). Unknown names become custom
-  exercises you can merge later.
+  exercises you can merge later. **+ → New exercise** makes one by hand: a name, how its sets are
+  logged (weight × reps, reps, time held, or time and distance) and the muscles it trains, main or
+  secondary, which count towards weekly volume unless it is cardio. A name the app already knows
+  opens the existing exercise instead.
 - **How to do it.** On the lift's page, and under **How to do it** in an exercise card's menu
   while you train, about 115 of the built-in exercises show their start and end position: line
   drawings by [Everkinetic](https://github.com/everkinetic/data) (CC BY-SA 4.0), cross-faded into a

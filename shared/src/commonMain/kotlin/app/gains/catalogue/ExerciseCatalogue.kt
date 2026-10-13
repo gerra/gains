@@ -503,6 +503,17 @@ object ExerciseCatalogue {
             isBuiltIn = false, trainingModality = training)
     }
 
+    /**
+     * A custom exercise defined by hand: how its sets are logged ([modality]) and what it trains,
+     * [primary] at full credit and [secondary] at half, as the built-ins are.
+     */
+    fun custom(rawName: String, modality: Modality, primary: Set<MuscleGroup>, secondary: Set<MuscleGroup> = emptySet(), isDumbbell: Boolean = false): Exercise {
+        val name = rawName.trim()
+        val groups = primary.map { MuscleContribution(it, 1.0) } + (secondary - primary).map { MuscleContribution(it, 0.5) }
+        val dumbbell = isDumbbell && modality == Modality.WEIGHTED
+        return Exercise(NameNormalizer.toId(name), name, name, groups, modality, dumbbell, isBuiltIn = false, equipment = guessEquipment(name, modality, dumbbell))
+    }
+
 }
 
 object NameNormalizer {
