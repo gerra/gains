@@ -95,9 +95,10 @@ private val WheelBandShape = RoundedCornerShape(10.dp)
 
 /**
  * A single spinning column: [items] are the labels, [selected] the index under the band. Flicks
- * snap to a row and each row that passes the band ticks the haptics. [onSelect] fires once the
- * wheel has settled, never mid-fling, so the caller's value is always the row that can be read.
- * A value set from outside (a stepper, a reset) turns the wheel to it.
+ * snap to a row and each row that passes the band ticks the haptics. [onSelect] fires for every
+ * row the lifter's drag or fling brings under the band, so the value follows the finger rather
+ * than waiting for the snap to settle. A value set from outside (a stepper, a reset) turns the
+ * wheel to it without reporting the rows it passes on the way.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -137,13 +138,18 @@ internal fun WheelPicker(
     LaunchedEffect(state) {
         snapshotFlow { centred }.filterNotNull().drop(1).collect { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
     }
+    // True while the wheel turns itself to a value set from outside: the rows it sweeps past are not picks.
+    var turning by remember { mutableStateOf(false) }
     LaunchedEffect(state) {
-        snapshotFlow { centred to state.isScrollInProgress }.collect { (index, scrolling) ->
-            if (index != null && !scrolling && index != latest) select(index)
+        snapshotFlow { centred to turning }.collect { (index, self) ->
+            if (index != null && !self && index != latest) select(index)
         }
     }
     LaunchedEffect(current) {
-        if (!state.isScrollInProgress && centred != null && centred != current) state.animateScrollToItem(current)
+        if (!state.isScrollInProgress && centred != null && centred != current) {
+            turning = true
+            try { state.animateScrollToItem(current) } finally { turning = false }
+        }
     }
 
     Box(modifier.height(WheelRowHeight * visibleRows), contentAlignment = Alignment.Center) {
