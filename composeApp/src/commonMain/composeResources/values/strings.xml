@@ -99,7 +99,7 @@
     <string name="programs_that_fit">Programs that fit</string>
     <string name="best_match">Best match</string>
     <string name="use_this_program">Use this program</string>
-    <string name="just_save_my_goal">Just save my goal</string>
+    <string name="just_save_my_goal">No program for now</string>
     <string name="next">Next</string>
     <string name="active">Active</string>
     <string name="no_workouts_yet">No workouts yet</string>
@@ -112,13 +112,13 @@
     <string name="one_session_imported">One session imported. Insights need a few weeks of history to compare against.</string>
     <string name="nothing_to_flag">Nothing to flag yet. Keep importing and the trends will show up here.</string>
     <string name="whole_program">Whole program ›</string>
-    <string name="pick_a_program">PICK A PROGRAM</string>
+    <string name="pick_a_program">Pick a program</string>
     <string name="choose_routine_blurb">Choose a routine and each day becomes a pre-filled workout with your last weights.</string>
-    <string name="choose_a_program">Choose a program ›</string>
-    <string name="set_your_goal">SET YOUR GOAL</string>
+    <string name="choose_a_program">Choose a program</string>
+    <string name="set_your_goal">Set your goal</string>
     <string name="what_are_you_training_for">What are you training for?</string>
     <string name="three_quick_questions">Three quick questions, then a program that fits your week and turns each day into a ready-made workout.</string>
-    <string name="get_started">Get started ›</string>
+    <string name="get_started">Get started</string>
     <string name="this_week">This week</string>
     <string name="hero_sessions">Sessions</string>
     <string name="hero_lifts">Lifts</string>
@@ -417,11 +417,11 @@
     <string name="kept_as_timed">Kept as timed.</string>
     <string name="save_session">Save session</string>
     <string name="back_to_workout">Back to workout</string>
-    <string name="ready">READY</string>
+    <string name="ready">Ready</string>
     <string name="nothing_planned_yet">Nothing planned yet</string>
     <string name="start_workout">Start workout</string>
-    <string name="total">TOTAL</string>
-    <string name="rest">REST</string>
+    <string name="total">Total</string>
+    <string name="rest">Rest</string>
     <string name="skip">Skip</string>
     <string name="ok">OK</string>
     <string name="end">End</string>
@@ -431,10 +431,10 @@
     <string name="weights_from_other_scheme">Weights estimated from another scheme of this program.</string>
     <string name="weights_from_free_sessions">Weights estimated from your free sessions.</string>
     <string name="start_blank">Start blank</string>
-    <string name="column_set">SET</string>
-    <string name="column_prev">PREV</string>
-    <string name="column_reps">REPS</string>
-    <string name="column_seconds">SECONDS</string>
+    <string name="column_set">Set</string>
+    <string name="column_prev">Prev</string>
+    <string name="column_reps">Reps</string>
+    <string name="column_seconds">Seconds</string>
     <string name="column_km">KM</string>
     <string name="add_set">Add set</string>
     <string name="add_warm_up">Add warm-up</string>
@@ -453,7 +453,6 @@
     <string name="choose_csv_exports">Choose Liftoff CSV exports</string>
     <string name="rest_over">Rest over</string>
     <string name="under_a_minute">under a minute</string>
-    <string name="days_per_week_tag">%1$dd/wk</string>
     <string name="copy_of">%1$s (copy)</string>
     <string name="menu_start_day">Start %1$s</string>
     <string name="rest_countdown">Rest %1$s</string>
@@ -642,7 +641,7 @@
     <string name="logged_twice_stored">%1$s · logged twice (already stored)</string>
     <string name="weight_for_set">Weight for set %1$s, %2$s</string>
     <string name="previous_set">Previous set %1$s, %2$s</string>
-    <string name="prev_from">PREV FROM</string>
+    <string name="prev_from">Prev from</string>
     <string name="free_workout_short">Free</string>
     <string name="prev_source">Compare with %1$s</string>
     <string name="prev_source_selected">Compare with %1$s, selected</string>
@@ -658,7 +657,7 @@
     <string name="browser_sign_in_done_title">Back to Gains</string>
     <string name="browser_sign_in_done">You can close this tab and go back to Gains.</string>
     <string name="profile_summary">%1$s · %2$s · %3$s</string>
-    <string name="up_next">UP NEXT · %1$s</string>
+    <string name="up_next">Up next: %1$s</string>
     <string name="exercises_and_week_count">%1$s · %2$d of %3$d this week</string>
     <string name="stall_detail">%1$s since %2$s. %3$s, no change in %4$s.</string>
     <string name="neglected_exercise_detail">Last trained %1$s, %2$s ago, after %3$s in the %4$s before that.</string>
@@ -1124,7 +1123,7 @@
         <item quantity="other">Leave them out of the workout, or save them as done too?</item>
     </plurals>
     <!-- Workout summary, shown as a session is ended. -->
-    <string name="workout_logged">WORKOUT LOGGED</string>
+    <string name="workout_logged">Workout logged</string>
     <string name="tap_to_change">Tap to change</string>
     <string name="muscles_trained">Muscles trained</string>
     <string name="no_muscles_trained">No working sets to credit to a muscle group.</string>

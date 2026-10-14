@@ -132,6 +132,7 @@ import app.gains.ui.components.DurationPickerSheet
 import app.gains.ui.components.DurationWheels
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.Pill
+import app.gains.ui.components.Tag
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.RecordMedal
 import app.gains.ui.components.SecondaryButton
@@ -1226,7 +1227,7 @@ private fun ReadyCard(exercises: List<ExerciseDraft>, onStart: () -> Unit) {
             }
             val startDescription = stringResource(Res.string.start_workout)
             Button(
-                onClick = onStart, shape = CircleShape, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
+                onClick = onStart, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                 modifier = Modifier.semantics { contentDescription = startDescription },
             ) { Text(stringResource(Res.string.start), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
@@ -1261,7 +1262,7 @@ private fun SessionClock(startedAtMs: Long, rest: RestTimer?, onSkipRest: () -> 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(Res.string.total), style = MaterialTheme.typography.labelSmall, color = muted)
-                Text(Format.clock((now - startedAtMs) / 1000), style = MaterialTheme.typography.headlineSmall, color = palette.volt)
+                Text(Format.clock((now - startedAtMs) / 1000), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onSurface)
             }
             Column(Modifier.weight(1f)) {
                 Text(stringResource(Res.string.rest), style = MaterialTheme.typography.labelSmall, color = muted)
@@ -1271,7 +1272,7 @@ private fun SessionClock(startedAtMs: Long, rest: RestTimer?, onSkipRest: () -> 
                         remaining > 0 -> Format.clock(remaining.toLong())
                         else -> stringResource(Res.string.done)
                     },
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.displaySmall,
                     color = restColor,
                     modifier = Modifier.scale(beat.value),
                 )
@@ -1284,7 +1285,7 @@ private fun SessionClock(startedAtMs: Long, rest: RestTimer?, onSkipRest: () -> 
                 TextButton(onClick = onSkipRest) { Text(if (remaining == null || remaining > 0) stringResource(Res.string.skip) else stringResource(Res.string.ok), color = muted) }
             }
             Button(
-                onClick = onEnd, shape = CircleShape, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                onClick = onEnd, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
             ) { Text(stringResource(Res.string.end), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
         }
@@ -1332,7 +1333,7 @@ private fun ProgramDayDialog(options: List<ProgramDayOption>, selected: ProgramD
                 DayChoice(stringResource(Res.string.none_free_workout), selected == null, palette.volt) { onSelect(null) }
                 for ((programName, days) in options.groupBy { it.programName }) {
                     Spacer(Modifier.height(8.dp))
-                    Text(programName.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(programName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     for (day in days) DayChoice(day.dayName, day.ref == selected, palette.volt) { onSelect(day.ref) }
                 }
             }
@@ -1384,8 +1385,8 @@ private fun ExerciseCard(
                 Text(name, style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (target != null) Pill(target, palette.volt)
-                    Pill(modality.label(), palette.cyan)
-                    if (draft.exercise.isDumbbell) Pill(stringResource(Res.string.per_dumbbell), palette.amber)
+                    Tag(modality.label())
+                    if (draft.exercise.isDumbbell) Tag(stringResource(Res.string.per_dumbbell))
                 }
             }
             ExerciseMenu(
@@ -1435,8 +1436,8 @@ private fun ExerciseCard(
             Text(stringResource(Res.string.column_set), Modifier.width(LABEL_WIDTH), style = MaterialTheme.typography.labelSmall, color = muted)
             Header(stringResource(Res.string.column_prev), Modifier.width(PREVIOUS_WIDTH))
             when (modality) {
-                Modality.WEIGHTED, Modality.BODYWEIGHT -> { Header(unit.label().uppercase()); Header(stringResource(Res.string.column_reps)) }
-                Modality.ISOMETRIC -> { Header(stringResource(Res.string.column_seconds)); Header(unit.label().uppercase()) }
+                Modality.WEIGHTED, Modality.BODYWEIGHT -> { Header(unit.label()); Header(stringResource(Res.string.column_reps)) }
+                Modality.ISOMETRIC -> { Header(stringResource(Res.string.column_seconds)); Header(unit.label()) }
                 Modality.CARDIO -> { Header(stringResource(Res.string.column_km)); Header(stringResource(Res.string.column_seconds)) }
             }
             // Room for the check and the remove control on each row, so the column heads sit over the cells.
@@ -1445,7 +1446,7 @@ private fun ExerciseCard(
         if (warmups.isNotEmpty()) {
             // Warm-ups are numbered W1, W2… and drawn muted, so the work sets stay 1–5 and read as the workout.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Pill(stringResource(Res.string.warm_up), muted)
+                Tag(stringResource(Res.string.warm_up))
                 Spacer(Modifier.width(8.dp))
                 Text(if (warmupsCollapsed) stringResource(Res.string.n_hidden, warmups.size) else setsText(warmups.size), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted)
                 // Icons rather than words, so the row stays one line: add one more, fold or unfold, remove them all.
@@ -1677,7 +1678,7 @@ private fun PreviousSourceRow(sources: PreviousSources, latest: Boolean, onSelec
         Text(stringResource(Res.string.prev_from), style = MaterialTheme.typography.labelSmall, color = muted)
         val slot = sources.slot
         if (slot == null) {
-            Pill(pastSessionText(sources.latest), muted)
+            Tag(pastSessionText(sources.latest))
         } else {
             val slotText = pastSessionText(slot)
             val latestText = pastSessionText(sources.latest)

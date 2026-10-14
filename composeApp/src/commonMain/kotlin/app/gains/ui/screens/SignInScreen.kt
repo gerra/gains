@@ -10,7 +10,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -60,7 +58,7 @@ import app.gains.ui.components.DeltaBadge
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.GainsLogo
-import app.gains.ui.components.Pill
+import app.gains.ui.components.ButtonHeight
 import app.gains.ui.components.PrimaryButton
 import app.gains.resources.Res
 import app.gains.resources.*
@@ -72,8 +70,6 @@ import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlin.math.cos
-import kotlin.math.sin
 
 internal class SignInModel(
     private val accounts: AccountRepository,
@@ -160,24 +156,21 @@ internal fun SignInScreen() {
         AuroraBackground(Modifier.fillMaxSize())
         val compact = maxHeight < 760.dp
         Column(
-            Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 20.dp, vertical = 12.dp),
         ) {
-            GainsLogo(size = if (compact) 52.dp else 64.dp)
-            Spacer(Modifier.height(if (compact) 10.dp else 16.dp))
+            GainsLogo(size = if (compact) 40.dp else 48.dp)
+            Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
             Text(
                 stringResource(Res.string.sign_in_headline),
-                style = if (compact) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium,
-                textAlign = TextAlign.Center,
+                style = if (compact) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 stringResource(Res.string.sign_in_blurb),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(if (compact) 12.dp else 18.dp))
+            Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
             // The email form takes the hero's room on a short display, so the keyboard leaves the fields in view.
             if (!(compact && model.emailOpen)) HeroPreview(chartHeight = if (compact) 52.dp else 68.dp)
             if (!compact && !model.emailOpen) {
@@ -222,24 +215,18 @@ internal fun SignInScreen() {
     }
 }
 
-/** Slowly drifting colour blobs behind the hero. */
+/**
+ * One still wash of the progress green from the top corner, behind the mark and the headline. The
+ * trend drawing itself in the card below is the screen's one moving thing.
+ */
 @Composable
 private fun AuroraBackground(modifier: Modifier = Modifier) {
     val palette = GainsColors.palette
-    val transition = rememberInfiniteTransition(label = "aurora")
-    val drifting by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(14_000, easing = LinearEasing), RepeatMode.Restart), label = "t")
-    // Held still where the platform asks for less motion.
-    val t = if (LocalReduceMotion.current) 0f else drifting
-    val alpha = if (palette.isDark) 0.55f else 0.35f
+    val alpha = if (palette.isDark) 0.16f else 0.12f
     Canvas(modifier) {
-        val w = size.width; val h = size.height
-        val a = t * 2f * kotlin.math.PI.toFloat()
-        fun blob(color: Color, cx: Float, cy: Float, r: Float) {
-            drawCircle(Brush.radialGradient(listOf(color.copy(alpha = alpha), color.copy(alpha = 0f)), center = Offset(cx, cy), radius = r), radius = r, center = Offset(cx, cy))
-        }
-        blob(palette.volt, w * 0.25f + cos(a) * w * 0.12f, h * 0.12f + sin(a) * h * 0.05f, w * 0.55f)
-        blob(palette.violet, w * 0.85f + cos(a + 2f) * w * 0.1f, h * 0.35f + sin(a + 2f) * h * 0.06f, w * 0.5f)
-        blob(palette.cyan, w * 0.15f + cos(a + 4f) * w * 0.08f, h * 0.7f + sin(a + 4f) * h * 0.05f, w * 0.45f)
+        val center = Offset(size.width * 0.1f, 0f)
+        val r = size.width * 1.1f
+        drawCircle(Brush.radialGradient(listOf(palette.volt.copy(alpha = alpha), palette.volt.copy(alpha = 0f)), center = center, radius = r), radius = r, center = center)
     }
 }
 
@@ -253,11 +240,10 @@ private fun HeroPreview(chartHeight: Dp) {
     val progress = if (LocalReduceMotion.current) 1f else drawing
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Normal) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Pill(InsightKind.PROGRESS.label(), palette.progress)
-            Spacer(Modifier.weight(1f))
+            Text(InsightKind.PROGRESS.label(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = palette.progress, modifier = Modifier.weight(1f))
             DeltaBadge(0.06)
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
         Text(stringResource(Res.string.hero_exercise), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(Res.string.hero_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
@@ -279,12 +265,6 @@ private fun HeroPreview(chartHeight: Dp) {
                 drawCircle(palette.volt, radius = 4.dp.toPx(), center = pts.last())
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Pill(InsightKind.REGRESSION.label(), palette.regression)
-            Pill(InsightKind.STALL.label(), palette.stall)
-            Pill(InsightKind.CONSISTENCY.label(), palette.consistency)
-        }
     }
 }
 
@@ -299,23 +279,21 @@ private fun FeatureRow() {
 
 @Composable
 private fun Feature(title: String, body: String, modifier: Modifier = Modifier) {
-    val palette = GainsColors.palette
-    Column(modifier.clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f)).padding(12.dp)) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(palette.volt))
-        Spacer(Modifier.height(8.dp))
+    Column(modifier.clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp)) {
         Text(title, style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(2.dp))
         Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 /** A provider's pill: Google's, and both while neither is configured. Settings uses a lower one. */
 @Composable
-internal fun ProviderButton(provider: String, enabled: Boolean, modifier: Modifier = Modifier, height: Dp = 50.dp, onClick: () -> Unit) {
+internal fun ProviderButton(provider: String, enabled: Boolean, modifier: Modifier = Modifier, height: Dp = ButtonHeight, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.height(height),
-        shape = CircleShape,
+        shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
             contentColor = MaterialTheme.colorScheme.onSurface,
@@ -337,7 +315,7 @@ internal fun ProviderButton(provider: String, enabled: Boolean, modifier: Modifi
 internal fun AppleSignInButton(
     modifier: Modifier = Modifier,
     label: String = stringResource(Res.string.sign_in_with_apple),
-    height: Dp = 50.dp,
+    height: Dp = ButtonHeight,
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
@@ -348,7 +326,7 @@ internal fun AppleSignInButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.height(height),
-        shape = CircleShape,
+        shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
             containerColor = container,
             contentColor = content,

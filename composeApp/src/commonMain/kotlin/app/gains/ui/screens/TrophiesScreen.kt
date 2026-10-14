@@ -179,7 +179,7 @@ internal fun LevelCard(level: Level, modifier: Modifier = Modifier) {
             LevelRing(level.level, level.fraction.toFloat(), size = 84.dp, style = MaterialTheme.typography.displaySmall)
             Spacer(Modifier.width(18.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(Res.string.level_word).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.level_word), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(2.dp))
                 RollingText(stringResource(Res.string.points_in_total, pointsText(level.points)), MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(4.dp))

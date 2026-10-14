@@ -152,8 +152,8 @@ internal suspend fun donePage(texts: Texts): String {
         <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
         <title>$title</title>
         <style>
-        :root { color-scheme: dark light; --bg: #0b0d12; --text: #f2f4f8; --accent: #c8ff4d; }
-        @media (prefers-color-scheme: light) { :root { --bg: #f3f4f8; --text: #12141a; --accent: #3e8e00; } }
+        :root { color-scheme: dark light; --bg: #121416; --text: #f2f0eb; --accent: #62d99a; }
+        @media (prefers-color-scheme: light) { :root { --bg: #f1f2f4; --text: #15171a; --accent: #17924f; } }
         body { margin: 0; min-height: 100vh; display: grid; place-content: center; text-align: center;
                background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, sans-serif; padding: 0 16px; }
         h1 { font-size: 22px; margin: 0 0 8px; }

@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.gains.analysis.Streak
 import app.gains.analysis.StreakStatus
 import app.gains.resources.Res
@@ -77,14 +78,14 @@ internal fun StreakCard(
 ) {
     val palette = GainsColors.palette
     val accent = streak.accent()
-    GainsCard(modifier, onClick = onClick, brush = palette.heroBrush(), contentPadding = Dp16.Loose) {
+    GainsCard(modifier, onClick = onClick, brush = palette.heroBrush(), contentPadding = Dp16.Normal) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     // A zero is not an achievement, so it is not dressed as one. A week added rolls the number up.
                     RollingText(
                         streak.weeks.toString(),
-                        style = MaterialTheme.typography.displayLarge,
+                        style = MaterialTheme.typography.displayLarge.copy(lineHeight = 52.sp),
                         color = if (streak.weeks > 0) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.width(8.dp))
@@ -107,9 +108,9 @@ internal fun StreakCard(
             }
             if (streak.atMilestone) Pill(stringResource(Res.string.streak_milestone), palette.volt, filled = true)
         }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-            Text(stringResource(Res.string.this_week).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text(stringResource(Res.string.this_week), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
             Text(
                 stringResource(Res.string.streak_goal_progress, streak.sessionsThisWeek, streak.goalPerWeek),
                 style = MaterialTheme.typography.labelMedium,
@@ -118,7 +119,7 @@ internal fun StreakCard(
         }
         Spacer(Modifier.height(8.dp))
         WeekStrip(streak, accent)
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Dot(accent, size = 8.dp, modifier = Modifier.align(Alignment.Top).padding(top = 6.dp))
             Spacer(Modifier.width(8.dp))
@@ -161,7 +162,7 @@ internal fun StreakCard(
 @Composable
 internal fun WeekStrip(streak: Streak, accent: Color, modifier: Modifier = Modifier) {
     val palette = GainsColors.palette
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(10.dp)
     val todayIndex = 7 - streak.daysLeftInWeek
     val atRisk = streak.status == StreakStatus.AT_RISK || streak.status == StreakStatus.LAST_CHANCE
     // Started only while it would mean something: nothing on this screen animates on a quiet week.
@@ -208,7 +209,7 @@ internal fun WeekStrip(streak: Streak, accent: Color, modifier: Modifier = Modif
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(42.dp)
+                        .height(36.dp)
                         .scale(cellScale.value)
                         .clip(shape)
                         .background(cellFill.value)

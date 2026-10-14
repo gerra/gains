@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
@@ -56,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.gains.analysis.Format
 import app.gains.domain.LiveSession
 import app.gains.resources.Res
@@ -191,42 +193,45 @@ private fun IconCircle(icon: ImageVector, description: String, onClick: () -> Un
     }
 }
 
-/** The tabs along the bottom, the current one lit only while it is the screen on show. */
+/**
+ * The tabs along the bottom, the current one lit only while it is the screen on show. The lit tab is
+ * a raised chip in the text colour rather than a coloured one: the bar is always there, so it stays quiet.
+ */
 @Composable
 internal fun BottomNav(navigator: Navigator) {
-    val palette = GainsColors.palette
     // One pill that slides along the bar to the chosen tab, and fades while a screen is pushed on top.
     val indicator = rememberSlidingIndicator(navigator.currentTab?.ordinal?.takeIf { !navigator.canGoBack })
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(6.dp)
-                .slidingIndicator(indicator, palette.volt),
+                .clip(RoundedCornerShape(22.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .then(if (GainsColors.palette.isDark) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(22.dp)))
+                .padding(5.dp)
+                .slidingIndicator(indicator, MaterialTheme.colorScheme.surfaceContainerHighest),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             for (tab in Tab.entries) {
                 val selected = navigator.currentTab == tab && !navigator.canGoBack
                 val interaction = remember { MutableInteractionSource() }
                 val content by animateColorAsState(
-                    if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                     Motion.standard(), label = "tab",
                 )
                 Column(
                     Modifier
                         .weight(1f)
                         .indicatorSlot(indicator, tab.ordinal)
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(18.dp))
                         .clickable(interaction, indication = null) { navigator.switchTab(tab) }
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 7.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     val label = tab.label()
-                    Icon(tab.icon(), label, tint = content, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.height(2.dp))
-                    Text(label, style = MaterialTheme.typography.labelSmall, color = content)
+                    Icon(tab.icon(), label, tint = content, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.height(3.dp))
+                    Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 14.sp), color = content, maxLines = 1, softWrap = false)
                 }
             }
         }
@@ -271,7 +276,6 @@ internal fun SyncBanner(sync: SyncUi, onOpenSettings: () -> Unit, onRetry: () ->
  */
 @Composable
 internal fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
-    val palette = GainsColors.palette
     var now by remember { mutableStateOf(nowMs()) }
     LaunchedEffect(Unit) { while (true) { delay(1000); now = nowMs() } }
     val remaining = live.rest?.remainingSeconds(now)
@@ -279,8 +283,8 @@ internal fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .clip(CircleShape)
-            .background(palette.volt)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.primary)
             .clickable(onClick = onResume)
             .padding(horizontal = 18.dp, vertical = 10.dp)
             .animateContentSize(Motion.standard()),
@@ -294,7 +298,7 @@ internal fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
             Text(stringResource(Res.string.rest_countdown, Format.clock(remaining.toLong())), style = MaterialTheme.typography.bodySmall, color = onAccent)
         }
         Spacer(Modifier.size(10.dp))
-        Text(stringResource(Res.string.resume_chevron), style = MaterialTheme.typography.labelSmall, color = onAccent)
+        Text(stringResource(Res.string.resume_chevron), style = MaterialTheme.typography.labelMedium, color = onAccent)
     }
 }
 

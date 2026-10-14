@@ -138,11 +138,11 @@ internal class DesktopLiveSessionNotifier : LiveSessionNotifier {
     override fun update(notice: LiveSessionNotice?) { _notice.value = notice }
 }
 
-/** The tray icon: the app's volt accent as a dot, legible on a light or dark menu bar. */
+/** The tray icon: the app's progress green as a dot, legible on a light or dark menu bar. */
 private object VoltDot : Painter() {
     override val intrinsicSize: Size get() = Size(16f, 16f)
     override fun DrawScope.onDraw() {
-        drawCircle(Color(0xFFC8FF4D))
+        drawCircle(Color(0xFF62D99A))
     }
 }
 

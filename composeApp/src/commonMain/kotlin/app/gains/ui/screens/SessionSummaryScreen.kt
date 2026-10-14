@@ -364,7 +364,7 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item { Column(Modifier.enterOnce(0)) {
-            Text(stringResource(Res.string.workout_logged), style = MaterialTheme.typography.labelSmall, color = palette.volt)
+            Text(stringResource(Res.string.workout_logged), style = MaterialTheme.typography.labelLarge, color = palette.volt)
             Spacer(Modifier.height(4.dp))
             Text(state.title, style = MaterialTheme.typography.headlineLarge)
             Text(
@@ -593,7 +593,7 @@ private fun ScoreSection(score: SessionScore, level: Level, p: Float) {
 private fun ScorePart(label: String, points: Int) {
     Column {
         Text("+$points", style = MaterialTheme.typography.titleMedium, color = if (points > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

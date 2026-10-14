@@ -178,8 +178,8 @@ private fun Modality.loggingHint(): String = stringResource(when (this) {
 @Composable
 private fun Label(text: String) {
     Text(
-        text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
+        text,
+        style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
     )

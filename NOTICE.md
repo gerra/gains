@@ -20,6 +20,8 @@ These files are not Gains' own work, and MPL-2.0 doesn't change their license.
 |---|---|---|---|---|
 | `composeApp/src/commonMain/kotlin/app/gains/ui/charts/BodyMapPaths.kt` | ELABBASSI Hicham (react-native-body-highlighter) | MIT | https://github.com/HichamELBSI/react-native-body-highlighter | The notice below in every copy. It is in the file's header, here, and in every build on the Open-source licenses screen. The file is generated from the upstream path data (`assets/bodyFront.ts`, `assets/bodyBack.ts`, `components/SvgMaleWrapper.tsx`) and stays under MIT as a whole. |
 | `composeApp/src/commonMain/composeResources/files/exercises/` (the start and end drawings) | Everkinetic (everkinetic.com, Greg Priday) | CC BY-SA 4.0 | https://github.com/everkinetic/data | The notice below wherever the drawings go: credit, the license and its link, and that they were changed. Everkinetic's drawings are rendered from their SVGs, cropped, scaled and made transparent by `tools/exercise_demos.py`, which also cuts the exercise picker's thumbnails from the start drawings; the adapted files stay under CC BY-SA 4.0, and so does any further change to them. The caption under the drawings in the app, and the line at the foot of the exercise picker, name Everkinetic and the license, and the Open-source licenses screen carries the notice in every build. Share-alike covers the drawings only, not the code that shows them. |
+| `composeApp/src/commonMain/composeResources/font/onest_*.ttf` | The Onest Project Authors | OFL-1.1 | https://github.com/googlefonts/onest | The copyright line and the license with every copy: the notice below, the full license beside the fonts in `composeResources/files/licenses/OFL-Onest.txt`, and the Open-source licenses screen in every build. The files are static instances of the variable font (weights 400 to 700), made with fontTools' instancer; the family has no Reserved Font Name, so they keep theirs. |
+| `composeApp/src/commonMain/composeResources/font/oswald_*.ttf` | The Oswald Project Authors | OFL-1.1 | https://github.com/googlefonts/OswaldFont | As for Onest: the notice below, the license in `composeResources/files/licenses/OFL-Oswald.txt`, and the Open-source licenses screen. Static instances of the variable font (weights 500 and 600); no Reserved Font Name. |
 | `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar` | The Gradle authors | Apache-2.0 | https://github.com/gradle/gradle | Keep the headers the two scripts carry. Build tooling: never part of the app. |
 | `shared/src/desktopTest/kotlin/app/gains/auth/GoogleOAuthTest.kt`, the PKCE example values only | IETF Trust (RFC 7636, Appendix B) | The IETF Trust Legal Provisions | https://www.rfc-editor.org/rfc/rfc7636#appendix-B | Nothing beyond the reference: they are the RFC's published test vector, used in a test and never shipped. |
 
@@ -56,6 +58,20 @@ The exercise drawings' notice, word for word:
 > lines in its own colours, and a small copy of each start drawing, cropped closer, marks the
 > exercise in the exercise picker. The adapted drawings are licensed under CC BY-SA 4.0 too. They
 > are provided as is, without warranties.
+
+Onest's notice, word for word:
+
+> Copyright 2021 The Onest Project Authors (https://github.com/googlefonts/onest)
+>
+> This Font Software is licensed under the SIL Open Font License, Version 1.1.
+> The license is in composeResources/files/licenses/OFL-Onest.txt and at https://openfontlicense.org
+
+Oswald's notice, word for word:
+
+> Copyright 2016 The Oswald Project Authors (https://github.com/googlefonts/OswaldFont)
+>
+> This Font Software is licensed under the SIL Open Font License, Version 1.1.
+> The license is in composeResources/files/licenses/OFL-Oswald.txt and at https://openfontlicense.org
 
 ## Credits that owe nothing
 

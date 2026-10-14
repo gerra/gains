@@ -12,67 +12,39 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.PathParser
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.gains.ui.charts.ChartMath
 
 // Brand colours are fixed so the mark looks the same in both themes and matches the launcher icons.
-private val LogoVolt = Color(0xFFC8FF4D)
-private val LogoViolet = Color(0xFF8B7CFF)
-private val LogoCyan = Color(0xFF4DD9FF)
-private val LogoInk = Color(0xFF0B0D12)
-private val LogoInkTop = Color(0xFF1A2238)
+private val LogoTile = Color(0xFF1B1E22)
+private val LogoChalk = Color(0xFFF2F0EB)
+private val LogoGreen = Color(0xFF62D99A)
+private val LogoBar = Color(0xFF8E949C)
 
-/** Trend-line points as fractions of the tile; the same geometry is baked into the iOS and Android app icons. */
-private val LogoPoints = listOf(0.14f to 0.74f, 0.34f to 0.60f, 0.50f to 0.66f, 0.66f to 0.46f, 0.86f to 0.26f)
-private val LogoBars = listOf(0.22f to 0.78f, 0.40f to 0.70f, 0.58f to 0.74f, 0.76f to 0.58f)
+// The end of a loaded barbell seen from the side, on a 100-unit tile: the sleeve, three plates
+// stepping up towards the middle of the bar, and the bar running on. Plates going up is
+// progressive overload, which is what "gains" means; the biggest, newest plate is the green one.
+// The same paths are baked into the iOS AppIcon, the Android launcher drawables and the site's icons.
+private val LogoBarPath = PathParser().parsePathString("M16.5,46.5H22.5A3.5,3.5 0 0,1 26,50V50A3.5,3.5 0 0,1 22.5,53.5H16.5A3.5,3.5 0 0,1 13,50V50A3.5,3.5 0 0,1 16.5,46.5ZM74.5,46.5H83.5A3.5,3.5 0 0,1 87,50V50A3.5,3.5 0 0,1 83.5,53.5H74.5A3.5,3.5 0 0,1 71,50V50A3.5,3.5 0 0,1 74.5,46.5Z").toPath()
+private val LogoSmallPlates = PathParser().parsePathString("M28.2,37H34.8A3.2,3.2 0 0,1 38,40.2V59.8A3.2,3.2 0 0,1 34.8,63H28.2A3.2,3.2 0 0,1 25,59.8V40.2A3.2,3.2 0 0,1 28.2,37ZM45.2,29H51.8A3.2,3.2 0 0,1 55,32.2V67.8A3.2,3.2 0 0,1 51.8,71H45.2A3.2,3.2 0 0,1 42,67.8V32.2A3.2,3.2 0 0,1 45.2,29Z").toPath()
+private val LogoBigPlate = PathParser().parsePathString("M62.2,19H68.8A3.2,3.2 0 0,1 72,22.2V77.8A3.2,3.2 0 0,1 68.8,81H62.2A3.2,3.2 0 0,1 59,77.8V22.2A3.2,3.2 0 0,1 62.2,19Z").toPath()
 
-/** The Gains mark: a dark rounded tile with an ascending trend line that ends in a target dot. */
+/** The Gains mark: a loaded bar's plates stepping up, on a graphite tile. Flat, three colours, legible at 16 px. */
 @Composable
-internal fun GainsLogo(modifier: Modifier = Modifier, size: Dp = 56.dp, cornerFraction: Float = 0.24f) {
+internal fun GainsLogo(modifier: Modifier = Modifier, size: Dp = 56.dp, cornerFraction: Float = 0.22f) {
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
-        val tile = Path().apply { addRoundRect(RoundRect(0f, 0f, s, s, CornerRadius(s * cornerFraction))) }
-        clipPath(tile) {
-            drawRect(Brush.linearGradient(listOf(LogoInkTop, LogoInk), Offset.Zero, Offset(s, s)))
-            fun glow(color: Color, cx: Float, cy: Float, r: Float, alpha: Float) {
-                val c = Offset(cx, cy)
-                drawCircle(Brush.radialGradient(listOf(color.copy(alpha = alpha), color.copy(alpha = 0f)), c, r), r, c)
-            }
-            glow(LogoVolt, s * 0.80f, s * 0.22f, s * 0.55f, 0.30f)
-            glow(LogoViolet, s * 0.18f, s * 0.85f, s * 0.60f, 0.35f)
-            glow(LogoCyan, s * 0.15f, s * 0.25f, s * 0.40f, 0.15f)
-
-            val barW = s * 0.10f
-            for ((x, top) in LogoBars) {
-                drawRoundRect(Color.White.copy(alpha = 0.07f), Offset(s * x - barW / 2, s * top), Size(barW, s * 0.92f - s * top), CornerRadius(barW * 0.3f))
-            }
-
-            val pts = LogoPoints.map { (x, y) -> Offset(x * s, y * s) }
-            val curve = ChartMath.smoothPath(pts)
-            val area = Path().apply { addPath(curve); lineTo(pts.last().x, s * 0.92f); lineTo(pts.first().x, s * 0.92f); close() }
-            drawPath(area, Brush.verticalGradient(listOf(LogoVolt.copy(alpha = 0.45f), LogoVolt.copy(alpha = 0f)), startY = pts.last().y, endY = s * 0.92f))
-            // Soft halo under the line, then the line itself.
-            drawPath(curve, LogoVolt.copy(alpha = 0.3f), style = Stroke(width = s * 0.15f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-            drawPath(curve, LogoVolt, style = Stroke(width = s * 0.075f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
-            val end = pts.last()
-            drawCircle(LogoVolt.copy(alpha = 0.25f), s * 0.10f, end)
-            drawCircle(LogoVolt, s * 0.055f, end)
-            drawCircle(LogoInk, s * 0.025f, end)
+        drawRoundRect(LogoTile, size = Size(s, s), cornerRadius = CornerRadius(s * cornerFraction))
+        scale(s / 100f, pivot = Offset.Zero) {
+            drawPath(LogoBarPath, LogoBar)
+            drawPath(LogoSmallPlates, LogoChalk)
+            drawPath(LogoBigPlate, LogoGreen)
         }
     }
 }
@@ -85,9 +57,8 @@ internal fun GainsWordmark(modifier: Modifier = Modifier, markSize: Dp = 26.dp) 
         Spacer(Modifier.width(8.dp))
         Text(
             "GAINS",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 2.sp,
+            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 20.sp, lineHeight = 24.sp),
+            letterSpacing = 1.5.sp,
             color = MaterialTheme.colorScheme.onSurface,
         )
     }

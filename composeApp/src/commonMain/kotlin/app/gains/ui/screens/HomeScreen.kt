@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.gains.analysis.Dates
 import app.gains.analysis.Achievements
 import app.gains.analysis.Format
@@ -60,6 +61,7 @@ import app.gains.program.Rotation
 import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.DeltaBadge
+import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.LevelRing
@@ -303,7 +305,7 @@ private fun ProgramCard(
             program != null && day != null -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.up_next, program.displayName().uppercase()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Text(stringResource(Res.string.up_next, program.displayName()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         Spacer(Modifier.height(4.dp))
                         // After a workout the rotation moves on, and the new day is seen taking the old one's place.
                         RollingText(day.displayName(), MaterialTheme.typography.headlineSmall, MaterialTheme.colorScheme.onSurface)
@@ -335,22 +337,18 @@ private fun ProgramCard(
             }
             state.profile != null -> {
                 val profile = state.profile
-                Text(stringResource(Res.string.pick_a_program), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
                 Text(stringResource(Res.string.profile_summary, profile.goal.label(), profile.experience.label(), daysAWeekText(profile.daysPerWeek)), style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(stringResource(Res.string.choose_routine_blurb), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(10.dp))
-                Row { Pill(stringResource(Res.string.choose_a_program), palette.volt, filled = true, onClick = onOpenPrograms) }
+                Spacer(Modifier.height(12.dp))
+                PrimaryButton(stringResource(Res.string.choose_a_program), onOpenPrograms, compact = true)
             }
             else -> {
-                Text(stringResource(Res.string.set_your_goal), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
                 Text(stringResource(Res.string.what_are_you_training_for), style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(stringResource(Res.string.three_quick_questions), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(10.dp))
-                Row { Pill(stringResource(Res.string.get_started), palette.volt, filled = true, onClick = onOpenOnboarding) }
+                Spacer(Modifier.height(12.dp))
+                PrimaryButton(stringResource(Res.string.get_started), onOpenOnboarding, compact = true)
             }
         }
     }
@@ -362,9 +360,9 @@ private fun HeroStats(state: HomeState) {
     val palette = GainsColors.palette
     val regressions = state.insights.count { it.kind == InsightKind.REGRESSION }
     val progress = state.insights.count { it.kind == InsightKind.PROGRESS }
-    Spacer(Modifier.height(18.dp))
+    Spacer(Modifier.height(14.dp))
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(12.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         HeroStat(stringResource(Res.string.hero_sessions), state.sessionCount.toString())
         HeroStat(stringResource(Res.string.hero_lifts), state.exerciseCount.toString())
@@ -382,9 +380,9 @@ private fun HeroStats(state: HomeState) {
 private fun TrophiesCard(state: HomeState, onOpen: () -> Unit) {
     val palette = GainsColors.palette
     val level = state.level
-    GainsCard(Modifier.fillMaxWidth(), onClick = onOpen) {
+    GainsCard(Modifier.fillMaxWidth(), onClick = onOpen, contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            LevelRing(level.level, level.fraction.toFloat(), size = 56.dp, style = MaterialTheme.typography.titleLarge)
+            LevelRing(level.level, level.fraction.toFloat(), size = 48.dp, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 RollingText(stringResource(Res.string.level_label, level.level), MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.onSurface)
@@ -406,8 +404,8 @@ private const val REMIND_FROM_WEEKS = 2
 @Composable
 private fun HeroStat(label: String, value: String, color: Color? = null) {
     Column {
-        RollingText(value, MaterialTheme.typography.headlineMedium, color ?: MaterialTheme.colorScheme.onSurface)
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        RollingText(value, MaterialTheme.typography.displaySmall.copy(fontSize = 26.sp, lineHeight = 30.sp), color ?: MaterialTheme.colorScheme.onSurface)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -443,12 +441,12 @@ internal fun InsightCard(insight: Insight, unit: WeightUnit, onClick: () -> Unit
             RoundedIconBox(color) { Text(insight.kind.glyph(), style = MaterialTheme.typography.titleLarge, color = color) }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
+                // The kind in its colour is enough of a label; the card's title says what moved.
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Pill(insight.kind.label(), color)
-                    Spacer(Modifier.weight(1f))
+                    Text(insight.kind.label(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color, modifier = Modifier.weight(1f))
                     insight.delta?.let { DeltaBadge(it) }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(insightTitle(insight), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(2.dp))
                 Text(insightDetail(insight, unit, today), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

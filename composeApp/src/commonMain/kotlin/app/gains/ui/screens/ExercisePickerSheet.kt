@@ -53,6 +53,7 @@ import app.gains.domain.Exercise
 import app.gains.domain.Modality
 import app.gains.domain.MuscleGroup
 import app.gains.ui.components.Pill
+import app.gains.ui.components.Tag
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.RoundedIconBox
 import app.gains.ui.demo.ExerciseThumbnail
@@ -250,8 +251,8 @@ private fun FilterChip(label: String, active: Boolean, onClick: () -> Unit) {
 @Composable
 private fun SectionLabel(text: String) {
     Text(
-        text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
+        text,
+        style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 14.dp, bottom = 6.dp),
     )
@@ -304,7 +305,7 @@ private fun PickerRow(e: Exercise, name: String, selected: Boolean, added: Boole
         }
         Spacer(Modifier.width(10.dp))
         if (added) {
-            Pill(stringResource(Res.string.added), palette.muted)
+            Tag(stringResource(Res.string.added))
         } else {
             Box(
                 Modifier

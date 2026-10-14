@@ -29,6 +29,7 @@ import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToString
@@ -338,7 +339,8 @@ class ScreenshotTest {
         require(text("Chest"))
         settle(1_500)
         shot("07b-volume-muscle")
-        onNode(text("Show all") and hasClickAction()).performClick()
+        // The pill sits under the map, below the fold on a phone-sized window: clicked through its semantics.
+        onNode(text("Show all") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         settle()
         check(!exists(text("Show all"))) { "Show all did not clear the muscle-map selection" }
         if (recordingClips) clip("volume-weeks") {
@@ -546,7 +548,7 @@ class ScreenshotTest {
         // swaps in a longer hint that moves the muscle chips down, and a tap made before that layout
         // lands where a chip used to be.
         onAllNodes(hasText("Cardio") and hasClickAction()).onLast().performClick()
-        settle(100)
+        settle(800)
         for (muscle in listOf("Forearms", "Lats", "Biceps", "Biceps")) {
             onAllNodes(hasText(muscle) and hasClickAction()).onLast().performClick()
             settle(100)
@@ -695,9 +697,9 @@ class ScreenshotTest {
     private fun standInPhoto(): ByteArray {
         val image = BufferedImage(1200, 900, BufferedImage.TYPE_INT_RGB)
         val g = image.createGraphics()
-        g.paint = GradientPaint(0f, 0f, AwtColor(0x1B, 0x20, 0x2C), 1200f, 900f, AwtColor(0x3A, 0x4A, 0x20))
+        g.paint = GradientPaint(0f, 0f, AwtColor(0x1B, 0x1E, 0x22), 1200f, 900f, AwtColor(0x2A, 0x3A, 0x32))
         g.fillRect(0, 0, 1200, 900)
-        g.color = AwtColor(0xC8, 0xFF, 0x4D)
+        g.color = AwtColor(0xF2, 0xF0, 0xEB)
         g.fillRoundRect(120, 380, 960, 60, 30, 30)
         for (x in intArrayOf(60, 1020)) g.fillRoundRect(x, 300, 120, 220, 24, 24)
         g.dispose()

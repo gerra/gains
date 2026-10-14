@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,7 +65,10 @@ import app.gains.ui.theme.rememberPreviouslyShown
 import app.gains.ui.theme.roll
 import kotlinx.coroutines.launch
 
-/** Rounded, softly graded surface used for every card in the app. Press feedback is a gentle scale. */
+/**
+ * The flat surface every card in the app sits on: one step up from the floor, with a hairline edge
+ * only on the light theme, where white on pale grey needs one. Press feedback is a gentle scale.
+ */
 @Composable
 internal fun GainsCard(
     modifier: Modifier = Modifier,
@@ -83,7 +87,7 @@ internal fun GainsCard(
             .scale(scale)
             .clip(shape)
             .background(brush ?: palette.cardBrush())
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (palette.isDark) 0.6f else 1f), shape)
+            .then(if (palette.isDark) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape))
             .then(if (onClick != null) Modifier.clickable(interaction, indication = null, onClick = onClick) else Modifier)
             .padding(contentPadding.dp)
             .animateContentSize(),
@@ -91,7 +95,7 @@ internal fun GainsCard(
     )
 }
 
-internal enum class Dp16(val dp: androidx.compose.ui.unit.Dp) { None(0.dp), Tight(12.dp), Normal(18.dp), Loose(22.dp) }
+internal enum class Dp16(val dp: androidx.compose.ui.unit.Dp) { None(0.dp), Tight(14.dp), Normal(16.dp), Loose(20.dp) }
 
 /** Large screen heading with an optional muted subtitle. */
 @Composable
@@ -104,9 +108,10 @@ internal fun ScreenTitle(
     onSubtitleClick: (() -> Unit)? = null,
 ) {
     val palette = GainsColors.palette
-    Row(modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().padding(top = 4.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.headlineLarge)
+            if (subtitle != null) Spacer(Modifier.height(2.dp))
             if (subtitle != null) {
                 if (onSubtitleClick == null) {
                     Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -126,8 +131,8 @@ internal fun ScreenTitle(
 
 @Composable
 internal fun SectionHeader(text: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
-    Row(modifier.fillMaxWidth().padding(top = 20.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+    Row(modifier.fillMaxWidth().padding(top = 24.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
         action?.invoke()
     }
 }
@@ -136,16 +141,32 @@ internal fun SectionHeader(text: String, modifier: Modifier = Modifier, action: 
 @Composable
 internal fun Pill(text: String, color: Color, modifier: Modifier = Modifier, filled: Boolean = false, onClick: (() -> Unit)? = null) {
     // A pill that turns on (a chosen chip, "Active") eases into it rather than blinking.
-    val background by animateColorAsState(if (filled) color else color.copy(alpha = 0.16f), Motion.standard(), label = "pill")
+    val background by animateColorAsState(if (filled) color else color.copy(alpha = 0.14f), Motion.standard(), label = "pill")
     val content by animateColorAsState(if (filled) MaterialTheme.colorScheme.onPrimary else color, Motion.standard(), label = "pill-text")
     Box(
         modifier
             .clip(CircleShape)
             .background(background)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 9.dp, vertical = 3.dp),
     ) {
         Text(text, style = MaterialTheme.typography.labelSmall, color = content, maxLines = 1, softWrap = false)
+    }
+}
+
+/**
+ * A quiet, uncoloured label for facts about a thing (days a week, level, goal), so the coloured
+ * [Pill]s keep meaning a signal: a record, a stall, the active program.
+ */
+@Composable
+internal fun Tag(text: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
     }
 }
 
@@ -172,8 +193,8 @@ internal fun MetricTile(
     roll: Boolean = true,
 ) {
     GainsCard(modifier, onClick = onClick, contentPadding = Dp16.Tight) {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(4.dp))
         val style = if (large) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall
         val color = accent ?: MaterialTheme.colorScheme.onSurface
         // The figure shrinks to fit its tile rather than losing its end: "1 h 23 min" in a third of a
@@ -262,25 +283,49 @@ internal fun EmptyState(
     }
 }
 
+/**
+ * The one thing to do on a screen: chalk on the dark theme, ink on the light. [compact] is the size
+ * for an action inside a card. The label stays on one line and shrinks a little rather than wrap,
+ * so two buttons side by side keep their text level.
+ */
 @Composable
-internal fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+internal fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, compact: Boolean = false) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(if (compact) 36.dp else ButtonHeight),
         enabled = enabled,
-        shape = CircleShape,
+        shape = if (compact) MaterialTheme.shapes.small else MaterialTheme.shapes.medium,
+        contentPadding = ButtonPadding(compact),
         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-    ) { Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+    ) { ButtonLabel(text, compact) }
 }
 
 @Composable
-internal fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
-        shape = CircleShape,
+        modifier = modifier.height(if (compact) 36.dp else ButtonHeight),
+        shape = if (compact) MaterialTheme.shapes.small else MaterialTheme.shapes.medium,
+        contentPadding = ButtonPadding(compact),
         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest, contentColor = MaterialTheme.colorScheme.onSurface),
-    ) { Text(text, style = MaterialTheme.typography.labelLarge) }
+    ) { ButtonLabel(text, compact) }
+}
+
+internal val ButtonHeight = 46.dp
+
+private fun ButtonPadding(compact: Boolean) = PaddingValues(horizontal = if (compact) 14.dp else 18.dp)
+
+@Composable
+private fun ButtonLabel(text: String, compact: Boolean) {
+    val style = if (compact) MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold) else MaterialTheme.typography.labelLarge
+    BasicText(
+        text,
+        style = style.copy(color = androidx.compose.material3.LocalContentColor.current, textAlign = TextAlign.Center),
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
+        autoSize = TextAutoSize.StepBased(minFontSize = style.fontSize * 0.8f, maxFontSize = style.fontSize, stepSize = 0.5.sp),
+    )
 }
 
 /** Thin horizontal meter used in the volume table. */
@@ -310,7 +355,7 @@ internal fun Dot(color: Color, size: androidx.compose.ui.unit.Dp = 10.dp, modifi
 @Composable
 internal fun RoundedIconBox(color: Color, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Box(
-        modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = 0.16f)),
+        modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = 0.14f)),
         contentAlignment = Alignment.Center,
         content = { content() },
     )

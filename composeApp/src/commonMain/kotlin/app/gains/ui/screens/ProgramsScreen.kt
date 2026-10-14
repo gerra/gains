@@ -97,13 +97,13 @@ internal fun ProgramsScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
 
 @Composable
 private fun ProgramRow(program: Program, active: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    GainsCard(modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = onClick, contentPadding = Dp16.Tight) {
+    GainsCard(modifier.fillMaxWidth().padding(bottom = 10.dp), onClick = onClick, contentPadding = Dp16.Normal) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(program.displayName(), style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(8.dp))
                 ProgramTags(program, active)
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     program.days.map { it.displayName() }.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,

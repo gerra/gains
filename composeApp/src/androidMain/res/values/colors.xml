@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#0B0D12</color>
-    <!-- The dark theme's volt accent, tinting the workout notification's icon and clock. -->
-    <color name="notification_accent">#C8FF4D</color>
+    <color name="ic_launcher_background">#1B1E22</color>
+    <!-- The progress green of the dark theme, tinting the workout notification's icon and clock. -->
+    <color name="notification_accent">#62D99A</color>
 </resources>

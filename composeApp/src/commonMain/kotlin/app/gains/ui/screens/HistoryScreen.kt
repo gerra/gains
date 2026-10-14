@@ -59,6 +59,7 @@ import app.gains.ui.components.GainsCard
 import app.gains.ui.components.MetricTile
 import app.gains.ui.components.PickerSheet
 import app.gains.ui.components.Pill
+import app.gains.ui.components.Tag
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.RecordCountPill
 import app.gains.ui.components.ScreenTitle
@@ -286,7 +287,7 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                     Text(dateContextual(session.date, today), style = MaterialTheme.typography.titleMedium)
                     if (dayName != null) {
                         Spacer(Modifier.width(8.dp))
-                        Pill(dayName, palette.cyan)
+                        Tag(dayName)
                     }
                     // A star and the count for a session that set records: what the feed is scanned for.
                     if (records > 0) {
@@ -310,7 +311,7 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (session.hasPhoto) {
-                            Pill(stringResource(Res.string.photo_pill), palette.amber)
+                            Tag(stringResource(Res.string.photo_pill))
                             Spacer(Modifier.width(6.dp))
                         }
                         session.caption?.let {
@@ -322,7 +323,7 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text(setsText(session.workingSetCount), style = MaterialTheme.typography.titleSmall)
-                Pill(if (session.isManual) stringResource(Res.string.logged) else session.source.replaceFirstChar { it.uppercase() }, if (session.isManual) palette.volt else palette.muted)
+                Tag(if (session.isManual) stringResource(Res.string.logged) else session.source.replaceFirstChar { it.uppercase() })
             }
         }
     }
