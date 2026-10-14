@@ -206,10 +206,38 @@ Changing the mark means changing all of them.
 4. `python3 tools/store_screenshots.py` remakes the store and site pictures from the screenshots;
    the Screenshots workflow does both after a merge.
 
+## The website
+
+[gains.gerra.sh](https://gains.gerra.sh) (`site/`, plain HTML and one `site/style.css`) follows
+the same rules, translated to the web:
+
+- **Colour.** The CSS variables at the top of `style.css` are Theme.kt's colours under the same
+  roles: `--bg`, `--card`, `--raised` (`surfaceContainerHighest`), `--text`, `--muted`,
+  `--primary` / `--on-primary`, `--outline` for fields, `--divider` for rules, and the accents by
+  name. Change a colour in Theme.kt and change it here.
+- **Type.** The app's fonts, served from `site/fonts/` as WOFF2 cut to Latin, with their licenses
+  beside them. Body text is 17 px (a web page is read at arm's length), secondary text, buttons
+  and the nav 15, captions 13; section titles are Oswald 32 and a page's headline Oswald 52.
+  Weights 400 and 600, sentence case; the wordmark is the one word in capitals.
+- **Buttons** are the app's: 48 px high, 14 px corners, a 15 px semibold label on one line.
+  `.button.primary` is chalk on dark and ink on light with the faint top highlight; one per
+  page section. `.button.secondary` is the raised fill. Not green, not a pill.
+- **Cards** (`.surface`, `.card`, the feature list) are flat `--card` with 18 px corners, padded
+  20, 24 for the guest list, 12 apart; on dark a 5 % chalk edge, on light an ink-tinted shadow.
+  The hero card carries the welcome screen's still green wash; no other gradient.
+- **Facts and signals.** "Training log · iPhone" is a `.tag` (neutral). Colour appears only as a
+  `.pill` in the accent that means it, as on the Insights card; feature cards get no coloured dots.
+- **Space.** Multiples of 4 and mostly 8; a 20 px gutter; links and nav items are 44 px targets.
+- Check it by serving `site/` (`python3 -m http.server -d site`) and looking at the pages at
+  390 px and on a wide window, in both colour schemes.
+
 ## Log
 
 Newest first. One line per change to the rules, with the reason.
 
+- **2026-10-14** The website follows the redesign: the app's fonts, chalk / ink buttons in place
+  of green pills, flat cards with the app's depth, sentence-case labels instead of tracked
+  capitals, signal pills instead of decorative coloured dots. Written down under [The website](#the-website).
 - **2026-10-14** Applied the mobile-app-ui-design skill's rules: four type sizes and two weights,
   the 8-point grid, 44 pt targets, actions in the thumb zone (the workout's clock and Start at the
   bottom, Home's Start bar), tinted shadows on light. Home's level card moved below "What's moving"
