@@ -99,7 +99,7 @@
     <string name="programs_that_fit">Подходящие программы</string>
     <string name="best_match">Лучший вариант</string>
     <string name="use_this_program">Выбрать эту программу</string>
-    <string name="just_save_my_goal">Только сохранить цель</string>
+    <string name="just_save_my_goal">Пока без программы</string>
     <string name="next">Далее</string>
     <string name="active">Активна</string>
     <string name="no_workouts_yet">Тренировок пока нет</string>
@@ -112,13 +112,13 @@
     <string name="one_session_imported">Импортирована одна тренировка. Для выводов нужно несколько недель истории для сравнения.</string>
     <string name="nothing_to_flag">Пока отмечать нечего. Продолжай импортировать — и тренды появятся здесь.</string>
     <string name="whole_program">Вся программа ›</string>
-    <string name="pick_a_program">ВЫБЕРИ ПРОГРАММУ</string>
+    <string name="pick_a_program">Выбери программу</string>
     <string name="choose_routine_blurb">Выбери программу — и каждый её день станет готовой тренировкой с твоими последними весами.</string>
-    <string name="choose_a_program">Выбрать программу ›</string>
-    <string name="set_your_goal">ЗАДАЙ ЦЕЛЬ</string>
+    <string name="choose_a_program">Выбрать программу</string>
+    <string name="set_your_goal">Задай цель</string>
     <string name="what_are_you_training_for">Ради чего тренируешься?</string>
     <string name="three_quick_questions">Три коротких вопроса — и программа под твою неделю, где каждый день уже готовая тренировка.</string>
-    <string name="get_started">Начать ›</string>
+    <string name="get_started">Начать</string>
     <string name="this_week">Эта неделя</string>
     <string name="hero_sessions">Тренировок</string>
     <string name="hero_lifts">Упражнений</string>
@@ -417,11 +417,11 @@
     <string name="kept_as_timed">Как по таймеру.</string>
     <string name="save_session">Сохранить</string>
     <string name="back_to_workout">К тренировке</string>
-    <string name="ready">ГОТОВО К СТАРТУ</string>
+    <string name="ready">Готово к старту</string>
     <string name="nothing_planned_yet">План пока пуст</string>
     <string name="start_workout">Начать тренировку</string>
-    <string name="total">ВСЕГО</string>
-    <string name="rest">ОТДЫХ</string>
+    <string name="total">Всего</string>
+    <string name="rest">Отдых</string>
     <string name="skip">Пропустить</string>
     <string name="ok">ОК</string>
     <string name="end">Завершить</string>
@@ -431,10 +431,10 @@
     <string name="weights_from_other_scheme">Веса оценены по другой схеме этой программы.</string>
     <string name="weights_from_free_sessions">Веса оценены по твоим свободным тренировкам.</string>
     <string name="start_blank">Начать с нуля</string>
-    <string name="column_set">ПОДХ</string>
-    <string name="column_prev">БЫЛО</string>
-    <string name="column_reps">ПОВТ</string>
-    <string name="column_seconds">СЕК</string>
+    <string name="column_set">Подх</string>
+    <string name="column_prev">Было</string>
+    <string name="column_reps">Повт</string>
+    <string name="column_seconds">Сек</string>
     <string name="column_km">КМ</string>
     <string name="add_set">Добавить подход</string>
     <string name="add_warm_up">Добавить разминку</string>
@@ -453,7 +453,6 @@
     <string name="choose_csv_exports">Выбери CSV-экспорты</string>
     <string name="rest_over">Отдых окончен</string>
     <string name="under_a_minute">меньше минуты</string>
-    <string name="days_per_week_tag">%1$d дн/нед</string>
     <string name="copy_of">%1$s (копия)</string>
     <string name="menu_start_day">Начать: %1$s</string>
     <string name="rest_countdown">Отдых %1$s</string>
@@ -642,7 +641,7 @@
     <string name="logged_twice_stored">%1$s · записано дважды (уже сохранено)</string>
     <string name="weight_for_set">Вес подхода %1$s, %2$s</string>
     <string name="previous_set">Прошлый подход %1$s, %2$s</string>
-    <string name="prev_from">БЫЛО:</string>
+    <string name="prev_from">Было:</string>
     <string name="free_workout_short">Свободная</string>
     <string name="prev_source">Сравнивать с %1$s</string>
     <string name="prev_source_selected">Сравнивать с %1$s, выбрано</string>
@@ -658,7 +657,7 @@
     <string name="browser_sign_in_done_title">Возвращайтесь в Gains</string>
     <string name="browser_sign_in_done">Эту вкладку можно закрыть и вернуться в Gains.</string>
     <string name="profile_summary">%1$s · %2$s · %3$s</string>
-    <string name="up_next">ДАЛЬШЕ · %1$s</string>
+    <string name="up_next">Дальше: %1$s</string>
     <string name="exercises_and_week_count">%1$s · %2$d из %3$d на этой неделе</string>
     <string name="stall_detail">%1$s с %2$s. %3$s, без изменений %4$s.</string>
     <string name="neglected_exercise_detail">Последний раз %1$s, %2$s назад, после %3$s за предыдущие %4$s.</string>
@@ -1174,7 +1173,7 @@
         <item quantity="other">Не включать их в тренировку или сохранить как выполненные?</item>
     </plurals>
     <!-- Итоги тренировки после завершения сессии. -->
-    <string name="workout_logged">ТРЕНИРОВКА ЗАПИСАНА</string>
+    <string name="workout_logged">Тренировка записана</string>
     <string name="tap_to_change">Нажми, чтобы изменить</string>
     <string name="muscles_trained">Какие мышцы работали</string>
     <string name="no_muscles_trained">Нет рабочих подходов, которые засчитались бы мышцам.</string>

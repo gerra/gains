@@ -162,7 +162,7 @@ internal fun BodyweightScreen() {
             val last = state.points.last()
             val first = state.points.first()
             val change = last.rollingAverageKg - first.rollingAverageKg
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricTile(stringResource(Res.string.latest), Format.weightValue(last.weightKg, unit), Modifier.weight(1f), caption = "${unit.label()} · ${dateContextual(last.date, today)}", accent = palette.volt)
                 MetricTile(stringResource(Res.string.seven_day_avg), Format.weightValue(last.rollingAverageKg, unit), Modifier.weight(1f), caption = unit.label())
                 MetricTile(stringResource(Res.string.change_label), (if (change >= 0) "+" else "") + Format.weightValue(change, unit), Modifier.weight(1f), caption = stringResource(Res.string.since_date, dateContextual(first.date, today)), accent = if (change == 0.0) null else if (change > 0) palette.amber else palette.cyan)
@@ -188,7 +188,7 @@ internal fun BodyweightScreen() {
         item { SectionHeader(stringResource(Res.string.entries)) }
         items(state.points.asReversed(), key = { it.date.toString() }) { p ->
             // A new entry slides the list down to make room; a deleted one fades and the list closes up.
-            GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+            GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 8.dp), contentPadding = Dp16.Tight) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(dateContextual(p.date, today), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     Text(weightText(p.weightKg, unit, 1), style = MaterialTheme.typography.titleSmall)
@@ -217,7 +217,7 @@ private fun EntryForm(unit: WeightUnit, today: LocalDate, lastWeightKg: Double?,
         ChooserRow(stringResource(Res.string.date), if (date == today) stringResource(Res.string.today) else dateContextual(date, today), onClick = { datePickerOpen = true })
         HorizontalDivider(color = hairline)
         ChooserRow(stringResource(Res.string.weight_label), if (weight > 0) Format.number(weight, 2) + " " + unit.label() else stringResource(Res.string.not_set), onClick = { weightPickerOpen = true }, muted = weight <= 0)
-        if (error) Text(stringResource(Res.string.choose_a_weight), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
+        if (error) Text(stringResource(Res.string.choose_a_weight), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(12.dp))
         PrimaryButton(stringResource(Res.string.save_entry), onClick = {
             if (weight <= 0) error = true
@@ -246,7 +246,7 @@ private fun OverlayPicker(exercises: List<Exercise>, selected: Exercise?, onPick
             for (e in exercises) DropdownMenuItem(text = { Text(e.displayName()) }, onClick = { onPick(e); open = false })
         }
         if (selected != null) {
-            Text(stringResource(Res.string.right_axis_blurb), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            Text(stringResource(Res.string.right_axis_blurb), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }

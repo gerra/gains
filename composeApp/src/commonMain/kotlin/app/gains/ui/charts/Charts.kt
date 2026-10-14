@@ -54,6 +54,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.gains.ui.theme.TypeScale
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
 import app.gains.ui.i18n.*
@@ -216,7 +217,7 @@ internal fun LineChart(
     val palette = GainsColors.palette
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = palette.gridLine
-    val style = TextStyle(fontSize = 10.sp, color = labelColor)
+    val style = TextStyle(fontSize = TypeScale.CAPTION.sp, color = labelColor)
     val primary = series.filter { !it.secondaryAxis }
     val secondary = series.filter { it.secondaryAxis }
     val progress = rememberDrawProgress(series.map { it.points })
@@ -320,7 +321,7 @@ internal fun StackedBarChart(
     val palette = GainsColors.palette
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = palette.gridLine
-    val style = TextStyle(fontSize = 10.sp, color = labelColor)
+    val style = TextStyle(fontSize = TypeScale.CAPTION.sp, color = labelColor)
     val progress = rememberDrawProgress(bars)
     Canvas(modifier.fillMaxWidth().height(height)) {
         if (bars.isEmpty()) return@Canvas
@@ -363,7 +364,7 @@ internal fun StackedBarChart(
             }
             val nearLast = i != bars.lastIndex && bars.lastIndex - i < maxOf(2, labelEvery)
             if ((i % labelEvery == 0 && !nearLast) || i == bars.lastIndex) {
-                axisLabel(measurer, bar.label, x + barW / 2, size.height - bottomPad + 6.dp.toPx(), if (i == bars.lastIndex) style.copy(fontWeight = FontWeight.Bold) else style, alignCenter = true)
+                axisLabel(measurer, bar.label, x + barW / 2, size.height - bottomPad + 6.dp.toPx(), if (i == bars.lastIndex) style.copy(fontWeight = FontWeight.SemiBold) else style, alignCenter = true)
             }
         }
         for (ref in references) {
@@ -398,7 +399,7 @@ internal fun Legend(items: List<Pair<String, Color>>, modifier: Modifier = Modif
         for ((label, color) in items) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.size(8.dp).clip(CircleShape).background(color))
-                Spacer(Modifier.width(5.dp))
+                Spacer(Modifier.width(4.dp))
                 Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

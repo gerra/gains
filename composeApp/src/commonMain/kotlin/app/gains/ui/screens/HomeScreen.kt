@@ -54,12 +54,12 @@ import app.gains.data.SettingsRepository
 import app.gains.domain.GoalProfile
 import app.gains.domain.Program
 import app.gains.domain.ProgramDay
-import app.gains.domain.ProgramDayRef
 import app.gains.domain.WeightUnit
 import app.gains.program.Rotation
 import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.DeltaBadge
+import app.gains.ui.components.Dp16
 import app.gains.ui.components.EmptyState
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.LevelRing
@@ -188,7 +188,6 @@ internal fun HomeScreen(
     onOpenOnboarding: () -> Unit = {},
     onOpenPrograms: () -> Unit = {},
     onOpenProgram: (String) -> Unit = {},
-    onStartDay: (ProgramDayRef) -> Unit = {},
     onOpenTrophies: () -> Unit = {},
 ) {
     val model = rememberScreenModel { HomeModel(inject(), inject(), inject(), inject(), inject()) }
@@ -209,7 +208,7 @@ internal fun HomeScreen(
         HomePhase.EMPTY -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {
                 Spacer(Modifier.height(8.dp))
-                ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram, onStartDay)
+                ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram)
                 EmptyState(
                     title = stringResource(Res.string.no_workouts_yet),
                     body = stringResource(Res.string.no_workouts_yet_body),
@@ -217,7 +216,7 @@ internal fun HomeScreen(
                     action = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             PrimaryButton(stringResource(Res.string.log_a_workout), onLog)
-                            Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.height(12.dp))
                             SecondaryButton(stringResource(Res.string.import_history), onImport)
                         }
                     },
@@ -232,7 +231,7 @@ internal fun HomeScreen(
                     trailing = { TextButton(onClick = onLog) { Text(stringResource(Res.string.plus_log), color = palette.volt) } },
                     onSubtitleClick = state.lastSessionId?.let { id -> { onOpenSession(id) } },
                 )
-                ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram, onStartDay)
+                ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram)
                 StreakCard(
                     state.streak,
                     Modifier.fillMaxWidth(),
@@ -241,10 +240,6 @@ internal fun HomeScreen(
                     onRemindMe = if (!state.reminderAnswered && state.streak.weeks >= REMIND_FROM_WEEKS) model::enableReminder else null,
                 ) {
                     HeroStats(state)
-                }
-                if (state.trophiesOn) {
-                    Spacer(Modifier.height(12.dp))
-                    TrophiesCard(state, onOpenTrophies)
                 }
             }
             item {
@@ -271,7 +266,13 @@ internal fun HomeScreen(
                     },
                     onOpenSession = onOpenSession,
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
+            }
+            // The level closes the screen: what is moving is read first, and the score for showing up is
+            // the last thing seen, a small reward at the end rather than a box in the way.
+            if (state.trophiesOn) item {
+                Spacer(Modifier.height(20.dp))
+                TrophiesCard(state, onOpenTrophies)
             }
         }
     } }
@@ -282,6 +283,7 @@ private enum class HomePhase { LOADING, EMPTY, READY }
 /**
  * The daily entry point above everything else: what to do today. Three states, in order of
  * how far the user has got: no goal yet, goal but no program, program active with the next day.
+ * Starting that day is the bar above the tabs (StartBar), where the thumb is; the card is the plan.
  */
 @Composable
 private fun ProgramCard(
@@ -289,7 +291,6 @@ private fun ProgramCard(
     onOpenOnboarding: () -> Unit,
     onOpenPrograms: () -> Unit,
     onOpenProgram: (String) -> Unit,
-    onStartDay: (ProgramDayRef) -> Unit,
 ) {
     val palette = GainsColors.palette
     val program = state.activeProgram
@@ -303,7 +304,7 @@ private fun ProgramCard(
             program != null && day != null -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.up_next, program.displayName().uppercase()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Text(stringResource(Res.string.up_next, program.displayName()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         Spacer(Modifier.height(4.dp))
                         // After a workout the rotation moves on, and the new day is seen taking the old one's place.
                         RollingText(day.displayName(), MaterialTheme.typography.headlineSmall, MaterialTheme.colorScheme.onSurface)
@@ -315,10 +316,8 @@ private fun ProgramCard(
                             Text(programPositionText(it), style = MaterialTheme.typography.labelSmall, color = palette.volt)
                         }
                     }
-                    Spacer(Modifier.width(12.dp))
-                    PrimaryButton(stringResource(Res.string.start), onClick = { onStartDay(ProgramDayRef(program.id, day.id)) })
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 // The whole rotation with today's day picked out, and a visible way into the full program.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val order = buildAnnotatedString {
@@ -335,22 +334,18 @@ private fun ProgramCard(
             }
             state.profile != null -> {
                 val profile = state.profile
-                Text(stringResource(Res.string.pick_a_program), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
                 Text(stringResource(Res.string.profile_summary, profile.goal.label(), profile.experience.label(), daysAWeekText(profile.daysPerWeek)), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
                 Text(stringResource(Res.string.choose_routine_blurb), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(10.dp))
-                Row { Pill(stringResource(Res.string.choose_a_program), palette.volt, filled = true, onClick = onOpenPrograms) }
+                Spacer(Modifier.height(12.dp))
+                PrimaryButton(stringResource(Res.string.choose_a_program), onOpenPrograms, compact = true)
             }
             else -> {
-                Text(stringResource(Res.string.set_your_goal), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
                 Text(stringResource(Res.string.what_are_you_training_for), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
                 Text(stringResource(Res.string.three_quick_questions), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(10.dp))
-                Row { Pill(stringResource(Res.string.get_started), palette.volt, filled = true, onClick = onOpenOnboarding) }
+                Spacer(Modifier.height(12.dp))
+                PrimaryButton(stringResource(Res.string.get_started), onOpenOnboarding, compact = true)
             }
         }
     }
@@ -362,9 +357,9 @@ private fun HeroStats(state: HomeState) {
     val palette = GainsColors.palette
     val regressions = state.insights.count { it.kind == InsightKind.REGRESSION }
     val progress = state.insights.count { it.kind == InsightKind.PROGRESS }
-    Spacer(Modifier.height(18.dp))
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     Spacer(Modifier.height(16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Spacer(Modifier.height(12.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         HeroStat(stringResource(Res.string.hero_sessions), state.sessionCount.toString())
         HeroStat(stringResource(Res.string.hero_lifts), state.exerciseCount.toString())
@@ -382,14 +377,14 @@ private fun HeroStats(state: HomeState) {
 private fun TrophiesCard(state: HomeState, onOpen: () -> Unit) {
     val palette = GainsColors.palette
     val level = state.level
-    GainsCard(Modifier.fillMaxWidth(), onClick = onOpen) {
+    GainsCard(Modifier.fillMaxWidth(), onClick = onOpen, contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            LevelRing(level.level, level.fraction.toFloat(), size = 56.dp, style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.width(14.dp))
+            LevelRing(level.level, level.fraction.toFloat(), size = 48.dp, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 RollingText(stringResource(Res.string.level_label, level.level), MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.onSurface)
                 Text(stringResource(Res.string.level_to_next, pointsText(level.toNext), level.level + 1), style = MaterialTheme.typography.bodySmall, color = palette.volt)
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
                     stringResource(Res.string.achievements_of, state.achievementsEarned, state.achievementsTotal) + " · " +
                         (if (state.recordsThisMonth > 0) stringResource(Res.string.records_this_month, recordsText(state.recordsThisMonth)) else stringResource(Res.string.no_records_this_month)),
@@ -406,8 +401,8 @@ private const val REMIND_FROM_WEEKS = 2
 @Composable
 private fun HeroStat(label: String, value: String, color: Color? = null) {
     Column {
-        RollingText(value, MaterialTheme.typography.headlineMedium, color ?: MaterialTheme.colorScheme.onSurface)
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        RollingText(value, MaterialTheme.typography.displaySmall, color ?: MaterialTheme.colorScheme.onSurface)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -441,20 +436,20 @@ internal fun InsightCard(insight: Insight, unit: WeightUnit, onClick: () -> Unit
     GainsCard(Modifier.fillMaxWidth(), onClick = onClick) {
         Row(verticalAlignment = Alignment.Top) {
             RoundedIconBox(color) { Text(insight.kind.glyph(), style = MaterialTheme.typography.titleLarge, color = color) }
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
+                // The kind in its colour is enough of a label; the card's title says what moved.
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Pill(insight.kind.label(), color)
-                    Spacer(Modifier.weight(1f))
+                    Text(insight.kind.label(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color, modifier = Modifier.weight(1f))
                     insight.delta?.let { DeltaBadge(it) }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(insightTitle(insight), style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(insightDetail(insight, unit, today), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (insight.sessions.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Spacer(Modifier.height(12.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         for (ref in insight.sessions.distinctBy { it.id }) {
                             Pill(stringResource(Res.string.session_link, dateContextual(ref.date, today)), palette.volt, onClick = { onOpenSession(ref.id) })
                         }

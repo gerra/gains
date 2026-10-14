@@ -275,13 +275,13 @@ internal fun bodyRestingColor(): Color = if (GainsColors.palette.isDark) Color(0
 internal fun BodyMapLegend(maxSets: Double = VolumeAnalyzer.JUNK_SETS, modifier: Modifier = Modifier) {
     val resting = bodyRestingColor()
     val accent = GainsColors.palette.volt
-    Row(modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(
             Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp))
                 .background(Brush.horizontalGradient(listOf(resting, lerp(resting, accent, 0.25f), accent))),
         )
         Text(stringResource(Res.string.legend_max_sets, maxSets.toInt()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(2.dp))
+        Spacer(Modifier.width(4.dp))
     }
 }

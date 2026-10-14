@@ -109,7 +109,7 @@ internal fun NewExerciseDialog(onDismiss: () -> Unit, onOpen: (String) -> Unit) 
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (existing != null) {
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         stringResource(Res.string.new_exercise_exists, existing.displayName()),
                         style = MaterialTheme.typography.bodySmall, color = palette.amber,
@@ -117,10 +117,10 @@ internal fun NewExerciseDialog(onDismiss: () -> Unit, onOpen: (String) -> Unit) 
                 }
 
                 Label(stringResource(Res.string.new_exercise_logged_as))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (m in Modality.entries) Chip(m.label(), if (modality == m) Credit.PRIMARY else Credit.NONE) { modality = m }
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(modality.loggingHint(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (modality == Modality.WEIGHTED) {
                     Spacer(Modifier.height(8.dp))
@@ -132,7 +132,7 @@ internal fun NewExerciseDialog(onDismiss: () -> Unit, onOpen: (String) -> Unit) 
                 val hint = if (modality == Modality.CARDIO) Res.string.new_exercise_muscles_hint_cardio else Res.string.new_exercise_muscles_hint
                 Text(stringResource(hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (g in MuscleGroup.entries) {
                         val credit = credits[g] ?: Credit.NONE
                         Chip(g.label(), credit) {
@@ -178,8 +178,8 @@ private fun Modality.loggingHint(): String = stringResource(when (this) {
 @Composable
 private fun Label(text: String) {
     Text(
-        text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
+        text,
+        style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
     )
@@ -204,7 +204,7 @@ private fun Chip(label: String, credit: Credit, onClick: () -> Unit) {
             .background(fill)
             .border(1.5.dp, if (credit == Credit.SECONDARY) palette.volt else Color.Transparent, CircleShape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = text)
     }

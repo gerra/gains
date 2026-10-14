@@ -140,14 +140,14 @@ internal fun ExercisesScreen(onOpen: (String) -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(row.name, style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(2.dp))
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             "${sessionsText(row.sessions)} · ${dateContextual(row.lastTrained, today)}" +
                                 if (row.exercise.modality == Modality.WEIGHTED && row.exercise.isDumbbell) stringResource(Res.string.per_dumbbell_suffix) else "",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(12.dp))
                     Sparkline(row.trend, trendColor)
                     Spacer(Modifier.width(12.dp))
                     Column(horizontalAlignment = Alignment.End) {

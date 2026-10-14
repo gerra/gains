@@ -128,7 +128,7 @@ private fun ExerciseDemo(exercise: Exercise) {
         Spacer(Modifier.demoWidth().aspectRatio(DEMO_RATIO))
         Spacer(Modifier.height(12.dp))
     }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         SecondaryButton(stringResource(Res.string.watch_video), onClick = { uriHandler.openUri(videoSearchUrl(name)) })
         Icon(Icons.Default.PlayArrow, null, tint = palette.volt, modifier = Modifier.size(18.dp))
         Text(stringResource(Res.string.watch_video_note), style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.weight(1f))
@@ -197,7 +197,7 @@ private fun FrameLoop(frames: Frames, name: String) {
             style = MaterialTheme.typography.labelSmall,
             color = Color.White,
             modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).clip(CircleShape)
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f)).padding(horizontal = 8.dp, vertical = 3.dp),
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f)).padding(horizontal = 8.dp, vertical = 4.dp),
         )
     }
 }

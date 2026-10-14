@@ -81,6 +81,18 @@ internal fun AppFrame(
                 LiveSessionBar(running, onResume = { navigator.push(Screen.EditSession(null, running.program, live = true)) })
             }
         }
+        AnimatedVisibility(
+            visible = live == null && screen == Screen.Home && upNext != null,
+            enter = if (reduceMotion) EnterTransition.None else expandVertically(tween(Motion.STANDARD)) + fadeIn(tween(Motion.STANDARD)),
+            exit = if (reduceMotion) ExitTransition.None else shrinkVertically(tween(Motion.STANDARD)) + fadeOut(tween(Motion.EXIT)),
+        ) {
+            // Kept while it folds away after the workout starts, so the button goes with its words.
+            var lastUpNext by remember { mutableStateOf(upNext) }
+            SideEffect { if (upNext != null) lastUpNext = upNext }
+            (upNext ?: lastUpNext)?.let { next ->
+                StartBar(next, onStart = { navigator.push(Screen.EditSession(null, next.ref, live = true)) })
+            }
+        }
         BottomNav(navigator)
     }
 }

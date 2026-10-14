@@ -64,7 +64,6 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
                 onOpenOnboarding = { navigator.push(Screen.Onboarding) },
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenProgram = { navigator.push(Screen.ProgramDetail(it)) },
-                onStartDay = { navigator.push(Screen.EditSession(null, it, live = true)) },
                 onOpenTrophies = { navigator.push(Screen.Trophies) },
             )
             Screen.Trophies -> TrophiesScreen(

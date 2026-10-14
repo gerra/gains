@@ -79,7 +79,7 @@ Add `-Pgains.openFile=samples/liftoff-export.csv` to the desktop run to start fr
 | [`tools/`](tools) | Release, TestFlight, Google Play and deploy scripts. |
 | [`site/`](site) | [gains.gerra.sh](https://gains.gerra.sh): landing page, privacy policy, support. Static HTML. |
 
-More: [how it works](docs/how-it-works.md) · [development](docs/development.md) ·
+More: [how it works](docs/how-it-works.md) · [development](docs/development.md) · [design](docs/design.md) ·
 [sync](docs/sync.md) · [TestFlight](docs/testflight.md) · [Google Play](docs/play.md) · [launch plan](docs/launch-plan.md)
 
 ## Contributing

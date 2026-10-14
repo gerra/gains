@@ -187,7 +187,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
             run {
                 GainsCard(Modifier.fillMaxWidth(), contentPadding = app.gains.ui.components.Dp16.Tight) {
                     for (f in p.files) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(f.name, style = MaterialTheme.typography.titleSmall)
                                 Text(
@@ -201,14 +201,14 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                     if (p.sessionsInSeveralFiles > 0) {
                         Text(
                             stringResource(Res.string.appeared_in_several_files, sessionsText(p.sessionsInSeveralFiles)),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
                         )
                     }
                 }
             }
             SectionHeader(stringResource(Res.string.weights_in_file_are_in))
             ChipRow(WeightUnit.entries, s.unit, { it.label() }, { model.setUnit(it) })
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             Text(stringResource(Res.string.unit_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
@@ -279,7 +279,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
         item {
             Spacer(Modifier.height(16.dp))
             val toWrite = p.commitCount(s.confirmedOutliers)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SecondaryButton(stringResource(Res.string.cancel), onCancel, Modifier.weight(1f))
                 PrimaryButton(if (toWrite == 0) stringResource(Res.string.nothing_new) else stringResource(Res.string.import_n, toWrite), { model.commit() }, Modifier.weight(1f), enabled = toWrite > 0)
             }

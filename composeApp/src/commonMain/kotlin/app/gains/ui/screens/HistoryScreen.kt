@@ -59,6 +59,7 @@ import app.gains.ui.components.GainsCard
 import app.gains.ui.components.MetricTile
 import app.gains.ui.components.PickerSheet
 import app.gains.ui.components.Pill
+import app.gains.ui.components.Tag
 import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.RecordCountPill
 import app.gains.ui.components.ScreenTitle
@@ -162,7 +163,7 @@ internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit, onOpenCa
                 TextButton(onClick = onLog) { Text(stringResource(Res.string.plus_log), color = palette.volt) }
             })
             val stats = state.stats
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricTile(stringResource(Res.string.per_week), stats?.let { Format.number(it.recentSessionsPerWeek, 1) } ?: "-", Modifier.weight(1f), caption = pluralStringResource(Res.plurals.last_n_weeks, stats?.weeks ?: 4, stats?.weeks ?: 4), accent = palette.volt)
                 MetricTile(
                     stringResource(Res.string.trend),
@@ -185,7 +186,7 @@ internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit, onOpenCa
             SectionHeader(stringResource(Res.string.calendar_title)) {
                 Text(
                     stringResource(Res.string.view_all) + " ›", style = MaterialTheme.typography.labelLarge, color = palette.volt,
-                    modifier = Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onOpenCalendar).padding(horizontal = 6.dp, vertical = 4.dp),
+                    modifier = Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onOpenCalendar).padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             }
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
@@ -260,7 +261,7 @@ private fun YearDivider(year: YearGroup) {
     val hairline = MaterialTheme.colorScheme.outlineVariant
     Row(Modifier.fillMaxWidth().padding(top = 24.dp), verticalAlignment = Alignment.CenterVertically) {
         HorizontalDivider(Modifier.weight(1f), color = hairline)
-        Column(Modifier.padding(horizontal = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(year.year.toString(), style = MaterialTheme.typography.titleLarge)
             Text(sessionsText(year.sessionCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -286,7 +287,7 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                     Text(dateContextual(session.date, today), style = MaterialTheme.typography.titleMedium)
                     if (dayName != null) {
                         Spacer(Modifier.width(8.dp))
-                        Pill(dayName, palette.cyan)
+                        Tag(dayName)
                     }
                     // A star and the count for a session that set records: what the feed is scanned for.
                     if (records > 0) {
@@ -300,7 +301,7 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
                     session.exercises.map { exercisesById[it.exerciseId]?.displayName() ?: it.exerciseId }.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
@@ -310,8 +311,8 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (session.hasPhoto) {
-                            Pill(stringResource(Res.string.photo_pill), palette.amber)
-                            Spacer(Modifier.width(6.dp))
+                            Tag(stringResource(Res.string.photo_pill))
+                            Spacer(Modifier.width(8.dp))
                         }
                         session.caption?.let {
                             Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -319,10 +320,10 @@ private fun SessionRow(session: Session, exercisesById: Map<String, Exercise>, t
                     }
                 }
             }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(12.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text(setsText(session.workingSetCount), style = MaterialTheme.typography.titleSmall)
-                Pill(if (session.isManual) stringResource(Res.string.logged) else session.source.replaceFirstChar { it.uppercase() }, if (session.isManual) palette.volt else palette.muted)
+                Tag(if (session.isManual) stringResource(Res.string.logged) else session.source.replaceFirstChar { it.uppercase() })
             }
         }
     }

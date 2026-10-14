@@ -40,7 +40,8 @@ import androidx.compose.ui.unit.dp
 /**
  * The app's motion, in one place so every screen moves alike. Motion here says what just changed —
  * a set ticked, a tab chosen, a number gone up — and is never decoration: nothing loops but the
- * few things that were already alive (the sign-in backdrop, the at-risk ring, the exercise demos).
+ * few things that were already alive (the trend drawing itself on the welcome card, the at-risk
+ * ring, the exercise demos).
  *
  * - [PRESS]: a finger on a card.
  * - [EXIT] / [STANDARD]: colours, fades and one piece of content handing over to another; the same

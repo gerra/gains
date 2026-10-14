@@ -103,7 +103,7 @@ internal fun MonthCalendar(
 
 @Composable
 private fun WeekdayHeader() {
-    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
         for (day in DayOfWeek.entries) {
             Text(
                 dayShort(day), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall,
@@ -172,7 +172,7 @@ private fun RowScope.DayCell(date: LocalDate, day: CalendarDay?, today: LocalDat
         // As in Liftoff, a trained day's figures fill the cell and its number, the same size as any
         // other day's, sits over them in the middle, a soft shadow lifting it off the light bodies.
         if (day != null && sessions > 0) {
-            MiniBodyMap(day.muscles, Modifier.fillMaxWidth().padding(horizontal = 3.dp), gap = CALENDAR_FIGURE_GAP)
+            MiniBodyMap(day.muscles, Modifier.fillMaxWidth().padding(horizontal = 4.dp), gap = CALENDAR_FIGURE_GAP)
         }
         Text(
             number, maxLines = 1, color = numberColor,
@@ -190,7 +190,7 @@ private const val CALENDAR_FIGURE_GAP = 180f
 private fun RestWeekLegend() {
     Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Start) {
         Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(GainsColors.palette.cyan.copy(alpha = 0.45f)))
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(8.dp))
         Text(stringResource(Res.string.calendar_rest_week_legend), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

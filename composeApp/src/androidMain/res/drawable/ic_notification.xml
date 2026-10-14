@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Status-bar icon for the workout-in-progress notification: the trend line from the launcher
+<!-- Status-bar icon for the workout-in-progress notification: the bar and plates from the launcher
      icon, white on transparent as small icons must be, scaled to fill the 24dp canvas. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
@@ -7,16 +7,10 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
     <group
-        android:scaleX="0.37"
-        android:scaleY="0.37"
-        android:translateX="-8.2"
-        android:translateY="-7.8">
-        <path
-            android:pathData="M30.24,69.84 C32.44,68.30 39.48,61.48 43.44,60.60 C47.40,59.72 50.48,66.10 54.00,64.56 C57.52,63.02 60.60,55.76 64.56,51.36 C68.52,46.96 75.56,40.36 77.76,38.16"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeWidth="7"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round" />
-        <path android:pathData="M77.76,38.16 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" android:fillColor="#FFFFFFFF" />
+        android:scaleX="0.297"
+        android:scaleY="0.297"
+        android:translateX="-2.86"
+        android:translateY="-2.86">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M16.5,46.5H22.5A3.5,3.5 0 0,1 26,50V50A3.5,3.5 0 0,1 22.5,53.5H16.5A3.5,3.5 0 0,1 13,50V50A3.5,3.5 0 0,1 16.5,46.5ZM74.5,46.5H83.5A3.5,3.5 0 0,1 87,50V50A3.5,3.5 0 0,1 83.5,53.5H74.5A3.5,3.5 0 0,1 71,50V50A3.5,3.5 0 0,1 74.5,46.5ZM28.2,37H34.8A3.2,3.2 0 0,1 38,40.2V59.8A3.2,3.2 0 0,1 34.8,63H28.2A3.2,3.2 0 0,1 25,59.8V40.2A3.2,3.2 0 0,1 28.2,37ZM45.2,29H51.8A3.2,3.2 0 0,1 55,32.2V67.8A3.2,3.2 0 0,1 51.8,71H45.2A3.2,3.2 0 0,1 42,67.8V32.2A3.2,3.2 0 0,1 45.2,29ZM62.2,19H68.8A3.2,3.2 0 0,1 72,22.2V77.8A3.2,3.2 0 0,1 68.8,81H62.2A3.2,3.2 0 0,1 59,77.8V22.2A3.2,3.2 0 0,1 62.2,19Z" />
     </group>
 </vector>

@@ -58,6 +58,7 @@ import app.gains.ui.components.GainsCard
 import app.gains.ui.components.KeyValueRow
 import app.gains.ui.components.MetricTile
 import app.gains.ui.components.Pill
+import app.gains.ui.components.Tag
 import app.gains.ui.components.SectionHeader
 import app.gains.ui.demo.ExerciseDemoCard
 import app.gains.resources.Res
@@ -156,12 +157,12 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
         item {
             Text(exercise.displayName(), style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Pill(exercise.modality.label(), palette.cyan)
-                if (exercise.isDumbbell) Pill(stringResource(Res.string.per_dumbbell), palette.amber)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Tag(exercise.modality.label())
+                if (exercise.isDumbbell) Tag(stringResource(Res.string.per_dumbbell))
             }
             if (exercise.muscleGroups.isNotEmpty()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(exercise.muscleGroups.map { it.group.label() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -178,7 +179,7 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
             val allTime = summary?.allTimeBest
             val current = summary?.currentBest
             val gap = summary?.gapFraction
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricTile(
                     stringResource(Res.string.current_best),
                     current?.best?.describe(exercise.modality, unit, labels) ?: "-",
@@ -195,7 +196,7 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
                     onClick = allTime?.let { p -> { onOpenSession(p.sessionId) } },
                 )
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 when {
                     gap == null -> {}

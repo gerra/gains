@@ -157,10 +157,10 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
                     style = MaterialTheme.typography.labelMedium, color = palette.volt,
                 )
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Text(program.displayDescription(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Activate and Deactivate hand over to each other where they stand.
                 val reduce = LocalReduceMotion.current
                 AnimatedContent(state.isActive, Modifier.weight(1f), transitionSpec = { fadeThrough(reduce) }, label = "activate") { active ->
@@ -246,7 +246,7 @@ private fun DayCard(day: ProgramDay, program: Program, upNext: Boolean, last: Lo
                     }
                 }
             }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(12.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text(exercisesText(day.slots.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
@@ -270,10 +270,10 @@ private fun ScheduleCard(cycle: List<List<ProgramDay>>, next: Int) {
     val perWeek = cycle.firstOrNull()?.size ?: 1
     GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
         cycle.forEachIndexed { week, days ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 val thisWeek = week == next / perWeek
                 Text(stringResource(Res.string.week_n, week + 1), style = MaterialTheme.typography.labelSmall, color = if (thisWeek) palette.volt else muted, modifier = Modifier.width(52.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     days.forEachIndexed { i, day ->
                         val at = week * perWeek + i
                         Pill(day.displayName(), when {
@@ -285,7 +285,7 @@ private fun ScheduleCard(cycle: List<List<ProgramDay>>, next: Int) {
                 }
             }
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             stringResource(Res.string.rotation_note),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -316,9 +316,9 @@ private fun ProgressionCard(program: Program, exercisesById: Map<String, Exercis
         schemes.entries.forEachIndexed { i, (scheme, names) ->
             if (i > 0) Spacer(Modifier.height(12.dp))
             Text(names.joinToString(", "), style = MaterialTheme.typography.titleSmall)
-            scheme.note?.let { Spacer(Modifier.height(2.dp)); Text(slotNoteText(it), style = MaterialTheme.typography.bodySmall) }
+            scheme.note?.let { Spacer(Modifier.height(4.dp)); Text(slotNoteText(it), style = MaterialTheme.typography.bodySmall) }
             progressionDescription(scheme.rule, unit)?.let {
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Gzclp.tierOf(scheme.rule)?.let {

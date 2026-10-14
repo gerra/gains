@@ -13,8 +13,8 @@ It reads docs/screenshots (the app rendered from samples/liftoff-export.csv) and
   site/img/hero.webp     The Lifts screen in the phone alone, on a transparent background.
 
 Everything here is drawn by this script, the phone and its status bar included, so the pictures
-are Gains' own and show only the sample export (docs/launch-plan.md, item 39). The type is
-DejaVu Sans, the face the app itself renders in on the Linux runner.
+are Gains' own and show only the sample export (docs/launch-plan.md, item 39). The type is the
+app's own, from composeApp's resources: Oswald for the headline, Onest for the line under it.
 """
 
 import pathlib
@@ -45,16 +45,16 @@ HERO_RENDER = "05-lifts"
 WIDTH, HEIGHT = 1290, 2796
 SITE_WIDTH = 600
 
-BACKGROUND = (11, 13, 18)          # the app's dark background
-VOLT = (200, 255, 77)              # GainsColors volt, dark theme
-MUTED = (138, 147, 166)            # GainsColors muted
-FRAME = (30, 33, 41)
-FRAME_EDGE = (62, 67, 79)
-WHITE = (255, 255, 255)
+BACKGROUND = (18, 20, 22)          # the app's dark background (Theme.kt, Graphite)
+VOLT = (98, 217, 154)              # GainsColors volt, dark theme: the progress green
+MUTED = (167, 172, 179)            # GainsColors muted
+FRAME = (34, 38, 43)
+FRAME_EDGE = (58, 64, 71)
+WHITE = (242, 240, 235)            # Chalk
 
-FONT_DIR = pathlib.Path("/usr/share/fonts/truetype/dejavu")
-BOLD = FONT_DIR / "DejaVuSans-Bold.ttf"
-REGULAR = FONT_DIR / "DejaVuSans.ttf"
+FONT_DIR = ROOT / "composeApp/src/commonMain/composeResources/font"
+BOLD = FONT_DIR / "oswald_semibold.ttf"
+REGULAR = FONT_DIR / "onest_regular.ttf"
 
 MARGIN = 96           # left edge of the headline
 HEADLINE_TOP = 200
@@ -159,12 +159,12 @@ def store_shot(render, white, volt, subtitle):
     canvas.alpha_composite(glow(canvas.size, (WIDTH * 0.45, PHONE_TOP - 60), 820, VOLT, 0.17))
     d = ImageDraw.Draw(canvas)
     text_width = WIDTH - 2 * MARGIN
-    headline = fitted(BOLD, 128, max(white, volt, key=len), text_width)
+    headline = fitted(BOLD, 150, max(white, volt, key=len), text_width)
     line = round(headline.size * 1.1)
     d.text((MARGIN, HEADLINE_TOP), white, font=headline, fill=WHITE)
     d.text((MARGIN, HEADLINE_TOP + line), volt, font=headline, fill=VOLT)
     small = fitted(REGULAR, 46, subtitle, text_width)
-    d.text((MARGIN, HEADLINE_TOP + 2 * line + 40), subtitle, font=small, fill=MUTED)
+    d.text((MARGIN, HEADLINE_TOP + 2 * line + 64), subtitle, font=small, fill=MUTED)
 
     device = phone(render)
     canvas.alpha_composite(device, ((WIDTH - device.width) // 2, PHONE_TOP))
@@ -176,7 +176,7 @@ def main():
 
     for path in (BOLD, REGULAR):
         if not path.exists():
-            sys.exit(f"{path} is missing: install fonts-dejavu-core")
+            sys.exit(f"{path} is missing")
     STORE.mkdir(parents=True, exist_ok=True)
     for name, render, white, volt, subtitle, site in SHOTS:
         shot = store_shot(Image.open(RENDERS / f"{render}.png"), white, volt, subtitle)

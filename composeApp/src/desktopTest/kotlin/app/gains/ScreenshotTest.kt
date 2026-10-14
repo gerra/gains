@@ -29,6 +29,7 @@ import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToString
@@ -228,6 +229,14 @@ class ScreenshotTest {
          * alone scrolled to with [scrollIntoView]; the list is paged until the row appears. Half a
          * viewport per step so that no row can pass through the viewport between two looks.
          */
+        /** Scrolls the list containing [inList] back to its top. */
+        fun scrollToTop(inList: SemanticsMatcher) {
+            var scrollable: SemanticsNode? = onAllNodes(inList).onFirst().fetchSemanticsNode("Nothing to scroll from: ${inList.description}")
+            while (scrollable != null && SemanticsActions.ScrollBy !in scrollable.config) scrollable = scrollable.parent
+            val list = checkNotNull(scrollable) { "${inList.description} is not inside a scrollable list" }
+            repeat(4) { runOnUiThread { list.config[SemanticsActions.ScrollBy].action?.invoke(0f, -100_000f) }; settle(300) }
+            settle(1_000)
+        }
         fun scrollUntil(inList: SemanticsMatcher, target: SemanticsMatcher, pages: Int = 12) {
             val inside = onAllNodes(inList).onFirst().fetchSemanticsNode("Nothing to page from: ${inList.description}")
             var scrollable: SemanticsNode? = inside
@@ -338,7 +347,8 @@ class ScreenshotTest {
         require(text("Chest"))
         settle(1_500)
         shot("07b-volume-muscle")
-        onNode(text("Show all") and hasClickAction()).performClick()
+        // The pill sits under the map, below the fold on a phone-sized window: clicked through its semantics.
+        onNode(text("Show all") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         settle()
         check(!exists(text("Show all"))) { "Show all did not clear the muscle-map selection" }
         if (recordingClips) clip("volume-weeks") {
@@ -411,7 +421,7 @@ class ScreenshotTest {
             onNode(startButton).performClick()
             hold(1_300)
         }
-        // Start runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
+        // Start runs it as a timed workout: the clock is pinned under the list and ticking a set starts the rest countdown.
         require(text("Total"))
         // The clock and day notes push the first work set below the fold, so bring it into view before tapping.
         val firstSet = hasContentDescription("Set 1 not done") and hasClickAction()
@@ -522,8 +532,9 @@ class ScreenshotTest {
         require(text("What's moving"), 60_000)
         settle(1_000)
         check(!exists(text("Resume"))) { "The resume bar is still showing after the session was ended" }
-        // 9c. The level under the streak opens the trophies: every ladder with the rung ahead, and
+        // 9c. The level at the end of Home opens the trophies: every ladder with the rung ahead, and
         // the records lately set. The imported history has earned a few rungs already.
+        scrollUntil(text("What's moving"), text("Level ") and hasClickAction())
         onNode(text("Level ") and hasClickAction()).performClick()
         require(text("Trophies"), 60_000)
         require(text("Achievements"))
@@ -534,6 +545,9 @@ class ScreenshotTest {
         settle(1_000)
         shot("19b-trophies-records")
         onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        // Home comes back where it was left, at its end by the level: back up to the top of it.
+        require(text("Level "), 60_000)
+        scrollToTop(text("Level "))
         require(text("What's moving"), 60_000)
         // 9d. "+ → New exercise" makes a custom exercise by hand: how it is logged and what it trains,
         // one tap for a main muscle and two for a secondary one. It opens on its own page.
@@ -546,7 +560,7 @@ class ScreenshotTest {
         // swaps in a longer hint that moves the muscle chips down, and a tap made before that layout
         // lands where a chip used to be.
         onAllNodes(hasText("Cardio") and hasClickAction()).onLast().performClick()
-        settle(100)
+        settle(800)
         for (muscle in listOf("Forearms", "Lats", "Biceps", "Biceps")) {
             onAllNodes(hasText(muscle) and hasClickAction()).onLast().performClick()
             settle(100)
@@ -580,7 +594,8 @@ class ScreenshotTest {
         scrollUntil(text("Calendar"), text("logged"))
         onNode(hasContentDescription("Settings") and hasClickAction()).performClick()
         require(text("Appearance"))
-        onNode(text("Light") and hasClickAction()).performClick()
+        // Appearance sits below the fold of Settings on a phone-sized window: chosen through its semantics.
+        onNode(text("Light") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         settle()
         tab("Home")
         require(text("What's moving"), 60_000)
@@ -695,9 +710,9 @@ class ScreenshotTest {
     private fun standInPhoto(): ByteArray {
         val image = BufferedImage(1200, 900, BufferedImage.TYPE_INT_RGB)
         val g = image.createGraphics()
-        g.paint = GradientPaint(0f, 0f, AwtColor(0x1B, 0x20, 0x2C), 1200f, 900f, AwtColor(0x3A, 0x4A, 0x20))
+        g.paint = GradientPaint(0f, 0f, AwtColor(0x1B, 0x1E, 0x22), 1200f, 900f, AwtColor(0x2A, 0x3A, 0x32))
         g.fillRect(0, 0, 1200, 900)
-        g.color = AwtColor(0xC8, 0xFF, 0x4D)
+        g.color = AwtColor(0xF2, 0xF0, 0xEB)
         g.fillRoundRect(120, 380, 960, 60, 30, 30)
         for (x in intArrayOf(60, 1020)) g.fillRoundRect(x, 300, 120, 220, 24, 24)
         g.dispose()
