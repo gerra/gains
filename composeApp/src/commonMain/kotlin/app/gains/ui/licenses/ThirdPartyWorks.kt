@@ -84,7 +84,7 @@ internal object ThirdPartyWorks {
         author = "The Onest Project Authors",
         license = "OFL-1.1",
         url = "https://github.com/googlefonts/onest",
-        usedFor = "The typeface of every word in the app (composeResources/font/onest_*.ttf), cut to four static weights from the variable font.",
+        usedFor = "The typeface of every word in the app (composeResources/font/onest_*.ttf), cut to two static weights from the variable font.",
         notice = """
             Copyright 2021 The Onest Project Authors (https://github.com/googlefonts/onest)
 
@@ -98,7 +98,7 @@ internal object ThirdPartyWorks {
         author = "The Oswald Project Authors",
         license = "OFL-1.1",
         url = "https://github.com/googlefonts/OswaldFont",
-        usedFor = "The big figures and the screen titles (composeResources/font/oswald_*.ttf), cut to two static weights from the variable font.",
+        usedFor = "The big figures and the screen titles (composeResources/font/oswald_*.ttf), cut to one static weight from the variable font.",
         notice = """
             Copyright 2016 The Oswald Project Authors (https://github.com/googlefonts/OswaldFont)
 

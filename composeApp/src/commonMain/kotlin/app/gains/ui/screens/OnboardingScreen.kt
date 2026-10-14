@@ -127,7 +127,7 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 20.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             GainsLogo(size = 28.dp)
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(16.dp))
             // Four segments, one a question: the ones answered and the current one are filled in.
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (i in 0..3) {
@@ -154,7 +154,7 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                     Text(stringResource(Res.string.onboarding_goal_title), style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(8.dp))
                     Text(stringResource(Res.string.onboarding_goal_blurb), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(16.dp))
                     for (g in Goal.entries) {
                         OptionCard(g.label(), g.blurb(), selected = model.goal == g) { model.goal = g }
                     }
@@ -163,7 +163,7 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                     Text(stringResource(Res.string.onboarding_experience_title), style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(8.dp))
                     Text(stringResource(Res.string.onboarding_experience_blurb), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(16.dp))
                     for (e in Experience.entries) {
                         OptionCard(e.label(), e.blurb(), selected = model.experience == e) { model.experience = e }
                     }
@@ -172,7 +172,7 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                     Text(stringResource(Res.string.onboarding_days_title), style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(8.dp))
                     Text(stringResource(Res.string.onboarding_days_blurb), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(16.dp))
                     ChipRow((GoalProfile.MIN_DAYS..GoalProfile.MAX_DAYS).toList(), model.days, { it.toString() }, { model.days = it }, Modifier.fillMaxWidth())
                     Spacer(Modifier.height(12.dp))
                     Text(
@@ -186,19 +186,19 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                     model.profile?.let {
                         Text(stringResource(Res.string.profile_summary, it.goal.label(), it.experience.label(), daysAWeekText(it.daysPerWeek)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(16.dp))
                     for ((index, program) in model.suggestions.withIndex()) {
                         GainsCard(Modifier.enterOnce(index).fillMaxWidth().padding(bottom = 12.dp), contentPadding = Dp16.Normal) {
                             if (index == 0) {
                                 Pill(stringResource(Res.string.best_match), palette.volt)
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(12.dp))
                             }
                             Text(program.displayName(), style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.height(8.dp))
                             ProgramTags(program)
-                            Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.height(12.dp))
                             Text(program.displayDescription(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.height(14.dp))
+                            Spacer(Modifier.height(16.dp))
                             // The best match's button is the filled one: it is the answer to the questions.
                             if (index == 0) PrimaryButton(stringResource(Res.string.use_this_program), onClick = { model.finish(program.id) }, compact = true)
                             else SecondaryButton(stringResource(Res.string.use_this_program), onClick = { model.finish(program.id) }, compact = true)
@@ -209,7 +209,7 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
         }
         }
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (model.step > 0) SecondaryButton(stringResource(Res.string.back), onClick = { model.back() }, Modifier.weight(1f))
             when (model.step) {
                 // On the programs step the cards carry the main action, so finishing without one is the quiet button.
@@ -228,13 +228,13 @@ private fun OptionCard(title: String, blurb: String, selected: Boolean, onClick:
     val ring by animateColorAsState(if (selected) MaterialTheme.colorScheme.onSurface else Color.Transparent, Motion.standard(), label = "option")
     val tickFill by animateColorAsState(if (selected) palette.volt else MaterialTheme.colorScheme.surfaceContainerHighest, Motion.standard(), label = "option-tick")
     GainsCard(
-        Modifier.fillMaxWidth().padding(bottom = 10.dp).border(1.5.dp, ring, MaterialTheme.shapes.large),
+        Modifier.fillMaxWidth().padding(bottom = 12.dp).border(1.5.dp, ring, MaterialTheme.shapes.large),
         onClick = onClick, contentPadding = Dp16.Normal,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.width(12.dp))
@@ -243,7 +243,7 @@ private fun OptionCard(title: String, blurb: String, selected: Boolean, onClick:
                 contentAlignment = Alignment.Center,
             ) {
                 androidx.compose.animation.AnimatedVisibility(selected, enter = popIn(reduce, from = 0.4f), exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.PRESS))) {
-                    Text("✓", style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = if (palette.isDark) MaterialTheme.colorScheme.onPrimary else Color.White)
+                    Text("✓", style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = if (palette.isDark) MaterialTheme.colorScheme.onPrimary else Color.White)
                 }
             }
         }
@@ -260,7 +260,7 @@ private fun OptionCard(title: String, blurb: String, selected: Boolean, onClick:
 @Composable
 internal fun ProgramTags(program: Program, active: Boolean = false) {
     val palette = GainsColors.palette
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         val reduce = LocalReduceMotion.current
         // Activated from the program's page, the tag pops in beside the others.
         AnimatedVisibility(active, enter = popIn(reduce, from = 0.7f), exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT))) {

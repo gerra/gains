@@ -69,7 +69,7 @@ internal fun CalendarScreen(onOpen: (String) -> Unit) {
             items(months, key = { "${it.year}-${it.month.ordinal}" }) { month ->
                 val inMonth = perMonth[month] ?: 0
                 GainsCard(Modifier.fillMaxWidth().padding(bottom = 12.dp), contentPadding = Dp16.Tight) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("${monthName(month.firstDay)} ${month.year}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                         if (inMonth > 0) Text(sessionsText(inMonth), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }

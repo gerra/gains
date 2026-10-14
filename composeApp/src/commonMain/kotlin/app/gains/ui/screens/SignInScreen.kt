@@ -164,7 +164,7 @@ internal fun SignInScreen() {
                 stringResource(Res.string.sign_in_headline),
                 style = if (compact) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge,
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Text(
                 stringResource(Res.string.sign_in_blurb),
                 style = MaterialTheme.typography.bodyLarge,
@@ -189,11 +189,11 @@ internal fun SignInScreen() {
             }
             val buttons = signInButtons(model.config)
             if (buttons.isEmpty()) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     ProviderButton("Google", enabled = false, Modifier.weight(1f)) {}
                     ProviderButton("Apple", enabled = false, Modifier.weight(1f)) {}
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
             }
             for (kind in buttons) {
                 when (kind) {
@@ -202,7 +202,7 @@ internal fun SignInScreen() {
                     AccountKind.EMAIL -> ProviderButton(stringResource(Res.string.sign_in_with_email), enabled = true, Modifier.fillMaxWidth()) { model.emailOpen = true }
                     AccountKind.GUEST -> Unit
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
             }
             PrimaryButton(stringResource(Res.string.continue_as_guest), onClick = { model.continueAsGuest() }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
@@ -246,7 +246,7 @@ private fun HeroPreview(chartHeight: Dp) {
         Spacer(Modifier.height(4.dp))
         Text(stringResource(Res.string.hero_exercise), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(Res.string.hero_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         val values = listOf(72.0, 74.0, 73.5, 76.0, 76.0, 78.5, 80.0, 79.5, 82.0, 84.0)
         Canvas(Modifier.fillMaxWidth().height(chartHeight)) {
             val lo = values.min(); val hi = values.max()
@@ -281,7 +281,7 @@ private fun FeatureRow() {
 private fun Feature(title: String, body: String, modifier: Modifier = Modifier) {
     Column(modifier.clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp)) {
         Text(title, style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(4.dp))
         Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

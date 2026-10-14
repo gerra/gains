@@ -142,7 +142,7 @@ internal fun TrophiesScreen(onOpenExercise: (String) -> Unit, onOpenSession: (St
         }
         items(state.ladders, key = { "${it.track}-${it.exerciseId}" }) { ladder ->
             LadderCard(ladder, state.unit, state.exercisesById, today, onOpenSession)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
         }
         item { SectionHeader(stringResource(Res.string.recent_records)) }
         if (state.recent.isEmpty()) {
@@ -153,7 +153,7 @@ internal fun TrophiesScreen(onOpenExercise: (String) -> Unit, onOpenSession: (St
             GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = { onOpenExercise(record.exerciseId) }, contentPadding = Dp16.Tight) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RecordMedal(size = 22.dp)
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(exercise?.displayName() ?: record.exerciseId, style = MaterialTheme.typography.titleSmall)
                         Text(
@@ -162,7 +162,7 @@ internal fun TrophiesScreen(onOpenExercise: (String) -> Unit, onOpenSession: (St
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(12.dp))
                     Pill(dateContextual(record.date, today), palette.volt, onClick = { onOpenSession(record.sessionId) })
                 }
             }
@@ -177,16 +177,16 @@ internal fun LevelCard(level: Level, modifier: Modifier = Modifier) {
     GainsCard(modifier.fillMaxWidth(), brush = palette.heroBrush(), contentPadding = Dp16.Loose) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             LevelRing(level.level, level.fraction.toFloat(), size = 84.dp, style = MaterialTheme.typography.displaySmall)
-            Spacer(Modifier.width(18.dp))
+            Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(stringResource(Res.string.level_word), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(4.dp))
                 RollingText(stringResource(Res.string.points_in_total, pointsText(level.points)), MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(4.dp))
                 Text(stringResource(Res.string.level_to_next, pointsText(level.toNext), level.level + 1), style = MaterialTheme.typography.bodySmall, color = palette.volt)
             }
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
         Text(
             stringResource(Res.string.score_note, Scoring.SHOW_UP, Scoring.PER_SET, Scoring.MAX_WORK, Scoring.PER_RECORD, Scoring.MAX_RECORDS),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -204,16 +204,16 @@ private fun LadderCard(ladder: Ladder, unit: WeightUnit, exercisesById: Map<Stri
     GainsCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AchievementBadge(ladder.track, metalFor(top.achievement.tier, ladder.rungs.size, top.earned), size = 48.dp)
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(achievementTitle(first, exercisesById), style = MaterialTheme.typography.titleMedium)
                 Text("${ladder.earned} / ${ladder.rungs.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         for (status in ladder.shown) {
-            Row(Modifier.fillMaxWidth().padding(top = 10.dp).alpha(if (status.earned) 1f else 0.7f), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp).alpha(if (status.earned) 1f else 0.7f), verticalAlignment = Alignment.CenterVertically) {
                 AchievementBadge(ladder.track, metalFor(status.achievement.tier, ladder.rungs.size, status.earned), size = 30.dp)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {

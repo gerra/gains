@@ -174,7 +174,7 @@ internal fun VolumeScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
             ScreenTitle(stringResource(Res.string.volume_title), subtitle = stringResource(Res.string.volume_subtitle))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricTile(stringResource(Res.string.this_week), Format.number(current?.total ?: 0.0, 0), Modifier.weight(1f), caption = stringResource(Res.string.sets_so_far), accent = palette.volt)
                 MetricTile(stringResource(Res.string.last_week), Format.number(lastFull?.total ?: 0.0, 0), Modifier.weight(1f), caption = lastFull?.let { stringResource(Res.string.week_commencing, dateShort(it.weekStart)) })
                 MetricTile(stringResource(Res.string.avg), Format.number(state.weeks.dropLast(1).map { it.total }.average().takeIf { !it.isNaN() } ?: 0.0, 0), Modifier.weight(1f), caption = pluralStringResource(Res.plurals.n_week_caption, state.span, state.span))
@@ -200,17 +200,17 @@ internal fun VolumeScreen() {
                     if (g !in selected) continue
                     val sets = shownSets[g] ?: 0.0
                     val status = VolumeAnalyzer.status(sets)
-                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Dot(g.color())
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(12.dp))
                         Text(g.label(), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                         Text(window.setsIn(Format.number(sets, 1)), style = MaterialTheme.typography.bodyMedium)
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(12.dp))
                         Pill(status.label(), status.color())
                     }
                 }
                 if (selected.isNotEmpty()) {
-                    Pill(stringResource(Res.string.show_all), palette.muted, Modifier.padding(top = 10.dp).align(Alignment.End), onClick = { selected = emptySet() })
+                    Pill(stringResource(Res.string.show_all), palette.muted, Modifier.padding(top = 12.dp).align(Alignment.End), onClick = { selected = emptySet() })
                 }
             }
             Text(
@@ -240,13 +240,13 @@ internal fun VolumeScreen() {
                 val sets = current.sets[g] ?: 0.0
                 val status = VolumeAnalyzer.status(sets)
                 // Picking a muscle on the map filters this list; the rest fold away around it.
-                GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+                GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 8.dp), contentPadding = Dp16.Tight) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Dot(g.color())
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(12.dp))
                         Text(g.label(), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                         Text(Format.number(sets, 1), style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(12.dp))
                         Pill(status.label(), status.color())
                     }
                     Spacer(Modifier.height(8.dp))
@@ -256,7 +256,7 @@ internal fun VolumeScreen() {
             item {
                 Text(
                     stringResource(Res.string.volume_bars_blurb, VolumeAnalyzer.JUNK_SETS.toInt(), VolumeAnalyzer.MAINTENANCE_SETS.toInt()),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp),
                 )
             }
         }

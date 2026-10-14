@@ -279,14 +279,14 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
         }
         itemsIndexed(state.days, key = { _, d -> d.id }) { dayIndex, day ->
             // Days added, removed or moved slide into place, as the exercise cards of a workout do.
-            GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
+            GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 12.dp), contentPadding = Dp16.Tight) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     OutlinedTextField(day.name, { model.renameDay(dayIndex, it) }, label = { Text(stringResource(Res.string.day_name)) }, singleLine = true, modifier = Modifier.weight(1f), colors = fieldColors, shape = MaterialTheme.shapes.medium)
                     TextButton(onClick = { model.moveDay(dayIndex, -1) }, enabled = dayIndex > 0) { Text("↑") }
                     TextButton(onClick = { model.moveDay(dayIndex, 1) }, enabled = dayIndex < state.days.lastIndex) { Text("↓") }
                     TextButton(onClick = { model.removeDay(dayIndex) }) { Text("×", color = palette.coral) }
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 for ((slotIndex, slot) in day.slots.withIndex()) {
                     SlotRow(slot, slotIndex, day.slots.size, fieldColors,
                         onChange = { model.updateSlot(dayIndex, slotIndex, it) },
@@ -308,7 +308,7 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
                 Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
             }
             Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SecondaryButton(stringResource(Res.string.cancel), onDone, Modifier.weight(1f))
                 PrimaryButton(stringResource(Res.string.save_program), { model.save() }, Modifier.weight(1f))
             }
@@ -351,7 +351,7 @@ private fun SlotRow(
     val palette = GainsColors.palette
     val name = slot.exercise.displayName()
     val changeDescription = stringResource(Res.string.change_named, name)
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Tapping the name opens the picker to swap the exercise; the prescription below is kept.
             Row(
@@ -373,7 +373,7 @@ private fun SlotRow(
             OutlinedTextField(slot.reps, { onChange(slot.copy(reps = it)) }, label = { Text(stringResource(Res.string.reps_label)) }, singleLine = true, modifier = Modifier.width(110.dp), colors = fieldColors, shape = MaterialTheme.shapes.small, placeholder = { Text("8-12") })
             OutlinedTextField(slot.note, { onChange(slot.copy(note = it)) }, label = { Text(stringResource(Res.string.note)) }, singleLine = true, modifier = Modifier.weight(1f), colors = fieldColors, shape = MaterialTheme.shapes.small)
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (slot.ladder != null) {
                 Pill(stringResource(Res.string.program_ladder_kept), palette.violet)

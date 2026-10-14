@@ -161,7 +161,7 @@ internal fun EmailSignInForm(form: EmailSignIn, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         val label = when (form.mode) {
             EmailSignIn.Mode.SIGN_IN -> stringResource(Res.string.email_sign_in)
             EmailSignIn.Mode.SIGN_UP -> stringResource(Res.string.email_create_account)

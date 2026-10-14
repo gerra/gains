@@ -20,11 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gains.data.ThemeMode
 import app.gains.resources.Res
-import app.gains.resources.onest_bold
-import app.gains.resources.onest_medium
 import app.gains.resources.onest_regular
 import app.gains.resources.onest_semibold
-import app.gains.resources.oswald_medium
 import app.gains.resources.oswald_semibold
 import org.jetbrains.compose.resources.Font
 
@@ -156,40 +153,54 @@ private val LightScheme = lightColorScheme(
 
 /**
  * Onest for every word (drawn for Cyrillic as much as Latin, so Russian reads as well as English) and
- * Oswald, condensed like a gym's scoreboard, for the big figures and the screen titles. A condensed
- * figure also fits "1 h 23 min" into a third of a phone without shrinking.
+ * Oswald, condensed like a gym's scoreboard, for the big figures and the screen titles, with tabular
+ * figures so a clock or a count does not shift as its digits change.
+ *
+ * The scale is deliberately small: four sizes (13 caption, 15 body, 17 title, 32 figure and screen
+ * title) and one hero numeral (52, the streak and the welcome headline), in two weights, regular
+ * and semibold. Hierarchy comes from size, weight and the muted colour, not from more sizes. Material's
+ * fifteen roles all map onto these.
  */
 @Composable
 private fun gainsTypography(): Typography {
     val text = FontFamily(
         Font(Res.font.onest_regular, FontWeight.Normal),
-        Font(Res.font.onest_medium, FontWeight.Medium),
         Font(Res.font.onest_semibold, FontWeight.SemiBold),
-        Font(Res.font.onest_bold, FontWeight.Bold),
     )
-    val figures = FontFamily(
-        Font(Res.font.oswald_medium, FontWeight.Medium),
-        Font(Res.font.oswald_semibold, FontWeight.SemiBold),
-    )
+    val figures = FontFamily(Font(Res.font.oswald_semibold, FontWeight.SemiBold))
     return remember(text, figures) {
+        val caption = TextStyle(fontFamily = text, fontSize = TypeScale.CAPTION.sp, lineHeight = 18.sp)
+        val body = TextStyle(fontFamily = text, fontSize = TypeScale.BODY.sp, lineHeight = 22.sp)
+        val title = TextStyle(fontFamily = text, fontWeight = FontWeight.SemiBold, fontSize = TypeScale.TITLE.sp, lineHeight = 24.sp)
+        val figure = TextStyle(fontFamily = figures, fontWeight = FontWeight.SemiBold, fontSize = TypeScale.FIGURE.sp, lineHeight = 40.sp, fontFeatureSettings = "tnum")
+        val hero = figure.copy(fontSize = TypeScale.HERO.sp, lineHeight = 56.sp)
         Typography(
-            displayLarge = TextStyle(fontFamily = figures, fontWeight = FontWeight.SemiBold, fontSize = 52.sp, lineHeight = 58.sp),
-            displayMedium = TextStyle(fontFamily = figures, fontWeight = FontWeight.SemiBold, fontSize = 38.sp, lineHeight = 44.sp),
-            displaySmall = TextStyle(fontFamily = figures, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, lineHeight = 36.sp),
-            headlineLarge = TextStyle(fontFamily = figures, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, lineHeight = 40.sp),
-            headlineMedium = TextStyle(fontFamily = text, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp, letterSpacing = (-0.2).sp),
-            headlineSmall = TextStyle(fontFamily = text, fontWeight = FontWeight.Bold, fontSize = 19.sp, lineHeight = 24.sp, letterSpacing = (-0.1).sp),
-            titleLarge = TextStyle(fontFamily = text, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp),
-            titleMedium = TextStyle(fontFamily = text, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp),
-            titleSmall = TextStyle(fontFamily = text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
-            bodyLarge = TextStyle(fontFamily = text, fontSize = 16.sp, lineHeight = 24.sp),
-            bodyMedium = TextStyle(fontFamily = text, fontSize = 15.sp, lineHeight = 22.sp),
-            bodySmall = TextStyle(fontFamily = text, fontSize = 13.sp, lineHeight = 18.sp),
-            labelLarge = TextStyle(fontFamily = text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 20.sp),
-            labelMedium = TextStyle(fontFamily = text, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 18.sp),
-            labelSmall = TextStyle(fontFamily = text, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
+            displayLarge = hero,
+            displayMedium = figure,
+            displaySmall = figure,
+            headlineLarge = figure,
+            headlineMedium = title,
+            headlineSmall = title,
+            titleLarge = title,
+            titleMedium = title,
+            titleSmall = body.copy(fontWeight = FontWeight.SemiBold),
+            bodyLarge = body,
+            bodyMedium = body,
+            bodySmall = caption,
+            labelLarge = body.copy(fontWeight = FontWeight.SemiBold, lineHeight = 20.sp),
+            labelMedium = caption,
+            labelSmall = caption.copy(lineHeight = 16.sp),
         )
     }
+}
+
+/** The app's only text sizes, in sp. */
+internal object TypeScale {
+    const val CAPTION = 13
+    const val BODY = 15
+    const val TITLE = 17
+    const val FIGURE = 32
+    const val HERO = 52
 }
 
 private val GainsShapes = Shapes(

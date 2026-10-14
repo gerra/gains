@@ -239,7 +239,7 @@ internal fun PickerSheet(
 @Composable
 internal fun ChooserRow(label: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier, muted: Boolean = false) {
     Row(
-        modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClick = onClick).padding(vertical = 11.dp, horizontal = 4.dp)
+        modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClick = onClick).padding(vertical = 12.dp, horizontal = 4.dp)
             .semantics { contentDescription = "$label: $value" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -275,10 +275,10 @@ internal fun CalendarPicker(selected: LocalDate, onPick: (LocalDate) -> Unit, mo
                 Text("${monthName(shown)} ${shown.year}", style = MaterialTheme.typography.titleMedium)
             }
             MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(Res.string.previous_month)) { month = month.minus(1, DateTimeUnit.MONTH) }
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(8.dp))
             MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(Res.string.next_month)) { month = month.plus(1, DateTimeUnit.MONTH) }
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth()) {
             for (day in DayOfWeek.entries) {
                 Text(dayShort(day).take(2), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted, textAlign = TextAlign.Center)
@@ -470,7 +470,7 @@ internal fun WeightPickerSheet(
 @Composable
 private fun StepChip(label: String, onClick: () -> Unit) {
     Box(
-        Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) { Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface) }
 }

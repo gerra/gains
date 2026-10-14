@@ -372,7 +372,7 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricTile(
                     stringResource(Res.string.duration),
                     state.durationMinutes?.let { minutesText(if (counted) it else (it * p).roundToInt()) } ?: stringResource(Res.string.not_timed),
@@ -421,7 +421,7 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                         if (saved) {
                             Text(
                                 stringResource(Res.string.saved),
-                                Modifier.padding(start = 10.dp),
+                                Modifier.padding(start = 12.dp),
                                 style = MaterialTheme.typography.labelMedium, color = palette.volt,
                             )
                         } else {
@@ -471,14 +471,14 @@ internal fun SessionSummaryScreen(sessionId: String, picker: PhotoPicker, onDone
                 } else {
                     BodyMap(state.muscles, Modifier.fillMaxWidth(), maxSets = state.maxSets)
                     BodyMapLegend(state.maxSets)
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
                     for ((group, sets) in state.trained) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(group.label(), Modifier.width(110.dp), style = MaterialTheme.typography.bodyMedium)
                             Meter((sets / state.maxSets).toFloat(), palette.volt, Modifier.weight(1f))
-                            Spacer(Modifier.width(10.dp))
+                            Spacer(Modifier.width(12.dp))
                             Text(Format.number(sets, 1), style = MaterialTheme.typography.titleSmall)
                         }
                     }
@@ -526,20 +526,20 @@ private fun RecordsSection(state: SummaryState, today: LocalDate) {
     GainsCard(Modifier.fillMaxWidth(), brush = palette.heroBrush()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             RecordMedalBox()
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(16.dp))
             Text(recordsText(state.records.size), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
         }
         for ((exerciseId, records) in state.records.groupBy { it.exerciseId }) {
             val exercise = state.exercisesById[exerciseId] ?: continue
             Spacer(Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Text(exercise.displayName(), style = MaterialTheme.typography.titleMedium)
             for (record in records) {
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.Top) {
-                    RecordMedal(Modifier.padding(top = 2.dp), size = 16.dp)
-                    Spacer(Modifier.width(6.dp))
+                    RecordMedal(Modifier.padding(top = 4.dp), size = 16.dp)
+                    Spacer(Modifier.width(8.dp))
                     Text(record.kind.label(), Modifier.width(110.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Column(Modifier.weight(1f)) {
                         Text(recordText(record, exercise.modality, unit), style = MaterialTheme.typography.titleSmall, color = palette.volt)
@@ -566,20 +566,20 @@ private fun ScoreSection(score: SessionScore, level: Level, p: Float) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text("+" + (score.total * p).roundToInt(), style = MaterialTheme.typography.displayMedium, color = palette.volt)
             Spacer(Modifier.width(8.dp))
-            Text(pointsWord(score.total), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+            Text(pointsWord(score.total), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             ScorePart(stringResource(Res.string.score_showed_up), score.showedUp)
             ScorePart(stringResource(Res.string.score_work), score.work)
             ScorePart(stringResource(Res.string.score_records), score.records)
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             LevelRing(level.level, level.fraction.toFloat(), size = 52.dp, style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(stringResource(Res.string.level_label, level.level), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(Res.string.points_in_total, pointsText(level.points)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -607,7 +607,7 @@ private fun UnlockedSection(unlocked: List<AchievementStatus>, unit: WeightUnit,
             if (i > 0) Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AchievementBadge(status.achievement.track, metalFor(status.achievement.tier, ladderSize(status.achievement.track), earned = true), size = 48.dp)
-                Spacer(Modifier.width(14.dp))
+                Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     Text(achievementTitle(status.achievement, exercisesById), style = MaterialTheme.typography.titleMedium)
                     Text(achievementTier(status.achievement, unit), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -229,6 +229,14 @@ class ScreenshotTest {
          * alone scrolled to with [scrollIntoView]; the list is paged until the row appears. Half a
          * viewport per step so that no row can pass through the viewport between two looks.
          */
+        /** Scrolls the list containing [inList] back to its top. */
+        fun scrollToTop(inList: SemanticsMatcher) {
+            var scrollable: SemanticsNode? = onAllNodes(inList).onFirst().fetchSemanticsNode("Nothing to scroll from: ${inList.description}")
+            while (scrollable != null && SemanticsActions.ScrollBy !in scrollable.config) scrollable = scrollable.parent
+            val list = checkNotNull(scrollable) { "${inList.description} is not inside a scrollable list" }
+            repeat(4) { runOnUiThread { list.config[SemanticsActions.ScrollBy].action?.invoke(0f, -100_000f) }; settle(300) }
+            settle(1_000)
+        }
         fun scrollUntil(inList: SemanticsMatcher, target: SemanticsMatcher, pages: Int = 12) {
             val inside = onAllNodes(inList).onFirst().fetchSemanticsNode("Nothing to page from: ${inList.description}")
             var scrollable: SemanticsNode? = inside
@@ -413,7 +421,7 @@ class ScreenshotTest {
             onNode(startButton).performClick()
             hold(1_300)
         }
-        // Start runs it as a timed workout: the clock is pinned on top and ticking a set starts the rest countdown.
+        // Start runs it as a timed workout: the clock is pinned under the list and ticking a set starts the rest countdown.
         require(text("Total"))
         // The clock and day notes push the first work set below the fold, so bring it into view before tapping.
         val firstSet = hasContentDescription("Set 1 not done") and hasClickAction()
@@ -524,8 +532,9 @@ class ScreenshotTest {
         require(text("What's moving"), 60_000)
         settle(1_000)
         check(!exists(text("Resume"))) { "The resume bar is still showing after the session was ended" }
-        // 9c. The level under the streak opens the trophies: every ladder with the rung ahead, and
+        // 9c. The level at the end of Home opens the trophies: every ladder with the rung ahead, and
         // the records lately set. The imported history has earned a few rungs already.
+        scrollUntil(text("What's moving"), text("Level ") and hasClickAction())
         onNode(text("Level ") and hasClickAction()).performClick()
         require(text("Trophies"), 60_000)
         require(text("Achievements"))
@@ -536,6 +545,9 @@ class ScreenshotTest {
         settle(1_000)
         shot("19b-trophies-records")
         onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        // Home comes back where it was left, at its end by the level: back up to the top of it.
+        require(text("Level "), 60_000)
+        scrollToTop(text("Level "))
         require(text("What's moving"), 60_000)
         // 9d. "+ → New exercise" makes a custom exercise by hand: how it is logged and what it trains,
         // one tap for a main muscle and two for a secondary one. It opens on its own page.

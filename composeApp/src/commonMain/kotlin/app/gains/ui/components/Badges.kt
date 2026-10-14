@@ -174,11 +174,11 @@ internal fun RecordMedalBox(modifier: Modifier = Modifier) {
 internal fun RecordCountPill(count: Int, modifier: Modifier = Modifier) {
     val palette = GainsColors.palette
     Row(
-        modifier.clip(CircleShape).background(palette.volt.copy(alpha = 0.16f)).padding(start = 6.dp, end = 9.dp, top = 3.dp, bottom = 3.dp),
+        modifier.clip(CircleShape).background(palette.volt.copy(alpha = 0.16f)).padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RecordMedal(size = 13.dp)
-        Spacer(Modifier.width(3.dp))
+        Spacer(Modifier.width(4.dp))
         Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = palette.volt)
     }
 }

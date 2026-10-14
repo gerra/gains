@@ -43,6 +43,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
@@ -66,8 +69,9 @@ import app.gains.ui.theme.roll
 import kotlinx.coroutines.launch
 
 /**
- * The flat surface every card in the app sits on: one step up from the floor, with a hairline edge
- * only on the light theme, where white on pale grey needs one. Press feedback is a gentle scale.
+ * The surface every card in the app sits on, one step up from the floor. On the light theme it is
+ * lifted by a soft shadow tinted with the ink colour rather than grey; on the dark one, where a
+ * shadow cannot show, a chalk edge at 5% marks it instead. Press feedback is a gentle scale.
  */
 @Composable
 internal fun GainsCard(
@@ -85,9 +89,9 @@ internal fun GainsCard(
     Column(
         modifier
             .scale(scale)
+            .surfaceDepth(shape)
             .clip(shape)
             .background(brush ?: palette.cardBrush())
-            .then(if (palette.isDark) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape))
             .then(if (onClick != null) Modifier.clickable(interaction, indication = null, onClick = onClick) else Modifier)
             .padding(contentPadding.dp)
             .animateContentSize(),
@@ -95,7 +99,16 @@ internal fun GainsCard(
     )
 }
 
-internal enum class Dp16(val dp: androidx.compose.ui.unit.Dp) { None(0.dp), Tight(14.dp), Normal(16.dp), Loose(20.dp) }
+internal enum class Dp16(val dp: androidx.compose.ui.unit.Dp) { None(0.dp), Tight(16.dp), Normal(20.dp), Loose(24.dp) }
+
+/** The cards' and bars' lift: a soft ink-tinted shadow on light, a 5% chalk edge on dark. */
+@Composable
+internal fun Modifier.surfaceDepth(shape: androidx.compose.ui.graphics.Shape): Modifier {
+    val palette = GainsColors.palette
+    val ink = MaterialTheme.colorScheme.onSurface
+    return if (palette.isDark) border(1.dp, ink.copy(alpha = 0.05f), shape)
+    else shadow(12.dp, shape, clip = false, ambientColor = ink.copy(alpha = 0.04f), spotColor = ink.copy(alpha = 0.10f))
+}
 
 /** Large screen heading with an optional muted subtitle. */
 @Composable
@@ -111,7 +124,7 @@ internal fun ScreenTitle(
     Row(modifier.fillMaxWidth().padding(top = 4.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.headlineLarge)
-            if (subtitle != null) Spacer(Modifier.height(2.dp))
+            if (subtitle != null) Spacer(Modifier.height(4.dp))
             if (subtitle != null) {
                 if (onSubtitleClick == null) {
                     Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -131,7 +144,9 @@ internal fun ScreenTitle(
 
 @Composable
 internal fun SectionHeader(text: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
-    Row(modifier.fillMaxWidth().padding(top = 24.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    // A section starts 32 below the last one and its own content follows 12 below it: the gap between
+    // groups is more than twice the gap inside one, so the grouping reads without lines.
+    Row(modifier.fillMaxWidth().padding(top = 32.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
         action?.invoke()
     }
@@ -143,14 +158,12 @@ internal fun Pill(text: String, color: Color, modifier: Modifier = Modifier, fil
     // A pill that turns on (a chosen chip, "Active") eases into it rather than blinking.
     val background by animateColorAsState(if (filled) color else color.copy(alpha = 0.14f), Motion.standard(), label = "pill")
     val content by animateColorAsState(if (filled) MaterialTheme.colorScheme.onPrimary else color, Motion.standard(), label = "pill-text")
-    Box(
-        modifier
-            .clip(CircleShape)
-            .background(background)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 9.dp, vertical = 3.dp),
-    ) {
-        Text(text, style = MaterialTheme.typography.labelSmall, color = content, maxLines = 1, softWrap = false)
+    // A pill that can be tapped takes a 48 dp target around itself, so the small label is still easy to hit.
+    val target = if (onClick != null) Modifier.minimumInteractiveComponentSize().clickable(onClick = onClick) else Modifier
+    Box(modifier.then(target), contentAlignment = Alignment.Center) {
+        Box(Modifier.clip(CircleShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp)) {
+            Text(text, style = MaterialTheme.typography.labelSmall, color = content, maxLines = 1, softWrap = false)
+        }
     }
 }
 
@@ -164,7 +177,7 @@ internal fun Tag(text: String, modifier: Modifier = Modifier) {
         modifier
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
     }
@@ -202,7 +215,7 @@ internal fun MetricTile(
         if (roll) RollingText(value, style, color, fit = true)
         else FitText(value, style, color)
         if (caption != null) {
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(4.dp))
             Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -233,7 +246,7 @@ internal fun <T> ChipRow(options: List<T>, selected: T, label: @Composable (T) -
                     .indicatorSlot(indicator, index)
                     .clip(CircleShape)
                     .clickable { onSelect(option) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 Text(label(option), style = MaterialTheme.typography.labelLarge, color = text)
             }
@@ -243,7 +256,7 @@ internal fun <T> ChipRow(options: List<T>, selected: T, label: @Composable (T) -
 
 @Composable
 internal fun KeyValueRow(key: String, value: String, modifier: Modifier = Modifier, valueColor: Color? = null) {
-    Row(modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(key, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(16.dp))
         Text(value, style = MaterialTheme.typography.titleSmall, color = valueColor ?: MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.End)
@@ -292,7 +305,7 @@ internal fun EmptyState(
 internal fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, compact: Boolean = false) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(if (compact) 36.dp else ButtonHeight),
+        modifier = modifier.height(if (compact) CompactButtonHeight else ButtonHeight).clip(if (compact) MaterialTheme.shapes.small else MaterialTheme.shapes.medium).innerHighlight(),
         enabled = enabled,
         shape = if (compact) MaterialTheme.shapes.small else MaterialTheme.shapes.medium,
         contentPadding = ButtonPadding(compact),
@@ -304,16 +317,27 @@ internal fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier
 internal fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(if (compact) 36.dp else ButtonHeight),
+        modifier = modifier.height(if (compact) CompactButtonHeight else ButtonHeight),
         shape = if (compact) MaterialTheme.shapes.small else MaterialTheme.shapes.medium,
         contentPadding = ButtonPadding(compact),
         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest, contentColor = MaterialTheme.colorScheme.onSurface),
     ) { ButtonLabel(text, compact) }
 }
 
-internal val ButtonHeight = 46.dp
+/** A full button; the compact one inside cards is [CompactButtonHeight], still a 44 pt target. */
+internal val ButtonHeight = 48.dp
+internal val CompactButtonHeight = 44.dp
 
-private fun ButtonPadding(compact: Boolean) = PaddingValues(horizontal = if (compact) 14.dp else 18.dp)
+private fun ButtonPadding(compact: Boolean) = PaddingValues(horizontal = if (compact) 16.dp else 24.dp)
+
+/**
+ * A faint white sheen over the top half of a filled button, the "inner light" that gives it a little
+ * body. It shows on the ink button of the light theme; on the chalk one it disappears into the fill.
+ */
+private fun Modifier.innerHighlight(): Modifier = drawWithContent {
+    drawContent()
+    drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.12f), Color.Transparent), endY = size.height * 0.55f))
+}
 
 @Composable
 private fun ButtonLabel(text: String, compact: Boolean) {

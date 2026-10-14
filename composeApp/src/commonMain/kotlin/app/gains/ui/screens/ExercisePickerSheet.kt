@@ -46,7 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Format
 import app.gains.domain.Exercise
@@ -166,17 +165,17 @@ internal fun ExercisePickerSheet(
                 ),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
             // Muscle-group filter
-            LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { FilterChip(stringResource(Res.string.all), group == null) { group = null } }
                 items(MuscleGroup.entries) { g -> FilterChip(g.label(), group == g) { group = if (group == g) null else g } }
             }
             Spacer(Modifier.height(4.dp))
 
             // Results
-            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 12.dp)) {
+            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 12.dp)) {
                 if (canCreate) {
                     item(key = "create") {
                         CreateRow(q) {
@@ -242,7 +241,7 @@ private fun FilterChip(label: String, active: Boolean, onClick: () -> Unit) {
             .clip(CircleShape)
             .background(fill)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = text)
     }
@@ -254,7 +253,7 @@ private fun SectionLabel(text: String) {
         text,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 14.dp, bottom = 6.dp),
+        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
     )
 }
 
@@ -262,11 +261,11 @@ private fun SectionLabel(text: String) {
 private fun CreateRow(name: String, onClick: () -> Unit) {
     val palette = GainsColors.palette
     Row(
-        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable(onClick = onClick).padding(vertical = 10.dp),
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable(onClick = onClick).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RoundedIconBox(palette.volt, Modifier.size(TILE_WIDTH, TILE_HEIGHT)) { Icon(Icons.Default.Add, null, tint = palette.volt, modifier = Modifier.size(20.dp)) }
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text(stringResource(Res.string.create_named, name), style = MaterialTheme.typography.titleMedium, color = palette.volt)
             Text(stringResource(Res.string.custom_exercise_guessed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -290,20 +289,20 @@ private fun PickerRow(e: Exercise, name: String, selected: Boolean, added: Boole
             .clip(MaterialTheme.shapes.medium)
             .background(animateColorAsState(if (selected) palette.volt.copy(alpha = 0.10f) else Color.Transparent, Motion.press(), label = "picked").value)
             .then(if (added) Modifier else Modifier.clickable(onClick = onToggle))
-            .padding(horizontal = 6.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // The start position where Everkinetic draws the exercise, so a lift can be spotted by its look; its initials otherwise.
         RoundedIconBox(muscleColor(primary), Modifier.size(TILE_WIDTH, TILE_HEIGHT)) {
             if (hasThumbnail(e.id)) ExerciseThumbnail(e.id, muscleColor(primary))
-            else Text(muscleInitials(primary, name), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = muscleColor(primary))
+            else Text(muscleInitials(primary, name), style = MaterialTheme.typography.labelLarge, color = muscleColor(primary))
         }
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text(name, style = MaterialTheme.typography.titleMedium, color = if (added) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
             if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(12.dp))
         if (added) {
             Tag(stringResource(Res.string.added))
         } else {

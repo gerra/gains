@@ -97,7 +97,7 @@ internal fun ProgramsScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
 
 @Composable
 private fun ProgramRow(program: Program, active: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    GainsCard(modifier.fillMaxWidth().padding(bottom = 10.dp), onClick = onClick, contentPadding = Dp16.Normal) {
+    GainsCard(modifier.fillMaxWidth().padding(bottom = 12.dp), onClick = onClick, contentPadding = Dp16.Normal) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(program.displayName(), style = MaterialTheme.typography.titleMedium)

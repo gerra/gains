@@ -35,7 +35,7 @@ internal fun ExerciseThumbnail(exerciseId: String, ink: Color, modifier: Modifie
         ThumbnailCache[exerciseId] = decoded
         value = decoded
     }.value ?: return
-    Image(image, null, modifier.fillMaxSize().padding(2.dp), contentScale = ContentScale.Fit, colorFilter = ColorFilter.tint(ink))
+    Image(image, null, modifier.fillMaxSize().padding(4.dp), contentScale = ContentScale.Fit, colorFilter = ColorFilter.tint(ink))
 }
 
 /**

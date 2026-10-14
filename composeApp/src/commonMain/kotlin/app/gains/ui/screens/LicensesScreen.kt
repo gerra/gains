@@ -71,7 +71,7 @@ internal fun LicensesScreen() {
             ScreenTitle(stringResource(Res.string.open_source_licenses), stringResource(Res.string.app_version, appVersion()))
             GainsCard(Modifier.fillMaxWidth()) {
                 Text(stringResource(Res.string.gains_license), style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(stringResource(Res.string.gains_source), style = MaterialTheme.typography.bodySmall, color = muted)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = { uriHandler.openUri(MPL_URL) }) { Text(stringResource(Res.string.read_the_license), color = palette.volt) }
@@ -99,7 +99,7 @@ internal fun LicensesScreen() {
 @Composable
 private fun WorkCard(work: ThirdPartyWork) {
     val uriHandler = LocalUriHandler.current
-    GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+    GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = Dp16.Tight) {
         Text(work.name, style = MaterialTheme.typography.titleSmall)
         Text("${work.author} · ${work.license}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(4.dp))
@@ -114,7 +114,7 @@ private fun WorkCard(work: ThirdPartyWork) {
 
 @Composable
 private fun LibraryRow(library: Library, licenseNames: Map<String, String>) {
-    GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+    GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = Dp16.Tight) {
         Text("${library.name} ${library.version}", style = MaterialTheme.typography.titleSmall)
         val details = listOfNotNull(library.author, library.licenseIds.joinToString { licenseNames[it] ?: it }.ifEmpty { null })
         Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -124,7 +124,7 @@ private fun LibraryRow(library: Library, licenseNames: Map<String, String>) {
 @Composable
 private fun LicenseCard(license: LicenseText) {
     val uriHandler = LocalUriHandler.current
-    GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+    GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = Dp16.Tight) {
         Text(license.name, style = MaterialTheme.typography.titleSmall)
         license.text?.let {
             Spacer(Modifier.height(8.dp))

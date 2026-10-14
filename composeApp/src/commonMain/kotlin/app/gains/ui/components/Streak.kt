@@ -108,7 +108,7 @@ internal fun StreakCard(
             }
             if (streak.atMilestone) Pill(stringResource(Res.string.streak_milestone), palette.volt, filled = true)
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
             Text(stringResource(Res.string.this_week), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
             Text(
@@ -121,7 +121,7 @@ internal fun StreakCard(
         WeekStrip(streak, accent)
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Dot(accent, size = 8.dp, modifier = Modifier.align(Alignment.Top).padding(top = 6.dp))
+            Dot(accent, size = 8.dp, modifier = Modifier.align(Alignment.Top).padding(top = 8.dp))
             Spacer(Modifier.width(8.dp))
             Text(streakLine(streak), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
             // Taken, the offer folds away instead of vanishing.
@@ -132,7 +132,7 @@ internal fun StreakCard(
                 exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT)),
             ) {
                 Row {
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(12.dp))
                     Pill(stringResource(Res.string.streak_remind_me), palette.volt, onClick = { onRemindMe?.invoke() })
                 }
             }
@@ -144,7 +144,7 @@ internal fun StreakCard(
             else -> null
         }
         if (aside != null) {
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             Row {
                 Spacer(Modifier.width(16.dp))
                 Text(aside.first, style = MaterialTheme.typography.bodySmall, color = aside.second)
@@ -175,7 +175,7 @@ internal fun WeekStrip(streak: Streak, accent: Color, modifier: Modifier = Modif
         )
         alpha
     }
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         streak.thisWeekSessions.forEachIndexed { index, count -> key(index) {
             val today = index == todayIndex
             val future = index > todayIndex
@@ -188,7 +188,7 @@ internal fun WeekStrip(streak: Streak, accent: Color, modifier: Modifier = Modif
                     textAlign = TextAlign.Center,
                     modifier = Modifier.alpha(if (future) 0.5f else 1f),
                 )
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.height(4.dp))
                 val description = dayCellDescription(DayOfWeek.entries[index], count)
                 val fill = when {
                     count > 0 -> palette.volt

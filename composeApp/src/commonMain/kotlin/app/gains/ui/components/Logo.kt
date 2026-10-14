@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.gains.ui.theme.TypeScale
 
 // Brand colours are fixed so the mark looks the same in both themes and matches the launcher icons.
 private val LogoTile = Color(0xFF1B1E22)
@@ -57,7 +58,7 @@ internal fun GainsWordmark(modifier: Modifier = Modifier, markSize: Dp = 26.dp) 
         Spacer(Modifier.width(8.dp))
         Text(
             "GAINS",
-            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 20.sp, lineHeight = 24.sp),
+            style = MaterialTheme.typography.headlineLarge.copy(fontSize = TypeScale.TITLE.sp, lineHeight = 24.sp),
             letterSpacing = 1.5.sp,
             color = MaterialTheme.colorScheme.onSurface,
         )

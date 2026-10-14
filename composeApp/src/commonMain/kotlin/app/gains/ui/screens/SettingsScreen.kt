@@ -293,24 +293,24 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                     LinkButtons(providers, model, onApple = { model.linkApple() }, onGoogle = { model.linkGoogle() }, note = true)
                 }
                 if (signInButtons(model.authConfig).isEmpty()) {
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(stringResource(Res.string.sign_in_not_configured_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             SectionHeader(stringResource(Res.string.training_goal))
             GainsCard(Modifier.fillMaxWidth()) {
                 val profile = state.profile
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (g in Goal.entries) Pill(g.label(), palette.volt, filled = profile?.goal == g, onClick = { model.setGoal(g) })
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 ChipRow(Experience.entries, profile?.experience ?: Experience.BEGINNER, { it.label() }, { model.setExperience(it) })
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 // Seven chips leave no room for the label beside them on a phone, so it sits above.
                 Text(stringResource(Res.string.days_a_week_label), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 ChipRow((GoalProfile.MIN_DAYS..GoalProfile.MAX_DAYS).toList(), profile?.daysPerWeek ?: 3, { it.toString() }, { model.setDays(it) }, Modifier.fillMaxWidth())
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     KeyValueRow(stringResource(Res.string.active_program), state.activeProgramName ?: stringResource(Res.string.none), Modifier.weight(1f))
                     TextButton(onClick = onOpenPrograms) { Text(stringResource(Res.string.change), color = palette.volt) }
@@ -330,13 +330,13 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
             SectionHeader(stringResource(Res.string.language))
             GainsCard(Modifier.fillMaxWidth()) {
                 ChipRow(AppLanguage.entries, state.language, { it.label() }, { model.setLanguage(it) })
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(stringResource(Res.string.language_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             SectionHeader(stringResource(Res.string.display_units))
             GainsCard(Modifier.fillMaxWidth()) {
                 ChipRow(WeightUnit.entries, state.unit, { it.label() }, { model.setUnit(it) })
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(stringResource(Res.string.units_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             SectionHeader(stringResource(Res.string.streak_reminder))
@@ -345,7 +345,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                     Text(stringResource(Res.string.streak_reminder), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     ChipRow(listOf(true, false), state.streakReminder, { if (it) stringResource(Res.string.on) else stringResource(Res.string.off) }, { model.setStreakReminder(it) })
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(
                     if (state.streakReminder) stringResource(Res.string.streak_reminder_note, clockHour(state.reminderHour)) else stringResource(Res.string.streak_reminder_note_off),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -357,7 +357,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                     Text(stringResource(Res.string.show_score_and_achievements), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     ChipRow(listOf(true, false), state.trophies, { if (it) stringResource(Res.string.on) else stringResource(Res.string.off) }, { model.setTrophies(it) })
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(stringResource(Res.string.score_and_achievements_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             SectionHeader(stringResource(Res.string.warm_ups))
@@ -366,7 +366,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                     Text(stringResource(Res.string.prefill_warm_ups), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     ChipRow(listOf(true, false), state.autoWarmups, { if (it) stringResource(Res.string.on) else stringResource(Res.string.off) }, { model.setAutoWarmups(it) })
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(Res.string.empty_bar), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     val options = if (state.unit == WeightUnit.KG) listOf(10.0, 15.0, 20.0) else listOf(25.0, 35.0, 45.0)
@@ -374,7 +374,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                     val selected = options.minBy { kotlin.math.abs(it - current) }
                     ChipRow(options, selected, { "${Format.number(it, 0)} ${state.unit.label()}" }, { model.setBarWeightKg(Units.roundToQuarter(Units.fromDisplay(it, state.unit))) })
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(
                     stringResource(Res.string.warm_ups_note),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -395,7 +395,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
         if (state.aliases.isNotEmpty()) {
             item { SectionHeader(stringResource(Res.string.aliases)) }
             items(state.aliases.entries.toList(), key = { it.key }) { (raw, id) ->
-                GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+                GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 8.dp), contentPadding = Dp16.Tight) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(raw, style = MaterialTheme.typography.titleSmall)
@@ -409,7 +409,7 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
         if (state.overrides.isNotEmpty()) {
             item { SectionHeader(stringResource(Res.string.working_set_overrides)) }
             items(state.overrides.entries.toList(), key = { "o" + it.key }) { (id, ratio) ->
-                GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+                GainsCard(Modifier.animateItem().fillMaxWidth().padding(bottom = 8.dp), contentPadding = Dp16.Tight) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("${state.exercisesById[id]?.displayName() ?: id}: ${(ratio * 100).toInt()}%", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                         TextButton(onClick = { model.clearOverride(id) }) { Text(stringResource(Res.string.reset), color = palette.coral) }
@@ -500,7 +500,7 @@ private fun LinkButtons(providers: List<AccountKind>, model: SettingsModel, onAp
 private fun MergeRow(custom: Exercise, catalogue: List<Exercise>, onMerge: (Exercise) -> Unit) {
     var open by remember { mutableStateOf(false) }
     val palette = GainsColors.palette
-    GainsCard(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentPadding = Dp16.Tight) {
+    GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentPadding = Dp16.Tight) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text(custom.name, style = MaterialTheme.typography.titleSmall)

@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
@@ -64,6 +66,8 @@ import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.root.UpNext
 import app.gains.ui.components.GainsWordmark
+import app.gains.ui.components.surfaceDepth
+import app.gains.ui.components.PrimaryButton
 import app.gains.ui.components.indicatorSlot
 import app.gains.ui.components.rememberSlidingIndicator
 import app.gains.ui.components.slidingIndicator
@@ -169,7 +173,7 @@ internal fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?, syncA
                             .align(Alignment.TopEnd)
                             .size(12.dp)
                             .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
-                            .padding(2.dp)
+                            .padding(4.dp)
                             .clip(CircleShape)
                             .background(GainsColors.palette.coral),
                     )
@@ -183,7 +187,7 @@ internal fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?, syncA
 private fun IconCircle(icon: ImageVector, description: String, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(40.dp)
+            .size(44.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable(onClick = onClick),
@@ -201,14 +205,14 @@ private fun IconCircle(icon: ImageVector, description: String, onClick: () -> Un
 internal fun BottomNav(navigator: Navigator) {
     // One pill that slides along the bar to the chosen tab, and fades while a screen is pushed on top.
     val indicator = rememberSlidingIndicator(navigator.currentTab?.ordinal?.takeIf { !navigator.canGoBack })
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(22.dp))
+                .surfaceDepth(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(24.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainer)
-                .then(if (GainsColors.palette.isDark) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(22.dp)))
-                .padding(5.dp)
+                .padding(4.dp)
                 .slidingIndicator(indicator, MaterialTheme.colorScheme.surfaceContainerHighest),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -223,15 +227,19 @@ internal fun BottomNav(navigator: Navigator) {
                     Modifier
                         .weight(1f)
                         .indicatorSlot(indicator, tab.ordinal)
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(20.dp))
                         .clickable(interaction, indication = null) { navigator.switchTab(tab) }
-                        .padding(vertical = 7.dp),
+                        .padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     val label = tab.label()
                     Icon(tab.icon(), label, tint = content, modifier = Modifier.size(22.dp))
-                    Spacer(Modifier.height(3.dp))
-                    Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 14.sp), color = content, maxLines = 1, softWrap = false)
+                    Spacer(Modifier.height(4.dp))
+                    // One line whatever the language: a long label ("Упражнения") steps down rather than clipping.
+                    BasicText(
+                        label, style = MaterialTheme.typography.labelSmall.copy(color = content), maxLines = 1, softWrap = false,
+                        autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = MaterialTheme.typography.labelSmall.fontSize, stepSize = 0.5.sp),
+                    )
                 }
             }
         }
@@ -255,19 +263,33 @@ internal fun SyncBanner(sync: SyncUi, onOpenSettings: () -> Unit, onRetry: () ->
             .clip(MaterialTheme.shapes.medium)
             .background(coral.copy(alpha = 0.14f))
             .clickable(onClick = onOpenSettings)
-            .padding(start = 16.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             stringResource(if (signedOut) Res.string.sync_banner_signed_out else Res.string.sync_banner_failed),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+            modifier = Modifier.weight(1f).padding(vertical = 12.dp),
         )
         TextButton(onClick = if (signedOut) onOpenSettings else onRetry) {
             Text(stringResource(if (signedOut) Res.string.sync_banner_sign_in else Res.string.sync_banner_retry), color = coral)
         }
     }
+}
+
+/**
+ * Home's main action where the thumb rests: the next day of the active program, one tap from
+ * starting, just above the tabs. Shown only on Home and only while no workout is running; the
+ * workout's own bar takes this place once it starts.
+ */
+@Composable
+internal fun StartBar(upNext: UpNext, onStart: () -> Unit) {
+    PrimaryButton(
+        stringResource(Res.string.menu_start_day, upNext.dayName),
+        onClick = onStart,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    )
 }
 
 /**
@@ -286,7 +308,7 @@ internal fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
             .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.primary)
             .clickable(onClick = onResume)
-            .padding(horizontal = 18.dp, vertical = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
             .animateContentSize(Motion.standard()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -294,10 +316,10 @@ internal fun LiveSessionBar(live: LiveSession, onResume: () -> Unit) {
         Text(live.title, style = MaterialTheme.typography.titleSmall, color = onAccent, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(Format.clock(live.elapsedMs(now) / 1000), style = MaterialTheme.typography.titleSmall, color = onAccent)
         if (remaining != null && remaining > 0) {
-            Spacer(Modifier.size(10.dp))
+            Spacer(Modifier.size(12.dp))
             Text(stringResource(Res.string.rest_countdown, Format.clock(remaining.toLong())), style = MaterialTheme.typography.bodySmall, color = onAccent)
         }
-        Spacer(Modifier.size(10.dp))
+        Spacer(Modifier.size(12.dp))
         Text(stringResource(Res.string.resume_chevron), style = MaterialTheme.typography.labelMedium, color = onAccent)
     }
 }

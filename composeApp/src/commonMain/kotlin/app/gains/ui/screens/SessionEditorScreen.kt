@@ -86,7 +86,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -941,28 +940,14 @@ internal fun SessionEditorScreen(
     val startedAt = state.startedAtMs
 
     Column(Modifier.fillMaxSize()) {
-        // Pinned above the list however far it is scrolled: Start until the clock runs, then the clock.
-        // Start is the moment the plan comes alive, so the one card hands over to the other.
         val reduce = LocalReduceMotion.current
-        val header = when {
-            startedAt != null -> EditorHeader.CLOCK
-            state.timed -> EditorHeader.READY
-            else -> EditorHeader.NONE
-        }
-        AnimatedContent(header, transitionSpec = { fadeThrough(reduce) }, label = "editor-header") { shown ->
-            when (shown) {
-                EditorHeader.CLOCK -> state.startedAtMs?.let { SessionClock(it, state.restTimer, onSkipRest = model::dismissRest, onEnd = model::endSession) }
-                EditorHeader.READY -> ReadyCard(state.exercises, onStart = model::start)
-                EditorHeader.NONE -> {}
-            }
-        }
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(state.title, style = MaterialTheme.typography.headlineLarge)
                         if (state.programDays.isNotEmpty()) {
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(8.dp))
                             val tag = state.programDayOption
                             Pill(tag?.label ?: stringResource(Res.string.not_part_of_a_program), if (tag != null) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant, onClick = { dayPickerOpen = true })
                         }
@@ -1022,17 +1007,32 @@ internal fun SessionEditorScreen(
                 }
                 Spacer(Modifier.height(12.dp))
                 when {
-                    startedAt != null -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    startedAt != null -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         SecondaryButton(stringResource(Res.string.discard), { confirmDiscard = true }, Modifier.weight(1f))
                         PrimaryButton(stringResource(Res.string.end_session), { model.endSession() }, Modifier.weight(1f))
                     }
                     // Not started: Start stays pinned above the list, so nothing is needed down here.
                     state.timed -> {}
-                    else -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    else -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         SecondaryButton(stringResource(Res.string.cancel), onDone, Modifier.weight(1f))
                         PrimaryButton(if (state.isNew) stringResource(Res.string.save_workout) else stringResource(Res.string.save_changes), { model.save() }, Modifier.weight(1f))
                     }
                 }
+            }
+        }
+        // Pinned under the list however far it is scrolled, where the thumb rests: Start until the clock
+        // runs, then the clock with Skip and End. Start is the moment the plan comes alive, so the one
+        // card hands over to the other.
+        val header = when {
+            startedAt != null -> EditorHeader.CLOCK
+            state.timed -> EditorHeader.READY
+            else -> EditorHeader.NONE
+        }
+        AnimatedContent(header, transitionSpec = { fadeThrough(reduce) }, label = "editor-header") { shown ->
+            when (shown) {
+                EditorHeader.CLOCK -> state.startedAtMs?.let { SessionClock(it, state.restTimer, onSkipRest = model::dismissRest, onEnd = model::endSession) }
+                EditorHeader.READY -> ReadyCard(state.exercises, onStart = model::start)
+                EditorHeader.NONE -> {}
             }
         }
     }
@@ -1209,14 +1209,14 @@ private fun LongSessionDialog(timedMinutes: Int, onConfirm: (Int) -> Unit, onCan
 }
 
 /**
- * Pinned above a timed workout that has not started: what is planned, and the one button that
- * starts the clock. It sits where the clock will, so the card simply changes over on Start.
+ * Pinned under a timed workout that has not started, above the tabs: what is planned, and the one
+ * button that starts the clock. It sits where the clock will, so the card simply changes over on Start.
  */
 @Composable
 private fun ReadyCard(exercises: List<ExerciseDraft>, onStart: () -> Unit) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val workSets = exercises.sumOf { it.workSets.size }
-    GainsCard(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 8.dp), contentPadding = Dp16.Tight) {
+    GainsCard(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), contentPadding = Dp16.Tight) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(Res.string.ready), style = MaterialTheme.typography.labelSmall, color = muted)
@@ -1227,16 +1227,16 @@ private fun ReadyCard(exercises: List<ExerciseDraft>, onStart: () -> Unit) {
             }
             val startDescription = stringResource(Res.string.start_workout)
             Button(
-                onClick = onStart, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp),
+                onClick = onStart, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                 modifier = Modifier.semantics { contentDescription = startDescription },
-            ) { Text(stringResource(Res.string.start), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+            ) { Text(stringResource(Res.string.start), style = MaterialTheme.typography.labelLarge) }
         }
     }
 }
 
 /**
- * Pinned above the workout: total time since the session started and the rest left on the current
+ * Pinned under the workout, in reach of the thumb: total time since the session started and the rest left on the current
  * countdown, both against the wall clock so backgrounding and relaunches change nothing.
  */
 @Composable
@@ -1258,7 +1258,7 @@ private fun SessionClock(startedAtMs: Long, rest: RestTimer?, onSkipRest: () -> 
     LaunchedEffect(over) {
         if (over && !reduce) { beat.snapTo(1.18f); beat.animateTo(1f, popSpec) }
     }
-    GainsCard(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 8.dp), contentPadding = Dp16.Tight) {
+    GainsCard(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), contentPadding = Dp16.Tight) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(Res.string.total), style = MaterialTheme.typography.labelSmall, color = muted)
@@ -1285,9 +1285,9 @@ private fun SessionClock(startedAtMs: Long, rest: RestTimer?, onSkipRest: () -> 
                 TextButton(onClick = onSkipRest) { Text(if (remaining == null || remaining > 0) stringResource(Res.string.skip) else stringResource(Res.string.ok), color = muted) }
             }
             Button(
-                onClick = onEnd, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+                onClick = onEnd, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-            ) { Text(stringResource(Res.string.end), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+            ) { Text(stringResource(Res.string.end), style = MaterialTheme.typography.labelLarge) }
         }
         // How much of the rest is left, running down between the clock's ticks. The only thing here
         // that moves on its own, because it is the thing being waited for. Its track is always drawn,
@@ -1344,7 +1344,7 @@ private fun ProgramDayDialog(options: List<ProgramDayOption>, selected: ProgramD
 
 @Composable
 private fun DayChoice(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = if (selected) accent else MaterialTheme.colorScheme.onSurface)
         if (selected) Icon(Icons.Default.Check, null, tint = accent, modifier = Modifier.size(18.dp))
     }
@@ -1379,11 +1379,11 @@ private fun ExerciseCard(
     val labels = draft.labels
     val previousLabels = draft.previousLabels(previous, unit, unitLabels())
     val name = draft.exercise.displayName()
-    GainsCard(modifier.fillMaxWidth().padding(bottom = 10.dp), contentPadding = Dp16.Tight) {
+    GainsCard(modifier.fillMaxWidth().padding(bottom = 12.dp), contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (target != null) Pill(target, palette.volt)
                     Tag(modality.label())
                     if (draft.exercise.isDumbbell) Tag(stringResource(Res.string.per_dumbbell))
@@ -1418,7 +1418,7 @@ private fun ExerciseCard(
             }
         }
         if (programNote != null) {
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(4.dp))
             Text(slotNoteText(programNote), style = MaterialTheme.typography.bodySmall, color = muted)
         }
         if (tier != null) {
@@ -1430,9 +1430,9 @@ private fun ExerciseCard(
         Spacer(Modifier.height(8.dp))
         if (previousSources != null) {
             PreviousSourceRow(previousSources, previousLatest) { model.showLatestPrevious(exerciseIndex, it) }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
         }
-        Row(Modifier.fillMaxWidth().padding(bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.column_set), Modifier.width(LABEL_WIDTH), style = MaterialTheme.typography.labelSmall, color = muted)
             Header(stringResource(Res.string.column_prev), Modifier.width(PREVIOUS_WIDTH))
             when (modality) {
@@ -1467,7 +1467,7 @@ private fun ExerciseCard(
             // A ticked work set that beats one of the lift's standing records takes a star in place of
             // its number, the moment it is ticked, as Hevy stamps a medal on the set. Warm-ups never do.
             val record = done && !set.isWarmup && standing != null && set.toSet(setIndex, unit)?.let { Records.beats(it, modality, standing) } == true
-            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
                 val labelColor by animateColorAsState(
                     when { done -> palette.volt; set.isWarmup -> muted; else -> MaterialTheme.colorScheme.onSurface },
                     Motion.standard(), label = "set-label",
@@ -1633,7 +1633,7 @@ private fun SetCell(
             Box(
                 Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(fill)
                     .border(1.5.dp, border, CellShape)
-                    .padding(horizontal = 6.dp),
+                    .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 // The dash stands in for an empty cell until the caret takes its place.
@@ -1653,7 +1653,7 @@ private fun WeightCell(value: String, done: Boolean, muted: Boolean, enabled: Bo
     Box(
         modifier.height(CELL_HEIGHT).clip(CellShape).background(fill).clickable(enabled = enabled, onClick = onClick)
             .semantics { role = Role.Button; contentDescription = description }
-            .padding(horizontal = 6.dp),
+            .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (value.isEmpty()) CellPlaceholder(enabled)
@@ -1673,7 +1673,7 @@ private fun PreviousSourceRow(sources: PreviousSources, latest: Boolean, onSelec
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(stringResource(Res.string.prev_from), style = MaterialTheme.typography.labelSmall, color = muted)
         val slot = sources.slot
@@ -1803,7 +1803,7 @@ private fun AddSetBar(enabled: Boolean, onClick: () -> Unit) {
     val palette = GainsColors.palette
     val description = stringResource(Res.string.add_set)
     Box(
-        Modifier.fillMaxWidth().padding(top = 3.dp).height(ADD_SET_HEIGHT).clip(CellShape)
+        Modifier.fillMaxWidth().padding(top = 4.dp).height(ADD_SET_HEIGHT).clip(CellShape)
             .background(if (enabled) palette.volt.copy(alpha = 0.12f) else cellFill(done = false, enabled = false))
             .clickable(enabled = enabled, onClick = onClick)
             .semantics { role = Role.Button; contentDescription = description },
