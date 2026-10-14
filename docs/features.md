@@ -108,6 +108,10 @@ The long version of the list in the [README](../README.md).
 - **Weekly volume by muscle group.** Working sets per week with primary and secondary credit,
   flagged as maintenance under 8 sets and likely junk volume over 22. The sets are also shaded
   onto a body, front and back; tap a muscle to see its numbers and filter the list to it.
+- **A calendar of what you trained.** History opens on the last two weeks, Monday to Sunday,
+  every trained day showing the muscles it worked on a small body and today ringed; **View all**
+  has every month in date order, opening on this one at the bottom and scrolling up into the past. A week a rest week carried the streak through is
+  tinted, and a line under the grid says so. Tap a day to open its workout.
 - **Log and edit workouts.** Add sessions in the app, edit imported ones (date, duration,
   exercises, sets, notes) and have the edits flow into the same analyses. Each exercise card
   has a menu to swap the lift for another while keeping every set typed so far, to move it up
@@ -162,7 +166,7 @@ tab, so the pictures cannot drift from the code.
     <td align="center"><img src="screenshots/01-welcome.png" alt="Welcome" width="230"><br><sub>Welcome</sub></td>
     <td align="center"><img src="screenshots/02-import.png" alt="Import preview" width="230"><br><sub>Import preview</sub></td>
     <td align="center"><img src="screenshots/03-home.png" alt="Home" width="230"><br><sub>Home: what's moving</sub></td>
-    <td align="center"><img src="screenshots/04-history.png" alt="History" width="230"><br><sub>History and heat-map</sub></td>
+    <td align="center"><img src="screenshots/04-history.png" alt="History" width="230"><br><sub>History and calendar</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="screenshots/05-lifts.png" alt="Lifts" width="230"><br><sub>Lifts with sparklines</sub></td>

@@ -161,8 +161,9 @@
     <string name="nudge_last_title">Последний день недели</string>
     <string name="nudge_last_body">Пока что %1$s, а на этой неделе пусто. Одна тренировка сегодня — и серия цела.</string>
     <string name="nudge_last_rest_body">Пока что %1$s, а на этой неделе пусто. Пропустишь — серию прикроет неделя отдыха.</string>
-    <string name="last26_weeks">Последние 26 недель</string>
-    <string name="tap_a_day_to_open">Нажми на день, чтобы открыть</string>
+    <string name="calendar_title">Календарь</string>
+    <string name="view_all">Все</string>
+    <string name="calendar_rest_week_legend">Неделя отдыха: пропуск, но серия не прервалась</string>
     <string name="sessions_per_week">Тренировок в неделю</string>
     <string name="four_week_average">Среднее за 4 недели</string>
     <string name="sessions_legend">Тренировки</string>

@@ -1,5 +1,6 @@
 package app.gains.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.ConsistencyAnalyzer
@@ -44,7 +46,9 @@ import app.gains.domain.Exercise
 import app.gains.domain.Session
 import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
-import app.gains.ui.charts.CalendarHeatmap
+import app.gains.ui.charts.CalendarDay
+import app.gains.ui.charts.RecentWeeksCalendar
+import app.gains.ui.charts.calendarDays
 import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
 import app.gains.ui.charts.LineChart
@@ -99,7 +103,8 @@ internal data class HistoryState(
     /** [sessions] grouped by year, then month, newest first. */
     val years: List<YearGroup> = emptyList(),
     val exercisesById: Map<String, Exercise> = emptyMap(),
-    val perDay: Map<LocalDate, Int> = emptyMap(),
+    /** Every trained day's session count and muscles, for the calendar. */
+    val calendar: Map<LocalDate, CalendarDay> = emptyMap(),
     /** Every day's sessions, newest first, for opening a day from the calendar. */
     val sessionsByDay: Map<LocalDate, List<Session>> = emptyMap(),
     val weeks: List<WeekCount> = emptyList(),
@@ -122,7 +127,7 @@ internal class HistoryModel(texts: Texts, trainingData: TrainingData, programs: 
                 sessions = sessions,
                 years = groupByYearAndMonth(sessions),
                 exercisesById = snapshot.exercisesById,
-                perDay = ConsistencyAnalyzer.perDay(snapshot.sessions),
+                calendar = calendarDays(sessions, snapshot.exercisesById),
                 sessionsByDay = sessions.groupBy { it.date },
                 weeks = ConsistencyAnalyzer.sessionsPerWeek(snapshot.sessions, today),
                 stats = InsightEngine().consistencyStats(snapshot.sessions, today),
@@ -135,10 +140,10 @@ internal class HistoryModel(texts: Texts, trainingData: TrainingData, programs: 
 
 /**
  * Every session, newest first, with the consistency picture on top. Tap a session, or its day on
- * the calendar, to edit it; plus to log.
+ * the calendar, to edit it; plus to log; View all for the calendar month by month.
  */
 @Composable
-internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
+internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit, onOpenCalendar: () -> Unit) {
     val texts = rememberTexts()
     val model = rememberScreenModel { HistoryModel(texts, inject(), inject(), inject()) }
     val state by model.state.collectAsState()
@@ -177,17 +182,15 @@ internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
             }
         }
         item {
-            SectionHeader(stringResource(Res.string.last26_weeks)) {
-                Text(stringResource(Res.string.tap_a_day_to_open), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SectionHeader(stringResource(Res.string.calendar_title)) {
+                Text(
+                    stringResource(Res.string.view_all) + " ›", style = MaterialTheme.typography.labelLarge, color = palette.volt,
+                    modifier = Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onOpenCalendar).padding(horizontal = 6.dp, vertical = 4.dp),
+                )
             }
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
-                CalendarHeatmap(state.perDay, today, weeks = 26, restWeeks = state.streak.restWeeksUsed, onDayClick = { day ->
-                    val onDay = state.sessionsByDay[day].orEmpty()
-                    when (onDay.size) {
-                        0 -> {}
-                        1 -> onOpen(onDay.single().id)
-                        else -> { pickedDay = day }
-                    }
+                RecentWeeksCalendar(state.calendar, today, restWeeks = state.streak.restWeeksUsed, onDayClick = { day ->
+                    openDay(state.sessionsByDay[day].orEmpty(), onOpen) { pickedDay = day }
                 })
             }
         }
@@ -221,9 +224,18 @@ internal fun HistoryScreen(onOpen: (String) -> Unit, onLog: () -> Unit) {
     }
 }
 
+/** A day tapped on the calendar: its one session opens straight away, several are asked about in a sheet. */
+internal fun openDay(sessions: List<Session>, onOpen: (String) -> Unit, onPick: () -> Unit) {
+    when (sessions.size) {
+        0 -> {}
+        1 -> onOpen(sessions.single().id)
+        else -> onPick()
+    }
+}
+
 /** The sessions of one calendar day, newest first, each a tap away from its editor. */
 @Composable
-private fun DaySessionsSheet(
+internal fun DaySessionsSheet(
     day: LocalDate,
     sessions: List<Session>,
     exercisesById: Map<String, Exercise>,

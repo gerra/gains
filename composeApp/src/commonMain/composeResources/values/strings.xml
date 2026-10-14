@@ -161,8 +161,9 @@
     <string name="nudge_last_title">Last day of the week</string>
     <string name="nudge_last_body">%1$s so far, nothing logged this week. One session today keeps it.</string>
     <string name="nudge_last_rest_body">%1$s so far, nothing logged this week. Skip it and a rest week covers you.</string>
-    <string name="last26_weeks">Last 26 weeks</string>
-    <string name="tap_a_day_to_open">Tap a day to open it</string>
+    <string name="calendar_title">Calendar</string>
+    <string name="view_all">View all</string>
+    <string name="calendar_rest_week_legend">Rest week: missed, but the streak held</string>
     <string name="sessions_per_week">Sessions per week</string>
     <string name="four_week_average">4-week average</string>
     <string name="sessions_legend">Sessions</string>
