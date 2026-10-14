@@ -141,6 +141,11 @@ To put a build on a phone without a Mac and a cable, see [TestFlight](testflight
 
 ## Recipes
 
+**Changing the UI.** The look has its rules written down in [docs/design.md](design.md): colours
+and what each means, the type scale, spacing, which component to use, tap targets and motion. A
+change to the look updates that file in the same pull request; `DesignDocTest` checks its colours
+and sizes against `Theme.kt` and `Components.kt`.
+
 **Screenshots.** The [Screenshots workflow](../.github/workflows/screenshots.yml) runs the UI test on
 a GitHub runner and commits the images under `docs/screenshots`. Trigger it from the Actions tab
 after a UI change.

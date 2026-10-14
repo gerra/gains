@@ -128,6 +128,10 @@ tasks.withType<Test>().configureEach {
             ?: layout.buildDirectory.dir("screenshots").get().asFile.absolutePath,
     )
     systemProperty("gains.sampleCsv", rootProject.file("samples/liftoff-export.csv").absolutePath)
+    // The documents the tests check against the code (LicensesTest, DesignDocTest): an edit to one
+    // of them alone reruns the tests instead of leaving the task up to date.
+    inputs.file(rootProject.file("NOTICE.md")).withPropertyName("notice")
+    inputs.file(rootProject.file("docs/design.md")).withPropertyName("designDoc")
     // `-Pgains.animationDir=<dir>` makes the screenshot test record clips of the app's motion there too.
     project.findProperty("gains.animationDir")?.let { systemProperty("gains.animationDir", rootProject.file(it.toString()).absolutePath) }
 }
