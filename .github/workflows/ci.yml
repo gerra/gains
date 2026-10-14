@@ -53,7 +53,7 @@ jobs:
       # klibs catches that here; klib cross-compilation is enabled in gradle.properties.
       - name: Compile the iOS klibs
         run: ./gradlew :shared:compileKotlinIosArm64 :composeApp:compileKotlinIosArm64 -Pgains.android=false --no-daemon
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: screenshots
@@ -84,7 +84,7 @@ jobs:
       # shrinking failure shows on the pull request rather than in the release round's Google Play job.
       - run: ./gradlew :androidApp:assembleDebug :androidApp:lintDebug :shared:testAndroidHostTest :androidApp:bundleRelease --no-daemon --stacktrace
       # On an R8 "Missing class" failure, missing_rules.txt holds the -dontwarn lines it asks for.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: android-reports
