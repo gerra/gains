@@ -594,7 +594,8 @@ class ScreenshotTest {
         scrollUntil(text("Calendar"), text("logged"))
         onNode(hasContentDescription("Settings") and hasClickAction()).performClick()
         require(text("Appearance"))
-        onNode(text("Light") and hasClickAction()).performClick()
+        // Appearance sits below the fold of Settings on a phone-sized window: chosen through its semantics.
+        onNode(text("Light") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         settle()
         tab("Home")
         require(text("What's moving"), 60_000)
