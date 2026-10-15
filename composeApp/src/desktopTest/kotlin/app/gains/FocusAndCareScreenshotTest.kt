@@ -29,6 +29,7 @@ import app.gains.di.initKoin
 import app.gains.domain.Caution
 import app.gains.domain.FocusArea
 import app.gains.platform.CsvFilePicker
+import app.gains.platform.applyAppLanguage
 import app.gains.ui.inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -36,6 +37,7 @@ import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import java.io.File
 import javax.imageio.ImageIO
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -49,6 +51,10 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalTestApi::class)
 class FocusAndCareScreenshotTest {
     private val outDir = File(System.getProperty("gains.screenshotDir") ?: "build/screenshots").apply { mkdirs() }
+
+    /** The run switches the app to Russian, which sets the process's locale: give the device's back to the tests after it. */
+    @AfterTest
+    fun giveTheDeviceLanguageBack() = applyAppLanguage(null)
 
     @Test
     fun aNewcomerAnswersAndGetsAFittedPlan() = runDesktopComposeUiTest(width = 720, height = 1600) {

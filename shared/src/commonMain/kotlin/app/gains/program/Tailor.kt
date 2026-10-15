@@ -11,6 +11,7 @@ import app.gains.domain.ProgressionRule
 import app.gains.domain.RepTarget
 import app.gains.domain.SlotReason
 import app.gains.domain.SwapWhy
+import app.gains.domain.WeightUnit
 
 /**
  * Fits a built-in program to the lifter: what they want more of ([FocusArea]) and what to be careful
@@ -148,17 +149,17 @@ object Tailor {
     private fun tailorDay(day: ProgramDay, index: Int, focus: Set<FocusArea>, cautions: Set<Caution>, home: Boolean): ProgramDay {
         val slots = ArrayList<ExerciseSlot>()
         val inDay = day.slots.mapTo(HashSet()) { it.exerciseId }
-        val ease = cautions.firstOrNull { it.easesHardSets }
+        val ease = cautions.sortedBy { it.ordinal }.firstOrNull { it.easesHardSets }
         for (original in day.slots) {
-            // An "as many as possible" set is taken to the limit, which pregnancy and blood pressure ask not to do.
-            val slot = if (ease != null) eased(original) else original
+            // Heavy and all-out sets are what pregnancy and blood pressure ask not to do: they become moderate.
+            val slot = if (ease != null) moderated(original) else original
             val by = swappedBy(slot.exerciseId, cautions)
             val gentler = by?.let { gentlerFor(slot.exerciseId, cautions, inDay) }
             slots += when {
                 gentler != null -> {
                     inDay += gentler
                     val why = rules.getValue(by).why[slot.exerciseId] ?: SwapWhy.GENTLER
-                    slot.copy(exerciseId = gentler, reason = SlotReason.Swapped(slot.exerciseId, by, why))
+                    slot.copy(exerciseId = gentler, reason = SlotReason.Swapped(slot.exerciseId, by, why, also = ease?.takeIf { slot != original && it != by }))
                 }
                 else -> carefulFor(slot, cautions)?.let { slot.copy(reason = SlotReason.Careful(it)) }
                     ?: ease?.takeIf { slot != original }?.let { slot.copy(reason = SlotReason.Careful(it)) }
@@ -188,13 +189,26 @@ object Tailor {
             if (c == Caution.BLOOD_PRESSURE) isHardSet(slot) else slot.exerciseId in rules.getValue(c).careful
         }
 
-    /** The slot with its open-ended sets made fixed, its stage ladder's too, at their minimum reps. */
-    private fun eased(slot: ExerciseSlot): ExerciseSlot {
+    /**
+     * The slot made moderate: a weighted lift of five reps or fewer (a GZCLP T1, a 5 × 5) becomes
+     * 3 × 8–12 whose weight climbs once every set reaches 12, by the slot's own step; any other
+     * "as many as possible" set becomes a fixed one at its minimum, its stage ladder's stages too.
+     */
+    private fun moderated(slot: ExerciseSlot): ExerciseSlot {
+        if (isHeavyLift(slot)) {
+            val kg = slot.progression.step(WeightUnit.KG) ?: 2.5
+            val lbs = slot.progression.step(WeightUnit.LBS) ?: 5.0
+            return slot.copy(sets = 3, reps = RepTarget.Range(8, 12), lastSetAmrap = false, progression = ProgressionRule.DoubleProgression(8, 12, kg, lbs))
+        }
         fun fixed(r: RepTarget) = if (r is RepTarget.Amrap) RepTarget.Fixed(r.min) else r
         val rule = slot.progression
         val progression = if (rule is ProgressionRule.StageLadder) rule.copy(stages = rule.stages.map { it.copy(reps = fixed(it.reps)) }) else rule
         return slot.copy(reps = fixed(slot.reps), lastSetAmrap = false, progression = progression)
     }
+
+    /** Five reps or fewer of a weighted lift. */
+    private fun isHeavyLift(slot: ExerciseSlot): Boolean =
+        ExerciseCatalogue.byId(slot.exerciseId)?.modality == Modality.WEIGHTED && slot.reps.successReps <= 5
 
     /**
      * Built on heavy sets: five reps or fewer of a weighted lift, or sets taken to the limit. Ranked
@@ -203,10 +217,7 @@ object Tailor {
     fun isHeavy(program: Program): Boolean = program.days.any { day -> day.slots.any { isHardSet(it) } }
 
     /** Sets taken to the limit or close to it: as many reps as possible, or five or fewer of a weighted lift. */
-    private fun isHardSet(slot: ExerciseSlot): Boolean {
-        val weighted = ExerciseCatalogue.byId(slot.exerciseId)?.modality == Modality.WEIGHTED
-        return slot.lastSetAmrap || slot.reps is RepTarget.Amrap || (weighted && slot.reps.successReps <= 5)
-    }
+    private fun isHardSet(slot: ExerciseSlot): Boolean = slot.lastSetAmrap || slot.reps is RepTarget.Amrap || isHeavyLift(slot)
 
     private fun extraSlot(exerciseId: String, area: FocusArea): ExerciseSlot {
         val reason = SlotReason.Focus(area, null)

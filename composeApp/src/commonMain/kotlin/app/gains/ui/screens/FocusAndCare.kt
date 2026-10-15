@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import app.gains.ErrorReporter
 import app.gains.data.ProgramRepository
 import app.gains.catalogue.ExerciseCatalogue
+import app.gains.catalogue.ProgramCatalogue
 import app.gains.domain.Caution
 import app.gains.domain.Exercise
 import app.gains.domain.Program
@@ -298,7 +299,8 @@ internal fun FocusAndCareScreen() {
 /**
  * Why a slot differs from the program as written: "For your glutes", "Instead of Squat: often easier
  * on knees.". With [cue], as in a workout, the caution's how-to follows, and a kept exercise shows
- * just its cue; without, as in a program's day list, a kept exercise shows nothing.
+ * just its cue; without, as in a program's day list, a kept exercise shows nothing. A swap whose sets
+ * were made moderate too always says how heavy to go.
  */
 @Composable
 internal fun slotReasonText(reason: SlotReason?, exerciseId: String, exercisesById: Map<String, Exercise>, cue: Boolean): String? = when (reason) {
@@ -306,7 +308,7 @@ internal fun slotReasonText(reason: SlotReason?, exerciseId: String, exercisesBy
     is SlotReason.Focus -> listOfNotNull(reason.area.forYour(), reason.careful?.takeIf { cue }?.cue(exerciseId)).joinToString(" · ")
     is SlotReason.Swapped -> {
         val from = (exercisesById[reason.fromExerciseId] ?: ExerciseCatalogue.byId(reason.fromExerciseId))?.displayName() ?: reason.fromExerciseId
-        listOfNotNull(reason.caution.swappedText(from, reason.why), reason.caution.takeIf { cue }?.cue(exerciseId)).joinToString(" ")
+        listOfNotNull(reason.caution.swappedText(from, reason.why), reason.caution.takeIf { cue }?.cue(exerciseId), reason.also?.cue(exerciseId)).joinToString(" ")
     }
     is SlotReason.Careful -> if (cue) reason.caution.cue(exerciseId) else null
 }
@@ -321,8 +323,7 @@ internal fun FittedSummary(program: Program, modifier: Modifier = Modifier) {
     val added = slots.filter { it.reason is SlotReason.Focus }.map { it.exerciseId }.distinct()
     val swapped = slots.filter { it.reason is SlotReason.Swapped }.map { it.exerciseId }.distinct()
     if (added.isEmpty() && swapped.isEmpty()) return
-    // Lower case: the names run on inside a sentence.
-    @Composable fun names(ids: List<String>) = ids.mapNotNull { ExerciseCatalogue.byId(it)?.displayName()?.lowercase() }.joinToString(", ")
+    @Composable fun names(ids: List<String>) = ids.mapNotNull { ExerciseCatalogue.byId(it)?.displayName()?.let(::inSentence) }.joinToString(", ")
     Column(modifier) {
         if (added.isNotEmpty()) Text(stringResource(Res.string.fitted_adds, names(added)), style = MaterialTheme.typography.bodySmall)
         if (swapped.isNotEmpty()) Text(stringResource(Res.string.fitted_gentler, names(swapped)), style = MaterialTheme.typography.bodySmall)
@@ -335,16 +336,29 @@ internal fun FittedSummary(program: Program, modifier: Modifier = Modifier) {
  */
 @Composable
 internal fun HeavyProgramNote(program: Program, cautions: Set<Caution>, onSwitch: () -> Unit, modifier: Modifier = Modifier) {
-    if (!program.isBuiltIn || program.id == FULL_BODY_BASICS || cautions.none { it.easesHardSets } || !Tailor.isHeavy(program)) return
+    // Heavy as written: on screen its heavy lifts are already made moderate.
+    val written = ProgramCatalogue.byId(program.id) ?: return
+    if (written.id == FULL_BODY_BASICS || cautions.none { it.easesHardSets } || !Tailor.isHeavy(written)) return
     Column(
         modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(16.dp),
     ) {
         Text(stringResource(Res.string.heavy_program_note), style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(12.dp))
-        app.gains.ui.components.SecondaryButton(stringResource(Res.string.switch_to_full_body), onClick = onSwitch, compact = true)
+        // A link in the accent, as the app's other ways onward are: a button would vanish into the tint.
+        TextButton(onClick = onSwitch, contentPadding = PaddingValues(0.dp)) {
+            Text(stringResource(Res.string.switch_to_full_body) + " ›", color = GainsColors.palette.volt)
+        }
     }
 }
 
 /** The program a newcomer, or anyone told to keep the sets moderate, is pointed to. */
 internal const val FULL_BODY_BASICS = "full_body_basics"
+
+/** Words of exercise names that are someone's name, and keep their capital inside a sentence. */
+private val properNames = setOf(
+    "Pallof", "Romanian", "Bulgarian", "Arnold", "Nordic", "Smith", "Zottman", "Svend", "JM", "Tate", "Turkish", "Cuban",
+    "Jefferson", "Zercher", "Meadows", "T-Bar", "Паллофа", "Арнольда", "Смита", "Зоттмана", "Свенда", "Тейта", "Джефферсона", "Зерчера", "Мидоуза",
+)
+
+/** "Pallof press", "hip thrust", "жим Паллофа": an exercise's name as it reads mid-sentence. */
+internal fun inSentence(name: String): String = name.split(' ').joinToString(" ") { if (it in properNames) it else it.lowercase() }

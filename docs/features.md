@@ -22,9 +22,10 @@ The long version of the list in the [README](../README.md).
   for a squat with sore knees, a chest-supported row for a bent-over one with a sore lower back, a
   landmine press for an overhead press with sore shoulders, hammer curls for barbell curls with sore
   wrists. Pregnancy swaps crunching, lying-flat and jumping moves, and after a baby the crunching
-  and jumping ones; pregnancy and high blood pressure turn every as-many-as-possible set into a fixed
-  one with a cue ("breathe out as you push, stop a rep or two short"), rank programs built on heavy
-  sets last and flag them on their page. Every swapped or kept
+  and jumping ones; pregnancy and high blood pressure make the hard sets moderate (a lift of five reps or
+  fewer becomes 3 × 8–12, an as-many-as-possible set a fixed one) with a cue ("breathe out as you
+  lift, stop a rep or two short"), rank programs built on heavy sets last and point from their page
+  to Full-body basics. Every swapped or kept
   exercise says why on its card ("Instead of Squat: often easier on knees. Go only as deep as feels
   fine."), and a workout links to the guidance: what to do for each, how much discomfort is fine,
   when to see a doctor or physio, the stop signs in pregnancy, and that it isn't medical advice.

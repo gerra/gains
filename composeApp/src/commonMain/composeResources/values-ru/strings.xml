@@ -1419,7 +1419,7 @@
     <string name="swapped_belly">Вместо «%1$s»: без скручиваний и нагрузки на живот.</string>
     <string name="swapped_impact">Вместо «%1$s»: без прыжков.</string>
     <string name="first_time_weight">Первый раз? Возьми вес, с которым в конце подхода остаётся запас ещё на 3–4 повтора.</string>
-    <string name="heavy_program_note">Эта программа построена на тяжёлых подходах. При беременности или высоком давлении лучше подойдёт «Всё тело с нуля».</string>
+    <string name="heavy_program_note">Эта программа построена на тяжёлых подходах. Тяжёлые упражнения в ней мы сделали 3 × 8–12, но при беременности или высоком давлении лучше подойдёт «Всё тело с нуля».</string>
     <string name="fitted_adds">Добавлено для тебя: %1$s</string>
     <string name="fitted_gentler">Щадящие замены: %1$s</string>
     <string name="cue_lower_back_hinge">С лёгким весом и медленно; не округляй спину и пропусти, если кольнёт.</string>

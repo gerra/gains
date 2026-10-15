@@ -271,7 +271,10 @@ private fun DayCard(day: ProgramDay, program: Program, upNext: Boolean, last: Lo
             }
             // Why a slot is not as the program was written: added for a focus, or swapped for a caution.
             val reason = slot.reason
-            (if (reason is SlotReason.Careful) reason.caution.cue(slot.exerciseId) else slotReasonText(reason, slot.exerciseId, exercisesById, cue = false))?.let {
+            when (reason) {
+                is SlotReason.Careful -> reason.caution.cue(slot.exerciseId)
+                else -> slotReasonText(reason, slot.exerciseId, exercisesById, cue = false)
+            }?.let {
                 Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
             }
         }

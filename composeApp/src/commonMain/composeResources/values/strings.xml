@@ -1303,8 +1303,8 @@
     <string name="cue_lower_back">Keep it moderate and your back still; stop if it twinges.</string>
     <string name="cue_shoulders">Stay in a range that feels fine; raise no higher than your shoulders.</string>
     <string name="cue_wrists">Keep your wrists straight: handles, dumbbells or forearms help.</string>
-    <string name="cue_pregnancy">Keep it moderate, stop a rep or two short and breathe out as you push.</string>
-    <string name="cue_blood_pressure">Breathe out as you push, never hold your breath, and stop a rep or two short.</string>
+    <string name="cue_pregnancy">Keep it moderate, stop a rep or two short and breathe out as you lift.</string>
+    <string name="cue_blood_pressure">Breathe out as you lift, never hold your breath, and stop a rep or two short.</string>
     <string name="guide_title_knees">Training with sore knees</string>
     <string name="guide_knees">Keep training your legs: it helps knees. Squat to a box or bench at a depth that feels fine, and go a little lower as it allows. Hip thrusts work your legs with little knee bending.</string>
     <string name="guide_title_lower_back">Training with a sore lower back</string>
@@ -1314,10 +1314,10 @@
     <string name="guide_title_wrists">Training with sore wrists</string>
     <string name="guide_wrists">Keep your wrists straight: push-ups on handles or dumbbells, planks on your forearms, and dumbbell or hammer curls instead of a straight bar.</string>
     <string name="guide_title_pregnancy">Training while pregnant</string>
-    <string name="guide_pregnancy">Check with your midwife or doctor before you start or change training. Keep weights moderate, stop a rep or two short and breathe out as you push. Skip lying flat on your back if it makes you dizzy or unwell.</string>
+    <string name="guide_pregnancy">Check with your midwife or doctor before you start or change training. Keep weights moderate, stop a rep or two short and breathe out as you lift. Skip lying flat on your back if it makes you dizzy or unwell.</string>
     <string name="guide_stop_pregnancy">Stop and call your midwife or doctor if you bleed, leak fluid, feel dizzy or faint, or get chest pain, a headache, contractions, or pain or swelling in a calf.</string>
     <string name="guide_title_blood_pressure">Training with high blood pressure</string>
-    <string name="guide_blood_pressure">Strength training helps lower blood pressure. Breathe out as you push and never hold your breath, use weights you can lift 8 to 12 times, stop a rep or two short and rest longer between sets. If it isn't under control yet, or is often 160/100 or higher, see your doctor first.</string>
+    <string name="guide_blood_pressure">Strength training helps lower blood pressure. Breathe out as you lift and never hold your breath, use weights you can lift 8 to 12 times, stop a rep or two short and rest longer between sets. If it isn't under control yet, or is often 160/100 or higher, see your doctor first.</string>
     <string name="guide_pain_rule_title">How much discomfort is fine</string>
     <string name="guide_pain_rule">Mild discomfort, up to about 3 out of 10, is fine if it settles by the next day. If it's sharp, builds as you go or is worse the next morning, stop that exercise, go lighter or swap it.</string>
     <string name="guide_red_flags_title">See a doctor or physio if</string>
@@ -1357,7 +1357,7 @@
     <string name="swapped_belly">Instead of %1$s: no crunching or strain on the belly.</string>
     <string name="swapped_impact">Instead of %1$s: no jumping.</string>
     <string name="first_time_weight">First time? Pick a weight that leaves 3 or 4 more reps in you at the end of each set.</string>
-    <string name="heavy_program_note">This program is built on heavy sets. While pregnant or with high blood pressure, Full-body basics suits better.</string>
+    <string name="heavy_program_note">This program is built on heavy sets. Its heavy lifts are set to 3 × 8–12 for you, but while pregnant or with high blood pressure, Full-body basics suits better.</string>
     <string name="fitted_adds">Added for you: %1$s</string>
     <string name="fitted_gentler">Gentler swaps: %1$s</string>
     <string name="cue_lower_back_hinge">Light and slow; stop before your back rounds, and skip it if it twinges.</string>

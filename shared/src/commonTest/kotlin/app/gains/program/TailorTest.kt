@@ -109,19 +109,29 @@ class TailorTest {
     }
 
     @Test
-    fun bloodPressureChangesNoExerciseAndTakesTheAllOutOutOfTheHardSets() {
+    fun bloodPressureChangesNoExerciseAndMakesTheHardSetsModerate() {
         val before = program("gzclp")
         val after = Tailor.tailor(before, emptySet(), setOf(Caution.BLOOD_PRESSURE))
         assertEquals(before.days.map(::ids), after.days.map(::ids))
+        // The T1 5 × 3+ becomes 3 × 8–12, adding the T1's own step once every set reaches 12.
         val t1 = after.days[0].slots[0]
         assertEquals(SlotReason.Careful(Caution.BLOOD_PRESSURE), t1.reason)
-        // 5 × 3+ becomes 5 × 3, and so does every stage of its ladder.
-        assertEquals(RepTarget.Fixed(3), t1.reps)
-        assertTrue((t1.progression as ProgressionRule.StageLadder).stages.none { it.reps is RepTarget.Amrap })
+        assertEquals(3, t1.sets)
+        assertEquals(RepTarget.Range(8, 12), t1.reps)
+        assertEquals(ProgressionRule.DoubleProgression(8, 12, 5.0, 10.0), t1.progression)
+        // The T2 3 × 10 stays, its ladder's later stages (3 × 8, 3 × 6) included: not "as many as possible".
+        assertEquals(before.days[0].slots[1].copy(), after.days[0].slots[1])
         // 3 × 15+ becomes 3 × 15, and says why.
         assertEquals(RepTarget.Fixed(15), after.days[0].slots[2].reps)
         assertEquals(SlotReason.Careful(Caution.BLOOD_PRESSURE), after.days[0].slots[2].reason)
-        assertNull(after.days[0].slots[1].reason) // 3 × 10 is not a hard set
+    }
+
+    @Test
+    fun aSwappedHeavyLiftCarriesBothReasons() {
+        val squat = Tailor.tailor(program("gzclp"), emptySet(), setOf(Caution.KNEES, Caution.PREGNANCY)).days[0].slots[0]
+        assertEquals("box_squat", squat.exerciseId)
+        assertEquals(SlotReason.Swapped("squat", Caution.KNEES, SwapWhy.GENTLER, also = Caution.PREGNANCY), squat.reason)
+        assertEquals(RepTarget.Range(8, 12), squat.reps)
     }
 
     @Test

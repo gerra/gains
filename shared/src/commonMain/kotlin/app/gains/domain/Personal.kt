@@ -33,7 +33,10 @@ enum class FocusArea(val muscles: Set<MuscleGroup>) {
 enum class Caution {
     KNEES, LOWER_BACK, SHOULDERS, WRISTS, PREGNANCY, POSTPARTUM, BLOOD_PRESSURE;
 
-    /** Asks for no set taken to the limit: an "as many as possible" set becomes a fixed one. */
+    /**
+     * Asks for moderate sets: a heavy lift of five reps or fewer becomes 3 × 8–12, an "as many as
+     * possible" set a fixed one (the ACSM and AHA advice for blood pressure, ACOG's for pregnancy).
+     */
     val easesHardSets: Boolean get() = this == PREGNANCY || this == BLOOD_PRESSURE
 
     companion object {
@@ -48,8 +51,11 @@ sealed interface SlotReason {
     /** Added for a focus area; with the cue of [careful] when one of the lifter's cautions asks for it. */
     data class Focus(val area: FocusArea, val careful: Caution? = null) : SlotReason
 
-    /** Put in place of [fromExerciseId], which often bothers [caution], for the reason [why]. */
-    data class Swapped(val fromExerciseId: String, val caution: Caution, val why: SwapWhy = SwapWhy.GENTLER) : SlotReason
+    /**
+     * Put in place of [fromExerciseId], which often bothers [caution], for the reason [why]; [also] when
+     * another caution changed its sets too (pregnancy, blood pressure), so its cue shows as well.
+     */
+    data class Swapped(val fromExerciseId: String, val caution: Caution, val why: SwapWhy = SwapWhy.GENTLER, val also: Caution? = null) : SlotReason
 
     /** Kept, with a cue on how to do it with [caution] in mind. */
     data class Careful(val caution: Caution) : SlotReason
