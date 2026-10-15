@@ -409,7 +409,7 @@ internal fun heatmapDayText(date: LocalDate, sessions: Int, restWeek: Boolean): 
 
 /** "3M", "6M", "1Y", "All": the chip for a lift-detail window of [days]. */
 @Composable
-internal fun windowLabel(days: Int?): String = stringResource(when (days) { 90 -> Res.string.window_3m; 180 -> Res.string.window_6m; 365 -> Res.string.window_1y; else -> Res.string.window_all })
+internal fun windowLabel(days: Int?): String = stringResource(when (days) { 30 -> Res.string.window_1m; 90 -> Res.string.window_3m; 180 -> Res.string.window_6m; 365 -> Res.string.window_1y; else -> Res.string.window_all })
 
 @Composable
 internal fun workingSetRuleBlurb(percent: String, defaultPercent: String?): String =

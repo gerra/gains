@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import app.gains.analysis.BodyweightAnalyzer
 import app.gains.analysis.BodyweightPoint
 import app.gains.analysis.Dates
+import app.gains.analysis.Dates.minusDays
 import app.gains.analysis.ExerciseAnalysis
 import app.gains.analysis.Format
 import app.gains.analysis.TrainingData
@@ -57,6 +58,7 @@ import app.gains.ui.charts.ChartMath.x
 import app.gains.ui.charts.ChartPoint
 import app.gains.ui.charts.LineChart
 import app.gains.ui.charts.LineSeries
+import app.gains.ui.components.ChipRow
 import app.gains.ui.components.ChooserRow
 import app.gains.ui.components.DatePickerSheet
 import app.gains.ui.components.Dp16
@@ -89,10 +91,14 @@ import kotlinx.datetime.LocalDate
 internal data class BodyweightState(
     val loading: Boolean = true,
     val unit: WeightUnit = WeightUnit.KG,
+    /** Every entry, with its 7-day average; the tiles read these. */
     val points: List<BodyweightPoint> = emptyList(),
+    val window: Window = Window.ALL,
+    /** The entries the chart shows: those inside [window]. */
+    val chartPoints: List<BodyweightPoint> = emptyList(),
     val weightedExercises: List<Exercise> = emptyList(),
     val overlayExercise: Exercise? = null,
-    /** e1RM per session for the overlay exercise, in kg. */
+    /** e1RM per session for the overlay exercise, in kg, over the span [chartPoints] cover. */
     val overlayPoints: List<Pair<LocalDate, Double>> = emptyList(),
 )
 
@@ -103,29 +109,45 @@ internal class BodyweightModel(
     reporter: ErrorReporter,
 ) : ScreenModel(reporter) {
     private val overlay = MutableStateFlow<String?>(null)
+    private val window = MutableStateFlow(Window.ALL)
 
-    val state: StateFlow<BodyweightState> = combine(repo.observe(), trainingData.snapshot, settings.observeUnit(), overlay) { entries, snapshot, unit, overlayId ->
+    val state: StateFlow<BodyweightState> = combine(repo.observe(), trainingData.snapshot, settings.observeUnit(), overlay, window) { entries, snapshot, unit, overlayId, window ->
         withContext(Dispatchers.Default) {
             val weighted = snapshot.trainedExercises.filter { it.modality == Modality.WEIGHTED }
             val exercise = weighted.firstOrNull { it.id == overlayId }
+            // The average is taken over every entry before the window cuts it, so its first days
+            // still average the week before them.
+            val points = BodyweightAnalyzer.withRollingAverage(entries)
+            val cutoff = window.days?.let { Dates.today().minusDays(it) }
+            val chartPoints = if (cutoff == null) points else points.filter { it.date >= cutoff }
+            // The lift starts where the weigh-ins do: years of squats before the first one would
+            // squeeze the bodyweight into the chart's right edge.
+            val from = chartPoints.firstOrNull()?.date
             BodyweightState(
                 loading = false,
                 unit = unit,
-                points = BodyweightAnalyzer.withRollingAverage(entries),
+                points = points,
+                window = window,
+                chartPoints = chartPoints,
                 weightedExercises = weighted,
                 overlayExercise = exercise,
                 overlayPoints = exercise?.let { ex ->
                     ExerciseAnalysis.history(snapshot.sessions, ex).mapNotNull { p -> p.bestE1rm?.let { p.date to it.value } }
+                        .filter { (date, _) -> from != null && date >= from }
                 } ?: emptyList(),
             )
         }
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), BodyweightState())
 
     fun setOverlay(exerciseId: String?) { overlay.value = exerciseId }
+    fun setWindow(w: Window) { window.value = w }
 
     fun add(date: LocalDate, weightKg: Double) { scope.launchAction { repo.upsert(BodyweightEntry(date, weightKg)) } }
     fun delete(date: LocalDate) { scope.launchAction { repo.delete(date) } }
 }
+
+/** A month shows the week-to-week wobble the average smooths; a year, the long trend. */
+private val BodyweightWindows = listOf(Window.M1, Window.M3, Window.Y1, Window.ALL)
 
 @Composable
 internal fun BodyweightScreen() {
@@ -169,13 +191,19 @@ internal fun BodyweightScreen() {
             }
         }
         item {
-            SectionHeader(stringResource(Res.string.trend))
+            // With a single entry there is nothing to window yet.
+            val chooser: (@Composable () -> Unit)? = if (state.points.size < 2) null else {
+                { ChipRow(BodyweightWindows, state.window, { windowLabel(it.days) }, { model.setWindow(it) }) }
+            }
+            SectionHeader(stringResource(Res.string.trend), action = chooser)
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 if (state.points.size == 1) {
                     Text(stringResource(Res.string.one_entry_so_far), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else if (state.chartPoints.size < 2) {
+                    Text(stringResource(Res.string.bodyweight_window_too_short), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    val daily = LineSeries(state.points.map { ChartPoint(it.date.x(), Units.display(it.weightKg, unit)) }, palette.muted, stringResource(Res.string.daily), showDots = true, dashed = true, smooth = false)
-                    val avg = LineSeries(state.points.map { ChartPoint(it.date.x(), Units.display(it.rollingAverageKg, unit)) }, palette.volt, stringResource(Res.string.seven_day_avg), showDots = false, fill = true)
+                    val daily = LineSeries(state.chartPoints.map { ChartPoint(it.date.x(), Units.display(it.weightKg, unit)) }, palette.muted, stringResource(Res.string.daily), showDots = true, dashed = true, smooth = false)
+                    val avg = LineSeries(state.chartPoints.map { ChartPoint(it.date.x(), Units.display(it.rollingAverageKg, unit)) }, palette.volt, stringResource(Res.string.seven_day_avg), showDots = false, fill = true)
                     val overlay = state.overlayExercise?.let { ex ->
                         LineSeries(state.overlayPoints.map { (d, v) -> ChartPoint(d.x(), Units.display(v, unit)) }, palette.amber, stringResource(Res.string.e1rm_of, ex.displayName()), showDots = true, secondaryAxis = true)
                     }

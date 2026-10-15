@@ -78,7 +78,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 
-internal enum class Window(val days: Int?) { M3(90), M6(180), Y1(365), ALL(null) }
+internal enum class Window(val days: Int?) { M1(30), M3(90), M6(180), Y1(365), ALL(null) }
+
+/** The windows a lift's charts offer: a month holds too few sessions to read a trend from. */
+private val LiftWindows = listOf(Window.M3, Window.M6, Window.Y1, Window.ALL)
 
 internal data class ExerciseDetailState(
     val loading: Boolean = true,
@@ -236,7 +239,7 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
         }
         item {
             SectionHeader(stringResource(Res.string.window))
-            ChipRow(Window.entries, state.window, { windowLabel(it.days) }, { model.setWindow(it) })
+            ChipRow(LiftWindows, state.window, { windowLabel(it.days) }, { model.setWindow(it) })
         }
         if (state.points.isEmpty()) {
             item { EmptyState(stringResource(Res.string.nothing_in_window), pluralStringResource(Res.plurals.pick_a_longer_window, state.allPoints.size, state.allPoints.size)) }
