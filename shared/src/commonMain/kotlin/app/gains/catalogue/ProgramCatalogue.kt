@@ -69,6 +69,29 @@ object ProgramCatalogue {
     private const val LOWER = 5.0
 
     private val builder = Builder().apply {
+        // For someone new to the gym rather than to sport: machines and dumbbells, no barbell to learn,
+        // reps that climb before the weight does. Ranked first for beginners not after strength alone.
+        program(
+            "full_body_basics", "Full-body basics",
+            "Two workouts that each train the whole body, done in turn two or three times a week. Machines and dumbbells, 8 to 15 reps a set. When every set reaches the top of its range, go a little heavier next time.",
+            setOf(Goal.GENERAL_FITNESS, Goal.LOSE_FAT, Goal.BUILD_MUSCLE), Experience.BEGINNER, 3,
+        ) {
+            day("a", "Workout A") {
+                slot("goblet_squat", 3, range(8, 12), double(8, 12, UPPER))
+                slot("chest_press_machine", 3, range(8, 12), double(8, 12, UPPER))
+                slot("lat_pulldown", 3, range(10, 12), double(10, 12, UPPER))
+                slot("romanian_deadlift", 3, range(10, 12), double(10, 12, UPPER), note = "With dumbbells.")
+                slot("plank", 3, fixed(30), note = "Seconds per set.")
+            }
+            day("b", "Workout B") {
+                slot("leg_press", 3, range(10, 12), double(10, 12, LOWER))
+                slot("seated_cable_row", 3, range(10, 12), double(10, 12, UPPER))
+                slot("db_shoulder_press", 3, range(8, 12), double(8, 12, UPPER))
+                slot("hip_thrust", 3, range(10, 12), double(10, 12, LOWER))
+                slot("dead_bug", 3, range(8, 12), note = "Per side.")
+            }
+        }
+
         program(
             "rfitness_basic", "r/Fitness Basic Beginner Routine",
             "Three lifts a session, two sessions alternated three times a week. Add weight every workout you hit the reps. Run it for up to three months, then move to GZCLP or 5/3/1 for Beginners.",

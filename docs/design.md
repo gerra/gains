@@ -140,6 +140,10 @@ Reach for these before writing a new one.
 | A change in % | `DeltaBadge` | |
 | A number with its label | `MetricTile` | |
 | One choice of a few | `ChipRow` (the pill slides) | Radio buttons |
+| An answer that toggles, with a line on what it means | `SelectTile` (ring and tick, one to a row; the "nothing" choice first and preselected) | Checkboxes |
+| What a built-in program is fitted to, and the way to change it | `PlanFitLine` ("Focus: …" over "Adjusted for: …", Change) | |
+| A long list most people need little of (the built-in programs) | The best two first, the rest folded under one row ("More programs (6)" with who they are for and a chevron) | Every option at once |
+| A tap refused (a third focus area) | `CapNote`, pinned above the bottom buttons where the eye is | A note in the scroll that may be off screen |
 | Nothing to show | `EmptyState` with an action | A blank screen |
 | A key / value line | `KeyValueRow` | |
 | A figure that changes | `RollingText` | A plain `Text` |
@@ -236,6 +240,12 @@ the same rules, translated to the web:
 
 Newest first. One line per change to the rules, with the reason.
 
+- **2026-10-15** Focus areas and what to adjust for: a tester who trains regularly but is new to the
+  gym found the app hard and asked for "glutes, abs" and a health section. Added `SelectTile`,
+  `PlanFitLine` and `CapNote`; sets are written out ("3 sets of 8–12", not "3 × 8-12"); built-in
+  programs lead with a one-sentence `_short`; a program day says "about N min". Health words: "Adjusted
+  for", never "careful with" a pregnancy; "often easier on", never "safe"; the not-medical-advice line
+  wherever guidance is shown. One-to-a-row tiles, since two to a row wrapped at 360 dp in Russian.
 - **2026-10-15** A tappable `Pill`'s 48 dp target overhangs instead of taking layout room: it was
   adding 11 dp above and below every pill, leaving the Insights cards' session links loose.
 - **2026-10-14** The website follows the redesign: the app's fonts, chalk / ink buttons in place

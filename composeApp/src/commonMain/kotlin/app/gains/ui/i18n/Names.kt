@@ -34,6 +34,11 @@ internal fun Program.displayName(): String = programKey(this)?.let { stringResou
 @Composable
 internal fun Program.displayDescription(): String = programDescriptionKey(this)?.let { stringResource(it) } ?: description
 
+/** One plain sentence on what the program is like, for the lists; a custom program has none and shows its description. */
+@Composable
+internal fun Program.displayShort(): String =
+    (if (isBuiltIn) Res.allStringResources["program_${id}_short"] else null)?.let { stringResource(it) } ?: displayDescription()
+
 @Composable
 internal fun ProgramDay.displayName(): String = dayKey(this)?.let { stringResource(it) } ?: name
 
@@ -71,5 +76,7 @@ internal object SlotNoteKeys {
         "Core triplet, anti-extension: deadbug → hanging knee raise → hanging leg raise." to "slot_note_22",
         "Core triplet, anti-rotation." to "slot_note_23",
         "Core triplet, extension: reverse hyper → arch hold / superman." to "slot_note_24",
+        "With dumbbells." to "slot_note_25",
+        "Per side." to "slot_note_26",
     )
 }

@@ -4,13 +4,16 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.gains.catalogue.ProgramCatalogue
 import app.gains.db.GainsDatabase
+import app.gains.domain.Caution
 import app.gains.domain.Experience
+import app.gains.domain.FocusArea
 import app.gains.domain.ExerciseSlot
 import app.gains.domain.GoalProfile
 import app.gains.domain.Program
 import app.gains.domain.ProgramDay
 import app.gains.domain.ProgramState
 import app.gains.domain.RepTarget
+import app.gains.program.Tailor
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -73,10 +76,18 @@ class ProgramRepository(
         }
     }.flowOn(io)
 
-    /** Built-ins first, then the user's programs by name. */
-    fun observePrograms(): Flow<List<Program>> = observeCustomPrograms().map { custom ->
-        ProgramCatalogue.builtIn + custom.sortedBy { it.name.lowercase() }
+    /** Built-ins first, fitted to the focus areas and cautions ([Tailor]), then the user's programs by name as written. */
+    fun observePrograms(): Flow<List<Program>> = combine(observeCustomPrograms(), observeFocus(), observeCautions()) { custom, focus, cautions ->
+        Tailor.tailorAll(ProgramCatalogue.builtIn, focus, cautions) + custom.sortedBy { it.name.lowercase() }
     }
+
+    /** The body areas to put more work into; empty is the whole body evenly. Synced, like the goal. */
+    fun observeFocus(): Flow<Set<FocusArea>> = settings.observe(KEY_FOCUS).map { FocusArea.decode(it) }
+    suspend fun setFocus(areas: Set<FocusArea>) = settings.set(KEY_FOCUS, FocusArea.encode(areas))
+
+    /** What to be careful with. Health, so it is kept on this device only and never synced. */
+    fun observeCautions(): Flow<Set<Caution>> = settings.observe(KEY_CAUTIONS).map { Caution.decode(it) }
+    suspend fun setCautions(cautions: Set<Caution>) = settings.set(KEY_CAUTIONS, Caution.encode(cautions))
 
     fun observeActiveProgramId(): Flow<String?> = settings.observe(KEY_ACTIVE_PROGRAM).map { it?.ifBlank { null } }
 
@@ -88,9 +99,12 @@ class ProgramRepository(
     /** True once the user has finished or skipped onboarding. Emits false while the key is absent. */
     fun observeOnboardingDone(): Flow<Boolean> = settings.observe(KEY_ONBOARDING).map { it == "1" }
 
-    fun observeState(): Flow<ProgramState> = combine(observeProfile(), observePrograms(), observeActiveProgramId(), observeStarts()) { profile, programs, active, starts ->
-        ProgramState(profile, programs, active, starts)
-    }
+    fun observeState(): Flow<ProgramState> = combine(
+        combine(observeProfile(), observePrograms(), observeActiveProgramId(), observeStarts()) { profile, programs, active, starts ->
+            ProgramState(profile, programs, active, starts)
+        },
+        observeFocus(), observeCautions(),
+    ) { state, focus, cautions -> state.copy(focus = focus, cautions = cautions) }
 
     /** Makes [id] the active program, carrying on from where it was left. */
     suspend fun setActive(id: String?) = settings.set(KEY_ACTIVE_PROGRAM, id ?: "")
@@ -146,6 +160,9 @@ class ProgramRepository(
         const val KEY_GOAL_PROFILE = "goal_profile"
         const val KEY_ONBOARDING = "onboarding_done"
         const val KEY_PROGRAM_STARTS = "program_starts"
+        const val KEY_FOCUS = "focus_areas"
+        /** Not in [app.gains.sync.SyncedSettings]: health stays on the device. */
+        const val KEY_CAUTIONS = "cautions"
 
         fun newProgramId(): String = "custom_" + Clock.System.now().toEpochMilliseconds()
         fun newDayId(programId: String, index: Int): String = "$programId/d${index}_" + Clock.System.now().toEpochMilliseconds().toString(36)

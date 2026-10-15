@@ -20,6 +20,7 @@ import app.gains.ui.screens.HomeScreen
 import app.gains.ui.screens.ImportScreen
 import app.gains.ui.screens.LicensesScreen
 import app.gains.ui.screens.OnboardingScreen
+import app.gains.ui.screens.FocusAndCareScreen
 import app.gains.ui.screens.ProgramDetailScreen
 import app.gains.ui.screens.ProgramEditorScreen
 import app.gains.ui.screens.ProgramsScreen
@@ -65,6 +66,7 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenProgram = { navigator.push(Screen.ProgramDetail(it)) },
                 onOpenTrophies = { navigator.push(Screen.Trophies) },
+                onOpenFocus = { navigator.push(Screen.FocusAndCare) },
             )
             Screen.Trophies -> TrophiesScreen(
                 onOpenExercise = { navigator.push(Screen.ExerciseDetail(it)) },
@@ -91,9 +93,11 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
                 onOpenPrograms = { navigator.push(Screen.Programs) },
                 onOpenOnboarding = { navigator.push(Screen.Onboarding) },
                 onOpenLicenses = { navigator.push(Screen.Licenses) },
+                onOpenFocus = { navigator.push(Screen.FocusAndCare) },
             )
             Screen.Licenses -> LicensesScreen()
             Screen.Onboarding -> OnboardingScreen(onDone = { navigator.pop() })
+            Screen.FocusAndCare -> FocusAndCareScreen()
             Screen.Programs -> ProgramsScreen(
                 onOpen = { navigator.push(Screen.ProgramDetail(it)) },
                 onNew = { navigator.push(Screen.ProgramEditor(null)) },
@@ -103,6 +107,8 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
                 onStartDay = { navigator.push(Screen.EditSession(null, it, live = true)) },
                 onEdit = { navigator.push(Screen.ProgramEditor(it)) },
                 onDeleted = { navigator.pop() },
+                onOpenFocus = { navigator.push(Screen.FocusAndCare) },
+                onOpenProgram = { navigator.replace(Screen.ProgramDetail(it)) },
             )
             is Screen.ProgramEditor -> ProgramEditorScreen(screen.programId, onDone = { navigator.pop() })
             Screen.Import -> ImportScreen(filePicker, onDone = { navigator.pop() })

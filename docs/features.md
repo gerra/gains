@@ -2,10 +2,40 @@
 
 The long version of the list in the [README](../README.md).
 
-- **A goal, then a program.** Three questions after sign-in (build muscle, get stronger, lose
-  fat or general fitness; experience; days a week) rank the built-in programs by fit. Skip them
-  and set the goal later in Settings. The goal also decides which insights lead on Home.
-- **Programs with choosable days.** The r/Fitness Basic Beginner Routine, GZCLP, 5/3/1 for
+- **A goal, then a program, fitted to you.** A few questions after sign-in: the goal (build
+  muscle, get stronger, lose fat or general fitness), days a week and experience, then **what to
+  work on more** (whole body, or up to two of glutes, legs, abs and core, arms, upper back,
+  shoulders and chest) and **what to adjust for** (knees, lower back, shoulders, wrists, pregnancy,
+  a baby in the last year, high blood pressure). The built-in programs are ranked by fit: the two best
+  matches come first, "Suggested for you", and the rest wait folded under **More programs** (in
+  onboarding too), the active one never among them; a
+  newcomer who is not after strength alone is offered **Full-body basics**, two machine-and-dumbbell
+  workouts with nothing to learn first. Each program says in one plain sentence what it is like.
+  Skip any question and set it later: the goal in Settings, the rest under **Focus and health**,
+  one tap from Home's plan line, a program's page or Settings. The goal also decides which
+  insights lead on Home.
+- **Focus areas add work, honestly.** Each area picked adds one exercise for it to the end of
+  every workout of a built-in program (hip thrusts, side leg raises and glute kickbacks in turn for
+  the glutes; dead bugs, planks and side planks for the core…), labelled "For your glutes", with
+  bodyweight ones on the bodyweight routine. The question says plainly that training a muscle makes
+  it stronger and shapelier but can't burn fat from that spot. Three areas are refused with a note.
+- **Adjusted for: gentler versions, and why.** A caution swaps the exercises that often bother it
+  for a gentler version of the same movement, keeping the sets, reps and progression: a box squat
+  for a squat with sore knees, a chest-supported row for a bent-over one with a sore lower back, a
+  landmine press for an overhead press with sore shoulders, hammer curls for barbell curls with sore
+  wrists. Pregnancy swaps crunching, lying-flat and jumping moves, and after a baby the crunching
+  and jumping ones; pregnancy and high blood pressure make the hard sets moderate (a lift of five reps or
+  fewer becomes 3 × 8–12, an as-many-as-possible set a fixed one) with a cue ("breathe out as you
+  lift, stop a rep or two short"), rank programs built on heavy sets last and point from their page
+  to Full-body basics. Every swapped or kept
+  exercise says why on its card ("Instead of Squat: often easier on knees. Go only as deep as feels
+  fine."), and a workout links to the guidance: what to do for each, how much discomfort is fine,
+  when to see a doctor or physio, the stop signs in pregnancy, and that it isn't medical advice.
+  Physiotherapy guidance behind the lists: JOSPT and BJSM for knees and shoulders, NICE and Cochrane
+  for the back, ACOG and the Canadian guidelines for pregnancy, the AHA for blood pressure. What to
+  be careful with is health, so it stays on the device and is never synced; the focus areas sync
+  like the goal. Custom programs are never changed.
+- **Programs with choosable days.** Full-body basics, the r/Fitness Basic Beginner Routine, GZCLP, 5/3/1 for
   Beginners, Reddit PPL (6-day and 3-day), an Upper/Lower split and the r/bodyweightfitness
   Recommended Routine ship built in, each as named days of exercises with sets, reps and a
   progression rule. Days rotate on completion, never by weekday; Home shows the next one with
@@ -201,6 +231,14 @@ tab, so the pictures cannot drift from the code.
   <tr>
     <td align="center"><img src="screenshots/11-lift-detail-light.png" alt="Lift detail, light theme" width="230"><br><sub>Lift detail, light</sub></td>
     <td align="center"><img src="screenshots/19b-trophies-records.png" alt="Trophies: the records lately set" width="230"><br><sub>Recent records</sub></td>
+    <td align="center"><img src="screenshots/30-focus-en.png" alt="What to work on more" width="230"><br><sub>Focus areas</sub></td>
+    <td align="center"><img src="screenshots/31-careful-en.png" alt="What to be careful with" width="230"><br><sub>Careful with</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/32-programs-fit-en.png" alt="Programs that fit, Full-body basics first" width="230"><br><sub>A program for a newcomer</sub></td>
+    <td align="center"><img src="screenshots/35b-day-fitted-extras-en.png" alt="A workout with the extras for the focus areas" width="230"><br><sub>For your glutes</sub></td>
+    <td align="center"><img src="screenshots/37-gzclp-knees-en.png" alt="A squat swapped for a box squat for the knees" width="230"><br><sub>A gentler swap, and why</sub></td>
+    <td align="center"><img src="screenshots/36b-focus-and-health-guides-en.png" alt="Guidance for what to be careful with" width="230"><br><sub>How to train with it</sub></td>
   </tr>
 </table>
 

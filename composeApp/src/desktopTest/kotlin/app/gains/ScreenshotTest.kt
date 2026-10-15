@@ -404,10 +404,14 @@ class ScreenshotTest {
         // 8b. Programs: set a goal, pick GZCLP, activate it and open its first day pre-filled.
         val programs = inject<ProgramRepository>()
         runBlocking { programs.setProfile(GoalProfile(Goal.GET_STRONGER, Experience.BEGINNER, 3)) }
-        onNode(text("Change") and hasClickAction()).performClick()
+        onAllNodes(text("Change") and hasClickAction()).onFirst().performClick()
         require(text("Built-in"))
         settle(1_000)
         shot("12-programs")
+        // The programs that are not a fit wait, folded, under "More programs".
+        onNode(text("More programs") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        settle(1_000)
+        shot("12b-programs-more")
         onNode(hasText("GZCLP") and hasClickAction()).performClick()
         require(text("Activate") and hasClickAction())
         onNode(text("Activate") and hasClickAction()).performClick()
@@ -415,7 +419,7 @@ class ScreenshotTest {
         settle(1_000)
         shot("13-program-detail")
         onNode(hasText("A1") and hasClickAction()).performClick()
-        require(text("5 × 3+"))
+        require(text("5 sets of 3+"))
         // A day opens ready, with the plan to look over; nothing runs until Start is pressed.
         val startButton = hasContentDescription("Start workout") and hasClickAction()
         require(startButton)

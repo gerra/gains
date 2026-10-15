@@ -45,11 +45,14 @@ import androidx.compose.ui.unit.dp
 import app.gains.ErrorReporter
 import app.gains.catalogue.ProgramCatalogue
 import app.gains.data.ProgramRepository
+import app.gains.domain.Caution
 import app.gains.domain.Experience
+import app.gains.domain.FocusArea
 import app.gains.domain.Goal
 import app.gains.domain.GoalProfile
 import app.gains.domain.Program
 import app.gains.program.ProgramSuggester
+import app.gains.program.Tailor
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
 import app.gains.ui.components.Dp16
@@ -75,14 +78,27 @@ internal class OnboardingModel(private val programs: ProgramRepository, reporter
     var goal by mutableStateOf<Goal?>(null)
     var experience by mutableStateOf<Experience?>(null)
     var days by mutableStateOf(3)
+    var focus by mutableStateOf<Set<FocusArea>>(emptySet())
+        private set
+    var cautions by mutableStateOf<Set<Caution>>(emptySet())
+        private set
+    /** The last tap asked for a third focus area and was refused. */
+    var focusCapHit by mutableStateOf(false)
+        private set
+    /** The best matches, fitted to the answers; [moreSuggestions] are the rest, shown on request. */
     var suggestions by mutableStateOf<List<Program>>(emptyList())
         private set
+    var moreSuggestions by mutableStateOf<List<Program>>(emptyList())
+        private set
+    var showAll by mutableStateOf(false)
     var done by mutableStateOf(false)
         private set
 
     init {
         scope.launchAction {
             programs.observeProfile().first()?.let { goal = it.goal; experience = it.experience; days = it.daysPerWeek }
+            focus = programs.observeFocus().first()
+            cautions = programs.observeCautions().first()
         }
     }
 
@@ -92,12 +108,27 @@ internal class OnboardingModel(private val programs: ProgramRepository, reporter
         return GoalProfile(g, e, days)
     }
 
-    val canContinue: Boolean get() = when (step) { 0 -> goal != null; 1 -> experience != null; else -> true }
+    val canContinue: Boolean get() = when (step) { STEP_GOAL -> goal != null; STEP_EXPERIENCE -> experience != null; else -> true }
+
+    fun wholeBody() { focus = emptySet(); focusCapHit = false }
+    fun toggleFocus(area: FocusArea) {
+        val next = FocusChoice.toggle(focus, area)
+        focusCapHit = next == null
+        if (next != null) focus = next
+    }
+    fun nothingToMind() { cautions = emptySet() }
+    fun toggleCaution(caution: Caution) { cautions = if (caution in cautions) cautions - caution else cautions + caution }
 
     fun next() {
         if (!canContinue) return
-        if (step == 2) suggestions = profile?.let { ProgramSuggester.suggest(it, ProgramCatalogue.builtIn) } ?: emptyList()
-        step = (step + 1).coerceAtMost(3)
+        // Ranked as written (a heavy program is known by its own sets), shown fitted to the answers.
+        if (step == STEP_CAREFUL) profile?.let { p ->
+            val list = ProgramSuggester.shortlist(p, ProgramCatalogue.builtIn, cautions)
+            suggestions = list.suggested.map { Tailor.tailor(it, focus, cautions) }
+            moreSuggestions = list.more.map { Tailor.tailor(it, focus, cautions) }
+            showAll = false
+        }
+        step = (step + 1).coerceAtMost(STEP_PROGRAMS)
     }
 
     fun back() { step = (step - 1).coerceAtLeast(0) }
@@ -107,15 +138,27 @@ internal class OnboardingModel(private val programs: ProgramRepository, reporter
     /** Saves the answers and, when given, activates a program. */
     fun finish(programId: String?) = scope.launchAction {
         profile?.let { programs.setProfile(it) }
+        programs.setFocus(focus)
+        programs.setCautions(cautions)
         if (programId != null) programs.setActive(programId)
         programs.markOnboardingDone()
         done = true
     }
+
+    companion object {
+        const val STEP_GOAL = 0
+        const val STEP_DAYS = 1
+        const val STEP_EXPERIENCE = 2
+        const val STEP_FOCUS = 3
+        const val STEP_CAREFUL = 4
+        const val STEP_PROGRAMS = 5
+    }
 }
 
 /**
- * Three questions and a suggestion, the way Hevy and Boostcamp start: goal, experience, days a
- * week. Every step can be skipped; the answers can be changed later in Settings.
+ * A few questions and a suggestion, the way Hevy and Boostcamp start: goal, days a week, experience,
+ * then what to work on more and what to be careful with, which fit the built-in programs to the
+ * person (app.gains.program.Tailor). Every step can be skipped; the answers can be changed later.
  */
 @Composable
 internal fun OnboardingScreen(onDone: () -> Unit) {
@@ -128,9 +171,9 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             GainsLogo(size = 28.dp)
             Spacer(Modifier.width(16.dp))
-            // Four segments, one a question: the ones answered and the current one are filled in.
+            // A segment a step: the ones answered and the current one are filled in.
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (i in 0..3) {
+                for (i in 0..OnboardingModel.STEP_PROGRAMS) {
                     val color by animateColorAsState(if (i <= model.step) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHighest, Motion.standard(), label = "step")
                     Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(color))
                 }
@@ -150,7 +193,7 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
         ) { step ->
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             when (step) {
-                0 -> {
+                OnboardingModel.STEP_GOAL -> {
                     Text(stringResource(Res.string.onboarding_goal_title), style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(8.dp))
                     Text(stringResource(Res.string.onboarding_goal_blurb), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -159,16 +202,7 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                         OptionCard(g.label(), g.blurb(), selected = model.goal == g) { model.goal = g }
                     }
                 }
-                1 -> {
-                    Text(stringResource(Res.string.onboarding_experience_title), style = MaterialTheme.typography.displaySmall)
-                    Spacer(Modifier.height(8.dp))
-                    Text(stringResource(Res.string.onboarding_experience_blurb), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(16.dp))
-                    for (e in Experience.entries) {
-                        OptionCard(e.label(), e.blurb(), selected = model.experience == e) { model.experience = e }
-                    }
-                }
-                2 -> {
+                OnboardingModel.STEP_DAYS -> {
                     Text(stringResource(Res.string.onboarding_days_title), style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(8.dp))
                     Text(stringResource(Res.string.onboarding_days_blurb), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -180,14 +214,45 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                OnboardingModel.STEP_EXPERIENCE -> {
+                    Text(stringResource(Res.string.onboarding_experience_title), style = MaterialTheme.typography.displaySmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(Res.string.onboarding_experience_blurb), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(16.dp))
+                    for (e in Experience.entries) {
+                        OptionCard(e.label(), e.blurb(), selected = model.experience == e) { model.experience = e }
+                    }
+                }
+                OnboardingModel.STEP_FOCUS -> {
+                    Text(stringResource(Res.string.onboarding_focus_title), style = MaterialTheme.typography.displaySmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(Res.string.onboarding_focus_blurb), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    Text(stringResource(Res.string.focus_honest), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(16.dp))
+                    FocusPicker(model.focus, model::wholeBody, model::toggleFocus)
+                }
+                OnboardingModel.STEP_CAREFUL -> {
+                    Text(stringResource(Res.string.onboarding_careful_title), style = MaterialTheme.typography.displaySmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(Res.string.onboarding_careful_blurb), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(16.dp))
+                    CautionPicker(model.cautions, model::nothingToMind, model::toggleCaution)
+                    Spacer(Modifier.height(16.dp))
+                    CautionGuide(model.cautions)
+                }
                 else -> {
                     Text(stringResource(Res.string.programs_that_fit), style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(8.dp))
                     model.profile?.let {
                         Text(stringResource(Res.string.profile_summary, it.goal.label(), it.experience.label(), daysAWeekText(it.daysPerWeek)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    Text(focusSummary(model.focus), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    cautionsSummary(model.cautions)?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     Spacer(Modifier.height(16.dp))
-                    for ((index, program) in model.suggestions.withIndex()) {
+                    // Two to choose between; the rest on request, so a newcomer is not handed eight.
+                    val shown = if (model.showAll) model.suggestions + model.moreSuggestions else model.suggestions
+                    for ((index, program) in shown.withIndex()) {
                         GainsCard(Modifier.enterOnce(index).fillMaxWidth().padding(bottom = 12.dp), contentPadding = Dp16.Normal) {
                             if (index == 0) {
                                 Pill(stringResource(Res.string.best_match), palette.volt)
@@ -197,23 +262,31 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                             Spacer(Modifier.height(8.dp))
                             ProgramTags(program)
                             Spacer(Modifier.height(12.dp))
-                            Text(program.displayDescription(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(program.displayShort(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            FittedSummary(program, Modifier.padding(top = 8.dp))
                             Spacer(Modifier.height(16.dp))
                             // The best match's button is the filled one: it is the answer to the questions.
                             if (index == 0) PrimaryButton(stringResource(Res.string.use_this_program), onClick = { model.finish(program.id) }, compact = true)
                             else SecondaryButton(stringResource(Res.string.use_this_program), onClick = { model.finish(program.id) }, compact = true)
                         }
                     }
+                    // The same fold as the Programs screen's, so the rest look the same wherever they wait.
+                    if (!model.showAll && model.moreSuggestions.isNotEmpty()) {
+                        val level = model.profile?.experience
+                        MoreProgramsRow(model.moreSuggestions.size, allAbove = level != null && model.moreSuggestions.all { it.level > level }, open = false, onToggle = { model.showAll = true })
+                    }
                 }
             }
         }
         }
         Spacer(Modifier.height(12.dp))
+        // A refused third focus area is said here, above Next, where the eye already is.
+        CapNote(model.step == OnboardingModel.STEP_FOCUS && model.focusCapHit)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (model.step > 0) SecondaryButton(stringResource(Res.string.back), onClick = { model.back() }, Modifier.weight(1f))
             when (model.step) {
                 // On the programs step the cards carry the main action, so finishing without one is the quiet button.
-                3 -> SecondaryButton(stringResource(Res.string.just_save_my_goal), onClick = { model.finish(null) }, Modifier.weight(2f))
+                OnboardingModel.STEP_PROGRAMS -> SecondaryButton(stringResource(Res.string.just_save_my_goal), onClick = { model.finish(null) }, Modifier.weight(2f))
                 else -> PrimaryButton(stringResource(Res.string.next), onClick = { model.next() }, Modifier.weight(2f), enabled = model.canContinue)
             }
         }

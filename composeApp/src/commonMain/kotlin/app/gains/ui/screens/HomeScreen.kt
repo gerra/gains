@@ -39,6 +39,7 @@ import app.gains.analysis.Dates
 import app.gains.analysis.Achievements
 import app.gains.analysis.Format
 import app.gains.analysis.GoalTuning
+import app.gains.program.DayEstimate
 import app.gains.analysis.Level
 import app.gains.analysis.Records
 import app.gains.analysis.Scoring
@@ -101,6 +102,8 @@ internal data class HomeState(
     val profile: GoalProfile? = null,
     val activeProgram: Program? = null,
     val upNext: ProgramDay? = null,
+    val focus: Set<app.gains.domain.FocusArea> = emptySet(),
+    val cautions: Set<app.gains.domain.Caution> = emptySet(),
     /** Sessions of the active program this week. */
     val programSessionsThisWeek: Int = 0,
     /** Which week and cycle of the active program the next day falls in. */
@@ -156,6 +159,8 @@ internal class HomeModel(
                     unit = unit,
                     profile = programState.profile,
                     activeProgram = active,
+                    focus = programState.focus,
+                    cautions = programState.cautions,
                     upNext = active?.let { Rotation.nextDay(it, run) },
                     programPosition = active?.let { Rotation.position(it, run) },
                     programSessionsThisWeek = active?.let { Rotation.completedSince(it, links, weekStart) } ?: 0,
@@ -189,6 +194,7 @@ internal fun HomeScreen(
     onOpenPrograms: () -> Unit = {},
     onOpenProgram: (String) -> Unit = {},
     onOpenTrophies: () -> Unit = {},
+    onOpenFocus: () -> Unit = {},
 ) {
     val model = rememberScreenModel { HomeModel(inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
@@ -208,14 +214,16 @@ internal fun HomeScreen(
         HomePhase.EMPTY -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             item {
                 Spacer(Modifier.height(8.dp))
-                ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram)
+                ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram, onOpenFocus)
                 EmptyState(
                     title = stringResource(Res.string.no_workouts_yet),
                     body = stringResource(Res.string.no_workouts_yet_body),
                     emoji = "↑",
                     action = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            PrimaryButton(stringResource(Res.string.log_a_workout), onLog)
+                            // With a program on, its Start bar is the one main action; logging steps back.
+                            if (state.upNext != null) SecondaryButton(stringResource(Res.string.log_a_workout), onLog)
+                            else PrimaryButton(stringResource(Res.string.log_a_workout), onLog)
                             Spacer(Modifier.height(12.dp))
                             SecondaryButton(stringResource(Res.string.import_history), onImport)
                         }
@@ -231,7 +239,7 @@ internal fun HomeScreen(
                     trailing = { TextButton(onClick = onLog) { Text(stringResource(Res.string.plus_log), color = palette.volt) } },
                     onSubtitleClick = state.lastSessionId?.let { id -> { onOpenSession(id) } },
                 )
-                ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram)
+                ProgramCard(state, onOpenOnboarding, onOpenPrograms, onOpenProgram, onOpenFocus)
                 StreakCard(
                     state.streak,
                     Modifier.fillMaxWidth(),
@@ -291,6 +299,7 @@ private fun ProgramCard(
     onOpenOnboarding: () -> Unit,
     onOpenPrograms: () -> Unit,
     onOpenProgram: (String) -> Unit,
+    onOpenFocus: () -> Unit,
 ) {
     val palette = GainsColors.palette
     val program = state.activeProgram
@@ -304,33 +313,36 @@ private fun ProgramCard(
             program != null && day != null -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.up_next, program.displayName()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(Res.string.up_next, program.displayName()), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.width(12.dp))
+                            Text(stringResource(Res.string.whole_program), style = MaterialTheme.typography.labelSmall, color = palette.volt)
+                        }
                         Spacer(Modifier.height(4.dp))
                         // After a workout the rotation moves on, and the new day is seen taking the old one's place.
                         RollingText(day.displayName(), MaterialTheme.typography.headlineSmall, MaterialTheme.colorScheme.onSurface)
                         Text(
-                            stringResource(Res.string.exercises_and_week_count, exercisesText(day.slots.size), state.programSessionsThisWeek, program.daysPerWeek),
+                            stringResource(Res.string.exercises_and_week_count, exercisesText(day.slots.size) + " · " + stringResource(Res.string.about_minutes, DayEstimate.minutes(day)), state.programSessionsThisWeek, program.daysPerWeek),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        state.programPosition?.let {
+                        // Weeks and cycles mean something in a longer rotation; two workouts in turn need no counting.
+                        state.programPosition?.takeIf { program.days.size > 2 }?.let {
                             Text(programPositionText(it), style = MaterialTheme.typography.labelSmall, color = palette.volt)
                         }
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                // The whole rotation with today's day picked out, and a visible way into the full program.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val order = buildAnnotatedString {
-                        program.days.forEachIndexed { i, d ->
-                            if (i > 0) append(" · ")
-                            val name = d.displayName()
-                            if (d.id == day.id) withStyle(SpanStyle(color = palette.volt, fontWeight = FontWeight.SemiBold)) { append(name) } else append(name)
-                        }
+                // The whole rotation with today's day picked out; the way into the full program is on the line above.
+                val order = buildAnnotatedString {
+                    program.days.forEachIndexed { i, d ->
+                        if (i > 0) append(" · ")
+                        val name = d.displayName()
+                        if (d.id == day.id) withStyle(SpanStyle(color = palette.volt, fontWeight = FontWeight.SemiBold)) { append(name) } else append(name)
                     }
-                    Text(order, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.width(12.dp))
-                    Text(stringResource(Res.string.whole_program), style = MaterialTheme.typography.labelSmall, color = palette.volt)
                 }
+                Text(order, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                // Kept off when there is nothing to say, so "What's moving" stays above the fold.
+                if (program.isBuiltIn && (state.focus.isNotEmpty() || state.cautions.isNotEmpty())) PlanFitLine(state.focus, state.cautions, onOpenFocus)
             }
             state.profile != null -> {
                 val profile = state.profile

@@ -113,6 +113,8 @@ data class ExerciseSlot(
     val lastSetAmrap: Boolean = false,
     val progression: ProgressionRule = ProgressionRule.None,
     val note: String? = null,
+    /** Set on a built-in slot that [app.gains.program.Tailor] added, swapped or annotated; never stored. */
+    val reason: SlotReason? = null,
 ) {
     /** The slot as written: for a stage ladder this is the first stage, not necessarily today's. */
     val target: SetsReps get() = SetsReps(sets, reps)
@@ -158,6 +160,10 @@ data class ProgramState(
     val activeProgramId: String? = null,
     /** When each program was last started over, by id; see [app.gains.program.Rotation.run]. */
     val starts: Map<String, kotlinx.datetime.LocalDateTime> = emptyMap(),
+    /** The body areas the built-ins are fitted to; empty is the whole body. */
+    val focus: Set<FocusArea> = emptySet(),
+    /** What the built-ins are made gentler for. */
+    val cautions: Set<Caution> = emptySet(),
 ) {
     val active: Program? get() = programs.firstOrNull { it.id == activeProgramId }
 

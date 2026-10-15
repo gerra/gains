@@ -88,6 +88,8 @@ internal data class SettingsState(
     val exercisesById: Map<String, Exercise> = emptyMap(),
     val profile: GoalProfile? = null,
     val activeProgramName: String? = null,
+    val focus: Set<app.gains.domain.FocusArea> = emptySet(),
+    val cautions: Set<app.gains.domain.Caution> = emptySet(),
     /** Program days pre-fill warm-up sets. */
     val autoWarmups: Boolean = true,
     val barWeightKg: Double = Gzclp.DEFAULT_BAR_KG,
@@ -133,6 +135,8 @@ internal class SettingsModel(
             reminderHour = StreakEngine.usualHour(snapshot.sessions),
             profile = programState.profile,
             activeProgramName = programState.active?.resolvedName(texts),
+            focus = programState.focus,
+            cautions = programState.cautions,
             account = prefs.account,
             unit = prefs.unit,
             theme = prefs.theme,
@@ -233,7 +237,7 @@ internal class AccountDeletion(private val scope: CoroutineScope, private val ac
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}, onOpenLicenses: () -> Unit = {}) {
+internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: () -> Unit = {}, onOpenLicenses: () -> Unit = {}, onOpenFocus: () -> Unit = {}) {
     val texts = rememberTexts()
     val model = rememberScreenModel { SettingsModel(texts, inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
@@ -322,6 +326,12 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                     if (profile == null) stringResource(Res.string.no_goal_set_note) else stringResource(Res.string.goal_sort_note, profile.goal.label().lowercase()),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            SectionHeader(stringResource(Res.string.focus_and_health))
+            GainsCard(Modifier.fillMaxWidth()) {
+                Text(stringResource(Res.string.focus_and_health_blurb), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                PlanFitLine(state.focus, state.cautions, onOpenFocus)
             }
             SectionHeader(stringResource(Res.string.appearance))
             GainsCard(Modifier.fillMaxWidth()) {

@@ -30,7 +30,8 @@ Website, privacy policy and support: **https://gains.gerra.sh**
 
 - **Import your history** from Liftoff, Strong, Hevy or any CSV. Re-importing never duplicates.
 - **Insights** on what's progressing, stalled, slipping or neglected, with the numbers behind each.
-- **Programs** like GZCLP, 5/3/1 for Beginners and Reddit PPL, pre-filled from your last session.
+- **Programs** like Full-body basics, GZCLP, 5/3/1 for Beginners and Reddit PPL, pre-filled from your last session.
+- **Fitted to you**: pick up to two areas to work on more (glutes, abs, arms…) and anything to be careful with (knees, lower back, pregnancy…); exercises are added, or swapped for gentler ones, and each says why.
 - **Timed workouts** with a rest timer, and a summary with a photo when you finish.
 - **Charts**: estimated 1RM, weekly volume on a body map, bodyweight.
 - **Week streaks** that survive a rest week.

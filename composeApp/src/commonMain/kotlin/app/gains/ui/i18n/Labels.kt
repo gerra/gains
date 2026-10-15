@@ -10,7 +10,10 @@ import app.gains.csv.CsvProblem
 import app.gains.csv.SkipReason
 import app.gains.data.AppLanguage
 import app.gains.data.ThemeMode
+import app.gains.domain.Caution
 import app.gains.domain.Equipment
+import app.gains.domain.FocusArea
+import app.gains.domain.SwapWhy
 import app.gains.domain.Experience
 import app.gains.domain.Goal
 import app.gains.domain.Modality
@@ -113,6 +116,131 @@ internal val MuscleGroup.res: StringResource get() = when (this) {
     Goal.LOSE_FAT -> stringResource(Res.string.goal_headline_lose_fat)
     Goal.GENERAL_FITNESS, null -> null
 }
+
+@Composable internal fun FocusArea.label(): String = stringResource(when (this) {
+    FocusArea.GLUTES -> Res.string.focus_glutes
+    FocusArea.LEGS -> Res.string.focus_legs
+    FocusArea.CORE -> Res.string.focus_core
+    FocusArea.ARMS -> Res.string.focus_arms
+    FocusArea.UPPER_BACK -> Res.string.focus_upper_back
+    FocusArea.SHOULDERS -> Res.string.focus_shoulders
+    FocusArea.CHEST -> Res.string.focus_chest
+})
+
+/** Two of the exercises a focus adds, so the choice says what it means. */
+@Composable internal fun FocusArea.blurb(): String = stringResource(when (this) {
+    FocusArea.GLUTES -> Res.string.focus_glutes_blurb
+    FocusArea.LEGS -> Res.string.focus_legs_blurb
+    FocusArea.CORE -> Res.string.focus_core_blurb
+    FocusArea.ARMS -> Res.string.focus_arms_blurb
+    FocusArea.UPPER_BACK -> Res.string.focus_upper_back_blurb
+    FocusArea.SHOULDERS -> Res.string.focus_shoulders_blurb
+    FocusArea.CHEST -> Res.string.focus_chest_blurb
+})
+
+/** "For your glutes": on an exercise a focus added. */
+@Composable internal fun FocusArea.forYour(): String = stringResource(when (this) {
+    FocusArea.GLUTES -> Res.string.focus_for_glutes
+    FocusArea.LEGS -> Res.string.focus_for_legs
+    FocusArea.CORE -> Res.string.focus_for_core
+    FocusArea.ARMS -> Res.string.focus_for_arms
+    FocusArea.UPPER_BACK -> Res.string.focus_for_upper_back
+    FocusArea.SHOULDERS -> Res.string.focus_for_shoulders
+    FocusArea.CHEST -> Res.string.focus_for_chest
+})
+
+@Composable internal fun Caution.label(): String = stringResource(when (this) {
+    Caution.KNEES -> Res.string.caution_knees
+    Caution.LOWER_BACK -> Res.string.caution_lower_back
+    Caution.SHOULDERS -> Res.string.caution_shoulders
+    Caution.WRISTS -> Res.string.caution_wrists
+    Caution.PREGNANCY -> Res.string.caution_pregnancy
+    Caution.POSTPARTUM -> Res.string.caution_postpartum
+    Caution.BLOOD_PRESSURE -> Res.string.caution_blood_pressure
+})
+
+/** Lower case, for a list in a sentence: "Careful with: knees, lower back". */
+@Composable internal fun Caution.shortLabel(): String = stringResource(when (this) {
+    Caution.KNEES -> Res.string.caution_knees_short
+    Caution.LOWER_BACK -> Res.string.caution_lower_back_short
+    Caution.SHOULDERS -> Res.string.caution_shoulders_short
+    Caution.WRISTS -> Res.string.caution_wrists_short
+    Caution.PREGNANCY -> Res.string.caution_pregnancy_short
+    Caution.POSTPARTUM -> Res.string.caution_postpartum_short
+    Caution.BLOOD_PRESSURE -> Res.string.caution_blood_pressure_short
+})
+
+/** "Instead of Squat: often easier on knees.", "Instead of Bench Press: done sitting up, not lying flat." */
+@Composable internal fun Caution.swappedText(fromName: String, why: SwapWhy): String = stringResource(when (why) {
+    SwapWhy.LYING_FLAT -> Res.string.swapped_lying_flat
+    SwapWhy.BELLY -> Res.string.swapped_belly
+    SwapWhy.IMPACT -> Res.string.swapped_impact
+    SwapWhy.GENTLER -> when (this) {
+        Caution.KNEES -> Res.string.swapped_knees
+        Caution.LOWER_BACK -> Res.string.swapped_lower_back
+        Caution.SHOULDERS -> Res.string.swapped_shoulders
+        Caution.WRISTS -> Res.string.swapped_wrists
+        Caution.PREGNANCY, Caution.POSTPARTUM, Caution.BLOOD_PRESSURE -> Res.string.swapped_plain
+    }
+}, fromName)
+
+/** What to stop for and see someone about, for the cautions that have signs of their own. */
+@Composable internal fun Caution.stopSigns(): String? = when (this) {
+    Caution.PREGNANCY -> stringResource(Res.string.guide_stop_pregnancy)
+    Caution.POSTPARTUM -> stringResource(Res.string.guide_stop_postpartum)
+    Caution.BLOOD_PRESSURE -> stringResource(Res.string.guide_stop_blood_pressure)
+    else -> null
+}
+
+/** The lifts whose lower-back cue is about rounding, and those where it is about arching at the top. */
+private val hinges = setOf("deadlift", "romanian_deadlift", "single_leg_rdl", "trap_bar_deadlift", "back_extension", "good_morning")
+private val bridges = setOf("hip_thrust", "bodyweight_glute_bridge", "band_glute_bridge")
+
+/** How to do [exerciseId] with the caution in mind; the lower back's cue depends on how the lift loads it. */
+@Composable internal fun Caution.cue(exerciseId: String? = null): String = stringResource(when (this) {
+    Caution.KNEES -> Res.string.cue_knees
+    Caution.LOWER_BACK -> when (exerciseId) {
+        in hinges -> Res.string.cue_lower_back_hinge
+        in bridges -> Res.string.cue_lower_back_bridge
+        else -> Res.string.cue_lower_back
+    }
+    Caution.SHOULDERS -> Res.string.cue_shoulders
+    Caution.WRISTS -> Res.string.cue_wrists
+    Caution.PREGNANCY -> Res.string.cue_pregnancy
+    Caution.POSTPARTUM -> Res.string.cue_postpartum
+    Caution.BLOOD_PRESSURE ->
+        if (exerciseId != null && app.gains.catalogue.ExerciseCatalogue.byId(exerciseId)?.modality == app.gains.domain.Modality.ISOMETRIC) Res.string.cue_blood_pressure_hold
+        else Res.string.cue_blood_pressure
+})
+
+@Composable internal fun Caution.guideTitle(): String = stringResource(when (this) {
+    Caution.KNEES -> Res.string.guide_title_knees
+    Caution.LOWER_BACK -> Res.string.guide_title_lower_back
+    Caution.SHOULDERS -> Res.string.guide_title_shoulders
+    Caution.WRISTS -> Res.string.guide_title_wrists
+    Caution.PREGNANCY -> Res.string.guide_title_pregnancy
+    Caution.POSTPARTUM -> Res.string.guide_title_postpartum
+    Caution.BLOOD_PRESSURE -> Res.string.guide_title_blood_pressure
+})
+
+@Composable internal fun Caution.guide(): String = stringResource(when (this) {
+    Caution.KNEES -> Res.string.guide_knees
+    Caution.LOWER_BACK -> Res.string.guide_lower_back
+    Caution.SHOULDERS -> Res.string.guide_shoulders
+    Caution.WRISTS -> Res.string.guide_wrists
+    Caution.PREGNANCY -> Res.string.guide_pregnancy
+    Caution.POSTPARTUM -> Res.string.guide_postpartum
+    Caution.BLOOD_PRESSURE -> Res.string.guide_blood_pressure
+})
+
+/** "Focus: glutes, abs and core" (or "Whole body") and "Careful with: knees", for the plan's summary line. */
+@Composable internal fun focusSummary(focus: Set<FocusArea>): String =
+    if (focus.isEmpty()) stringResource(Res.string.focus_list, stringResource(Res.string.focus_whole_body))
+    else stringResource(Res.string.focus_list, FocusArea.entries.filter { it in focus }.map { it.label().lowercase() }.joinToString(", "))
+
+@Composable internal fun cautionsSummary(cautions: Set<Caution>): String? =
+    if (cautions.isEmpty()) null
+    else stringResource(Res.string.careful_with_list, Caution.entries.filter { it in cautions }.map { it.shortLabel() }.joinToString(", "))
 
 @Composable internal fun Experience.label(): String = stringResource(when (this) {
     Experience.BEGINNER -> Res.string.experience_beginner
@@ -232,6 +360,17 @@ internal fun clockHour(hour: Int): String = hour.toString().padStart(2, '0') + "
 
 @Composable internal fun sessionsText(n: Int): String = pluralStringResource(Res.plurals.sessions, n, n)
 @Composable internal fun setsText(n: Int): String = pluralStringResource(Res.plurals.sets, n, n)
+/** "3 sets of 10", "3 sets of 8–12", "3 sets of 30 s", "5 sets of 5, the last as many as you can": a target in words. */
+@Composable internal fun setsText(target: app.gains.domain.SetsReps, lastSetAmrap: Boolean, isometric: Boolean): String {
+    val reps = when (val r = target.reps) {
+        is app.gains.domain.RepTarget.Fixed -> if (isometric) "${r.reps} ${stringResource(Res.string.second_abbrev)}" else r.reps.toString()
+        is app.gains.domain.RepTarget.Range -> "${r.min}–${r.max}"
+        is app.gains.domain.RepTarget.Amrap -> "${r.min}+"
+    }
+    val plain = pluralStringResource(Res.plurals.sets_of, target.sets, target.sets, reps)
+    return if (lastSetAmrap) stringResource(Res.string.last_set_max, plain) else plain
+}
+
 @Composable internal fun exercisesText(n: Int): String = pluralStringResource(Res.plurals.exercises, n, n)
 @Composable internal fun weeksText(n: Int): String = pluralStringResource(Res.plurals.weeks, n, n)
 

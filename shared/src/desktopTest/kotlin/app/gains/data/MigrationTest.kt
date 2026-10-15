@@ -108,6 +108,10 @@ class MigrationTest {
         // When a program was started over syncs on an upgraded install as on a fresh one.
         db.settingsQueries.upsert("program_starts", "gzclp=2026-01-01T10:00")
         assertEquals(listOf("program_starts"), db.syncQueries.selectChanges().executeAsList().filter { it.kind == "setting" }.map { it.id })
-        assertTrue(GainsDatabase.Schema.version >= 8)
+        // The focus areas sync; what to be careful with (health) stays on the device.
+        db.settingsQueries.upsert("focus_areas", "GLUTES")
+        db.settingsQueries.upsert("cautions", "KNEES")
+        assertEquals(listOf("focus_areas", "program_starts"), db.syncQueries.selectChanges().executeAsList().filter { it.kind == "setting" }.map { it.id }.sorted())
+        assertTrue(GainsDatabase.Schema.version >= 9)
     }
 }
