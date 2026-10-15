@@ -140,7 +140,7 @@ Reach for these before writing a new one.
 | A change in % | `DeltaBadge` | |
 | A number with its label | `MetricTile` | |
 | One choice of a few | `ChipRow` (the pill slides) | Radio buttons |
-| How far back a chart reaches | `ChipRow` of windows: 1M · 3M · 1Y · All for bodyweight (in the Trend header), 3M · 6M · 1Y · All for a lift | A date-range picker |
+| How far back a chart reaches | `ChipRow` of windows: 1M · 3M · 1Y · All for bodyweight, 3M · 6M · 1Y · All for a lift; on a row of its own above the chart, since a header beside four Russian chips wraps at 360 dp | A date-range picker |
 | An answer that toggles, with a line on what it means | `SelectTile` (ring and tick, one to a row; the "nothing" choice first and preselected) | Checkboxes |
 | What a built-in program is fitted to, and the way to change it | `PlanFitLine` ("Focus: …" over "Adjusted for: …", Change) | |
 | A long list most people need little of (the built-in programs) | The best two first, the rest folded under one row ("More programs (6)" with who they are for and a chevron) | Every option at once |
@@ -241,7 +241,7 @@ the same rules, translated to the web:
 
 Newest first. One line per change to the rules, with the reason.
 
-- **2026-10-15** The bodyweight trend takes a window (1M · 3M · 1Y · All) in its section header, and an
+- **2026-10-15** The bodyweight trend takes a window (1M · 3M · 1Y · All) on a row above its chart, and an
   overlaid lift starts at the first weigh-in shown: a squat history years older than the weigh-ins
   squeezed the bodyweight into the chart's right edge.
 - **2026-10-15** Focus areas and what to adjust for: a tester who trains regularly but is new to the

@@ -191,11 +191,13 @@ internal fun BodyweightScreen() {
             }
         }
         item {
+            SectionHeader(stringResource(Res.string.trend))
+            // Under the header, not beside it: "Тренд" and four Russian chips don't share a 360 dp row.
             // With a single entry there is nothing to window yet.
-            val chooser: (@Composable () -> Unit)? = if (state.points.size < 2) null else {
-                { ChipRow(BodyweightWindows, state.window, { windowLabel(it.days) }, { model.setWindow(it) }) }
+            if (state.points.size > 1) {
+                ChipRow(BodyweightWindows, state.window, { windowLabel(it.days) }, { model.setWindow(it) })
+                Spacer(Modifier.height(12.dp))
             }
-            SectionHeader(stringResource(Res.string.trend), action = chooser)
             GainsCard(Modifier.fillMaxWidth(), contentPadding = Dp16.Tight) {
                 if (state.points.size == 1) {
                     Text(stringResource(Res.string.one_entry_so_far), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
