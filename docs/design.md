@@ -158,7 +158,8 @@ card and clock, pinned under its list.
   import's Import, a workout's Start, Skip and End, Home's Start bar. The top bar is for
   navigation and the "+" menu.
 - **Tap targets** are at least 44 pt: buttons 48 (compact 44), top-bar icons 44, chips 44. A
-  tappable `Pill` takes a 48 dp target around its small label.
+  tappable `Pill` takes a 48 dp target around its small label that overhangs into the space
+  around it rather than taking room in the layout, so a row of them sits 12 below the text above.
 - **Depth** (`Modifier.surfaceDepth`): on the light theme a soft shadow tinted with the ink colour
   (never plain grey); on the dark one, where a shadow can't show, a chalk edge at 5 %. Filled
   buttons carry a faint inner highlight on their top half.
@@ -245,7 +246,8 @@ Newest first. One line per change to the rules, with the reason.
   programs lead with a one-sentence `_short`; a program day says "about N min". Health words: "Adjusted
   for", never "careful with" a pregnancy; "often easier on", never "safe"; the not-medical-advice line
   wherever guidance is shown. One-to-a-row tiles, since two to a row wrapped at 360 dp in Russian.
-
+- **2026-10-15** A tappable `Pill`'s 48 dp target overhangs instead of taking layout room: it was
+  adding 11 dp above and below every pill, leaving the Insights cards' session links loose.
 - **2026-10-14** The website follows the redesign: the app's fonts, chalk / ink buttons in place
   of green pills, flat cards with the app's depth, sentence-case labels instead of tracked
   capitals, signal pills instead of decorative coloured dots. Written down under [The website](#the-website).

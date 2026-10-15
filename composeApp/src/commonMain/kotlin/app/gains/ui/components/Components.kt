@@ -43,7 +43,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
@@ -53,12 +52,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gains.ui.theme.GainsColors
@@ -159,12 +160,25 @@ internal fun Pill(text: String, color: Color, modifier: Modifier = Modifier, fil
     val background by animateColorAsState(if (filled) color else color.copy(alpha = 0.14f), Motion.standard(), label = "pill")
     val content by animateColorAsState(if (filled) MaterialTheme.colorScheme.onPrimary else color, Motion.standard(), label = "pill-text")
     // A pill that can be tapped takes a 48 dp target around itself, so the small label is still easy to hit.
-    val target = if (onClick != null) Modifier.minimumInteractiveComponentSize().clickable(onClick = onClick) else Modifier
+    val target = if (onClick != null) Modifier.overhangingTouchTarget().clickable(onClick = onClick) else Modifier
     Box(modifier.then(target), contentAlignment = Alignment.Center) {
         Box(Modifier.clip(CircleShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp)) {
             Text(text, style = MaterialTheme.typography.labelSmall, color = content, maxLines = 1, softWrap = false)
         }
     }
+}
+
+/**
+ * Grows what follows to at least 48 × 48 dp but takes only its natural size in the layout: the
+ * rest overhangs into the space around it (a card's padding, the gap to the next row), so a small
+ * label is easy to tap without pushing everything around it apart.
+ */
+private fun Modifier.overhangingTouchTarget(): Modifier = layout { measurable, constraints ->
+    val width = measurable.maxIntrinsicWidth(constraints.maxHeight).coerceIn(constraints.minWidth, constraints.maxWidth)
+    val height = measurable.minIntrinsicHeight(width).coerceIn(constraints.minHeight, constraints.maxHeight)
+    val min = 48.dp.roundToPx()
+    val target = measurable.measure(Constraints.fixed(maxOf(width, min), maxOf(height, min)))
+    layout(width, height) { target.place((width - target.width) / 2, (height - target.height) / 2) }
 }
 
 /**

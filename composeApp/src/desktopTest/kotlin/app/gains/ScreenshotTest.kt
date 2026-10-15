@@ -309,6 +309,12 @@ class ScreenshotTest {
         require(text("What's moving"), 60_000)
         settle(1_500)
         shot("03-home")
+        // The insight cards below the fold, with the links to the sessions they name.
+        val sessionLink = hasText("Session ", substring = true) and hasClickAction()
+        scrollUntil(text("What's moving"), sessionLink)
+        scrollIntoView(sessionLink)
+        shot("03b-home-insights")
+        scrollToTop(text("What's moving"))
 
         // 4. History.
         tab("History")
@@ -605,6 +611,10 @@ class ScreenshotTest {
         require(text("What's moving"), 60_000)
         settle(1_500)
         shot("10-home-light")
+        scrollUntil(text("What's moving"), sessionLink)
+        scrollIntoView(sessionLink)
+        shot("10b-home-insights-light")
+        scrollToTop(text("What's moving"))
         tab("Lifts")
         require(text("Bench Press"))
         onAllNodes(text("Bench Press")).onFirst().performClick()
