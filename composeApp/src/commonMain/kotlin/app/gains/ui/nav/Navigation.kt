@@ -22,6 +22,8 @@ internal sealed interface Screen {
     data object Settings : Screen
     data object Import : Screen
     data object Onboarding : Screen
+    /** What to work on more and what to be careful with, which fit the built-in programs to the person. */
+    data object FocusAndCare : Screen
     data object Programs : Screen
     data class ProgramDetail(val programId: String) : Screen
     /** null = create a new program. */

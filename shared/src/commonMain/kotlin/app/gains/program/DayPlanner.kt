@@ -8,6 +8,7 @@ import app.gains.domain.Modality
 import app.gains.domain.Program
 import app.gains.domain.ProgramDay
 import app.gains.domain.Session
+import app.gains.domain.SetsReps
 import app.gains.domain.WeightUnit
 
 data class PlannedSet(val weightKg: Double?, val reps: Int?, val seconds: Int?, val isWarmup: Boolean = false)
@@ -19,6 +20,8 @@ data class PlannedExercise(
     val sets: List<PlannedSet>,
     /** "5 × 3+", or "6 × 2+" once a stage ladder has moved on: always the stage the sets were built for. */
     val targetLabel: String,
+    /** The same stage as numbers, for the screen to put in words. */
+    val target: SetsReps,
     val hint: Progression.Hint?,
     /**
      * The weights were borrowed from a session that did not attempt this slot's scheme (a free
@@ -75,7 +78,7 @@ object DayPlanner {
             } else emptyList()
             val seeded = own == null && s.weightKg != null
             PlannedExercise(
-                exercise, slot, warmups + work, s.target.targetLabel(slot.lastSetAmrap), s.hint,
+                exercise, slot, warmups + work, s.target.targetLabel(slot.lastSetAmrap), s.target, s.hint,
                 seeded = seeded, tier = tier, source = source.takeIf { seeded },
             )
         }

@@ -251,7 +251,7 @@ Everything the person made, nothing the device decided:
 | Working-set ratio overrides | `override` | the exercise id | |
 | Body weight | `bodyweight` | the date | |
 | Custom programs with their days and slots | `program` | the program id | Built-in programs |
-| Weight unit, bar weight, auto warm-ups, goal profile, active program, when each program was last started over, onboarding done | `setting` | the setting key | Theme, language, streak reminder, the account itself |
+| Weight unit, bar weight, auto warm-ups, goal profile, focus areas, active program, when each program was last started over, onboarding done | `setting` | the setting key | Theme, language, streak reminder, what to be careful with (health stays on the device), the account itself |
 
 Theme and language are how this device is looked at; the streak reminder is tied to this
 device's notification permission. The synced setting keys are listed once, in

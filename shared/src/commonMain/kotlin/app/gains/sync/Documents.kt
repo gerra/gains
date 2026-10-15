@@ -42,6 +42,7 @@ object SyncedSettings {
         ProgramRepository.KEY_ACTIVE_PROGRAM,
         ProgramRepository.KEY_ONBOARDING,
         ProgramRepository.KEY_PROGRAM_STARTS,
+        ProgramRepository.KEY_FOCUS,
     )
 }
 

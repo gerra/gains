@@ -1,5 +1,11 @@
 package app.gains
 
+import app.gains.domain.Caution
+import app.gains.domain.RepTarget
+import app.gains.domain.SetsReps
+import app.gains.domain.SlotReason
+import app.gains.ui.screens.PlanTarget
+
 import app.gains.domain.Exercise
 import app.gains.domain.ExerciseEntry
 import app.gains.program.Gzclp
@@ -29,11 +35,14 @@ class ExerciseArrangementTest {
     private val bench = Exercise("bench", "Bench Press", "bench press", emptyList(), Modality.WEIGHTED)
     private val row = Exercise("row", "Barbell Row", "barbell row", emptyList(), Modality.WEIGHTED)
 
+    private val t1 = PlanTarget(SetsReps(5, RepTarget.Amrap(3)), lastSetAmrap = false)
+    private val t2 = PlanTarget(SetsReps(3, RepTarget.Fixed(10)), lastSetAmrap = false)
     private val squatSets = listOf(SetDraft("60", "5", isWarmup = true), SetDraft("100", "5", done = true), SetDraft("100", "5"))
     private val state = EditorState(
         loading = false,
         exercises = listOf(ExerciseDraft(squat, squatSets, note = "belt on"), ExerciseDraft(bench, listOf(SetDraft("80", "5")))),
-        targets = mapOf("squat" to "5 × 3+", "bench" to "3 × 10"),
+        targets = mapOf("squat" to t1, "bench" to t2),
+        reasons = mapOf("squat" to SlotReason.Swapped("deadlift", Caution.LOWER_BACK)),
         hints = mapOf("squat" to Progression.Hint.Try(Progression.LastTime(100.0, listOf(5, 5)), 102.5)),
         notes = mapOf("squat" to "Sit back"),
         tiers = mapOf("squat" to Gzclp.Tier.T1),
@@ -60,13 +69,15 @@ class ExerciseArrangementTest {
         val previous = ExerciseEntry("front-squat", listOf(SetEntry(0, SetType.WEIGHTED, 80.0, 5)))
         val next = state.replacing(0, frontSquat, previous)
         // What described the slot moves to the new id.
-        assertEquals(mapOf("front-squat" to "5 × 3+", "bench" to "3 × 10"), next.targets)
+        assertEquals(mapOf("front-squat" to t1, "bench" to t2), next.targets)
         assertEquals(mapOf("front-squat" to "Sit back"), next.notes)
         assertEquals(mapOf("front-squat" to Gzclp.Tier.T1), next.tiers)
         assertEquals(setOf("front-squat"), next.collapsedWarmups)
         assertEquals("front-squat", next.restTimer?.exerciseId)
         // What described the old exercise's history goes.
         assertEquals(emptyMap(), next.hints)
+        // The reason was the program's for the old lift; the lifter chose this one.
+        assertEquals(emptyMap(), next.reasons)
         assertEquals(emptySet(), next.seeded)
         assertEquals(emptyMap(), next.sources)
         assertEquals(mapOf("front-squat" to previous), next.previous)

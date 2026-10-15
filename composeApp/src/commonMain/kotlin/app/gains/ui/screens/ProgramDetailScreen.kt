@@ -41,7 +41,9 @@ import app.gains.domain.Program
 import app.gains.domain.ProgramDay
 import app.gains.domain.ProgramDayRef
 import app.gains.domain.ProgressionRule
+import app.gains.domain.SlotReason
 import app.gains.domain.WeightUnit
+import app.gains.program.DayEstimate
 import app.gains.program.Gzclp
 import app.gains.program.Progression
 import app.gains.program.Rotation
@@ -82,6 +84,8 @@ internal data class ProgramDetailState(
     /** Set after the program was deleted or duplicated, so the screen can navigate away. */
     val navigateTo: String? = null,
     val deleted: Boolean = false,
+    val focus: Set<app.gains.domain.FocusArea> = emptySet(),
+    val cautions: Set<app.gains.domain.Caution> = emptySet(),
 )
 
 internal class ProgramDetailModel(
@@ -108,6 +112,8 @@ internal class ProgramDetailModel(
             unit = unit,
             cycle = program?.let { Rotation.cycle(it, run) } ?: emptyList(),
             position = program?.let { Rotation.position(it, run) },
+            focus = s.focus,
+            cautions = s.cautions,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), ProgramDetailState())
 
@@ -132,7 +138,7 @@ internal class ProgramDetailModel(
 }
 
 @Composable
-internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) -> Unit, onEdit: (String) -> Unit, onDeleted: () -> Unit) {
+internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) -> Unit, onEdit: (String) -> Unit, onDeleted: () -> Unit, onOpenFocus: () -> Unit = {}) {
     val model = rememberScreenModel(programId) { ProgramDetailModel(programId, inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
@@ -158,7 +164,18 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
                 )
             }
             Spacer(Modifier.height(12.dp))
+            // The plain sentence first, then the program's own description for whoever wants the detail.
+            if (program.isBuiltIn) {
+                Text(program.displayShort(), style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(8.dp))
+            }
             Text(program.displayDescription(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (program.isBuiltIn) {
+                Spacer(Modifier.height(4.dp))
+                PlanFitLine(state.focus, state.cautions, onOpenFocus)
+                FittedSummary(program)
+                HeavyProgramNote(program, state.cautions, Modifier.padding(top = 8.dp))
+            }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Activate and Deactivate hand over to each other where they stand.
@@ -232,25 +249,28 @@ private fun DayCard(day: ProgramDay, program: Program, upNext: Boolean, last: Lo
     val palette = GainsColors.palette
     GainsCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), onClick = onClick, contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(day.displayName(), style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.width(8.dp))
-                    if (upNext) Pill(stringResource(Res.string.up_next_pill), palette.volt, filled = true)
-                }
-                Spacer(Modifier.height(4.dp))
-                for (slot in day.slots) {
-                    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(exercisesById[slot.exerciseId]?.displayName() ?: slot.exerciseId, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                        Text(slot.targetLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+            Text(day.displayName(), style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.width(8.dp))
+            if (upNext) Pill(stringResource(Res.string.up_next_pill), palette.volt, filled = true)
+        }
+        // How long it takes, and when it was last done.
+        Text(
+            stringResource(Res.string.about_minutes, DayEstimate.minutes(day)) + " · " +
+                (last?.let { stringResource(Res.string.last_done, dateContextual(it, today)) } ?: stringResource(Res.string.not_done_yet)),
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        for (slot in day.slots) {
+            val exercise = exercisesById[slot.exerciseId]
+            Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(exercise?.displayName() ?: slot.exerciseId, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
+                Text(setsText(slot.target, slot.lastSetAmrap, exercise?.modality == app.gains.domain.Modality.ISOMETRIC), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Spacer(Modifier.width(12.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(exercisesText(day.slots.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
-                Text(last?.let { stringResource(Res.string.last_done, dateContextual(it, today)) } ?: stringResource(Res.string.not_done_yet), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Why a slot is not as the program was written: added for a focus, or swapped for a caution.
+            val reason = slot.reason
+            (if (reason is SlotReason.Careful) reason.caution.cue() else slotReasonText(reason, exercisesById, cue = false))?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
             }
         }
     }
@@ -272,7 +292,7 @@ private fun ScheduleCard(cycle: List<List<ProgramDay>>, next: Int) {
         cycle.forEachIndexed { week, days ->
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 val thisWeek = week == next / perWeek
-                Text(stringResource(Res.string.week_n, week + 1), style = MaterialTheme.typography.labelSmall, color = if (thisWeek) palette.volt else muted, modifier = Modifier.width(52.dp))
+                Text(stringResource(Res.string.week_n, week + 1), style = MaterialTheme.typography.labelSmall, color = if (thisWeek) palette.volt else muted, modifier = Modifier.width(64.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     days.forEachIndexed { i, day ->
                         val at = week * perWeek + i

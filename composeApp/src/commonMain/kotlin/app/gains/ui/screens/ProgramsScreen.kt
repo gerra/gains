@@ -104,7 +104,9 @@ private fun ProgramRow(program: Program, active: Boolean, onClick: () -> Unit, m
                 Spacer(Modifier.height(8.dp))
                 ProgramTags(program, active)
                 Spacer(Modifier.height(8.dp))
-                Text(
+                // What a built-in is like, in a sentence; the user's own are known by their days.
+                if (program.isBuiltIn) Text(program.displayShort(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else Text(
                     program.days.map { it.displayName() }.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )

@@ -105,6 +105,10 @@ import app.gains.data.LiveSessionRepository
 import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
+import app.gains.domain.Caution
+import app.gains.domain.RepTarget
+import app.gains.domain.ExerciseSlot
+import app.gains.program.DayEstimate
 import app.gains.domain.Exercise
 import app.gains.domain.ExerciseEntry
 import app.gains.domain.LiveExercise
@@ -116,6 +120,8 @@ import app.gains.domain.ProgramDayRef
 import app.gains.domain.RestTimer
 import app.gains.domain.Session
 import app.gains.domain.SetDraft
+import app.gains.domain.SetsReps
+import app.gains.domain.SlotReason
 import app.gains.domain.WeightUnit
 import app.gains.importer.ExerciseResolver
 import app.gains.program.DayPlanner
@@ -230,6 +236,9 @@ internal data class ProgramDayOption(val ref: ProgramDayRef, val programName: St
     val label: String get() = "$programName · $dayName"
 }
 
+/** The sets and reps a program slot asks for today, and whether its last set is as many as possible. */
+internal data class PlanTarget(val target: SetsReps, val lastSetAmrap: Boolean)
+
 internal data class EditorState(
     val loading: Boolean = true,
     val isNew: Boolean = true,
@@ -261,8 +270,12 @@ internal data class EditorState(
     val title: String = "",
     /** Every day of every program, for the tag picker. */
     val programDays: List<ProgramDayOption> = emptyList(),
-    /** exercise id -> "5 × 3+" */
-    val targets: Map<String, String> = emptyMap(),
+    /** exercise id -> the sets and reps the plan asks for, put in words on the card ("3 sets of 8–12"). */
+    val targets: Map<String, PlanTarget> = emptyMap(),
+    /** exercise id -> why the program day has it as it does: added for a focus, or swapped or cued for a caution. */
+    val reasons: Map<String, SlotReason> = emptyMap(),
+    /** What the lifter is careful with, for the line that opens the guidance; only on a program day. */
+    val cautions: Set<Caution> = emptySet(),
     /** exercise id -> the progression hint ("Last: 60 kg × 5,5,5 → try 62.5 kg"), worded on screen. */
     val hints: Map<String, Progression.Hint> = emptyMap(),
     /** exercise id -> the exercise's most recent session before this one, for the PREV column of its set table. */
@@ -337,7 +350,7 @@ internal data class EditorState(
         return copy(
             exercises = exercises.mapIndexed { i, e -> if (i == index) e.copy(exercise = exercise) else e },
             targets = targets.rekeyed(), notes = notes.rekeyed(), tiers = tiers.rekeyed(),
-            hints = hints - from,
+            hints = hints - from, reasons = reasons - from,
             seeded = seeded - from, sources = sources - from,
             collapsedWarmups = if (from in collapsedWarmups) collapsedWarmups - from + to else collapsedWarmups,
             previous = if (previous != null) (this.previous - from) + (to to previous) else this.previous - from,
@@ -396,6 +409,7 @@ internal class SessionEditorModel(
         private val dayNames: Map<String, String>,
         /** The workout being edited, when it is a logged one: its own sets are not "previous", nor are any logged after it. */
         val editing: Session? = null,
+        val cautions: Set<Caution> = emptySet(),
     ) {
         fun dayName(day: ProgramDay): String = dayNames[day.id] ?: day.name
 
@@ -453,7 +467,7 @@ internal class SessionEditorModel(
             val programList = programs.observePrograms().first()
             val dayOptions = programList.flatMap { p -> val programName = p.resolvedName(texts); p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), programName, it.resolvedName(texts)) } }
             val titles = Titles(texts.get(Res.string.log_workout), texts.get(Res.string.edit_workout), texts.get(Res.string.workout))
-            val ctx = Context(snapshot, unit, planOptions, programList, dayOptions, titles, dayOptions.associate { it.ref.dayId to it.dayName }, editing = existing)
+            val ctx = Context(snapshot, unit, planOptions, programList, dayOptions, titles, dayOptions.associate { it.ref.dayId to it.dayName }, editing = existing, cautions = programs.observeCautions().first())
             context = ctx
             val stored = if (live && existing == null) liveSessions.load() else null
             _state.value = when {
@@ -526,7 +540,9 @@ internal class SessionEditorModel(
                     )
                 })
             },
-            targets = plan.exercises.associate { it.exercise.id to it.targetLabel },
+            targets = plan.exercises.associate { it.exercise.id to PlanTarget(it.target, it.slot.lastSetAmrap) },
+            reasons = plan.exercises.mapNotNull { pe -> pe.slot.reason?.let { pe.exercise.id to it } }.toMap(),
+            cautions = ctx.cautions,
             hints = plan.exercises.mapNotNull { pe -> pe.hint?.let { pe.exercise.id to it } }.toMap(),
             notes = plan.exercises.mapNotNull { pe -> pe.slot.note?.let { pe.exercise.id to it } }.toMap(),
             seeded = plan.exercises.filter { it.seeded }.map { it.exercise.id }.toSet(),
@@ -930,6 +946,7 @@ internal fun SessionEditorScreen(
     var durationPickerOpen by remember { mutableStateOf(false) }
     /** The set whose weight chooser is open: exercise index to set index. */
     var weightTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var guideOpen by remember { mutableStateOf(false) }
     if (state.loading) return
     if (state.saved) {
         val ended = state.endedId
@@ -973,6 +990,12 @@ internal fun SessionEditorScreen(
                         onSummary = state.id?.let { id -> { onOpenSummary(id) } },
                     )
                 }
+                // On a program day fitted to the lifter's cautions, the way to how to train with them.
+                if (state.programDay != null) cautionsSummary(state.cautions)?.let { careful ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(careful, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { guideOpen = true }, contentPadding = PaddingValues(0.dp)) { Text(stringResource(Res.string.how_to_train_with_it), color = palette.volt) }
+                }
                 SectionHeader(stringResource(Res.string.exercises_section), action = {
                     TextButton(onClick = { pickerOpen = true }, enabled = state.editable) { Text(stringResource(Res.string.plus_add_exercise), color = if (state.editable) palette.volt else disabledColor()) }
                 })
@@ -984,6 +1007,7 @@ internal fun SessionEditorScreen(
                 ExerciseCard(
                     exerciseIndex, draft, state.unit, model, fieldColors,
                     state.targets[draft.exercise.id], state.hints[draft.exercise.id], state.notes[draft.exercise.id],
+                    reason = state.reasons[draft.exercise.id],
                     seeded = draft.exercise.id in state.seeded,
                     source = state.sources[draft.exercise.id],
                     tier = state.tiers[draft.exercise.id],
@@ -1031,7 +1055,7 @@ internal fun SessionEditorScreen(
         AnimatedContent(header, transitionSpec = { fadeThrough(reduce) }, label = "editor-header") { shown ->
             when (shown) {
                 EditorHeader.CLOCK -> state.startedAtMs?.let { SessionClock(it, state.restTimer, onSkipRest = model::dismissRest, onEnd = model::endSession) }
-                EditorHeader.READY -> ReadyCard(state.exercises, onStart = model::start)
+                EditorHeader.READY -> ReadyCard(state.exercises, state.programDay?.let { estimateMinutes(state.exercises) }, onStart = model::start)
                 EditorHeader.NONE -> {}
             }
         }
@@ -1084,6 +1108,7 @@ internal fun SessionEditorScreen(
             onDismiss = { weightTarget = null },
         )
     }
+    if (guideOpen) CautionGuideDialog(state.cautions) { guideOpen = false }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -1212,16 +1237,27 @@ private fun LongSessionDialog(timedMinutes: Int, onConfirm: (Int) -> Unit, onCan
  * Pinned under a timed workout that has not started, above the tabs: what is planned, and the one
  * button that starts the clock. It sits where the clock will, so the card simply changes over on Start.
  */
+/** About how long the planned sets take, from what is on the screen now: see [DayEstimate]. */
+private fun estimateMinutes(exercises: List<ExerciseDraft>): Int = DayEstimate.minutes(
+    ProgramDay("", "", exercises.map { e ->
+        ExerciseSlot(e.exercise.id, e.workSets.size, RepTarget.Fixed(e.workSets.firstOrNull()?.reps?.toIntOrNull() ?: 10))
+    }),
+)
+
 @Composable
-private fun ReadyCard(exercises: List<ExerciseDraft>, onStart: () -> Unit) {
+private fun ReadyCard(exercises: List<ExerciseDraft>, minutes: Int?, onStart: () -> Unit) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val workSets = exercises.sumOf { it.workSets.size }
     GainsCard(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), contentPadding = Dp16.Tight) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(stringResource(Res.string.ready), style = MaterialTheme.typography.labelSmall, color = muted)
+                // "Ready · 21 sets · about 45 min" over "7 exercises": the headline stays one short line in every language.
                 Text(
-                    if (exercises.isEmpty()) stringResource(Res.string.nothing_planned_yet) else stringResource(Res.string.exercises_and_sets, exercisesText(exercises.size), setsText(workSets)),
+                    listOfNotNull(stringResource(Res.string.ready), setsText(workSets).takeIf { exercises.isNotEmpty() }, minutes?.let { stringResource(Res.string.about_minutes, it) }).joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall, color = muted,
+                )
+                Text(
+                    if (exercises.isEmpty()) stringResource(Res.string.nothing_planned_yet) else exercisesText(exercises.size),
                     style = MaterialTheme.typography.headlineSmall,
                 )
             }
@@ -1350,10 +1386,13 @@ private fun DayChoice(label: String, selected: Boolean, accent: Color, onClick: 
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ExerciseCard(
     exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
-    target: String? = null, hint: Progression.Hint? = null, programNote: String? = null, seeded: Boolean = false,
+    target: PlanTarget? = null, hint: Progression.Hint? = null, programNote: String? = null, seeded: Boolean = false,
+    /** Why the program day has this exercise as it does: a focus added it, a caution swapped it in or asks for care. */
+    reason: SlotReason? = null,
     source: Progression.Source? = null, tier: Gzclp.Tier? = null, warmupsCollapsed: Boolean = false,
     /** The exercise's last session, whose sets fill the PREV column row by row. */
     previous: ExerciseEntry? = null,
@@ -1383,8 +1422,10 @@ private fun ExerciseCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (target != null) Pill(target, palette.volt)
+                // A FlowRow: "3 sets of 8–12" and "For your glutes" wrap whole rather than squeeze.
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (target != null) Pill(setsText(target.target, target.lastSetAmrap, modality == Modality.ISOMETRIC), palette.volt)
+                    if (reason is SlotReason.Focus) Tag(reason.area.forYour())
                     Tag(modality.label())
                     if (draft.exercise.isDumbbell) Tag(stringResource(Res.string.per_dumbbell))
                 }
@@ -1400,9 +1441,23 @@ private fun ExerciseCard(
                 onRemove = { model.removeExercise(exerciseIndex) },
             )
         }
+        // Why it is here and how to do it with the lifter's cautions in mind: the swap, then the cue.
+        val why = when (reason) {
+            is SlotReason.Focus -> reason.careful?.cue()
+            else -> slotReasonText(reason, emptyMap(), cue = true)
+        }
+        if (why != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(why, style = MaterialTheme.typography.bodySmall)
+        }
         if (hint != null) {
             Spacer(Modifier.height(4.dp))
             Text(hintText(hint, unit), style = MaterialTheme.typography.bodySmall, color = palette.volt)
+        }
+        // A planned lift never done before: nothing to go on, so say how to choose the weight.
+        if (target != null && hint == null && previous == null && modality == Modality.WEIGHTED) {
+            Spacer(Modifier.height(4.dp))
+            Text(stringResource(Res.string.first_time_weight), style = MaterialTheme.typography.bodySmall, color = muted)
         }
         if (seeded) {
             // The weights came from a session that never attempted this scheme: one tap declines them.
