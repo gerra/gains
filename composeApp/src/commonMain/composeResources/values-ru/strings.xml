@@ -1425,4 +1425,5 @@
     <string name="cue_lower_back_hinge">С лёгким весом и медленно; не округляй спину и пропусти, если кольнёт.</string>
     <string name="cue_lower_back_bridge">Рёбра вниз, не прогибай поясницу вверху; пропусти, если кольнёт.</string>
     <string name="switch_to_full_body">Перейти на «Всё тело с нуля»</string>
+    <string name="cue_blood_pressure_hold">Дыши ровно во время удержания и не задерживай дыхание.</string>
 </resources>

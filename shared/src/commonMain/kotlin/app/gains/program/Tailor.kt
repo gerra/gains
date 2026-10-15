@@ -186,7 +186,8 @@ object Tailor {
     /** The caution whose cue [slot] should carry, if any. */
     private fun carefulFor(slot: ExerciseSlot, cautions: Set<Caution>): Caution? =
         cautions.sortedBy { it.ordinal }.firstOrNull { c ->
-            if (c == Caution.BLOOD_PRESSURE) isHardSet(slot) else slot.exerciseId in rules.getValue(c).careful
+            // A hold is where breath is most often held, which blood pressure asks not to do.
+            if (c == Caution.BLOOD_PRESSURE) isHardSet(slot) || isHold(slot) else slot.exerciseId in rules.getValue(c).careful
         }
 
     /**
@@ -205,6 +206,8 @@ object Tailor {
         val progression = if (rule is ProgressionRule.StageLadder) rule.copy(stages = rule.stages.map { it.copy(reps = fixed(it.reps)) }) else rule
         return slot.copy(reps = fixed(slot.reps), lastSetAmrap = false, progression = progression)
     }
+
+    private fun isHold(slot: ExerciseSlot): Boolean = ExerciseCatalogue.byId(slot.exerciseId)?.modality == Modality.ISOMETRIC
 
     /** Five reps or fewer of a weighted lift. */
     private fun isHeavyLift(slot: ExerciseSlot): Boolean =

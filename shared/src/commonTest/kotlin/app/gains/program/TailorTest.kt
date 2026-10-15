@@ -190,4 +190,11 @@ class TailorTest {
         assertEquals(35, DayEstimate.minutes(plain))
         assertEquals(45, DayEstimate.minutes(fitted))
     }
+
+    @Test
+    fun withHighBloodPressureAHoldIsCuedToo() {
+        val day = Tailor.tailor(program("full_body_basics"), emptySet(), setOf(Caution.BLOOD_PRESSURE)).days[0]
+        assertEquals(SlotReason.Careful(Caution.BLOOD_PRESSURE), day.slots.first { it.exerciseId == "plank" }.reason)
+        assertNull(day.slots.first { it.exerciseId == "goblet_squat" }.reason)
+    }
 }

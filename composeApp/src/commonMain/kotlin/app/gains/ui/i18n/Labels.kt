@@ -208,7 +208,9 @@ private val bridges = setOf("hip_thrust", "bodyweight_glute_bridge", "band_glute
     Caution.WRISTS -> Res.string.cue_wrists
     Caution.PREGNANCY -> Res.string.cue_pregnancy
     Caution.POSTPARTUM -> Res.string.cue_postpartum
-    Caution.BLOOD_PRESSURE -> Res.string.cue_blood_pressure
+    Caution.BLOOD_PRESSURE ->
+        if (exerciseId != null && app.gains.catalogue.ExerciseCatalogue.byId(exerciseId)?.modality == app.gains.domain.Modality.ISOMETRIC) Res.string.cue_blood_pressure_hold
+        else Res.string.cue_blood_pressure
 })
 
 @Composable internal fun Caution.guideTitle(): String = stringResource(when (this) {
