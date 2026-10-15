@@ -382,6 +382,12 @@ class ScreenshotTest {
         require(text("Trend"))
         settle(1_500)
         shot("08-body")
+        // The chart narrowed to the last month, then back to everything.
+        tap(hasText("1M") and hasClickAction())
+        settle(1_500)
+        shot("08b-body-month")
+        tap(hasText("All") and hasClickAction())
+        settle(500)
         if (recordingClips) clip("navigation") {
             // Tabs slide the way the bar goes and the pill follows; a pushed screen and Back swap the
             // top bar's wordmark and arrow while the pill fades out and back.

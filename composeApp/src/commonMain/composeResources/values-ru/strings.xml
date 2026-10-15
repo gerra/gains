@@ -237,6 +237,7 @@
     <string name="seven_day_avg">Ср. за 7 дней</string>
     <string name="change_label">Изменение</string>
     <string name="one_entry_so_far">Пока одна запись. График появится после второй.</string>
+    <string name="bodyweight_window_too_short">За этот период меньше двух записей. Выбери период подлиннее, чтобы увидеть тренд.</string>
     <string name="daily">По дням</string>
     <string name="overlay_a_lift">Наложить упражнение</string>
     <string name="entries">Записи</string>
@@ -611,6 +612,7 @@
     <string name="onboarding_days_note_5">Пять дней — это много. Пусть один-два будут лёгкими.</string>
     <string name="onboarding_days_note_6">Шесть дней: всё упирается в восстановление, так что спи и ешь хорошо.</string>
     <string name="onboarding_days_note_7">Каждый день: большинство тренировок лёгкие, прислушивайся к телу.</string>
+    <string name="window_1m">1 мес</string>
     <string name="window_3m">3 мес</string>
     <string name="window_6m">6 мес</string>
     <string name="window_1y">1 год</string>
