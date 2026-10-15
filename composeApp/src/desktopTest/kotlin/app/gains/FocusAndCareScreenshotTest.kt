@@ -247,6 +247,6 @@ class FocusAndCareScreenshotTest {
         val knees: String, val lowerBack: String, val fullBody: String, val showAll: String,
     )
 
-    private val english = Words("General fitness", "Next", "Beginner", "Glutes", "Abs and core", "Arms", "Two at most", "Knees", "Lower back", "Full-body basics", "Show all programs")
-    private val russian = Words("Общая форма", "Далее", "Новичок", "Ягодицы", "Пресс и кор", "Руки", "Не больше двух", "Колени", "Поясница", "Всё тело с нуля", "Показать все программы")
+    private val english = Words("General fitness", "Next", "Beginner", "Glutes", "Abs and core", "Arms", "Two at most", "Knees", "Lower back", "Full-body basics", "More programs")
+    private val russian = Words("Общая форма", "Далее", "Новичок", "Ягодицы", "Пресс и кор", "Руки", "Не больше двух", "Колени", "Поясница", "Всё тело с нуля", "Ещё программы")
 }

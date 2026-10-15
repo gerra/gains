@@ -318,7 +318,7 @@
     <string name="plus_new">+ New</string>
     <string name="your_programs">Your programs</string>
     <string name="built_in">Built-in</string>
-    <string name="built_in_note">Built-in programs follow the r/Fitness and r/bodyweightfitness wiki routines. Open one and duplicate it to change exercises or sets.</string>
+    <string name="built_in_note">Built-in programs follow the r/Fitness and r/bodyweightfitness wiki routines. Open one and tap Copy to edit to change exercises or sets.</string>
     <string name="deactivate">Deactivate</string>
     <string name="activate">Activate</string>
     <string name="duplicate_to_edit">Copy to edit</string>
@@ -1332,7 +1332,7 @@
     <string name="program_full_body_basics_short">Workouts A and B in turn, three times a week, on machines and dumbbells. Easy to start.</string>
     <string name="program_rfitness_basic_short">Three big barbell lifts a session, a bit more weight each time.</string>
     <string name="program_gzclp_short">Three lifts a day: one heavy, one medium, one light. Add weight when it goes well.</string>
-    <string name="program_531_beginners_short">Two main barbell lifts a day on a three-week wave, then push, pull and core work.</string>
+    <string name="program_531_beginners_short">For lifters a few months in: two main barbell lifts a day on a three-week wave, then push, pull and core work.</string>
     <string name="program_ppl_6_short">Six days: push, pull and legs, twice each. For building muscle when you can train a lot.</string>
     <string name="program_ppl_3_short">Push, pull and legs, once each a week. Builds muscle on three days.</string>
     <string name="program_upper_lower_4_short">Four days: upper body, then legs, twice a week. Reps go up before the weight does.</string>
@@ -1367,5 +1367,4 @@
     <string name="more_programs">More programs (%1$d)</string>
     <string name="more_programs_blurb_beginner">For experienced lifters: heavier weights, more days, more numbers.</string>
     <string name="more_programs_blurb">The other built-in programs, a less close fit for your answers.</string>
-    <string name="show_all_programs">Show all programs (%1$d more)</string>
 </resources>

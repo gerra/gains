@@ -270,10 +270,10 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                             else SecondaryButton(stringResource(Res.string.use_this_program), onClick = { model.finish(program.id) }, compact = true)
                         }
                     }
+                    // The same fold as the Programs screen's, so the rest look the same wherever they wait.
                     if (!model.showAll && model.moreSuggestions.isNotEmpty()) {
-                        TextButton(onClick = { model.showAll = true }) {
-                            Text(stringResource(Res.string.show_all_programs, model.moreSuggestions.size), color = palette.volt)
-                        }
+                        val level = model.profile?.experience
+                        MoreProgramsRow(model.moreSuggestions.size, allAbove = level != null && model.moreSuggestions.all { it.level > level }, open = false, onToggle = { model.showAll = true })
                     }
                 }
             }

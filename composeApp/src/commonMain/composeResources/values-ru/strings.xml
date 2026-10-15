@@ -318,7 +318,7 @@
     <string name="plus_new">+ Новая</string>
     <string name="your_programs">Твои программы</string>
     <string name="built_in">Встроенные</string>
-    <string name="built_in_note">Встроенные программы повторяют программы из вики r/Fitness и r/bodyweightfitness. Открой одну и продублируй, чтобы поменять упражнения или подходы.</string>
+    <string name="built_in_note">Встроенные программы повторяют программы из вики r/Fitness и r/bodyweightfitness. Открой одну и нажми «Копировать», чтобы поменять упражнения или подходы.</string>
     <string name="deactivate">Отключить</string>
     <string name="activate">Активировать</string>
     <string name="duplicate_to_edit">Копировать</string>
@@ -1392,7 +1392,7 @@
     <string name="program_full_body_basics_short">Тренировки A и B по очереди, три раза в неделю, на тренажёрах и с гантелями. Легко начать.</string>
     <string name="program_rfitness_basic_short">Три базовых упражнения со штангой за тренировку, каждый раз чуть больше веса.</string>
     <string name="program_gzclp_short">Три упражнения в день: тяжёлое, среднее и лёгкое. Добавляй вес, когда всё получается.</string>
-    <string name="program_531_beginners_short">Два основных упражнения со штангой по трёхнедельной волне, потом жимы, тяги и кор.</string>
+    <string name="program_531_beginners_short">Для тех, кто занимается уже несколько месяцев: два основных упражнения со штангой по трёхнедельной волне, потом жимы, тяги и кор.</string>
     <string name="program_ppl_6_short">Шесть дней: жимы, тяги и ноги, по два раза. Для набора мышц, если можешь тренироваться много.</string>
     <string name="program_ppl_3_short">Жимы, тяги и ноги, по разу в неделю. Набор мышц за три дня.</string>
     <string name="program_upper_lower_4_short">Четыре дня: верх тела, потом ноги, дважды в неделю. Сначала растут повторения, потом вес.</string>
@@ -1429,5 +1429,4 @@
     <string name="more_programs">Ещё программы (%1$d)</string>
     <string name="more_programs_blurb_beginner">Для опытных: больше веса, больше дней, больше цифр.</string>
     <string name="more_programs_blurb">Остальные встроенные программы: под твои ответы они подходят меньше.</string>
-    <string name="show_all_programs">Показать все программы (ещё %1$d)</string>
 </resources>
