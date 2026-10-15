@@ -313,7 +313,11 @@ private fun ProgramCard(
             program != null && day != null -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.up_next, program.displayName()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(Res.string.up_next, program.displayName()), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.width(12.dp))
+                            Text(stringResource(Res.string.whole_program), style = MaterialTheme.typography.labelSmall, color = palette.volt)
+                        }
                         Spacer(Modifier.height(4.dp))
                         // After a workout the rotation moves on, and the new day is seen taking the old one's place.
                         RollingText(day.displayName(), MaterialTheme.typography.headlineSmall, MaterialTheme.colorScheme.onSurface)
@@ -328,20 +332,15 @@ private fun ProgramCard(
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                // The whole rotation with today's day picked out, and a visible way into the full program.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val order = buildAnnotatedString {
-                        program.days.forEachIndexed { i, d ->
-                            if (i > 0) append(" · ")
-                            val name = d.displayName()
-                            if (d.id == day.id) withStyle(SpanStyle(color = palette.volt, fontWeight = FontWeight.SemiBold)) { append(name) } else append(name)
-                        }
+                // The whole rotation with today's day picked out; the way into the full program is on the line above.
+                val order = buildAnnotatedString {
+                    program.days.forEachIndexed { i, d ->
+                        if (i > 0) append(" · ")
+                        val name = d.displayName()
+                        if (d.id == day.id) withStyle(SpanStyle(color = palette.volt, fontWeight = FontWeight.SemiBold)) { append(name) } else append(name)
                     }
-                    Text(order, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.width(12.dp))
-                    Text(stringResource(Res.string.whole_program), style = MaterialTheme.typography.labelSmall, color = palette.volt)
                 }
-                // What the built-in program is fitted to, and the way to change it.
+                Text(order, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 // Kept off when there is nothing to say, so "What's moving" stays above the fold.
                 if (program.isBuiltIn && (state.focus.isNotEmpty() || state.cautions.isNotEmpty())) PlanFitLine(state.focus, state.cautions, onOpenFocus)
             }

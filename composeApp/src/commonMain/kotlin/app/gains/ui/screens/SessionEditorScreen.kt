@@ -991,10 +991,17 @@ internal fun SessionEditorScreen(
                     )
                 }
                 // On a program day fitted to the lifter's cautions, the way to how to train with them.
+                // One line that is also the link: what the day is adjusted for, then the tips, in the accent.
                 if (state.programDay != null) cautionsSummary(state.cautions)?.let { careful ->
-                    Spacer(Modifier.height(8.dp))
-                    Text(careful, style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = { guideOpen = true }, contentPadding = PaddingValues(0.dp)) { Text(stringResource(Res.string.how_to_train_with_it), color = palette.volt) }
+                    val tips = stringResource(Res.string.how_to_train_with_it)
+                    Text(
+                        androidx.compose.ui.text.buildAnnotatedString {
+                            append("$careful · ")
+                            pushStyle(androidx.compose.ui.text.SpanStyle(color = palette.volt)); append("$tips ›"); pop()
+                        },
+                        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable { guideOpen = true }.padding(vertical = 12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
                 SectionHeader(stringResource(Res.string.exercises_section), action = {
                     TextButton(onClick = { pickerOpen = true }, enabled = state.editable) { Text(stringResource(Res.string.plus_add_exercise), color = if (state.editable) palette.volt else disabledColor()) }
@@ -1443,8 +1450,8 @@ private fun ExerciseCard(
         }
         // Why it is here and how to do it with the lifter's cautions in mind: the swap, then the cue.
         val why = when (reason) {
-            is SlotReason.Focus -> reason.careful?.cue()
-            else -> slotReasonText(reason, emptyMap(), cue = true)
+            is SlotReason.Focus -> reason.careful?.cue(draft.exercise.id)
+            else -> slotReasonText(reason, draft.exercise.id, emptyMap(), cue = true)
         }
         if (why != null) {
             Spacer(Modifier.height(4.dp))

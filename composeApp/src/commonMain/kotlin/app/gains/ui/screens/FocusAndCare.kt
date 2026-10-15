@@ -152,9 +152,9 @@ internal fun CautionGuide(cautions: Set<Caution>, modifier: Modifier = Modifier,
 @Composable
 private fun GuideSection(title: String, body: String, stop: String?, card: Boolean = false) {
     val content: @Composable () -> Unit = {
-        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(4.dp))
-        Text(body, style = MaterialTheme.typography.bodyMedium)
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
         if (stop != null) {
             Spacer(Modifier.height(8.dp))
             Text(stop, style = MaterialTheme.typography.bodyMedium)
@@ -194,6 +194,8 @@ internal fun CautionGuideDialog(cautions: Set<Caution>, onDismiss: () -> Unit) {
         shape = MaterialTheme.shapes.large,
         title = { Text(stringResource(Res.string.how_to_train_with_it)) },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) { CautionGuide(cautions, inDialog = true) } },
+        // The dialog's own text colour is the muted one, which reads as disabled for advice meant to be read.
+        textContentColor = MaterialTheme.colorScheme.onSurface,
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.done), color = GainsColors.palette.volt) } },
     )
 }
@@ -299,14 +301,14 @@ internal fun FocusAndCareScreen() {
  * just its cue; without, as in a program's day list, a kept exercise shows nothing.
  */
 @Composable
-internal fun slotReasonText(reason: SlotReason?, exercisesById: Map<String, Exercise>, cue: Boolean): String? = when (reason) {
+internal fun slotReasonText(reason: SlotReason?, exerciseId: String, exercisesById: Map<String, Exercise>, cue: Boolean): String? = when (reason) {
     null -> null
-    is SlotReason.Focus -> listOfNotNull(reason.area.forYour(), reason.careful?.takeIf { cue }?.cue()).joinToString(" · ")
+    is SlotReason.Focus -> listOfNotNull(reason.area.forYour(), reason.careful?.takeIf { cue }?.cue(exerciseId)).joinToString(" · ")
     is SlotReason.Swapped -> {
         val from = (exercisesById[reason.fromExerciseId] ?: ExerciseCatalogue.byId(reason.fromExerciseId))?.displayName() ?: reason.fromExerciseId
-        listOfNotNull(reason.caution.swappedText(from, reason.why), reason.caution.takeIf { cue }?.cue()).joinToString(" ")
+        listOfNotNull(reason.caution.swappedText(from, reason.why), reason.caution.takeIf { cue }?.cue(exerciseId)).joinToString(" ")
     }
-    is SlotReason.Careful -> if (cue) reason.caution.cue() else null
+    is SlotReason.Careful -> if (cue) reason.caution.cue(exerciseId) else null
 }
 
 /**
@@ -319,16 +321,30 @@ internal fun FittedSummary(program: Program, modifier: Modifier = Modifier) {
     val added = slots.filter { it.reason is SlotReason.Focus }.map { it.exerciseId }.distinct()
     val swapped = slots.filter { it.reason is SlotReason.Swapped }.map { it.exerciseId }.distinct()
     if (added.isEmpty() && swapped.isEmpty()) return
-    @Composable fun names(ids: List<String>) = ids.mapNotNull { ExerciseCatalogue.byId(it)?.displayName() }.joinToString(", ")
+    // Lower case: the names run on inside a sentence.
+    @Composable fun names(ids: List<String>) = ids.mapNotNull { ExerciseCatalogue.byId(it)?.displayName()?.lowercase() }.joinToString(", ")
     Column(modifier) {
         if (added.isNotEmpty()) Text(stringResource(Res.string.fitted_adds, names(added)), style = MaterialTheme.typography.bodySmall)
         if (swapped.isNotEmpty()) Text(stringResource(Res.string.fitted_gentler, names(swapped)), style = MaterialTheme.typography.bodySmall)
     }
 }
 
-/** On a program built on heavy sets, for someone pregnant or with high blood pressure: what suits better. */
+/**
+ * On a program built on heavy sets, for someone pregnant or with high blood pressure: a callout
+ * saying what suits better, with the switch to it one tap away.
+ */
 @Composable
-internal fun HeavyProgramNote(program: Program, cautions: Set<Caution>, modifier: Modifier = Modifier) {
-    if (!program.isBuiltIn || cautions.none { it.easesHardSets } || !Tailor.isHeavy(program)) return
-    Text(stringResource(Res.string.heavy_program_note), modifier, style = MaterialTheme.typography.bodyMedium)
+internal fun HeavyProgramNote(program: Program, cautions: Set<Caution>, onSwitch: () -> Unit, modifier: Modifier = Modifier) {
+    if (!program.isBuiltIn || program.id == FULL_BODY_BASICS || cautions.none { it.easesHardSets } || !Tailor.isHeavy(program)) return
+    Column(
+        modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(16.dp),
+    ) {
+        Text(stringResource(Res.string.heavy_program_note), style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(12.dp))
+        app.gains.ui.components.SecondaryButton(stringResource(Res.string.switch_to_full_body), onClick = onSwitch, compact = true)
+    }
 }
+
+/** The program a newcomer, or anyone told to keep the sets moderate, is pointed to. */
+internal const val FULL_BODY_BASICS = "full_body_basics"

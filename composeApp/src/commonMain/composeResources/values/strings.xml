@@ -322,7 +322,7 @@
     <string name="built_in_note">Built-in programs follow the r/Fitness and r/bodyweightfitness wiki routines. Open one and duplicate it to change exercises or sets.</string>
     <string name="deactivate">Deactivate</string>
     <string name="activate">Activate</string>
-    <string name="duplicate_to_edit">Duplicate to edit</string>
+    <string name="duplicate_to_edit">Copy to edit</string>
     <string name="schedule">Schedule</string>
     <string name="days">Days</string>
     <string name="tap_any_day_to_start">Tap any day to start it</string>
@@ -1278,7 +1278,7 @@
     <string name="focus_for_shoulders">For your shoulders</string>
     <string name="focus_for_chest">For your chest</string>
     <string name="onboarding_careful_title">Anything to be\ncareful with?</string>
-    <string name="onboarding_careful_blurb">We'll swap exercises that often bother it for gentler ones and say why. This doesn't replace a doctor's advice.</string>
+    <string name="onboarding_careful_blurb">We'll swap exercises that often bother these for gentler ones and say why. This doesn't replace a doctor's advice.</string>
     <string name="caution_none">Nothing right now</string>
     <string name="caution_knees">Knees</string>
     <string name="caution_lower_back">Lower back</string>
@@ -1300,7 +1300,7 @@
     <string name="swapped_wrists">Instead of %1$s: often easier on wrists.</string>
     <string name="swapped_plain">Instead of %1$s.</string>
     <string name="cue_knees">Go only as deep as feels fine.</string>
-    <string name="cue_lower_back">Light and slow; stop before your back rounds, and skip it if it twinges.</string>
+    <string name="cue_lower_back">Keep it moderate and your back still; stop if it twinges.</string>
     <string name="cue_shoulders">Stay in a range that feels fine; raise no higher than your shoulders.</string>
     <string name="cue_wrists">Keep your wrists straight: handles, dumbbells or forearms help.</string>
     <string name="cue_pregnancy">Keep it moderate, stop a rep or two short and breathe out as you push.</string>
@@ -1360,4 +1360,7 @@
     <string name="heavy_program_note">This program is built on heavy sets. While pregnant or with high blood pressure, Full-body basics suits better.</string>
     <string name="fitted_adds">Added for you: %1$s</string>
     <string name="fitted_gentler">Gentler swaps: %1$s</string>
+    <string name="cue_lower_back_hinge">Light and slow; stop before your back rounds, and skip it if it twinges.</string>
+    <string name="cue_lower_back_bridge">Ribs down; don't arch your lower back at the top. Skip it if it twinges.</string>
+    <string name="switch_to_full_body">Switch to Full-body basics</string>
 </resources>

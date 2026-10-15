@@ -124,6 +124,8 @@ internal class ProgramDetailModel(
     fun activate() { scope.launchAction { programs.setActive(programId) } }
     fun startOver() { scope.launchAction { programs.startOver(programId) } }
     fun deactivate() { scope.launchAction { programs.setActive(null) } }
+    /** Makes another program the active one, carrying on where it was left. */
+    fun switchTo(id: String) { scope.launchAction { programs.setActive(id) } }
 
     /** Copies the program as [newName] so it can be edited; the caller opens the editor on the new id. */
     fun duplicate(source: Program, newName: String) {
@@ -138,7 +140,7 @@ internal class ProgramDetailModel(
 }
 
 @Composable
-internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) -> Unit, onEdit: (String) -> Unit, onDeleted: () -> Unit, onOpenFocus: () -> Unit = {}) {
+internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) -> Unit, onEdit: (String) -> Unit, onDeleted: () -> Unit, onOpenFocus: () -> Unit = {}, onOpenProgram: (String) -> Unit = {}) {
     val model = rememberScreenModel(programId) { ProgramDetailModel(programId, inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
@@ -174,7 +176,7 @@ internal fun ProgramDetailScreen(programId: String, onStartDay: (ProgramDayRef) 
                 Spacer(Modifier.height(4.dp))
                 PlanFitLine(state.focus, state.cautions, onOpenFocus)
                 FittedSummary(program)
-                HeavyProgramNote(program, state.cautions, Modifier.padding(top = 8.dp))
+                HeavyProgramNote(program, state.cautions, onSwitch = { model.switchTo(FULL_BODY_BASICS); onOpenProgram(FULL_BODY_BASICS) }, Modifier.padding(top = 12.dp))
             }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -269,7 +271,7 @@ private fun DayCard(day: ProgramDay, program: Program, upNext: Boolean, last: Lo
             }
             // Why a slot is not as the program was written: added for a focus, or swapped for a caution.
             val reason = slot.reason
-            (if (reason is SlotReason.Careful) reason.caution.cue() else slotReasonText(reason, exercisesById, cue = false))?.let {
+            (if (reason is SlotReason.Careful) reason.caution.cue(slot.exerciseId) else slotReasonText(reason, slot.exerciseId, exercisesById, cue = false))?.let {
                 Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
             }
         }

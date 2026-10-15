@@ -192,10 +192,18 @@ internal val MuscleGroup.res: StringResource get() = when (this) {
     else -> null
 }
 
-/** How to do an exercise with the caution in mind. */
-@Composable internal fun Caution.cue(): String = stringResource(when (this) {
+/** The lifts whose lower-back cue is about rounding, and those where it is about arching at the top. */
+private val hinges = setOf("deadlift", "romanian_deadlift", "single_leg_rdl", "trap_bar_deadlift", "back_extension", "good_morning")
+private val bridges = setOf("hip_thrust", "bodyweight_glute_bridge", "band_glute_bridge")
+
+/** How to do [exerciseId] with the caution in mind; the lower back's cue depends on how the lift loads it. */
+@Composable internal fun Caution.cue(exerciseId: String? = null): String = stringResource(when (this) {
     Caution.KNEES -> Res.string.cue_knees
-    Caution.LOWER_BACK -> Res.string.cue_lower_back
+    Caution.LOWER_BACK -> when (exerciseId) {
+        in hinges -> Res.string.cue_lower_back_hinge
+        in bridges -> Res.string.cue_lower_back_bridge
+        else -> Res.string.cue_lower_back
+    }
     Caution.SHOULDERS -> Res.string.cue_shoulders
     Caution.WRISTS -> Res.string.cue_wrists
     Caution.PREGNANCY -> Res.string.cue_pregnancy

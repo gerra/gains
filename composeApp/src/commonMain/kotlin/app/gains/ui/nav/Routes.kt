@@ -108,6 +108,7 @@ private fun ScreenBody(screen: Screen, navigator: Navigator, filePicker: CsvFile
                 onEdit = { navigator.push(Screen.ProgramEditor(it)) },
                 onDeleted = { navigator.pop() },
                 onOpenFocus = { navigator.push(Screen.FocusAndCare) },
+                onOpenProgram = { navigator.replace(Screen.ProgramDetail(it)) },
             )
             is Screen.ProgramEditor -> ProgramEditorScreen(screen.programId, onDone = { navigator.pop() })
             Screen.Import -> ImportScreen(filePicker, onDone = { navigator.pop() })

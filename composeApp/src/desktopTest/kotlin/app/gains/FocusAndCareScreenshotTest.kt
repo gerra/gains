@@ -102,6 +102,12 @@ class FocusAndCareScreenshotTest {
         }
         /** Pages the scrollable around [inList] by [dy] pixels and lets it land. */
         fun scrollBy(inList: SemanticsMatcher, dy: Float) = scrollBy(listAround(inList), dy)
+        /** Scrolls the list holding [target] so that it sits near the top of the screen. */
+        fun scrollTo(target: SemanticsMatcher) {
+            val node = onAllNodes(target).onFirst().fetchSemanticsNode()
+            val list = listAround(target)
+            scrollBy(list, node.positionInRoot.y - list.positionInRoot.y - 160f)
+        }
         /** Pages the list around [inList] down until [target] is composed. */
         fun scrollUntil(inList: SemanticsMatcher, target: SemanticsMatcher) {
             val list = listAround(inList)
@@ -164,18 +170,33 @@ class FocusAndCareScreenshotTest {
         require(text("Focus and health"))
         shot("36-focus-and-health-en")
         scrollUntil(text("Focus and health"), text("Training while pregnant"))
+        scrollTo(text("Training while pregnant"))
         tap("Training while pregnant")
+        scrollTo(text("Training with high blood pressure"))
         tap("Training with high blood pressure")
+        scrollTo(text("Training while pregnant"))
         shot("36b-focus-and-health-guides-en")
-        scrollBy(text("Focus and health"), 1_400f)
+        scrollTo(text("Training with high blood pressure"))
         shot("36c-focus-and-health-guides-en")
+        // After a baby: lying flat is fine again, crunches and jumps still wait.
+        runBlocking { programs.setCautions(setOf(Caution.POSTPARTUM)) }
+        settle(1_000)
+        scrollUntil(text("Focus and health"), text("Training after a baby"))
+        scrollTo(text("Training after a baby"))
+        tap("Training after a baby")
+        shot("36d-after-a-baby-en")
+        runBlocking { programs.setCautions(setOf(Caution.KNEES, Caution.PREGNANCY, Caution.BLOOD_PRESSURE)) }
+        settle(1_000)
         onNode(hasContentDescription("Back") and hasClickAction()).performClick(); settle()
         runBlocking { programs.setActive("gzclp") }
         settle(1_000)
         tap("Up next")
-        require(text("GZCLP"))
-        scrollUntil(text("GZCLP"), text("Box Squat"))
+        require(text("Switch to Full-body basics"))
         shot("37-gzclp-knees-en")
+        // The heavy sets made fixed and cued, and the squat swapped, in the day list.
+        scrollUntil(text("GZCLP"), hasText("Up next"))
+        scrollTo(hasText("Up next"))
+        shot("37c-gzclp-days-en")
 
         // Light theme.
         runBlocking { inject<SettingsRepository>().setThemeMode(ThemeMode.LIGHT) }
@@ -196,8 +217,8 @@ class FocusAndCareScreenshotTest {
         require(text("Дальше"))
         shot("33-home-plan-ru")
         tap("Дальше")
-        require(text("Основа: всё тело"))
-        scrollUntil(text("Основа: всё тело"), text("Тренировка A") and hasClickAction())
+        require(text("Всё тело с нуля"))
+        scrollUntil(text("Всё тело с нуля"), text("Тренировка A") and hasClickAction())
         shot("34b-program-days-ru")
         tap("Тренировка A")
         require(text("Упражнения"))
@@ -216,5 +237,5 @@ class FocusAndCareScreenshotTest {
     )
 
     private val english = Words("General fitness", "Next", "Beginner", "Glutes", "Abs and core", "Arms", "Two at most", "Knees", "Lower back", "Full-body basics")
-    private val russian = Words("Общая форма", "Далее", "Новичок", "Ягодицы", "Пресс и кор", "Руки", "Не больше двух", "Колени", "Поясница", "Основа: всё тело")
+    private val russian = Words("Общая форма", "Далее", "Новичок", "Ягодицы", "Пресс и кор", "Руки", "Не больше двух", "Колени", "Поясница", "Всё тело с нуля")
 }

@@ -1311,7 +1311,7 @@
         <item>Вс</item>
     </string-array>
     <string name="onboarding_focus_title">Что хочешь\nподтянуть?</string>
-    <string name="onboarding_focus_blurb">Выбери одну или две — в каждую тренировку добавим по упражнению на каждую, около 6 минут.</string>
+    <string name="onboarding_focus_blurb">Выбери одну или две — на каждую добавим по упражнению в каждую тренировку (около 6 минут).</string>
     <string name="focus_whole_body">Всё тело</string>
     <string name="focus_whole_body_blurb">Всё поровну, без дополнительных упражнений.</string>
     <string name="focus_glutes">Ягодицы</string>
@@ -1360,7 +1360,7 @@
     <string name="swapped_wrists">Вместо «%1$s»: обычно легче для запястий.</string>
     <string name="swapped_plain">Вместо «%1$s».</string>
     <string name="cue_knees">Опускайся только так глубоко, как комфортно.</string>
-    <string name="cue_lower_back">Легко и медленно; не округляй спину и пропусти, если кольнёт.</string>
+    <string name="cue_lower_back">Умеренный вес, спина неподвижна; остановись, если кольнёт.</string>
     <string name="cue_shoulders">Двигайся в комфортной амплитуде; поднимай не выше плеч.</string>
     <string name="cue_wrists">Держи запястья прямыми: помогут упоры, гантели или предплечья.</string>
     <string name="cue_pregnancy">Умеренный вес: останавливайся за 1–2 повтора до предела, выдыхай на усилии.</string>
@@ -1388,7 +1388,7 @@
     <string name="focus_list">Фокус: %1$s</string>
     <string name="focus_and_health">Фокус и здоровье</string>
     <string name="focus_and_health_blurb">Что прокачать больше и что беречь. Встроенная программа подстраивается под это.</string>
-    <string name="program_full_body_basics">Основа: всё тело</string>
+    <string name="program_full_body_basics">Всё тело с нуля</string>
     <string name="program_full_body_basics_description">Две тренировки, каждая на всё тело, по очереди два-три раза в неделю. Тренажёры и гантели, 8–15 повторений в подходе. Когда все подходы доходят до верхней границы, в следующий раз бери чуть тяжелее.</string>
     <string name="program_full_body_basics_short">Тренировки A и B по очереди, три раза в неделю, на тренажёрах и с гантелями. Легко начать.</string>
     <string name="program_rfitness_basic_short">Три базовых упражнения со штангой за тренировку, каждый раз чуть больше веса.</string>
@@ -1419,7 +1419,10 @@
     <string name="swapped_belly">Вместо «%1$s»: без скручиваний и нагрузки на живот.</string>
     <string name="swapped_impact">Вместо «%1$s»: без прыжков.</string>
     <string name="first_time_weight">Первый раз? Возьми вес, с которым в конце подхода остаётся запас ещё на 3–4 повтора.</string>
-    <string name="heavy_program_note">Эта программа построена на тяжёлых подходах. При беременности или высоком давлении лучше подойдёт «Основа: всё тело».</string>
+    <string name="heavy_program_note">Эта программа построена на тяжёлых подходах. При беременности или высоком давлении лучше подойдёт «Всё тело с нуля».</string>
     <string name="fitted_adds">Добавлено для тебя: %1$s</string>
     <string name="fitted_gentler">Щадящие замены: %1$s</string>
+    <string name="cue_lower_back_hinge">С лёгким весом и медленно; не округляй спину и пропусти, если кольнёт.</string>
+    <string name="cue_lower_back_bridge">Рёбра вниз, не прогибай поясницу вверху; пропусти, если кольнёт.</string>
+    <string name="switch_to_full_body">Перейти на «Всё тело с нуля»</string>
 </resources>
