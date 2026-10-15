@@ -426,6 +426,8 @@ class ScreenshotTest {
         shot("13-program-detail")
         onNode(hasText("A1") and hasClickAction()).performClick()
         require(text("5 sets of 3+"))
+        // A T1 opens on the first rung of its ladder, and the card says so.
+        require(text("Stage 1 of 3"))
         // A day opens ready, with the plan to look over; nothing runs until Start is pressed.
         val startButton = hasContentDescription("Start workout") and hasClickAction()
         require(startButton)

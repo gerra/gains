@@ -236,8 +236,20 @@ internal data class ProgramDayOption(val ref: ProgramDayRef, val programName: St
     val label: String get() = "$programName · $dayName"
 }
 
-/** The sets and reps a program slot asks for today, and whether its last set is as many as possible. */
-internal data class PlanTarget(val target: SetsReps, val lastSetAmrap: Boolean)
+/**
+ * The sets and reps a program slot asks for today, and whether its last set is as many as possible.
+ * On a stage ladder (GZCLP's T1 and T2), [stage] is which of its [stages] today's target is, from 1;
+ * null on any other rule.
+ */
+internal data class PlanTarget(val target: SetsReps, val lastSetAmrap: Boolean, val stage: Int? = null, val stages: Int = 0) {
+    companion object {
+        fun of(target: SetsReps, slot: app.gains.domain.ExerciseSlot): PlanTarget {
+            val ladder = (slot.progression as? app.gains.domain.ProgressionRule.StageLadder)?.stages?.takeIf { it.size > 1 }
+            val index = ladder?.indexOf(target)?.takeIf { it >= 0 }
+            return PlanTarget(target, slot.lastSetAmrap, index?.plus(1), if (index != null) ladder.size else 0)
+        }
+    }
+}
 
 internal data class EditorState(
     val loading: Boolean = true,
@@ -540,7 +552,7 @@ internal class SessionEditorModel(
                     )
                 })
             },
-            targets = plan.exercises.associate { it.exercise.id to PlanTarget(it.target, it.slot.lastSetAmrap) },
+            targets = plan.exercises.associate { it.exercise.id to PlanTarget.of(it.target, it.slot) },
             reasons = plan.exercises.mapNotNull { pe -> pe.slot.reason?.let { pe.exercise.id to it } }.toMap(),
             cautions = ctx.cautions,
             hints = plan.exercises.mapNotNull { pe -> pe.hint?.let { pe.exercise.id to it } }.toMap(),
@@ -1432,6 +1444,8 @@ private fun ExerciseCard(
                 // A FlowRow: "3 sets of 8–12" and "For your glutes" wrap whole rather than squeeze.
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (target != null) Pill(setsText(target.target, target.lastSetAmrap, modality == Modality.ISOMETRIC), palette.volt)
+                    // Where a GZCLP lift is on its ladder: 6 sets of 2 is the second of three stages.
+                    if (target?.stage != null) Tag(stringResource(Res.string.stage_of, target.stage, target.stages))
                     if (reason is SlotReason.Focus) Tag(reason.area.forYour())
                     Tag(modality.label())
                     if (draft.exercise.isDumbbell) Tag(stringResource(Res.string.per_dumbbell))
