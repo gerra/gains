@@ -237,6 +237,7 @@
     <string name="seven_day_avg">7-day avg</string>
     <string name="change_label">Change</string>
     <string name="one_entry_so_far">One entry so far. The chart appears after a second one.</string>
+    <string name="bodyweight_window_too_short">Fewer than two entries in this window. Pick a longer one to see the trend.</string>
     <string name="daily">Daily</string>
     <string name="overlay_a_lift">Overlay a lift</string>
     <string name="entries">Entries</string>
@@ -611,6 +612,7 @@
     <string name="onboarding_days_note_5">Five days is plenty. Keep one or two of them easy.</string>
     <string name="onboarding_days_note_6">Six days: recovery becomes the limit, so sleep and eat well.</string>
     <string name="onboarding_days_note_7">Every day: keep most sessions light and listen to your body.</string>
+    <string name="window_1m">1M</string>
     <string name="window_3m">3M</string>
     <string name="window_6m">6M</string>
     <string name="window_1y">1Y</string>
