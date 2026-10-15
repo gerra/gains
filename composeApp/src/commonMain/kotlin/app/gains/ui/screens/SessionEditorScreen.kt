@@ -33,13 +33,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -91,6 +94,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.gains.analysis.Dates
 import app.gains.analysis.Format
 import app.gains.analysis.PreviousSets
@@ -1255,28 +1259,28 @@ private fun estimateMinutes(exercises: List<ExerciseDraft>): Int = DayEstimate.m
 private fun ReadyCard(exercises: List<ExerciseDraft>, minutes: Int?, onStart: () -> Unit) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val workSets = exercises.sumOf { it.workSets.size }
-    GainsCard(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), contentPadding = Dp16.Tight) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    GainsCard(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), contentPadding = Dp16.None) {
+        Row(Modifier.fillMaxWidth().padding(BarPadding), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 // "Ready · 21 sets · about 45 min" over "7 exercises": the headline stays one short line in every language.
                 Text(
                     listOfNotNull(stringResource(Res.string.ready), setsText(workSets).takeIf { exercises.isNotEmpty() }, minutes?.let { stringResource(Res.string.about_minutes, it) }).joinToString(" · "),
-                    style = MaterialTheme.typography.labelSmall, color = muted,
+                    style = MaterialTheme.typography.labelSmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     if (exercises.isEmpty()) stringResource(Res.string.nothing_planned_yet) else exercisesText(exercises.size),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
+            Spacer(Modifier.width(8.dp))
             val startDescription = stringResource(Res.string.start_workout)
-            Button(
-                onClick = onStart, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-                modifier = Modifier.semantics { contentDescription = startDescription },
-            ) { Text(stringResource(Res.string.start), style = MaterialTheme.typography.labelLarge) }
+            PrimaryButton(stringResource(Res.string.start), onStart, Modifier.semantics { contentDescription = startDescription }, compact = true)
         }
     }
 }
+
+/** The Ready card's and the clock's padding: one row, as low as the compact button in it allows. */
+private val BarPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
 
 /**
  * Pinned under the workout, in reach of the thumb: total time since the session started and the rest left on the current
@@ -1301,55 +1305,79 @@ private fun SessionClock(startedAtMs: Long, rest: RestTimer?, onSkipRest: () -> 
     LaunchedEffect(over) {
         if (over && !reduce) { beat.snapTo(1.18f); beat.animateTo(1f, popSpec) }
     }
-    GainsCard(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), contentPadding = Dp16.Tight) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(Res.string.total), style = MaterialTheme.typography.labelSmall, color = muted)
-                Text(Format.clock((now - startedAtMs) / 1000), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onSurface)
-            }
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(Res.string.rest), style = MaterialTheme.typography.labelSmall, color = muted)
-                Text(
+    // How much of the rest is left, running down between the clock's ticks. The only thing here
+    // that moves on its own, because it is the thing being waited for.
+    val running = rest != null && remaining != null && remaining > 0
+    val left = if (rest != null && running) rest.fractionLeft(now) else 0f
+    val bar = remember(rest) { Animatable(left) }
+    LaunchedEffect(rest, now) {
+        if (rest == null || !running) { bar.snapTo(0f); return@LaunchedEffect }
+        // Glide to where it will be at the next tick, so the bar moves smoothly rather than in steps.
+        val next = rest.fractionLeft(now + 500)
+        if (reduce) bar.snapTo(left) else { bar.snapTo(left); bar.animateTo(next, tween(500, easing = LinearEasing)) }
+    }
+    GainsCard(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), contentPadding = Dp16.None) {
+        Box(Modifier.fillMaxWidth()) {
+            // One row, as low as a label over a figure allows, so the workout keeps the screen.
+            Row(Modifier.fillMaxWidth().padding(BarPadding), verticalAlignment = Alignment.CenterVertically) {
+                ClockFigure(stringResource(Res.string.total), Format.clock((now - startedAtMs) / 1000), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+                ClockFigure(
+                    stringResource(Res.string.rest),
                     when {
                         remaining == null -> "–"
                         remaining > 0 -> Format.clock(remaining.toLong())
                         else -> stringResource(Res.string.done)
                     },
-                    style = MaterialTheme.typography.displaySmall,
-                    color = restColor,
-                    modifier = Modifier.scale(beat.value),
+                    restColor, Modifier.weight(1f), Modifier.scale(beat.value),
                 )
+                AnimatedVisibility(
+                    remaining != null,
+                    enter = if (reduce) EnterTransition.None else fadeIn(tween(Motion.STANDARD)),
+                    exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT)),
+                ) {
+                    val description = if (remaining == null || remaining > 0) stringResource(Res.string.skip_rest) else stringResource(Res.string.ok)
+                    Box(
+                        Modifier.size(44.dp).clip(MaterialTheme.shapes.small).clickable(onClick = onSkipRest)
+                            .semantics { role = Role.Button; contentDescription = description },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(if (remaining == null || remaining > 0) Icons.Default.Close else Icons.Default.Check, null, tint = muted, modifier = Modifier.size(20.dp)) }
+                }
+                Spacer(Modifier.width(8.dp))
+                PrimaryButton(stringResource(Res.string.end), onEnd, compact = true)
             }
-            AnimatedVisibility(
-                remaining != null,
-                enter = if (reduce) EnterTransition.None else fadeIn(tween(Motion.STANDARD)),
-                exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT)),
-            ) {
-                TextButton(onClick = onSkipRest) { Text(if (remaining == null || remaining > 0) stringResource(Res.string.skip) else stringResource(Res.string.ok), color = muted) }
+            // Along the card's foot and only while a rest runs, so it costs the card no height.
+            if (running) {
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
+                    Box(Modifier.fillMaxWidth(bar.value).height(3.dp).background(palette.cyan))
+                }
             }
-            Button(
-                onClick = onEnd, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-            ) { Text(stringResource(Res.string.end), style = MaterialTheme.typography.labelLarge) }
-        }
-        // How much of the rest is left, running down between the clock's ticks. The only thing here
-        // that moves on its own, because it is the thing being waited for. Its track is always drawn,
-        // so ticking a set does not grow the card and shove the workout down: only the fill comes and goes.
-        val running = rest != null && remaining != null && remaining > 0
-        val left = if (rest != null && running) rest.fractionLeft(now) else 0f
-        val bar = remember(rest) { Animatable(left) }
-        LaunchedEffect(rest, now) {
-            if (rest == null || !running) { bar.snapTo(0f); return@LaunchedEffect }
-            // Glide to where it will be at the next tick, so the bar moves smoothly rather than in steps.
-            val next = rest.fractionLeft(now + 500)
-            if (reduce) bar.snapTo(left) else { bar.snapTo(left); bar.animateTo(next, tween(500, easing = LinearEasing)) }
-        }
-        Spacer(Modifier.height(8.dp))
-        Box(Modifier.fillMaxWidth().height(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-            Box(Modifier.fillMaxWidth(bar.value).height(3.dp).clip(CircleShape).background(palette.cyan))
         }
     }
 }
+
+/**
+ * A small label over its figure, the pair no taller than the button beside it. The figure steps its size down rather
+ * than cut off when a long time or a long word meets a narrow phone.
+ */
+@Composable
+private fun ClockFigure(label: String, value: String, color: Color, modifier: Modifier = Modifier, figureModifier: Modifier = Modifier) {
+    val style = MaterialTheme.typography.displaySmall.copy(color = color)
+    Column(modifier.padding(end = 8.dp)) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // The digits drawn centred in a box the height of their own cap, not of the font's whole line: the line's room
+        // above and below them is what made the clock tall. The box keeps its height when the figure steps down.
+        Box(Modifier.height(FigureHeight), contentAlignment = Alignment.CenterStart) {
+            BasicText(
+                value, Modifier.wrapContentHeight(unbounded = true).then(figureModifier), style = style, maxLines = 1, softWrap = false,
+                overflow = TextOverflow.Clip,
+                autoSize = TextAutoSize.StepBased(minFontSize = style.fontSize * 0.55f, maxFontSize = style.fontSize, stepSize = 1.sp),
+            )
+        }
+    }
+}
+
+/** A 32 sp figure's digits, with a little air. */
+private val FigureHeight = 28.dp
 
 /** The share of the rest still to go at [atMs], 1 at its start and 0 once it is over. */
 private fun RestTimer.fractionLeft(atMs: Long): Float =
