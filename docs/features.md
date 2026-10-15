@@ -6,7 +6,9 @@ The long version of the list in the [README](../README.md).
   muscle, get stronger, lose fat or general fitness), days a week and experience, then **what to
   work on more** (whole body, or up to two of glutes, legs, abs and core, arms, upper back,
   shoulders and chest) and **what to adjust for** (knees, lower back, shoulders, wrists, pregnancy,
-  a baby in the last year, high blood pressure). The built-in programs are ranked by fit, and a
+  a baby in the last year, high blood pressure). The built-in programs are ranked by fit: the two best
+  matches come first, "Suggested for you", and the rest wait folded under **More programs** (and
+  behind **Show all programs** in onboarding), the active one never among them; a
   newcomer who is not after strength alone is offered **Full-body basics**, two machine-and-dumbbell
   workouts with nothing to learn first. Each program says in one plain sentence what it is like.
   Skip any question and set it later: the goal in Settings, the rest under **Focus and health**,

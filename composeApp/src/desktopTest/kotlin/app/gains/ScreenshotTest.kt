@@ -402,6 +402,10 @@ class ScreenshotTest {
         require(text("Built-in"))
         settle(1_000)
         shot("12-programs")
+        // The programs that are not a fit wait, folded, under "More programs".
+        onNode(text("More programs") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        settle(1_000)
+        shot("12b-programs-more")
         onNode(hasText("GZCLP") and hasClickAction()).performClick()
         require(text("Activate") and hasClickAction())
         onNode(text("Activate") and hasClickAction()).performClick()

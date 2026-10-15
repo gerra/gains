@@ -139,6 +139,11 @@ class FocusAndCareScreenshotTest {
             tap(s.next)
             require(text(s.fullBody))
             shot("32-programs-fit-$lang")
+            // Two programs, and the rest on request.
+            scrollUntil(text(s.fullBody), text(s.showAll))
+            scrollTo(text(s.showAll))
+            shot("32b-programs-show-all-$lang")
+            scrollBy(text(s.showAll), -5_000f)
         }
 
         // English.
@@ -239,9 +244,9 @@ class FocusAndCareScreenshotTest {
     private class Words(
         val generalFitness: String, val next: String, val beginner: String,
         val glutes: String, val core: String, val arms: String, val capNote: String,
-        val knees: String, val lowerBack: String, val fullBody: String,
+        val knees: String, val lowerBack: String, val fullBody: String, val showAll: String,
     )
 
-    private val english = Words("General fitness", "Next", "Beginner", "Glutes", "Abs and core", "Arms", "Two at most", "Knees", "Lower back", "Full-body basics")
-    private val russian = Words("Общая форма", "Далее", "Новичок", "Ягодицы", "Пресс и кор", "Руки", "Не больше двух", "Колени", "Поясница", "Всё тело с нуля")
+    private val english = Words("General fitness", "Next", "Beginner", "Glutes", "Abs and core", "Arms", "Two at most", "Knees", "Lower back", "Full-body basics", "Show all programs")
+    private val russian = Words("Общая форма", "Далее", "Новичок", "Ягодицы", "Пресс и кор", "Руки", "Не больше двух", "Колени", "Поясница", "Всё тело с нуля", "Показать все программы")
 }

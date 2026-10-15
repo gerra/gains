@@ -16,11 +16,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gains.data.ProgramRepository
+import app.gains.catalogue.ProgramCatalogue
 import app.gains.domain.GoalProfile
 import app.gains.domain.Program
 import app.gains.program.ProgramSuggester
@@ -47,19 +51,24 @@ internal data class ProgramsState(
     val profile: GoalProfile? = null,
     val activeId: String? = null,
     val custom: List<Program> = emptyList(),
-    /** Built-ins, best match for the profile first. */
+    /** Built-ins put first: the best matches for the profile and the active one; every built-in while there is no profile. */
     val builtIn: List<Program> = emptyList(),
+    /** The other built-ins, folded under "More programs", in order of fit. */
+    val more: List<Program> = emptyList(),
 )
 
 internal class ProgramsModel(programs: ProgramRepository, reporter: ErrorReporter) : ScreenModel(reporter) {
     val state: StateFlow<ProgramsState> = programs.observeState().map { s ->
-        val builtIn = s.programs.filter { it.isBuiltIn }
+        // Ranked as written (a heavy program is known by its own sets), shown as fitted to the person.
+        val fitted = s.programs.filter { it.isBuiltIn }.associateBy { it.id }
+        val list = s.profile?.let { ProgramSuggester.shortlist(it, ProgramCatalogue.builtIn, s.cautions, keep = s.activeProgramId) }
         ProgramsState(
             loading = false,
             profile = s.profile,
             activeId = s.activeProgramId,
             custom = s.programs.filter { !it.isBuiltIn },
-            builtIn = s.profile?.let { ProgramSuggester.suggest(it, builtIn) } ?: builtIn,
+            builtIn = list?.suggested?.mapNotNull { fitted[it.id] } ?: fitted.values.toList(),
+            more = list?.more?.mapNotNull { fitted[it.id] }.orEmpty(),
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), ProgramsState())
 }
@@ -69,6 +78,7 @@ internal fun ProgramsScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
     val model = rememberScreenModel { ProgramsModel(inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
+    var showMore by rememberSaveable { mutableStateOf(false) }
     if (state.loading) return
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
@@ -83,8 +93,15 @@ internal fun ProgramsScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
             item { SectionHeader(stringResource(Res.string.your_programs)) }
             items(state.custom, key = { it.id }) { ProgramRow(it, it.id == state.activeId, onClick = { onOpen(it.id) }, Modifier.animateItem()) }
         }
-        item { SectionHeader(if (state.profile != null) stringResource(Res.string.built_in_best_fit) else stringResource(Res.string.built_in)) }
+        item { SectionHeader(if (state.profile != null) stringResource(Res.string.suggested_for_you) else stringResource(Res.string.built_in)) }
         items(state.builtIn, key = { it.id }) { ProgramRow(it, it.id == state.activeId, onClick = { onOpen(it.id) }, Modifier.animateItem()) }
+        // The rest wait, folded, so a newcomer reads two programs rather than eight.
+        if (state.more.isNotEmpty()) {
+            item(key = "more") {
+                MoreProgramsRow(state.more.size, allAbove = state.profile?.let { p -> state.more.all { it.level > p.experience } } == true, open = showMore, onToggle = { showMore = !showMore }, Modifier.animateItem())
+            }
+            if (showMore) items(state.more, key = { it.id }) { ProgramRow(it, it.id == state.activeId, onClick = { onOpen(it.id) }, Modifier.animateItem()) }
+        }
         item {
             Spacer(Modifier.height(12.dp))
             Text(
@@ -111,6 +128,28 @@ private fun ProgramRow(program: Program, active: Boolean, onClick: () -> Unit, m
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+    }
+}
+
+/**
+ * "More programs (6)" over who they are for, and a chevron: the folded built-ins. When every one of
+ * them is above the person's level they are said to be for experienced lifters; otherwise just a
+ * less close fit, since a beginner after strength alone folds the beginner-friendly ones too.
+ */
+@Composable
+internal fun MoreProgramsRow(count: Int, allAbove: Boolean, open: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    GainsCard(modifier.fillMaxWidth().padding(bottom = 12.dp), onClick = onToggle, contentPadding = Dp16.Normal) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(Res.string.more_programs, count), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(if (allAbove) Res.string.more_programs_blurb_beginner else Res.string.more_programs_blurb),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(if (open) "⌃" else "›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

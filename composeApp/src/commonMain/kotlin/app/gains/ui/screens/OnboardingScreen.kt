@@ -85,8 +85,12 @@ internal class OnboardingModel(private val programs: ProgramRepository, reporter
     /** The last tap asked for a third focus area and was refused. */
     var focusCapHit by mutableStateOf(false)
         private set
+    /** The best matches, fitted to the answers; [moreSuggestions] are the rest, shown on request. */
     var suggestions by mutableStateOf<List<Program>>(emptyList())
         private set
+    var moreSuggestions by mutableStateOf<List<Program>>(emptyList())
+        private set
+    var showAll by mutableStateOf(false)
     var done by mutableStateOf(false)
         private set
 
@@ -118,7 +122,12 @@ internal class OnboardingModel(private val programs: ProgramRepository, reporter
     fun next() {
         if (!canContinue) return
         // Ranked as written (a heavy program is known by its own sets), shown fitted to the answers.
-        if (step == STEP_CAREFUL) suggestions = profile?.let { p -> ProgramSuggester.suggest(p, ProgramCatalogue.builtIn, cautions).map { Tailor.tailor(it, focus, cautions) } } ?: emptyList()
+        if (step == STEP_CAREFUL) profile?.let { p ->
+            val list = ProgramSuggester.shortlist(p, ProgramCatalogue.builtIn, cautions)
+            suggestions = list.suggested.map { Tailor.tailor(it, focus, cautions) }
+            moreSuggestions = list.more.map { Tailor.tailor(it, focus, cautions) }
+            showAll = false
+        }
         step = (step + 1).coerceAtMost(STEP_PROGRAMS)
     }
 
@@ -241,7 +250,9 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                     Text(focusSummary(model.focus), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     cautionsSummary(model.cautions)?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     Spacer(Modifier.height(16.dp))
-                    for ((index, program) in model.suggestions.withIndex()) {
+                    // Two to choose between; the rest on request, so a newcomer is not handed eight.
+                    val shown = if (model.showAll) model.suggestions + model.moreSuggestions else model.suggestions
+                    for ((index, program) in shown.withIndex()) {
                         GainsCard(Modifier.enterOnce(index).fillMaxWidth().padding(bottom = 12.dp), contentPadding = Dp16.Normal) {
                             if (index == 0) {
                                 Pill(stringResource(Res.string.best_match), palette.volt)
@@ -257,6 +268,11 @@ internal fun OnboardingScreen(onDone: () -> Unit) {
                             // The best match's button is the filled one: it is the answer to the questions.
                             if (index == 0) PrimaryButton(stringResource(Res.string.use_this_program), onClick = { model.finish(program.id) }, compact = true)
                             else SecondaryButton(stringResource(Res.string.use_this_program), onClick = { model.finish(program.id) }, compact = true)
+                        }
+                    }
+                    if (!model.showAll && model.moreSuggestions.isNotEmpty()) {
+                        TextButton(onClick = { model.showAll = true }) {
+                            Text(stringResource(Res.string.show_all_programs, model.moreSuggestions.size), color = palette.volt)
                         }
                     }
                 }

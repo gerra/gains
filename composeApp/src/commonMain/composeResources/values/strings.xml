@@ -317,7 +317,6 @@
     <string name="set_a_goal_to_sort">Set a goal in Settings to sort these by fit</string>
     <string name="plus_new">+ New</string>
     <string name="your_programs">Your programs</string>
-    <string name="built_in_best_fit">Built-in, best fit first</string>
     <string name="built_in">Built-in</string>
     <string name="built_in_note">Built-in programs follow the r/Fitness and r/bodyweightfitness wiki routines. Open one and duplicate it to change exercises or sets.</string>
     <string name="deactivate">Deactivate</string>
@@ -1364,4 +1363,9 @@
     <string name="cue_lower_back_bridge">Ribs down; don't arch your lower back at the top. Skip it if it twinges.</string>
     <string name="switch_to_full_body">Switch to Full-body basics</string>
     <string name="cue_blood_pressure_hold">Breathe steadily through the hold; never hold your breath.</string>
+    <string name="suggested_for_you">Suggested for you</string>
+    <string name="more_programs">More programs (%1$d)</string>
+    <string name="more_programs_blurb_beginner">For experienced lifters: heavier weights, more days, more numbers.</string>
+    <string name="more_programs_blurb">The other built-in programs, a less close fit for your answers.</string>
+    <string name="show_all_programs">Show all programs (%1$d more)</string>
 </resources>

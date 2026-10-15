@@ -142,6 +142,7 @@ Reach for these before writing a new one.
 | One choice of a few | `ChipRow` (the pill slides) | Radio buttons |
 | An answer that toggles, with a line on what it means | `SelectTile` (ring and tick, one to a row; the "nothing" choice first and preselected) | Checkboxes |
 | What a built-in program is fitted to, and the way to change it | `PlanFitLine` ("Focus: …" over "Adjusted for: …", Change) | |
+| A long list most people need little of (the built-in programs) | The best two first, the rest folded under one row ("More programs (6)" with who they are for and a chevron) | Every option at once |
 | A tap refused (a third focus area) | `CapNote`, pinned above the bottom buttons where the eye is | A note in the scroll that may be off screen |
 | Nothing to show | `EmptyState` with an action | A blank screen |
 | A key / value line | `KeyValueRow` | |

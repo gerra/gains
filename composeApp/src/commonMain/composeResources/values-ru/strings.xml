@@ -317,7 +317,6 @@
     <string name="set_a_goal_to_sort">Задай цель в настройках, чтобы отсортировать по соответствию</string>
     <string name="plus_new">+ Новая</string>
     <string name="your_programs">Твои программы</string>
-    <string name="built_in_best_fit">Встроенные, самые подходящие сверху</string>
     <string name="built_in">Встроенные</string>
     <string name="built_in_note">Встроенные программы повторяют программы из вики r/Fitness и r/bodyweightfitness. Открой одну и продублируй, чтобы поменять упражнения или подходы.</string>
     <string name="deactivate">Отключить</string>
@@ -1426,4 +1425,9 @@
     <string name="cue_lower_back_bridge">Рёбра вниз, не прогибай поясницу вверху; пропусти, если кольнёт.</string>
     <string name="switch_to_full_body">Перейти на «Всё тело с нуля»</string>
     <string name="cue_blood_pressure_hold">Дыши ровно во время удержания и не задерживай дыхание.</string>
+    <string name="suggested_for_you">Подходят тебе</string>
+    <string name="more_programs">Ещё программы (%1$d)</string>
+    <string name="more_programs_blurb_beginner">Для опытных: больше веса, больше дней, больше цифр.</string>
+    <string name="more_programs_blurb">Остальные встроенные программы: под твои ответы они подходят меньше.</string>
+    <string name="show_all_programs">Показать все программы (ещё %1$d)</string>
 </resources>

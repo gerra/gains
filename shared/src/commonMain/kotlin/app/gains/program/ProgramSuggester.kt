@@ -28,6 +28,23 @@ object ProgramSuggester {
         programs.filter { it.isBuiltIn }
             .sortedWith(compareByDescending<Program> { score(profile, it, cautions) }.thenBy { it.name })
 
+    /** How many programs are put first; the rest fold away under "More programs". */
+    const val SUGGESTED = 2
+
+    /** The programs put first, best match first, and the rest, still in order of fit. */
+    data class Shortlist(val suggested: List<Program>, val more: List<Program>)
+
+    /**
+     * The [SUGGESTED] best matches, plus [keep] (the active program, which is never folded away), and
+     * the rest. A newcomer sees two programs instead of eight; an experienced lifter sees their own
+     * kind first and the beginner programs under "More". [programs] as written, as for [suggest].
+     */
+    fun shortlist(profile: GoalProfile, programs: List<Program>, cautions: Set<Caution> = emptySet(), keep: String? = null): Shortlist {
+        val ranked = suggest(profile, programs, cautions)
+        val first = ranked.take(SUGGESTED).map { it.id }.toSet() + listOfNotNull(keep)
+        return Shortlist(ranked.filter { it.id in first }, ranked.filter { it.id !in first })
+    }
+
     /** The barbell lifts that take coaching to learn; a hip thrust or a Romanian deadlift works with dumbbells too. */
     private val barbellLifts = setOf("squat", "deadlift", "bench_press", "overhead_press", "barbell_row", "front_squat")
 

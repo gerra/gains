@@ -34,4 +34,28 @@ class ProgramSuggesterTest {
         assertTrue(out.none { it.id == "custom_1" })
         assertEquals(all.size, out.size)
     }
+
+    @Test
+    fun aNewcomerSeesTwoProgramsAndTheRestFolded() {
+        val list = ProgramSuggester.shortlist(GoalProfile(Goal.GENERAL_FITNESS, Experience.BEGINNER, 3), all)
+        assertEquals(ProgramSuggester.SUGGESTED, list.suggested.size)
+        assertEquals("full_body_basics", list.suggested.first().id)
+        // The heavy and many-day programs wait under "More", in order of fit, none lost.
+        assertTrue(list.more.any { it.id == "ppl_6" } && list.more.any { it.id == "531_beginners" })
+        assertEquals(all.map { it.id }.toSet(), (list.suggested + list.more).map { it.id }.toSet())
+    }
+
+    @Test
+    fun theActiveProgramIsNeverFoldedAway() {
+        val list = ProgramSuggester.shortlist(GoalProfile(Goal.GENERAL_FITNESS, Experience.BEGINNER, 3), all, keep = "ppl_6")
+        assertTrue(list.suggested.any { it.id == "ppl_6" })
+        assertTrue(list.more.none { it.id == "ppl_6" })
+    }
+
+    @Test
+    fun anExperiencedLifterSeesTheirOwnKindFirst() {
+        val list = ProgramSuggester.shortlist(GoalProfile(Goal.BUILD_MUSCLE, Experience.INTERMEDIATE, 6), all)
+        assertEquals("ppl_6", list.suggested.first().id)
+        assertTrue(list.more.any { it.id == "full_body_basics" })
+    }
 }
