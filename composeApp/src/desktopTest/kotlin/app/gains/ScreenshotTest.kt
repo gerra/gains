@@ -426,6 +426,8 @@ class ScreenshotTest {
         shot("13-program-detail")
         onNode(hasText("A1") and hasClickAction()).performClick()
         require(text("5 sets of 3+"))
+        // The day says where it falls in the rotation, in Home's words.
+        require(text("Week 1 of 4 · Cycle 1"))
         // A day opens ready, with the plan to look over; nothing runs until Start is pressed.
         val startButton = hasContentDescription("Start workout") and hasClickAction()
         require(startButton)

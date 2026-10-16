@@ -243,6 +243,8 @@ the same rules, translated to the web:
 
 Newest first. One line per change to the rules, with the reason.
 
+- **2026-10-16** A program workout says where it falls in the rotation under its day pill ("Week 2 of 4 · Cycle 1"),
+  in the same words and colour as Home's next day: a tester mid-workout could not tell which cycle they were on.
 - **2026-10-15** The workout clock is one row (about 68 dp, from about 96): each figure drawn in a box
   the height of its digits rather than the font's whole line, a compact End, an × to skip the rest
   and the rest bar along the card's foot. Stacked, it took a big slice of a phone above the tabs; the
