@@ -241,8 +241,6 @@ the same rules, translated to the web:
 
 Newest first. One line per change to the rules, with the reason.
 
-- **2026-10-15** A GZCLP lift's card in a workout carries a neutral `Tag` saying which stage of its ladder
-  today is ("Stage 2 of 3" for 6 sets of 2): after a miss the sets change, and the card did not say why.
 - **2026-10-15** The bodyweight trend takes a window (1M · 3M · 1Y · All) in its section header, and an
   overlaid lift starts at the first weigh-in shown: a squat history years older than the weigh-ins
   squeezed the bodyweight into the chart's right edge.
