@@ -151,7 +151,9 @@ Reach for these before writing a new one.
 
 The bars along the bottom, above the tabs: `StartBar` on Home when a program has a next day,
 `LiveSessionBar` while a workout runs (it replaces the Start bar), and the workout screen's Ready
-card and clock, pinned under its list.
+card and clock, pinned under its list. The Ready card and the clock are one row, 12 above and below
+a compact button: the clock's figures sit under their labels in a box the height of their digits,
+skipping a rest is an × and the rest's bar runs along the card's foot.
 
 ## Interaction
 
@@ -243,6 +245,10 @@ Newest first. One line per change to the rules, with the reason.
 
 - **2026-10-16** A program workout says where it falls in the rotation under its day pill ("Week 2 of 4 · Cycle 1"),
   in the same words and colour as Home's next day: a tester mid-workout could not tell which cycle they were on.
+- **2026-10-15** The workout clock is one row (about 68 dp, from about 96): each figure drawn in a box
+  the height of its digits rather than the font's whole line, a compact End, an × to skip the rest
+  and the rest bar along the card's foot. Stacked, it took a big slice of a phone above the tabs; the
+  Ready card matches so Start changes over in place.
 - **2026-10-15** The bodyweight trend takes a window (1M · 3M · 1Y · All) in its section header, and an
   overlaid lift starts at the first weigh-in shown: a squat history years older than the weigh-ins
   squeezed the bodyweight into the chart's right edge.
