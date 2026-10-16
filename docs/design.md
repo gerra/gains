@@ -241,6 +241,8 @@ the same rules, translated to the web:
 
 Newest first. One line per change to the rules, with the reason.
 
+- **2026-10-16** A program workout says where it falls in the rotation under its day pill ("Week 2 of 4 · Cycle 1"),
+  in the same words and colour as Home's next day: a tester mid-workout could not tell which cycle they were on.
 - **2026-10-15** The bodyweight trend takes a window (1M · 3M · 1Y · All) in its section header, and an
   overlaid lift starts at the first weigh-in shown: a squat history years older than the weigh-ins
   squeezed the bodyweight into the chart's right edge.

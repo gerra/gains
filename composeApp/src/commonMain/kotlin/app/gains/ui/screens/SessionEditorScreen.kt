@@ -117,6 +117,7 @@ import app.gains.domain.Modality
 import app.gains.domain.Program
 import app.gains.domain.ProgramDay
 import app.gains.domain.ProgramDayRef
+import app.gains.domain.ProgramLink
 import app.gains.domain.RestTimer
 import app.gains.domain.Session
 import app.gains.domain.SetDraft
@@ -128,6 +129,7 @@ import app.gains.program.DayPlanner
 import app.gains.program.Gzclp
 import app.gains.program.PlanOptions
 import app.gains.program.Progression
+import app.gains.program.Rotation
 import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChooserRow
@@ -316,6 +318,8 @@ internal data class EditorState(
     val conflict: LiveSession? = null,
     /** The timer ran past three hours: the minutes it measured, awaiting confirmation before the session is stored. */
     val longSessionMinutes: Int? = null,
+    /** Where this workout falls in its program's rotation, as Home words it ("Week 2 of 4 · Cycle 1"); null outside a longer rotation. */
+    val programPosition: Rotation.Position? = null,
 ) {
     val programDayOption: ProgramDayOption? get() = programDay?.let { ref -> programDays.firstOrNull { it.ref == ref } }
 
@@ -410,8 +414,24 @@ internal class SessionEditorModel(
         /** The workout being edited, when it is a logged one: its own sets are not "previous", nor are any logged after it. */
         val editing: Session? = null,
         val cautions: Set<Caution> = emptySet(),
+        val links: List<ProgramLink> = emptyList(),
+        /** When each program was last started over, by id; see [Rotation.run]. */
+        val starts: Map<String, LocalDateTime> = emptyMap(),
     ) {
         fun dayName(day: ProgramDay): String = dayNames[day.id] ?: day.name
+
+        /**
+         * Where a workout counting towards [ref] falls in its program's rotation: counted from the
+         * sessions of the program's current run before this one, as Home counts the next workout, so a
+         * workout opened from Home's Start shows what Home showed. Null for a rotation of two days or
+         * fewer, where Home counts nothing either.
+         */
+        fun positionFor(ref: ProgramDayRef?): Rotation.Position? {
+            val program = programs.firstOrNull { it.id == ref?.programId }?.takeIf { it.days.size > 2 } ?: return null
+            val before = Rotation.run(program, links, starts[program.id])
+                .filter { editing == null || (it.sessionId != editing.id && it.timestamp < editing.timestamp) }
+            return Rotation.position(program, before)
+        }
 
         /** The exercise's last session before this workout, for the PREV column; null when it has never been trained. */
         fun previousFor(exerciseId: String): ExerciseEntry? =
@@ -467,7 +487,10 @@ internal class SessionEditorModel(
             val programList = programs.observePrograms().first()
             val dayOptions = programList.flatMap { p -> val programName = p.resolvedName(texts); p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), programName, it.resolvedName(texts)) } }
             val titles = Titles(texts.get(Res.string.log_workout), texts.get(Res.string.edit_workout), texts.get(Res.string.workout))
-            val ctx = Context(snapshot, unit, planOptions, programList, dayOptions, titles, dayOptions.associate { it.ref.dayId to it.dayName }, editing = existing, cautions = programs.observeCautions().first())
+            val ctx = Context(
+                snapshot, unit, planOptions, programList, dayOptions, titles, dayOptions.associate { it.ref.dayId to it.dayName }, editing = existing,
+                cautions = programs.observeCautions().first(), links = sessions.observeProgramLinks().first(), starts = programs.observeState().first().starts,
+            )
             context = ctx
             val stored = if (live && existing == null) liveSessions.load() else null
             _state.value = when {
@@ -488,7 +511,7 @@ internal class SessionEditorModel(
                 programDay != null -> planned(ctx, programDay).copy(timed = live)
                 live -> fresh(ctx).copy(title = ctx.titles.workout, timed = true)
                 else -> fresh(ctx).copy(title = ctx.titles.logWorkout)
-            }.withPrevious(ctx)
+            }.withPrevious(ctx).withPosition(ctx)
             if (live) persistWhileRunning()
             if (existing != null) followStoredSummary(existing.id)
         }
@@ -583,6 +606,8 @@ internal class SessionEditorModel(
     private fun EditorState.withPreviousSources(ctx: Context): EditorState =
         copy(previousSources = exercises.mapNotNull { e -> ctx.previousSources(e.exercise.id, programDay)?.let { e.exercise.id to it } }.toMap())
 
+    private fun EditorState.withPosition(ctx: Context): EditorState = copy(programPosition = ctx.positionFor(programDay))
+
     private fun update(f: (EditorState) -> EditorState) { _state.value = f(_state.value) }
 
     /**
@@ -646,7 +671,7 @@ internal class SessionEditorModel(
     /** Tag the workout with a program day, or none for a free workout. */
     fun setProgramDay(ref: ProgramDayRef?) = update { s ->
         val tagged = s.copy(programDay = ref)
-        context?.let { tagged.withPreviousSources(it) } ?: tagged
+        context?.let { tagged.withPreviousSources(it).withPosition(it) } ?: tagged
     }
 
     /** Point a card's PREV column at its slot's last session, or with [latest] at the lift's last session from anywhere. */
@@ -967,6 +992,11 @@ internal fun SessionEditorScreen(
                             Spacer(Modifier.height(8.dp))
                             val tag = state.programDayOption
                             Pill(tag?.label ?: stringResource(Res.string.not_part_of_a_program), if (tag != null) palette.volt else MaterialTheme.colorScheme.onSurfaceVariant, onClick = { dayPickerOpen = true })
+                            // The same line as under Home's next day, so the two never disagree about where the lifter is.
+                            if (tag != null) state.programPosition?.let {
+                                Spacer(Modifier.height(12.dp))
+                                Text(programPositionText(it), style = MaterialTheme.typography.labelSmall, color = palette.volt)
+                            }
                         }
                     }
                     if (!state.isNew) TextButton(onClick = { confirmDelete = true }) { Text(stringResource(Res.string.delete), color = palette.coral) }
