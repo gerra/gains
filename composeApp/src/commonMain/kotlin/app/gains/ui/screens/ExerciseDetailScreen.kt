@@ -155,14 +155,21 @@ internal fun ExerciseDetailScreen(exerciseId: String, onOpenSession: (String) ->
     val labels = unitLabels()
     val summary = state.summary
     val palette = GainsColors.palette
+    var editing by remember { mutableStateOf(false) }
+    if (editing) ExerciseDialog(onDismiss = { editing = false }, onSaved = { editing = false }, editing = exercise)
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
             Text(exercise.displayName(), style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Tag(exercise.modality.label())
                 if (exercise.isDumbbell) Tag(stringResource(Res.string.per_dumbbell))
+                // The lifter's own exercises can be renamed, logged another way or given other muscles; built-ins ship as they are.
+                if (!exercise.isBuiltIn) {
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { editing = true }) { Text(stringResource(Res.string.edit), color = palette.volt) }
+                }
             }
             if (exercise.muscleGroups.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))

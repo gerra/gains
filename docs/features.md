@@ -153,8 +153,12 @@ The long version of the list in the [README](../README.md).
   [free-exercise-db](https://github.com/yuhonas/free-exercise-db). Unknown names become custom
   exercises you can merge later. **+ → New exercise** makes one by hand: a name, how its sets are
   logged (weight × reps, reps, time held, or time and distance) and the muscles it trains, main or
-  secondary, which count towards weekly volume unless it is cardio. A name the app already knows
-  opens the existing exercise instead.
+  secondary, which count towards weekly volume unless it is cardio. A new name typed into a
+  workout's or a program's exercise search opens the same form, so it is never made as a guess. A
+  name the app already knows opens the existing exercise instead, or, for one of your own, offers to
+  edit it. Your own exercises can be edited at any time, from **Edit** on their page or **Edit
+  exercise** in a workout card's menu: the name, how it is logged and its muscles change, its
+  history stays, and an old name still finds it.
 - **How to do it.** On the lift's page, and under **How to do it** in an exercise card's menu
   while you train, about 115 of the built-in exercises show their start and end position: line
   drawings by [Everkinetic](https://github.com/everkinetic/data) (CC BY-SA 4.0), cross-faded into a

@@ -35,7 +35,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.TrainingData
-import app.gains.data.ExerciseRepository
 import app.gains.data.ProgramCodec
 import app.gains.data.ProgramRepository
 import app.gains.domain.Exercise
@@ -47,7 +46,6 @@ import app.gains.domain.Program
 import app.gains.domain.ProgramDay
 import app.gains.domain.ProgressionRule
 import app.gains.domain.RepTarget
-import app.gains.importer.ExerciseResolver
 import app.gains.ErrorReporter
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
@@ -160,7 +158,6 @@ internal class ProgramEditorModel(
     /** Names new days ("Day 1"). */
     private val texts: Texts,
     private val programs: ProgramRepository,
-    private val exercises: ExerciseRepository,
     trainingData: TrainingData,
     reporter: ErrorReporter,
 ) : ScreenModel(reporter) {
@@ -206,12 +203,8 @@ internal class ProgramEditorModel(
         d.copy(slots = d.slots + picked.filter { it.id !in known }.map { SlotDraft(it) })
     }
 
-    fun createExercise(name: String): Exercise {
-        val exercise = ExerciseResolver(_state.value.catalogue, emptyMap()).resolve(name, emptyList())
-        scope.launchAction { exercises.insertIfMissing(listOf(exercise)) }
-        update { it.copy(catalogue = (it.catalogue + exercise).distinctBy { e -> e.id }.sortedBy { e -> e.name }) }
-        return exercise
-    }
+    /** A custom exercise made from the picker's search box (the form stored it): listed so the picker can tick it. */
+    fun exerciseMade(exercise: Exercise) = update { it.copy(catalogue = (it.catalogue + exercise).distinctBy { e -> e.id }.sortedBy { e -> e.name }) }
 
     fun updateSlot(dayIndex: Int, slotIndex: Int, draft: SlotDraft) = updateDay(dayIndex) { d -> d.copy(slots = d.slots.mapIndexed { i, s -> if (i == slotIndex) draft else s }) }
     /** Swap a slot's exercise for another, keeping its sets, reps, progression and note. */
@@ -257,7 +250,7 @@ internal class ProgramEditorModel(
 @Composable
 internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
     val texts = rememberTexts()
-    val model = rememberScreenModel(programId) { ProgramEditorModel(programId, texts, inject(), inject(), inject(), inject()) }
+    val model = rememberScreenModel(programId) { ProgramEditorModel(programId, texts, inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerFor by remember { mutableStateOf<Int?>(null) }
@@ -321,7 +314,7 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
             recent = state.recent,
             alreadyAdded = state.days.getOrNull(dayIndex)?.slots?.map { it.exercise.id }?.toSet() ?: emptySet(),
             onAdd = { model.addExercises(dayIndex, it) },
-            onCreate = model::createExercise,
+            onCreated = model::exerciseMade,
             onDismiss = { pickerFor = null },
         )
     }
@@ -335,7 +328,7 @@ internal fun ProgramEditorScreen(programId: String?, onDone: () -> Unit) {
             recent = state.recent,
             alreadyAdded = day.slots.map { it.exercise.id }.toSet(),
             onAdd = { picked -> picked.firstOrNull()?.let { model.replaceSlot(dayIndex, slotIndex, it) } },
-            onCreate = model::createExercise,
+            onCreated = model::exerciseMade,
             onDismiss = { replaceFor = null },
             single = true,
             title = stringResource(Res.string.replace_named, slot.exercise.displayName()),

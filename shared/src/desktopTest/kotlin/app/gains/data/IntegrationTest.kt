@@ -5,16 +5,19 @@ import app.gains.analysis.InsightEngine
 import app.gains.analysis.InsightKind
 import app.gains.analysis.TrainingData
 import app.gains.analysis.VolumeAnalyzer
+import app.gains.catalogue.ExerciseCatalogue
 import app.gains.csv.Fixtures
 import app.gains.csv.LiftoffCsvParser
 import app.gains.db.GainsDatabase
 import app.gains.domain.BodyweightEntry
 import app.gains.domain.ExerciseEntry
+import app.gains.domain.Modality
 import app.gains.domain.MuscleGroup
 import app.gains.domain.Session
 import app.gains.domain.SetEntry
 import app.gains.domain.SetType
 import app.gains.domain.WeightUnit
+import app.gains.importer.ExerciseResolver
 import app.gains.importer.ImportAnalyzer
 import app.gains.importer.ImportService
 import kotlinx.coroutines.Dispatchers
@@ -141,6 +144,43 @@ class IntegrationTest {
         sessions.deleteAll()
         assertEquals(0, TrainingData(sessions, exercises).snapshot.first().sessions.size)
         assertEquals(1, bodyweight.observe().first().size)
+    }
+
+    /**
+     * A custom exercise made with a guess ("Bouldering" as weight × reps) is put right in place: the
+     * same id and history, the new name, logging and muscles, and the old name still finds it.
+     */
+    @Test
+    fun aCustomExerciseIsEditedInPlace() = runTest {
+        val db = newDb()
+        val sessions = SessionRepository(db, Dispatchers.Unconfined)
+        val exercises = ExerciseRepository(db, Dispatchers.Unconfined)
+        exercises.seedCatalogue()
+        val guessed = ExerciseCatalogue.custom("bouldering", Modality.WEIGHTED, primary = emptySet())
+        exercises.insertIfMissing(listOf(guessed))
+        sessions.upsert(Session("2026-10-18T18:00", LocalDateTime(2026, 10, 18, 18, 0), exercises = listOf(
+            ExerciseEntry(guessed.id, listOf(SetEntry(0, SetType.BODYWEIGHT, reps = 12))),
+        )))
+
+        val edited = ExerciseCatalogue.custom("Indoor climbing", Modality.BODYWEIGHT, primary = setOf(MuscleGroup.LATS, MuscleGroup.FOREARMS), secondary = setOf(MuscleGroup.BICEPS))
+            .copy(id = guessed.id)
+        exercises.updateCustom(edited, guessed.name)
+
+        val stored = exercises.exercises().single { it.id == guessed.id }
+        assertEquals("Indoor climbing", stored.name)
+        assertEquals(Modality.BODYWEIGHT, stored.modality)
+        assertEquals(setOf(MuscleGroup.LATS, MuscleGroup.FOREARMS), stored.muscleGroups.filter { it.weight == 1.0 }.map { it.group }.toSet())
+        assertEquals(listOf(MuscleGroup.BICEPS), stored.muscleGroups.filter { it.weight < 1.0 }.map { it.group })
+        assertTrue(stored.muscleGroups.none { it.group == MuscleGroup.CHEST })
+        assertEquals(guessed.id, exercises.aliases()["bouldering"], "the old name still finds it")
+        assertEquals(guessed.id, ExerciseResolver(exercises.exercises(), exercises.aliases()).find("Bouldering")?.id)
+        val snapshot = TrainingData(sessions, exercises).snapshot.first()
+        assertEquals(guessed.id, snapshot.sessions.single().exercises.single().exerciseId, "its history stays with it")
+
+        // Built-ins ship as they are: the same call leaves one alone.
+        val bench = exercises.exercises().single { it.id == "bench_press" }
+        exercises.updateCustom(bench.copy(name = "Not a bench", modality = Modality.CARDIO), bench.name)
+        assertEquals(bench, exercises.exercises().single { it.id == "bench_press" })
     }
 
     /** The summary screen's fields: they belong to the session, survive an edit of its sets and go with it. */

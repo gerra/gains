@@ -110,6 +110,10 @@ class SyncStoreTest {
         d.sessions.deleteSession(session.id)
         assertEquals(setOf(Triple(SyncKinds.SESSION, session.id, true), Triple(SyncKinds.SESSION_PHOTO, session.id, true)), d.pending())
         for (change in d.store.pendingChanges()) d.store.clearPushed(change)
+        // Editing a custom exercise marks it, and a rename records the old name as an alias.
+        d.exercises.updateCustom(Exercise("my_row", "Low Row", "Low Row", listOf(MuscleContribution(MuscleGroup.LATS, 1.0)), Modality.BODYWEIGHT), "My Row")
+        assertEquals(setOf(Triple(SyncKinds.EXERCISE, "my_row", false), Triple(SyncKinds.ALIAS, "my row", false)), d.pending())
+        for (change in d.store.pendingChanges()) d.store.clearPushed(change)
         d.exercises.merge("my_row", "seated_cable_row", "My Row")
         // A merge deletes the custom exercise and records an alias for it in one statement each.
         assertEquals(setOf(Triple(SyncKinds.EXERCISE, "my_row", true), Triple(SyncKinds.ALIAS, "my row", false)), d.pending())

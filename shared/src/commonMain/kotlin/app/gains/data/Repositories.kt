@@ -224,6 +224,19 @@ class ExerciseRepository(
         }
     }
 
+    /**
+     * Rewrites a custom exercise in place: its name, how it is logged and what it trains. The id and
+     * every logged set stay. A rename records the old name as an alias, so an import or a new
+     * exercise of that name still finds this one rather than making another under the same id.
+     */
+    suspend fun updateCustom(exercise: Exercise, previousName: String) = withContext(io) {
+        db.transaction {
+            q.updateCustomExercise(exercise.name, exercise.canonicalName, exercise.modality.name, if (exercise.isDumbbell) 1L else 0L, encodeMuscles(exercise.muscleGroups), ProgramCodec.encodeEquipment(exercise.equipment), exercise.id)
+            val old = NameNormalizer.normalize(previousName)
+            if (old.isNotEmpty() && old != NameNormalizer.normalize(exercise.name)) q.upsertAlias(old, exercise.id)
+        }
+    }
+
     suspend fun setAlias(rawName: String, exerciseId: String) = withContext(io) {
         q.upsertAlias(NameNormalizer.normalize(rawName), exerciseId)
     }
