@@ -52,6 +52,12 @@
     <string name="logged_as_bodyweight">Reps, with optional added weight</string>
     <string name="logged_as_isometric">Time held</string>
     <string name="logged_as_cardio">Time and distance</string>
+    <string name="new_exercise_yours_exists">You already made "%1$s"</string>
+    <string name="new_exercise_edit_existing">Edit it</string>
+    <string name="new_exercise_use_existing">Use it</string>
+    <string name="edit_exercise">Edit exercise</string>
+    <string name="edit_exercise_name_taken">Already here as "%1$s". Pick another name, or merge the two in Settings.</string>
+    <string name="edit_exercise_sets_stay">Sets already logged keep their numbers.</string>
     <string name="resume_chevron">Resume ›</string>
     <string name="sign_in_headline">Know what's\nactually moving.</string>
     <string name="sign_in_blurb">Log workouts or import from Liftoff, Strong, Hevy or any CSV. Gains shows which lifts climb, stall or slip, with the numbers to prove it.</string>
@@ -207,7 +213,7 @@
     <string name="recent">Recent</string>
     <string name="results">Results</string>
     <string name="select_exercises">Select exercises</string>
-    <string name="custom_exercise_guessed">Custom exercise · muscles guessed from the name</string>
+    <string name="custom_exercise_guessed">Custom exercise · pick how it's logged</string>
     <string name="added">Added</string>
     <string name="no_volume_yet">No volume yet</string>
     <string name="no_volume_yet_body">Weekly working sets per muscle group appear here once you import sessions.</string>

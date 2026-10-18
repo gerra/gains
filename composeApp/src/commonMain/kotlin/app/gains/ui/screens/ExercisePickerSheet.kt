@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.gains.analysis.Format
+import app.gains.catalogue.ExerciseCatalogue
 import app.gains.domain.Exercise
 import app.gains.domain.Modality
 import app.gains.domain.MuscleGroup
@@ -69,8 +70,9 @@ import kotlinx.coroutines.launch
  * Full-height exercise picker in the style of Hevy / Strong / Liftoff: search on top, muscle-group
  * filter chips, a "Recent" section, then the catalogue in alphabetical sections. Rows are
  * multi-select, and each shows the exercise's start position where there is a drawing of it; the
- * sticky button at the bottom adds everything ticked at once. A name that matches nothing can be
- * created as a custom exercise straight from the search box.
+ * sticky button at the bottom adds everything ticked at once. A name that matches nothing opens
+ * the exercise form with that name, to say how it is logged and what it trains before it is made;
+ * once made it is ticked, or in single-select added straight away.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,8 +82,8 @@ internal fun ExercisePickerSheet(
     /** Exercises already in the workout: shown but not selectable again. */
     alreadyAdded: Set<String>,
     onAdd: (List<Exercise>) -> Unit,
-    /** Creates a custom exercise and returns it so it can be ticked immediately. Null hides the create row. */
-    onCreate: ((String) -> Exercise)?,
+    /** Told of a custom exercise made from the search box, so the screen can list it. Null hides the create row. */
+    onCreated: ((Exercise) -> Unit)?,
     onDismiss: () -> Unit,
     /** Single-select: tapping a row adds it straight away. */
     single: Boolean = false,
@@ -96,6 +98,10 @@ internal fun ExercisePickerSheet(
     var group by remember { mutableStateOf<MuscleGroup?>(null) }
     /** Ordered so exercises land in the workout in the order they were ticked. */
     var selected by remember { mutableStateOf(listOf<String>()) }
+    /** The name a custom exercise is being made under, while its form is open. */
+    var creating by remember { mutableStateOf<String?>(null) }
+    /** Exercises made here, until the screen's catalogue lists them. */
+    var made by remember { mutableStateOf(mapOf<String, Exercise>()) }
 
     val q = query.trim()
     // Shown, searched and sorted by the name in the screen's language; the catalogue's English name still matches a search.
@@ -112,8 +118,8 @@ internal fun ExercisePickerSheet(
             .entries.sortedBy { it.key }.map { (letter, list) -> letter to list.sortedBy { name(it).lowercase() } }
     }
     val showRecent = q.isEmpty() && group == null && recent.isNotEmpty()
-    val canCreate = onCreate != null && q.isNotEmpty() && catalogue.none { it.name.equals(q, ignoreCase = true) || name(it).equals(q, ignoreCase = true) }
-    val byId = remember(catalogue) { catalogue.associateBy { it.id } }
+    val canCreate = onCreated != null && q.isNotEmpty() && catalogue.none { it.name.equals(q, ignoreCase = true) || name(it).equals(q, ignoreCase = true) }
+    val byId = remember(catalogue, made) { made + catalogue.associateBy { it.id } }
     val showsDrawings = remember(filtered, showRecent, recent) { (filtered + if (showRecent) recent else emptyList()).any { hasThumbnail(it.id) } }
 
     fun close(then: () -> Unit = {}) {
@@ -178,11 +184,7 @@ internal fun ExercisePickerSheet(
             LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 12.dp)) {
                 if (canCreate) {
                     item(key = "create") {
-                        CreateRow(q) {
-                            val created = onCreate(q)
-                            selected = selected + created.id
-                            query = ""
-                        }
+                        CreateRow(q) { creating = q }
                     }
                 }
                 if (showRecent) {
@@ -228,6 +230,26 @@ internal fun ExercisePickerSheet(
                 )
             }
         }
+    }
+    creating?.let { typed ->
+        ExerciseDialog(
+            onDismiss = { creating = null },
+            onSaved = { exercise ->
+                creating = null
+                query = ""
+                made = made + (exercise.id to exercise)
+                onCreated?.invoke(exercise)
+                if (single) close { onAdd(listOf(exercise)) } else if (exercise.id !in selected) selected = selected + exercise.id
+            },
+            draft = ExerciseCatalogue.guess(typed, null),
+            // A name the catalogue already has under another spelling: pick that one.
+            onExisting = { existing ->
+                creating = null
+                query = ""
+                if (single) close { onAdd(listOf(existing)) } else if (existing.id !in selected && existing.id !in alreadyAdded) selected = selected + existing.id
+            },
+            existingAction = stringResource(Res.string.new_exercise_use_existing),
+        )
     }
 }
 

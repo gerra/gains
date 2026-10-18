@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
@@ -104,7 +105,6 @@ import app.gains.analysis.Records
 import app.gains.analysis.TrainingData
 import app.gains.analysis.TrainingSnapshot
 import app.gains.analysis.UnitLabels
-import app.gains.data.ExerciseRepository
 import app.gains.data.LiveSessionRepository
 import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
@@ -128,7 +128,6 @@ import app.gains.domain.SetDraft
 import app.gains.domain.SetsReps
 import app.gains.domain.SlotReason
 import app.gains.domain.WeightUnit
-import app.gains.importer.ExerciseResolver
 import app.gains.program.DayPlanner
 import app.gains.program.Gzclp
 import app.gains.program.PlanOptions
@@ -396,7 +395,6 @@ internal class SessionEditorModel(
     /** The titles and day tags the model makes. */
     private val texts: Texts,
     private val sessions: SessionRepository,
-    private val exercises: ExerciseRepository,
     private val liveSessions: LiveSessionRepository,
     settings: SettingsRepository,
     trainingData: TrainingData,
@@ -655,13 +653,20 @@ internal class SessionEditorModel(
 
     fun addExercises(picked: List<Exercise>) = picked.forEach { addExercise(it) }
 
-    /** A name not in the catalogue becomes a custom exercise with guessed muscles; returned so the picker can tick it. */
-    fun createExercise(name: String): Exercise {
-        val resolver = ExerciseResolver(_state.value.catalogue, emptyMap())
-        val exercise = resolver.resolve(name, emptyList())
-        scope.launchAction { exercises.insertIfMissing(listOf(exercise)) }
-        update { it.copy(catalogue = (it.catalogue + exercise).distinctBy { e -> e.id }.sortedBy { e -> e.name }) }
-        return exercise
+    /** A custom exercise made from the picker's search box (the form stored it): listed so the picker can tick it. */
+    fun exerciseMade(exercise: Exercise) = update { it.copy(catalogue = (it.catalogue + exercise).distinctBy { e -> e.id }.sortedBy { e -> e.name }) }
+
+    /**
+     * A custom exercise changed from its card's menu (the form stored it): its card, the picker's
+     * list and the recent row take the new name, logging and muscles. The sets typed so far stay.
+     */
+    fun exerciseEdited(exercise: Exercise) = update { s ->
+        fun List<Exercise>.swapped() = map { if (it.id == exercise.id) exercise else it }
+        s.copy(
+            exercises = s.exercises.map { if (it.exercise.id == exercise.id) it.copy(exercise = exercise) else it },
+            catalogue = s.catalogue.swapped().sortedBy { it.name },
+            recent = s.recent.swapped(),
+        )
     }
 
     fun removeExercise(index: Int) = edit { it.copy(exercises = it.exercises.filterIndexed { i, _ -> i != index }) }
@@ -959,7 +964,7 @@ internal fun SessionEditorScreen(
     onOpenSummary: (String) -> Unit = {},
 ) {
     val texts = rememberTexts()
-    val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live, texts, inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
+    val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live, texts, inject(), inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
     val palette = GainsColors.palette
     var pickerOpen by remember { mutableStateOf(false) }
@@ -967,6 +972,8 @@ internal fun SessionEditorScreen(
     var replaceTarget by remember { mutableStateOf<Int?>(null) }
     /** Index of the exercise whose demo sheet is open. */
     var demoTarget by remember { mutableStateOf<Int?>(null) }
+    /** The custom exercise whose form is open from its card's menu. */
+    var editTarget by remember { mutableStateOf<Exercise?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var dayPickerOpen by remember { mutableStateOf(false) }
@@ -1062,6 +1069,7 @@ internal fun SessionEditorScreen(
                     onPickWeight = { setIndex -> weightTarget = exerciseIndex to setIndex },
                     onChangeExercise = { replaceTarget = exerciseIndex },
                     onShowDemo = { demoTarget = exerciseIndex },
+                    onEditExercise = { editTarget = draft.exercise },
                     // A moved card slides to its new place rather than jumping, so the eye can follow it.
                     modifier = Modifier.animateItem(),
                 )
@@ -1107,7 +1115,7 @@ internal fun SessionEditorScreen(
         recent = state.recent,
         alreadyAdded = state.exercises.map { it.exercise.id }.toSet(),
         onAdd = model::addExercises,
-        onCreate = model::createExercise,
+        onCreated = model::exerciseMade,
         onDismiss = { pickerOpen = false },
     )
     replaceTarget?.let { index ->
@@ -1119,7 +1127,7 @@ internal fun SessionEditorScreen(
             recent = state.recent,
             alreadyAdded = state.exercises.map { it.exercise.id }.toSet(),
             onAdd = { picked -> picked.firstOrNull()?.let { model.replaceExercise(index, it) } },
-            onCreate = model::createExercise,
+            onCreated = model::exerciseMade,
             onDismiss = { replaceTarget = null },
             single = true,
             title = stringResource(Res.string.replace_named, current.exercise.displayName()),
@@ -1129,6 +1137,13 @@ internal fun SessionEditorScreen(
         val draft = state.exercises.getOrNull(index)
         if (draft == null) demoTarget = null
         else ExerciseDemoSheet(draft.exercise, onDismiss = { demoTarget = null })
+    }
+    editTarget?.let { exercise ->
+        ExerciseDialog(
+            onDismiss = { editTarget = null },
+            onSaved = { editTarget = null; model.exerciseEdited(it) },
+            editing = exercise,
+        )
     }
     if (dayPickerOpen) ProgramDayDialog(
         options = state.programDays,
@@ -1474,6 +1489,8 @@ private fun ExerciseCard(
     onPickWeight: (setIndex: Int) -> Unit,
     onChangeExercise: () -> Unit = {},
     onShowDemo: () -> Unit = {},
+    /** Opens the form for the card's exercise; only the lifter's own exercises offer it. */
+    onEditExercise: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val palette = GainsColors.palette
@@ -1499,6 +1516,7 @@ private fun ExerciseCard(
                 name = name, enabled = editable,
                 canMoveUp = exerciseIndex > 0, canMoveDown = exerciseIndex < count - 1,
                 onDemo = onShowDemo,
+                onEdit = if (draft.exercise.isBuiltIn) null else onEditExercise,
                 onChange = onChangeExercise,
                 onAddWarmup = { model.addWarmup(exerciseIndex) },
                 onMoveUp = { model.moveExercise(exerciseIndex, -1) },
@@ -1642,13 +1660,14 @@ private fun ExerciseCard(
  * The ⋯ at the top right of an exercise card, Hevy-style: everything that changes the card rather than
  * a set. "Change exercise" swaps the lift and keeps every set typed so far, "Add warm-up" adds one
  * (the way to a card's first, before it has a warm-up row with its own +), the arrows move the card
- * through the workout, and Remove drops it. "How to do it" opens the exercise's demo. While the plan
- * waits for Start the menu still opens, for the demo, but everything that edits the card is inert.
+ * through the workout, and Remove drops it. "How to do it" opens the exercise's demo, and "Edit
+ * exercise", for one the lifter made, its form: the name, how it is logged and what it trains. While
+ * the plan waits for Start the menu still opens, for those two, but everything that edits the card is inert.
  */
 @Composable
 private fun ExerciseMenu(
     name: String, enabled: Boolean, canMoveUp: Boolean, canMoveDown: Boolean,
-    onDemo: () -> Unit, onChange: () -> Unit, onAddWarmup: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit,
+    onDemo: () -> Unit, onEdit: (() -> Unit)?, onChange: () -> Unit, onAddWarmup: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit,
 ) {
     val palette = GainsColors.palette
     var open by remember { mutableStateOf(false) }
@@ -1665,6 +1684,11 @@ private fun ExerciseMenu(
                 text = { Text(stringResource(Res.string.how_to_do_it)) },
                 leadingIcon = { Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp)) },
                 onClick = { open = false; onDemo() },
+            )
+            if (onEdit != null) DropdownMenuItem(
+                text = { Text(stringResource(Res.string.edit_exercise)) },
+                leadingIcon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp)) },
+                onClick = { open = false; onEdit() },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.change_exercise)) }, enabled = enabled,

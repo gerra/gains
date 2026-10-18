@@ -29,6 +29,11 @@ insertExerciseIfMissing:
 INSERT OR IGNORE INTO exercise(id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles, equipment)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
+-- Only the person's own exercises change; the catalogue is re-seeded on every launch.
+updateCustomExercise:
+UPDATE exercise SET name = ?, canonical_name = ?, modality = ?, is_dumbbell = ?, muscles = ?, equipment = ?
+WHERE id = ? AND is_builtin = 0;
+
 selectExercises:
 SELECT id, name, canonical_name, modality, is_dumbbell, is_builtin, muscles, equipment FROM exercise ORDER BY name;
 

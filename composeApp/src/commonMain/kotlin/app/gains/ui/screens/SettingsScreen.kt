@@ -527,7 +527,7 @@ private fun MergeRow(custom: Exercise, catalogue: List<Exercise>, onMerge: (Exer
         recent = emptyList(),
         alreadyAdded = setOf(custom.id),
         onAdd = { picked -> picked.firstOrNull()?.let(onMerge) },
-        onCreate = null,
+        onCreated = null,
         onDismiss = { open = false },
         single = true,
     )

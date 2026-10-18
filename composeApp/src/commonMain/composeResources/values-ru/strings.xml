@@ -52,6 +52,12 @@
     <string name="logged_as_bodyweight">Повторения, можно с доп. весом</string>
     <string name="logged_as_isometric">Время удержания</string>
     <string name="logged_as_cardio">Время и дистанция</string>
+    <string name="new_exercise_yours_exists">Вы уже создали «%1$s»</string>
+    <string name="new_exercise_edit_existing">Изменить его</string>
+    <string name="new_exercise_use_existing">Выбрать</string>
+    <string name="edit_exercise">Изменить упражнение</string>
+    <string name="edit_exercise_name_taken">Уже есть: «%1$s». Выберите другое название или объедините их в настройках.</string>
+    <string name="edit_exercise_sets_stay">Записанные подходы сохранят свои цифры.</string>
     <string name="resume_chevron">Вернуться ›</string>
     <string name="sign_in_headline">Знай, что\nреально растёт.</string>
     <string name="sign_in_blurb">Записывай тренировки или импортируй из Liftoff, Strong, Hevy и любого CSV. Gains покажет, какие упражнения растут, стоят на месте или проседают, — с цифрами.</string>
@@ -207,7 +213,7 @@
     <string name="recent">Недавние</string>
     <string name="results">Результаты</string>
     <string name="select_exercises">Выбери упражнения</string>
-    <string name="custom_exercise_guessed">Своё упражнение · мышцы подобраны по названию</string>
+    <string name="custom_exercise_guessed">Своё упражнение · выберите, как записывать</string>
     <string name="added">Добавлено</string>
     <string name="no_volume_yet">Объёма пока нет</string>
     <string name="no_volume_yet_body">Рабочие подходы по группам мышц за неделю появятся здесь после импорта тренировок.</string>

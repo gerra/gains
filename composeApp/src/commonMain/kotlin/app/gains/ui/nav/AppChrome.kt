@@ -72,7 +72,7 @@ import app.gains.ui.components.indicatorSlot
 import app.gains.ui.components.rememberSlidingIndicator
 import app.gains.ui.components.slidingIndicator
 import app.gains.ui.nowMs
-import app.gains.ui.screens.NewExerciseDialog
+import app.gains.ui.screens.ExerciseDialog
 import app.gains.ui.screens.SyncUi
 import app.gains.ui.theme.GainsColors
 import app.gains.ui.theme.LocalReduceMotion
@@ -115,9 +115,10 @@ internal fun TopBar(navigator: Navigator, screen: Screen, upNext: UpNext?, syncA
         // already are one of them (a session's own picker makes exercises too).
         var newExerciseOpen by remember { mutableStateOf(false) }
         if (newExerciseOpen) {
-            NewExerciseDialog(
+            ExerciseDialog(
                 onDismiss = { newExerciseOpen = false },
-                onOpen = { newExerciseOpen = false; navigator.push(Screen.ExerciseDetail(it)) },
+                onSaved = { newExerciseOpen = false; navigator.push(Screen.ExerciseDetail(it.id)) },
+                onExisting = { newExerciseOpen = false; navigator.push(Screen.ExerciseDetail(it.id)) },
             )
         }
         AnimatedVisibility(screen != Screen.Import && screen !is Screen.EditSession && screen !is Screen.SessionSummary, enter = iconEnter, exit = iconExit) {

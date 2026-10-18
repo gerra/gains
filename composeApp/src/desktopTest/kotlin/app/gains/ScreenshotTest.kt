@@ -590,13 +590,14 @@ class ScreenshotTest {
         require(text("Forearms · Lats · Biceps"))
         settle(1_000)
         shot("21b-new-exercise-page")
-        // A name the app already knows is not made twice: the dialog points at the one there is.
+        // A name the app already knows is not made twice: for one of the lifter's own, the dialog offers to edit it.
         onNode(hasContentDescription("Add") and hasClickAction()).performClick()
         require(text("New exercise"))
         onNode(text("New exercise") and hasClickAction()).performClick()
         require(hasText("Logged as", ignoreCase = true))
         onAllNodes(hasSetTextAction()).onLast().performTextInput("bouldering")
-        require(text("Already here as"))
+        require(text("You already made"))
+        require(hasText("Edit it") and hasClickAction())
         check(!exists(hasText("Create") and hasClickAction())) { "The dialog offers to make an exercise that already exists" }
         // The note and the button that replaced Create have changed the dialog's size: let it settle
         // first, or the tap lands where Cancel was a frame ago and the dialog stays.
@@ -687,7 +688,7 @@ class ScreenshotTest {
                     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                         ExercisePickerSheet(
                             catalogue = ExerciseCatalogue.builtIn, recent = emptyList(), alreadyAdded = emptySet(),
-                            onAdd = {}, onCreate = null, onDismiss = {},
+                            onAdd = {}, onCreated = null, onDismiss = {},
                         )
                     }
                 }
