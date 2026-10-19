@@ -141,6 +141,7 @@ import app.gains.ui.components.Dp16
 import app.gains.ui.components.DurationPickerSheet
 import app.gains.ui.components.DurationWheels
 import app.gains.ui.components.GainsCard
+import app.gains.ui.components.HoldPickerSheet
 import app.gains.ui.components.Pill
 import app.gains.ui.components.Tag
 import app.gains.ui.components.PrimaryButton
@@ -982,6 +983,8 @@ internal fun SessionEditorScreen(
     var durationPickerOpen by remember { mutableStateOf(false) }
     /** The set whose weight chooser is open: exercise index to set index. */
     var weightTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    /** The isometric set whose hold chooser is open, the same way. */
+    var holdTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var guideOpen by remember { mutableStateOf(false) }
     if (state.loading) return
     if (state.saved) {
@@ -1067,6 +1070,7 @@ internal fun SessionEditorScreen(
                     editable = state.editable,
                     count = state.exercises.size,
                     onPickWeight = { setIndex -> weightTarget = exerciseIndex to setIndex },
+                    onPickHold = { setIndex -> holdTarget = exerciseIndex to setIndex },
                     onChangeExercise = { replaceTarget = exerciseIndex },
                     onShowDemo = { demoTarget = exerciseIndex },
                     onEditExercise = { editTarget = draft.exercise },
@@ -1162,6 +1166,16 @@ internal fun SessionEditorScreen(
             subtitle = (if (set.isWarmup) stringResource(Res.string.warm_up_n, draft.labels[setIndex].trimStart('W')) else stringResource(Res.string.set_n, draft.labels[setIndex])) + if (draft.exercise.isDumbbell) stringResource(Res.string.per_dumbbell_suffix) else "",
             onPick = { model.updateSet(exerciseIndex, setIndex, set.copy(weight = it)) },
             onDismiss = { weightTarget = null },
+        )
+    }
+    holdTarget?.let { (exerciseIndex, setIndex) ->
+        val draft = state.exercises.getOrNull(exerciseIndex)
+        val set = draft?.sets?.getOrNull(setIndex)
+        if (draft != null && set != null) HoldPickerSheet(
+            value = set.seconds, title = draft.exercise.displayName(),
+            subtitle = if (set.isWarmup) stringResource(Res.string.warm_up_n, draft.labels[setIndex].trimStart('W')) else stringResource(Res.string.set_n, draft.labels[setIndex]),
+            onPick = { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) },
+            onDismiss = { holdTarget = null },
         )
     }
     if (guideOpen) CautionGuideDialog(state.cautions) { guideOpen = false }
@@ -1487,6 +1501,8 @@ private fun ExerciseCard(
     /** How many exercises the workout has, so the menu knows whether the card can move up or down. */
     count: Int = exerciseIndex + 1,
     onPickWeight: (setIndex: Int) -> Unit,
+    /** Opens the minutes and seconds wheels for an isometric set's hold. */
+    onPickHold: (setIndex: Int) -> Unit = {},
     onChangeExercise: () -> Unit = {},
     onShowDemo: () -> Unit = {},
     /** Opens the form for the card's exercise; only the lifter's own exercises offer it. */
@@ -1575,7 +1591,7 @@ private fun ExerciseCard(
             Header(stringResource(Res.string.column_prev), Modifier.width(PREVIOUS_WIDTH))
             when (modality) {
                 Modality.WEIGHTED, Modality.BODYWEIGHT -> { Header(unit.label()); Header(stringResource(Res.string.column_reps)) }
-                Modality.ISOMETRIC -> { Header(stringResource(Res.string.column_seconds)); Header(unit.label()) }
+                Modality.ISOMETRIC -> { Header(stringResource(Res.string.column_time)); Header(unit.label()) }
                 Modality.CARDIO -> { Header(stringResource(Res.string.column_km)); Header(stringResource(Res.string.column_seconds)) }
             }
             // Room for the check and the remove control on each row, so the column heads sit over the cells.
@@ -1630,7 +1646,7 @@ private fun ExerciseCard(
                         SetCell(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, Modifier.weight(1f), done, set.isWarmup, editable, KeyboardType.Number)
                     }
                     Modality.ISOMETRIC -> {
-                        SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), done, set.isWarmup, editable, KeyboardType.Number)
+                        HoldCell(set.seconds, done, set.isWarmup, editable, Modifier.weight(1f), label) { onPickHold(setIndex) }
                         WeightCell(set.weight, done, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
                     }
                     Modality.CARDIO -> {
@@ -1790,8 +1806,19 @@ private fun SetCell(
 
 /** The weight cell: the same box as a typed cell, but tapping it opens the weight chooser. Disabled, it is faded and inert. */
 @Composable
-private fun WeightCell(value: String, done: Boolean, muted: Boolean, enabled: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) {
-    val description = weightForSetText(setLabel, value.ifEmpty { null })
+private fun WeightCell(value: String, done: Boolean, muted: Boolean, enabled: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) =
+    ChosenCell(value, weightForSetText(setLabel, value.ifEmpty { null }), done, muted, enabled, modifier, onClick)
+
+/** An isometric set's hold, "45 s" or "1:30": tapping it opens the minutes and seconds wheels rather than a keypad. */
+@Composable
+private fun HoldCell(seconds: String, done: Boolean, muted: Boolean, enabled: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) {
+    val shown = seconds.toIntOrNull()?.takeIf { it > 0 }?.let { Format.seconds(it, unitLabels()) } ?: ""
+    ChosenCell(shown, holdForSetText(setLabel, shown.ifEmpty { null }), done, muted, enabled, modifier, onClick)
+}
+
+/** A set cell whose value is chosen on wheels in a sheet: the same box as a typed cell, showing [value] or the dash. */
+@Composable
+private fun ChosenCell(value: String, description: String, done: Boolean, muted: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val fill by animateColorAsState(cellFill(done, enabled), Motion.standard(), label = "cell")
     val text by animateColorAsState(cellText(muted, enabled), Motion.standard(), label = "cell-text")
     Box(

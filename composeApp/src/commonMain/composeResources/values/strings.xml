@@ -441,6 +441,7 @@
     <string name="column_prev">Prev</string>
     <string name="column_reps">Reps</string>
     <string name="column_seconds">Seconds</string>
+    <string name="column_time">Time</string>
     <string name="column_km">KM</string>
     <string name="add_set">Add set</string>
     <string name="add_warm_up">Add warm-up</string>
@@ -647,6 +648,7 @@
     <string name="logged_twice">%1$s · logged twice</string>
     <string name="logged_twice_stored">%1$s · logged twice (already stored)</string>
     <string name="weight_for_set">Weight for set %1$s, %2$s</string>
+    <string name="hold_for_set">Hold for set %1$s, %2$s</string>
     <string name="previous_set">Previous set %1$s, %2$s</string>
     <string name="prev_from">Prev from</string>
     <string name="free_workout_short">Free</string>
