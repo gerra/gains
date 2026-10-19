@@ -474,3 +474,71 @@ private fun StepChip(label: String, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) { Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface) }
 }
+
+/**
+ * A hold as the wheels hold it: minutes and seconds. Parsed from the set row's seconds, and turned
+ * back into them.
+ */
+internal data class WheelHold(val minutes: Int, val seconds: Int) {
+    val total: Int get() = minutes * 60 + seconds
+
+    /** The set row's text: the whole hold in seconds, "90"; empty when zero, which the row reads as not yet held. */
+    val text: String get() = if (total == 0) "" else total.toString()
+
+    fun plus(delta: Int): WheelHold = of(total + delta)
+
+    companion object {
+        /** The longest hold the wheels offer: 59:59. */
+        const val MAX_SECONDS = 59 * 60 + 59
+
+        /** Jumps for the quick buttons: a small and a large step either way. */
+        val steps = listOf(-15, -5, 5, 15)
+
+        fun parse(text: String): WheelHold = of(text.trim().toIntOrNull() ?: 0)
+
+        fun of(totalSeconds: Int): WheelHold {
+            val total = totalSeconds.coerceIn(0, MAX_SECONDS)
+            return WheelHold(total / 60, total % 60)
+        }
+    }
+}
+
+private val HoldMinuteLabels = List(60) { it.toString() }
+private val HoldSecondLabels = List(60) { it.toString().padStart(2, '0') }
+
+/**
+ * How long a hold lasted, on a minutes and a seconds wheel, as Clock's timer lays them out, with
+ * jump buttons of 5 and 15 seconds. [value] is the row's seconds and [onPick] receives the new ones.
+ */
+@Composable
+internal fun HoldPickerSheet(value: String, title: String, subtitle: String?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    val palette = GainsColors.palette
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val hold = WheelHold.parse(value)
+    val labels = unitLabels()
+    PickerSheet(
+        title, onDismiss = onDismiss, subtitle = subtitle,
+        trailing = { TextButton(onClick = { onPick("") }) { Text(stringResource(Res.string.clear), color = muted) } },
+    ) {
+        Text(
+            if (hold.total == 0) "—" else Format.seconds(hold.total, labels),
+            style = MaterialTheme.typography.displaySmall, color = palette.volt, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(12.dp))
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            WheelBand(Modifier.width(240.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WheelPicker(HoldMinuteLabels, hold.minutes, { onPick(WheelHold(it, hold.seconds).text) }, Modifier.width(64.dp), showBand = false)
+                Text(labels.minute, style = MaterialTheme.typography.titleMedium, color = muted, modifier = Modifier.padding(start = 4.dp, end = 28.dp))
+                WheelPicker(HoldSecondLabels, hold.seconds, { onPick(WheelHold(hold.minutes, it).text) }, Modifier.width(64.dp), showBand = false)
+                Text(labels.second, style = MaterialTheme.typography.titleMedium, color = muted, modifier = Modifier.padding(start = 4.dp))
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+            for (step in WheelHold.steps) {
+                StepChip((if (step < 0) "−" else "+") + abs(step) + " " + labels.second) { onPick(hold.plus(step).text) }
+            }
+        }
+    }
+}

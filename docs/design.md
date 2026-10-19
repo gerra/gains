@@ -148,6 +148,7 @@ Reach for these before writing a new one.
 | Nothing to show | `EmptyState` with an action | A blank screen |
 | A key / value line | `KeyValueRow` | |
 | A figure that changes | `RollingText` | A plain `Text` |
+| A set's weight, or how long a hold lasted | A cell that opens `WeightPickerSheet` / `HoldPickerSheet`: wheels, with jump chips (plates; ±5 and ±15 s) | A keypad over the set rows |
 
 The bars along the bottom, above the tabs: `StartBar` on Home when a program has a next day,
 `LiveSessionBar` while a workout runs (it replaces the Start bar), and the workout screen's Ready
@@ -243,6 +244,8 @@ the same rules, translated to the web:
 
 Newest first. One line per change to the rules, with the reason.
 
+- **2026-10-19** An isometric set's hold is chosen on minutes and seconds wheels (`HoldPickerSheet`), its column says
+  "Time" and its cell "45 s" or "1:30": typing seconds put a keypad over the very row being filled, and a 90 s hold read as "90".
 - **2026-10-16** A program workout says where it falls in the rotation under its day pill ("Week 2 of 4 · Cycle 1"),
   in the same words and colour as Home's next day: a tester mid-workout could not tell which cycle they were on.
 - **2026-10-15** The workout clock is one row (about 68 dp, from about 96): each figure drawn in a box

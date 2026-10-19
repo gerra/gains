@@ -440,6 +440,9 @@ internal fun loggedTwiceText(date: String, alreadyStored: Boolean): String =
 internal fun weightForSetText(set: String, value: String?): String = stringResource(Res.string.weight_for_set, set, value ?: stringResource(Res.string.none_value))
 
 @Composable
+internal fun holdForSetText(set: String, value: String?): String = stringResource(Res.string.hold_for_set, set, value ?: stringResource(Res.string.none_value))
+
+@Composable
 internal fun previousSetText(set: String, value: String?): String = stringResource(Res.string.previous_set, set, value ?: stringResource(Res.string.none_value))
 
 /** "Compare with T1 · 9 Oct, selected": a chip that picks which session the PREV column reads. */

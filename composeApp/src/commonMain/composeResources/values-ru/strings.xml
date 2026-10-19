@@ -441,6 +441,7 @@
     <string name="column_prev">Было</string>
     <string name="column_reps">Повт</string>
     <string name="column_seconds">Сек</string>
+    <string name="column_time">Время</string>
     <string name="column_km">КМ</string>
     <string name="add_set">Добавить подход</string>
     <string name="add_warm_up">Добавить разминку</string>
@@ -647,6 +648,7 @@
     <string name="logged_twice">%1$s · записано дважды</string>
     <string name="logged_twice_stored">%1$s · записано дважды (уже сохранено)</string>
     <string name="weight_for_set">Вес подхода %1$s, %2$s</string>
+    <string name="hold_for_set">Время подхода %1$s, %2$s</string>
     <string name="previous_set">Прошлый подход %1$s, %2$s</string>
     <string name="prev_from">Было:</string>
     <string name="free_workout_short">Свободная</string>

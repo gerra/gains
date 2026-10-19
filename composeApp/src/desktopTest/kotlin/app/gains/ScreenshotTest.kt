@@ -58,8 +58,10 @@ import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.PhotoPicker
 import app.gains.platform.PickedFile
+import app.gains.platform.applyAppLanguage
 import app.gains.ui.charts.BodyMapModel
 import app.gains.ui.components.GainsLogo
+import app.gains.ui.components.HoldPickerSheet
 import app.gains.ui.components.StreakCard
 import app.gains.ui.screens.ExercisePickerSheet
 import app.gains.ui.theme.GainsTheme
@@ -484,7 +486,32 @@ class ScreenshotTest {
         shot("16b-date-picker")
         onNode(hasText("Done") and hasClickAction()).performClick()
         settle(1_500)
-        onNode(hasText("Cancel") and hasClickAction()).performClick()
+        // A hold is chosen on minutes and seconds wheels, not typed on a keypad.
+        onNode(text("Add exercise") and hasClickAction()).performClick()
+        val search = hasSetTextAction() and text("Search")
+        require(search)
+        onNode(search).performTextInput("Plank")
+        settle(1_000)
+        // The search box holds "Plank" too; the row is the clickable one that is not a text field.
+        onAllNodes(hasText("Plank") and hasClickAction() and !hasSetTextAction()).onFirst().performClick()
+        // Ticking a row reaches the Add button a frame later.
+        settle(500)
+        onNode(text("Add 1") and hasClickAction()).performClick()
+        require(hasContentDescription("Hold for set 1,", substring = true) and hasClickAction())
+        onNode(hasContentDescription("Hold for set 1,", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        require(hasText("+15 s") and hasClickAction())
+        // The sheet is still rising; wait for it before the chips are tapped.
+        settle(1_000)
+        repeat(3) { onNode(hasText("+15 s") and hasClickAction()).performClick(); settle(300) }
+        require(hasText("45 s"))
+        settle(1_000)
+        shot("16c-hold-picker")
+        onAllNodes(hasText("Done") and hasClickAction()).onLast().performClick()
+        settle(1_500)
+        require(hasContentDescription("Hold for set 1, 45 s"))
+        scrollIntoView(hasContentDescription("Hold for set 1, 45 s"))
+        shot("16d-log-workout-hold")
+        onNode(hasText("Cancel") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         require(text("Up next"), 60_000)
         // Back into the workout through the bar, then end it: the stored session takes the timed duration.
         onNode(text("Resume") and hasClickAction()).performClick()
@@ -706,6 +733,32 @@ class ScreenshotTest {
         shot("20-exercise-picker")
         onNode(hasText("Chest") and hasClickAction()).performClick()
         shot("20b-exercise-picker-chest")
+    }
+
+    /** The hold chooser on the light theme, then in Russian on the dark one: the walk above shows it dark in English. */
+    @Test
+    fun captureTheHoldPicker() {
+        for ((name, dark, language) in listOf(Triple("16e-hold-picker-light", false, null), Triple("16f-hold-picker-ru", true, "ru"))) {
+            applyAppLanguage(language)
+            try {
+                runDesktopComposeUiTest(width = 960, height = 1720) {
+                    mainClock.autoAdvance = false
+                    setContent {
+                        CompositionLocalProvider(LocalDensity provides Density(2f)) {
+                            GainsTheme(darkTheme = dark) {
+                                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                                    HoldPickerSheet(value = "90", title = "Plank", subtitle = null, onPick = {}, onDismiss = {})
+                                }
+                            }
+                        }
+                    }
+                    repeat(90) { mainClock.advanceTimeByFrame() }
+                    ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(outDir, "$name.png"))
+                }
+            } finally {
+                applyAppLanguage(null)
+            }
+        }
     }
 
     /**
