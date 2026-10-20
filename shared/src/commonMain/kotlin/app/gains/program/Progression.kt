@@ -59,9 +59,10 @@ object Progression {
      * What to load today given [last], the most recent entry logged against this same slot (or one
      * with the [ExerciseSlot.sameScheme]). The rule reads it as a success or a failure of the slot's
      * prescription, so an entry from a free session or a different scheme must not be passed here:
-     * use [start] for those.
+     * use [start] for those. [earlier] is the rest of that history, oldest first: a stage ladder
+     * replays it to know which stage [last] was prescribed (see [stageOf]).
      */
-    fun suggest(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit): Suggestion {
+    fun suggest(slot: ExerciseSlot, exercise: Exercise, last: ExerciseEntry?, unit: WeightUnit, earlier: List<ExerciseEntry> = emptyList()): Suggestion {
         val fallback = Suggestion(null, slot.sets, slot.reps.prefillReps, null, slot.target)
         val sets = last?.workingSets?.ifEmpty { last.sets }.orEmpty()
         if (sets.isEmpty()) return fallback
@@ -109,9 +110,9 @@ object Progression {
 
             is ProgressionRule.StageLadder -> {
                 val stages = rule.stages
-                val stageIndex = inferStage(stages, sets.size, reps.firstOrNull() ?: 0)
+                val stageIndex = if (loaded) stageOf(stages, earlier + last!!) else inferStage(stages, sets.size, reps.firstOrNull() ?: 0)
                 val stage = stages[stageIndex]
-                val success = sets.size >= stage.sets && reps.all { it >= stage.reps.successReps }
+                val success = hitStage(stage, sets.size, reps)
                 when {
                     !loaded || lastWeight == null -> Suggestion(null, stage.sets, stage.reps.prefillReps, Hint.LastOnly(lastTime), stage)
                     success -> {
@@ -184,6 +185,33 @@ object Progression {
         addedLoad && lastWeight > 0.0 -> LastTime(lastWeight, reps, addedLoad = true)
         else -> LastTime(null, reps)
     }
+
+    /**
+     * The stage the last of [entries] (a loaded slot's history, oldest first) was prescribed, found by
+     * replaying the ladder: the first session is on the first stage, as [start] prefills it, and each
+     * later one is on the stage the previous outcome led to. The reps alone cannot say: 3 × 9 is a miss
+     * of 3 × 10 but a success at 3 × 8. A session whose set count fits other stages but not the replayed
+     * one was logged off-plan, so its stage is read from its sets with [inferStage].
+     */
+    internal fun stageOf(stages: List<SetsReps>, entries: List<ExerciseEntry>): Int {
+        var stage = 0
+        entries.forEachIndexed { i, entry ->
+            val sets = entry.workingSets.ifEmpty { entry.sets }
+            val reps = sets.map { it.reps ?: it.seconds ?: 0 }
+            if (stages[stage].sets != sets.size && stages.any { it.sets == sets.size }) stage = inferStage(stages, sets.size, reps.firstOrNull() ?: 0)
+            if (i == entries.lastIndex) return stage
+            stage = when {
+                sets.none { it.weightKg != null } -> 0
+                hitStage(stages[stage], sets.size, reps) -> stage
+                stage + 1 < stages.size -> stage + 1
+                else -> 0
+            }
+        }
+        return stage
+    }
+
+    private fun hitStage(stage: SetsReps, setCount: Int, reps: List<Int>): Boolean =
+        setCount >= stage.sets && reps.all { it >= stage.reps.successReps }
 
     /** The stage whose set count matches; among several, the one whose reps are closest to the first (non-AMRAP) set. */
     internal fun inferStage(stages: List<SetsReps>, setCount: Int, firstSetReps: Int): Int {

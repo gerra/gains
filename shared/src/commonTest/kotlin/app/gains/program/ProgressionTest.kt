@@ -269,6 +269,45 @@ class ProgressionTest {
         assertEquals(0, Progression.inferStage(t2, 4, 6))
     }
 
+    private val t2 = ProgressionRule.StageLadder(listOf(SetsReps(3, RepTarget.Fixed(10)), SetsReps(3, RepTarget.Fixed(8)), SetsReps(3, RepTarget.Fixed(6))), 2.5)
+    private val t2Slot = ExerciseSlot("bench_press", 3, RepTarget.Fixed(10), progression = t2)
+
+    @Test
+    fun ladderReplaysHistoryToKnowTheStage() {
+        // Missed 3 × 10, so the next session asked for 3 × 8: nine reps a set beat it, though nine is as close to ten as to eight.
+        val s = Progression.suggest(t2Slot, bench, entry(28.0, 9, 9, 9), kg, earlier = listOf(entry(28.0, 10, 9, 8)))
+        assertEquals(30.5, s.weightKg)
+        assertEquals(SetsReps(3, RepTarget.Fixed(8)), s.target)
+        assertEquals(Hint.TryStage(LastTime(28.0, listOf(9, 9, 9)), 30.5, SetsReps(3, RepTarget.Fixed(8))), s.hint)
+    }
+
+    @Test
+    fun ladderFirstSessionIsOnTheFirstStage() {
+        // The first session was prefilled at 3 × 10: nine a set missed it.
+        val s = Progression.suggest(t2Slot, bench, entry(28.0, 9, 9, 9), kg)
+        assertEquals(28.0, s.weightKg)
+        assertEquals(SetsReps(3, RepTarget.Fixed(8)), s.target)
+    }
+
+    @Test
+    fun ladderReplayResetsAfterTheLastStage() {
+        val history = listOf(entry(40.0, 9, 9, 9), entry(40.0, 7, 7, 7), entry(40.0, 5, 5, 5))
+        assertEquals(0, Progression.stageOf(t2.stages, history + entry(35.0, 10, 10, 10)))
+        assertEquals(2, Progression.stageOf(t2.stages, history))
+    }
+
+    @Test
+    fun plannerReplaysTheSlotsHistory() {
+        val b1 = gzclp.days.first { day -> day.slots.any { it.exerciseId == "squat" && Gzclp.tierOf(it) == Gzclp.Tier.T2 } }
+        val history = listOf(
+            squats(LocalDate(2026, 3, 1), 60.0, 10, 9, 8, day = b1.name),
+            squats(LocalDate(2026, 3, 8), 60.0, 9, 9, 9, day = b1.name),
+        )
+        val squat = DayPlanner.plan(gzclp, b1, TrainingSnapshot(history, TestData.exercises), kg).exercises.first { it.exercise.id == "squat" }
+        assertEquals("3 × 8", squat.targetLabel)
+        assertTrue(squat.workSets.first().weightKg!! > 60.0)
+    }
+
     @Test
     fun plannerBuildsSetsFromHistoryAndSkipsUnknownExercises() {
         val history = listOf(
