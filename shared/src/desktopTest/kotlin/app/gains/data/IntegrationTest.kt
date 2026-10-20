@@ -17,6 +17,7 @@ import app.gains.domain.Session
 import app.gains.domain.SetEntry
 import app.gains.domain.SetType
 import app.gains.domain.WeightUnit
+import app.gains.importer.CsvFile
 import app.gains.importer.ExerciseResolver
 import app.gains.importer.ImportAnalyzer
 import app.gains.importer.ImportService
@@ -110,6 +111,36 @@ class IntegrationTest {
         service.commit(service.preview(Fixtures.SAMPLE), emptySet())
         val imported = sessions.observeRawSessions().first().first { it.id == "2026-02-24" }.exercises.first { it.exerciseId == "bench_press" }
         assertTrue(imported.sets.none { it.isWarmup })
+    }
+
+    @Test
+    fun reimportInTheOtherUnitIsRecognisedAndReplacesTheSessions() = runTest {
+        val db = newDb()
+        val sessions = SessionRepository(db, Dispatchers.Unconfined)
+        val exercises = ExerciseRepository(db, Dispatchers.Unconfined)
+        exercises.seedCatalogue()
+        val service = ImportService(sessions, exercises)
+
+        // Imported in kg by mistake: the file is in lbs.
+        service.commit(service.preview(listOf(CsvFile("liftoff.csv", Fixtures.SAMPLE)), WeightUnit.KG), emptySet())
+        val total = sessions.summaries().size
+
+        val sameUnit = service.preview(listOf(CsvFile("liftoff.csv", Fixtures.SAMPLE)), WeightUnit.KG)
+        assertEquals(total, sameUnit.unchangedCount)
+        assertTrue(sameUnit.storedInOtherUnit.isEmpty())
+
+        val inLbs = service.preview(listOf(CsvFile("liftoff.csv", Fixtures.SAMPLE)), WeightUnit.LBS)
+        val reimported = inLbs.storedInOtherUnit.getValue(WeightUnit.KG)
+        assertTrue(reimported > 0)
+        assertEquals(0, inLbs.changedCount)
+        assertEquals(0, inLbs.newCount)
+        assertEquals(total, reimported + inLbs.unchangedCount)
+        assertEquals(reimported, inLbs.commitCount(emptySet()))
+
+        service.commit(inLbs, emptySet())
+        assertEquals(total, sessions.summaries().size)
+        val again = service.preview(listOf(CsvFile("liftoff.csv", Fixtures.SAMPLE)), WeightUnit.LBS)
+        assertEquals(total, again.unchangedCount)
     }
 
     @Test

@@ -219,6 +219,7 @@ private fun PreviewContent(s: ImportState.Preview, model: ImportModel, onCancel:
                 KeyValueRow(stringResource(Res.string.date_range), if (range == null) "-" else "${dateShortWithYear(range.start)} – ${dateShortWithYear(range.endInclusive)}")
                 KeyValueRow(stringResource(Res.string.new_sessions), p.newCount.toString(), valueColor = if (p.newCount > 0) palette.volt else null)
                 if (p.changedCount > 0) KeyValueRow(stringResource(Res.string.changed_since_last_import), p.changedCount.toString(), valueColor = palette.cyan)
+                for ((unit, count) in p.storedInOtherUnit) KeyValueRow(stringResource(Res.string.imported_in_other_unit, unit.label()), count.toString(), valueColor = palette.cyan)
                 if (p.unchangedCount > 0) KeyValueRow(stringResource(Res.string.already_imported), p.unchangedCount.toString())
                 if (p.sessionsInSeveralFiles > 0) KeyValueRow(stringResource(Res.string.in_more_than_one_file), p.sessionsInSeveralFiles.toString())
                 if (p.duplicates.isNotEmpty()) KeyValueRow(stringResource(Res.string.duplicate_sessions), p.duplicates.size.toString(), valueColor = palette.amber)
