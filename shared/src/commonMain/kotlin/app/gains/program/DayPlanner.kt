@@ -56,9 +56,13 @@ object DayPlanner {
     fun plan(program: Program, day: ProgramDay, snapshot: TrainingSnapshot, unit: WeightUnit, options: PlanOptions = PlanOptions()): DayPlan {
         val planned = day.slots.mapNotNull { slot ->
             val exercise = snapshot.exercisesById[slot.exerciseId] ?: return@mapNotNull null
-            val own = lastSession(snapshot, slot.exerciseId) { onSameScheme(program, slot, it) }
+            val ownHistory = recentSessions(snapshot, slot.exerciseId, Int.MAX_VALUE) { onSameScheme(program, slot, it) }
+            val own = ownHistory.firstOrNull()
             var source: Progression.Source? = null
-            val s = if (own != null) Progression.suggest(slot, exercise, own.entry(slot.exerciseId), unit) else {
+            val s = if (own != null) {
+                val earlier = ownHistory.drop(1).asReversed().map { it.entry(slot.exerciseId) }
+                Progression.suggest(slot, exercise, own.entry(slot.exerciseId), unit, earlier)
+            } else {
                 val recent = recentSessions(snapshot, slot.exerciseId, Gzclp.RECENT_SESSIONS)
                 source = recent.firstOrNull()?.let { if (it.program == null) Progression.Source.FREE_SESSION else Progression.Source.DIFFERENT_SCHEME }
                 Progression.start(slot, exercise, recent.map { it.entry(slot.exerciseId) }, unit, source ?: Progression.Source.FREE_SESSION)
