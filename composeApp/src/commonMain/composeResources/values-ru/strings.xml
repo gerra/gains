@@ -385,6 +385,7 @@
     <string name="date_range">Период</string>
     <string name="new_sessions">Новых тренировок</string>
     <string name="changed_since_last_import">Изменились с прошлого импорта</string>
+    <string name="imported_in_other_unit">Импортированы в %1$s (заменятся)</string>
     <string name="already_imported">Уже импортированы (пропущены)</string>
     <string name="in_more_than_one_file">В нескольких файлах (объединены)</string>
     <string name="duplicate_sessions">Дубликаты (пропущены)</string>

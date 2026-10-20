@@ -10,6 +10,7 @@ import app.gains.domain.ExerciseEntry
 import app.gains.domain.Session
 import app.gains.domain.SetEntry
 import app.gains.domain.SetType
+import app.gains.domain.WeightUnit
 import kotlinx.datetime.LocalDate
 
 /** A session already in the database, reduced to what duplicate detection needs. */
@@ -60,7 +61,12 @@ data class CandidateSession(
     val session: Session,
     val disposition: SessionDisposition,
     val durationDiscarded: Boolean,
+    /** Set on a changed session that is stored exactly as the file reads in this unit: it was imported in the other unit. */
+    val storedInUnit: WeightUnit? = null,
 )
+
+/** The same sessions read with the other weight unit, to recognise a re-import that only changes the unit. */
+data class OtherUnitReading(val unit: WeightUnit, val sessions: List<RawSession>)
 
 /** One file of a multi-file import, for the summary. */
 data class ImportedFile(
@@ -88,7 +94,11 @@ data class ImportPreview(
 ) {
     val importable: List<CandidateSession> get() = candidates.filter { it.disposition != SessionDisposition.DUPLICATE }
     val newCount: Int get() = candidates.count { it.disposition == SessionDisposition.NEW }
-    val changedCount: Int get() = candidates.count { it.disposition == SessionDisposition.CHANGED }
+    val changedCount: Int get() = candidates.count { it.disposition == SessionDisposition.CHANGED && it.storedInUnit == null }
+    /** Stored sessions that were imported from this file in another unit, by that unit; importing replaces them. */
+    val storedInOtherUnit: Map<WeightUnit, Int> get() = candidates
+        .filter { it.disposition == SessionDisposition.CHANGED && it.storedInUnit != null }
+        .groupingBy { it.storedInUnit!! }.eachCount()
     val unchangedCount: Int get() = candidates.count { it.disposition == SessionDisposition.UNCHANGED }
     val corruptDurationCount: Int get() = candidates.count { it.durationDiscarded }
     val dateRange: ClosedRange<LocalDate>? get() {
@@ -133,7 +143,7 @@ class ImportAnalyzer(
     /** Minimum number of holds needed before outlier detection is attempted. */
     private val minSamplesForOutliers: Int = 3,
 ) {
-    fun analyze(parsed: ParsedCsv, existing: ExistingData): ImportPreview {
+    fun analyze(parsed: ParsedCsv, existing: ExistingData, otherUnits: List<OtherUnitReading> = emptyList()): ImportPreview {
         val resolver = ExerciseResolver(existing.exercises, existing.userAliases)
 
         // 1. Resolve names and build domain sessions.
@@ -185,8 +195,23 @@ class ImportAnalyzer(
             if (contentHash(withoutOutliers) == stored.contentHash) c.copy(disposition = SessionDisposition.UNCHANGED) else c
         }
 
+        // 5. A changed session stored exactly as the file reads in another unit was imported in that unit last time.
+        val changed = reconciled.filter { it.disposition == SessionDisposition.CHANGED }.map { it.session.id }.toSet()
+        val otherResolver = ExerciseResolver(existing.exercises, existing.userAliases)
+        val storedUnits = HashMap<String, WeightUnit>()
+        for (reading in otherUnits) for (raw in reading.sessions) {
+            if (raw.id !in changed || raw.id in storedUnits) continue
+            val stored = storedById[raw.id] ?: continue
+            val other = toSession(raw, otherResolver, existing.workingSetRatios)
+            val flagged = outliersBySession[raw.id]
+            if (contentHash(other) == stored.contentHash || (flagged != null && contentHash(removeSets(other, flagged)) == stored.contentHash)) {
+                storedUnits[raw.id] = reading.unit
+            }
+        }
+        val classified = if (storedUnits.isEmpty()) reconciled else reconciled.map { c -> c.copy(storedInUnit = storedUnits[c.session.id]) }
+
         return ImportPreview(
-            candidates = reconciled,
+            candidates = classified,
             skipped = parsed.skipped,
             duplicates = duplicates,
             outliers = outliers,

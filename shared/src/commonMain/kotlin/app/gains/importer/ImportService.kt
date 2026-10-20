@@ -53,6 +53,15 @@ class ImportService(
                     connector to connector.parse(file.content, ImportOptions(weightUnit = unit))
                 }
             }
+            // Read again in the other unit, so a re-import that only flips the unit is recognised as such.
+            val otherUnits = parsed.mapNotNull { (file, result) ->
+                val (connector, csv) = result.getOrNull() ?: return@mapNotNull null
+                val unit = weightUnit ?: connector.defaultWeightUnit ?: WeightUnit.KG
+                val other = WeightUnit.entries.first { it != unit }
+                runCatching { connector.parse(file.content, ImportOptions(weightUnit = other)) }.getOrNull()
+                    ?.takeIf { it.sessions != csv.sessions }
+                    ?.let { OtherUnitReading(other, it.sessions) }
+            }
             val failures = parsed.filter { it.second.isFailure }
             if (failures.size == files.size) {
                 throw failures.first().second.exceptionOrNull() as? CsvFormatException
@@ -73,7 +82,7 @@ class ImportService(
             val merged = MultiFileMerger.merge(parsed.mapNotNull { it.second.getOrNull() }.map { (connector, csv) ->
                 csv.copy(sessions = csv.sessions.map { it.copy(id = it.id, source = connector.id) })
             })
-            ImportAnalyzer().analyze(merged.csv, existing).copy(
+            ImportAnalyzer().analyze(merged.csv, existing, otherUnits).copy(
                 files = summaries,
                 sessionsInSeveralFiles = merged.sessionsInSeveralFiles,
             )
