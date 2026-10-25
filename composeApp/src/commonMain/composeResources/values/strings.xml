@@ -445,6 +445,15 @@
     <string name="column_time">Time</string>
     <string name="column_km">KM</string>
     <string name="add_set">Add set</string>
+    <string name="set_options">Set %1$s options</string>
+    <string name="add_a_note">Add a note…</string>
+    <string name="exercise_record">Record</string>
+    <string name="hide_sets">Hide sets</string>
+    <string name="show_sets">Show sets</string>
+    <string name="sets_done_of">Sets done: %1$d of %2$d</string>
+    <string name="vs_last_up">more than last time</string>
+    <string name="vs_last_same">same as last time</string>
+    <string name="vs_last_down">less than last time</string>
     <string name="add_warm_up">Add warm-up</string>
     <string name="show_warm_ups">Show warm-ups</string>
     <string name="hide_warm_ups">Hide warm-ups</string>

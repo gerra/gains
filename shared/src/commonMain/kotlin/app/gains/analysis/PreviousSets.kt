@@ -68,6 +68,60 @@ object PreviousSets {
         }
     }
 
+    /** How a set compares with the same set last time: the dot beside the PREV column once it is ticked. */
+    enum class Trend { UP, SAME, DOWN }
+
+    /**
+     * Whether [now] did more than [then], the same, or less. A loaded set compares by its Epley
+     * estimate, so 60×8 beats 55×10; a bodyweight set or a hold by its reps or seconds and its added
+     * load, and only when one did not go up while the other went down (10 kg × 5 against × 10 has no
+     * verdict). Null too for cardio, a warm-up, or when either set lacks what the comparison needs.
+     */
+    fun trend(now: SetEntry, then: SetEntry, modality: Modality): Trend? {
+        if (now.isWarmup || then.isWarmup) return null
+        fun Double?.load() = this?.takeIf { it > 0 } ?: 0.0
+        return when (modality) {
+            Modality.WEIGHTED -> {
+                val nowReps = now.reps?.takeIf { it > 0 } ?: return null
+                val thenReps = then.reps?.takeIf { it > 0 } ?: return null
+                if (now.weightKg.load() > 0 && then.weightKg.load() > 0) {
+                    sign(Epley.e1rm(now.weightKg.load(), nowReps) - Epley.e1rm(then.weightKg.load(), thenReps))
+                } else dominance(now.weightKg.load() - then.weightKg.load(), (nowReps - thenReps).toDouble())
+            }
+            Modality.BODYWEIGHT -> {
+                val nowReps = now.reps?.takeIf { it > 0 } ?: return null
+                val thenReps = then.reps?.takeIf { it > 0 } ?: return null
+                dominance(now.weightKg.load() - then.weightKg.load(), (nowReps - thenReps).toDouble())
+            }
+            Modality.ISOMETRIC -> {
+                val nowSeconds = now.seconds?.takeIf { it > 0 } ?: return null
+                val thenSeconds = then.seconds?.takeIf { it > 0 } ?: return null
+                dominance(now.weightKg.load() - then.weightKg.load(), (nowSeconds - thenSeconds).toDouble())
+            }
+            Modality.CARDIO -> null
+        }
+    }
+
+    private const val EPSILON = 0.01
+
+    private fun sign(delta: Double): Trend = when {
+        delta > EPSILON -> Trend.UP
+        delta < -EPSILON -> Trend.DOWN
+        else -> Trend.SAME
+    }
+
+    /** Up when neither part went down and one went up, down the other way round, null when they disagree. */
+    private fun dominance(load: Double, amount: Double): Trend? {
+        val a = sign(load)
+        val b = sign(amount)
+        return when {
+            a == b -> a
+            a == Trend.SAME -> b
+            b == Trend.SAME -> a
+            else -> null
+        }
+    }
+
     private fun repsLabel(weight: String?, reps: Int?): String? = when {
         weight != null && reps != null -> "$weight×$reps"
         reps != null -> "×$reps"

@@ -445,6 +445,15 @@
     <string name="column_time">Время</string>
     <string name="column_km">КМ</string>
     <string name="add_set">Добавить подход</string>
+    <string name="set_options">Подход %1$s: действия</string>
+    <string name="add_a_note">Добавить заметку…</string>
+    <string name="exercise_record">Рекорд</string>
+    <string name="hide_sets">Свернуть подходы</string>
+    <string name="show_sets">Показать подходы</string>
+    <string name="sets_done_of">Подходов выполнено: %1$d из %2$d</string>
+    <string name="vs_last_up">больше, чем в прошлый раз</string>
+    <string name="vs_last_same">как в прошлый раз</string>
+    <string name="vs_last_down">меньше, чем в прошлый раз</string>
     <string name="add_warm_up">Добавить разминку</string>
     <string name="show_warm_ups">Показать разминку</string>
     <string name="hide_warm_ups">Скрыть разминку</string>

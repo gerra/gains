@@ -89,4 +89,27 @@ class PreviousSetsTest {
         assertEquals("135×5", PreviousSets.label(TestData.weighted(app.gains.domain.Units.lbsToKg(135.0), 5), Modality.WEIGHTED, WeightUnit.LBS, app.gains.englishLabels))
         assertNull(PreviousSets.label(SetEntry(0, SetType.WEIGHTED), Modality.WEIGHTED, kg, app.gains.englishLabels))
     }
+
+    @Test
+    fun aLoadedSetComparesByItsEstimate() {
+        val w = Modality.WEIGHTED
+        assertEquals(PreviousSets.Trend.UP, PreviousSets.trend(TestData.weighted(55.0, 12), TestData.weighted(50.0, 10), w))
+        // More weight for fewer reps still counts when the estimate grew: 60×8 against 55×10.
+        assertEquals(PreviousSets.Trend.UP, PreviousSets.trend(TestData.weighted(60.0, 8), TestData.weighted(55.0, 10), w))
+        assertEquals(PreviousSets.Trend.SAME, PreviousSets.trend(TestData.weighted(60.0, 5), TestData.weighted(60.0, 5), w))
+        assertEquals(PreviousSets.Trend.DOWN, PreviousSets.trend(TestData.weighted(60.0, 4), TestData.weighted(60.0, 5), w))
+        assertNull(PreviousSets.trend(TestData.weighted(60.0, 5, warmup = true), TestData.weighted(60.0, 4, warmup = true), w))
+        assertNull(PreviousSets.trend(SetEntry(0, SetType.WEIGHTED, weightKg = 60.0), TestData.weighted(60.0, 4), w))
+    }
+
+    @Test
+    fun repsAndLoadMustAgreeForABodyweightSetOrAHold() {
+        val pullUp = { kg: Double?, reps: Int -> SetEntry(0, SetType.BODYWEIGHT, weightKg = kg, reps = reps) }
+        assertEquals(PreviousSets.Trend.UP, PreviousSets.trend(pullUp(null, 9), pullUp(null, 8), Modality.BODYWEIGHT))
+        assertEquals(PreviousSets.Trend.UP, PreviousSets.trend(pullUp(5.0, 8), pullUp(null, 8), Modality.BODYWEIGHT))
+        assertNull(PreviousSets.trend(pullUp(10.0, 5), pullUp(null, 10), Modality.BODYWEIGHT))
+        val hold = { s: Int -> SetEntry(0, SetType.ISOMETRIC, seconds = s) }
+        assertEquals(PreviousSets.Trend.DOWN, PreviousSets.trend(hold(40), hold(45), Modality.ISOMETRIC))
+        assertNull(PreviousSets.trend(SetEntry(0, SetType.CARDIO, distanceKm = 5.0), SetEntry(0, SetType.CARDIO, distanceKm = 4.0), Modality.CARDIO))
+    }
 }

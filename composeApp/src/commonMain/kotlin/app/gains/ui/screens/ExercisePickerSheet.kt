@@ -347,7 +347,7 @@ private val TILE_WIDTH = 56.dp
 private val TILE_HEIGHT = 42.dp
 
 /** Two-letter tag for the icon box, e.g. "CH" for chest, "QU" for quads; falls back to the exercise initial. */
-private fun muscleInitials(group: MuscleGroup?, name: String): String = when (group) {
+internal fun muscleInitials(group: MuscleGroup?, name: String): String = when (group) {
     null -> name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
     MuscleGroup.FRONT_DELTS -> "FD"
     MuscleGroup.SIDE_DELTS -> "SD"
@@ -358,7 +358,7 @@ private fun muscleInitials(group: MuscleGroup?, name: String): String = when (gr
 }
 
 @Composable
-private fun muscleColor(group: MuscleGroup?): Color {
+internal fun muscleColor(group: MuscleGroup?): Color {
     val p = GainsColors.palette
     return when (group) {
         MuscleGroup.CHEST, MuscleGroup.FRONT_DELTS, MuscleGroup.SIDE_DELTS, MuscleGroup.REAR_DELTS, MuscleGroup.TRICEPS -> p.coral
