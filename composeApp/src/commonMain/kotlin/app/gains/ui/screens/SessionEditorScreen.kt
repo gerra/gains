@@ -1805,11 +1805,11 @@ private fun ExerciseMenu(
 }
 
 /*
- * The set table: each row a rounded strip with a 32 dp number badge, a 64 dp "last time" column,
+ * The set table: each row a rounded strip with a 32 dp number badge, a 76 dp "last time" column,
  * two equal cells and the check, inset 8 from the strip's ends.
  */
 private val LABEL_WIDTH = 32.dp
-private val PREVIOUS_WIDTH = 64.dp
+private val PREVIOUS_WIDTH = 76.dp
 private val CELL_GAP = 8.dp
 private val CELL_HEIGHT = 44.dp
 private val ROW_PADDING = 8.dp
@@ -1877,7 +1877,7 @@ private fun SetCell(
             Box(
                 Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(fill)
                     .border(1.5.dp, border, CellShape)
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 // The dash stands in for an empty cell until the caret takes its place.
@@ -1908,7 +1908,7 @@ private fun ChosenCell(value: String, description: String, muted: Boolean, enabl
     Box(
         modifier.height(CELL_HEIGHT).clip(CellShape).background(fill).clickable(enabled = enabled, onClick = onClick)
             .semantics { role = Role.Button; contentDescription = description }
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (value.isEmpty()) CellPlaceholder(enabled)
