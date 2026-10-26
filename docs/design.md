@@ -136,7 +136,7 @@ Reach for these before writing a new one.
 | A screen title | `ScreenTitle` | |
 | A section | `SectionHeader` (sentence case, its own spacing) | A capitalised label |
 | A fact (level, days a week, modality) | `Tag` (neutral) | `Pill` |
-| A signal (Active, Best match, a record, a status) | `Pill` in the accent that means it; `filled` only for the one that matters most | |
+| A signal (Active, Best match, a record, a status) | `Pill` in the accent that means it, with an optional small icon (a tick, a trophy); `filled` only for the one that matters most | |
 | A change in % | `DeltaBadge` | |
 | A number with its label | `MetricTile` | |
 | One choice of a few | `ChipRow` (the pill slides) | Radio buttons |
@@ -149,6 +149,13 @@ Reach for these before writing a new one.
 | A key / value line | `KeyValueRow` | |
 | A figure that changes | `RollingText` | A plain `Text` |
 | A set's weight, or how long a hold lasted | A cell that opens `WeightPickerSheet` / `HoldPickerSheet`: wheels, with jump chips (plates; ±5 and ±15 s) | A keypad over the set rows |
+| An exercise in a workout | The workout's exercise card: the exercise's drawing in a 56 dp tile (a tap opens "How to do it"), its name, `Done` (filled) and `Record` pills once earned, then ⋯ and a chevron that folds it to its head | |
+| A set in a workout | A rounded strip (`surfaceContainerHigh`, green tint once ticked) holding the number in a small box, last time's set, the cells in the card's colour and a 32 dp check; a record set's number becomes a trophy in a green ring. A tap on the number offers Remove | A × on every row |
+
+Beside last time's set, a ticked set takes a dot that says how it went against it, in the
+signal colours: green for more (a loaded set by its Epley estimate), yellow for the same, red for
+less. Nothing when the two can't be compared (a warm-up, cardio, more load for fewer reps on a
+bodyweight lift).
 
 The bars along the bottom, above the tabs: `StartBar` on Home when a program has a next day,
 `LiveSessionBar` while a workout runs (it replaces the Start bar), and the workout screen's Ready
@@ -243,6 +250,12 @@ the same rules, translated to the web:
 ## Log
 
 Newest first. One line per change to the rules, with the reason.
+
+- **2026-10-25** The workout's exercise card was redone after a reference the owner liked: the exercise's drawing at
+  its head, `Done` and `Record` pills (`Pill` takes an icon), each set a rounded strip that turns green when ticked with
+  its cells as boxes set into it, a larger check with a ring, a trophy for a record set, a vs-last-time dot, the note as a
+  pencil line and "+ Add set" as a compact button under a rule. The × on every row went to a menu on the set number, and
+  a card folds to its head. The old table read as a form, not as progress.
 
 - **2026-10-19** An isometric set's hold is chosen on minutes and seconds wheels (`HoldPickerSheet`), its column says
   "Time" and its cell "45 s" or "1:30": typing seconds put a keypad over the very row being filled, and a 90 s hold read as "90".

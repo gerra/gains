@@ -10,6 +10,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.scale
 import app.gains.ui.theme.LocalReduceMotion
 import app.gains.ui.theme.Motion
@@ -64,8 +65,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -79,6 +78,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -125,6 +125,7 @@ import app.gains.domain.ProgramLink
 import app.gains.domain.RestTimer
 import app.gains.domain.Session
 import app.gains.domain.SetDraft
+import app.gains.domain.SetEntry
 import app.gains.domain.SetsReps
 import app.gains.domain.SlotReason
 import app.gains.domain.WeightUnit
@@ -145,12 +146,14 @@ import app.gains.ui.components.HoldPickerSheet
 import app.gains.ui.components.Pill
 import app.gains.ui.components.Tag
 import app.gains.ui.components.PrimaryButton
-import app.gains.ui.components.RecordMedal
+import app.gains.ui.components.TrophyIcon
 import app.gains.ui.components.SecondaryButton
 import app.gains.ui.components.SectionHeader
 import app.gains.ui.components.TimePickerSheet
 import app.gains.ui.components.WeightPickerSheet
 import app.gains.ui.demo.ExerciseDemoSheet
+import app.gains.ui.demo.ExerciseThumbnail
+import app.gains.ui.demo.hasThumbnail
 import app.gains.resources.Res
 import app.gains.resources.*
 import app.gains.ui.i18n.*
@@ -201,12 +204,16 @@ internal data class ExerciseDraft(val exercise: Exercise, val sets: List<SetDraf
      * What each row was last time, in row order: the same-numbered warm-up or work set of [previous]
      * as "60×5", or null where last time had no such set. All null without a previous session.
      */
-    fun previousLabels(previous: ExerciseEntry?, unit: WeightUnit, labels: UnitLabels): List<String?> {
+    fun previousLabels(previous: ExerciseEntry?, unit: WeightUnit, labels: UnitLabels): List<String?> =
+        previousSets(previous).map { set -> set?.let { PreviousSets.label(it, exercise.modality, unit, labels) } }
+
+    /** The set of [previous] each row lines up with, in row order; see [previousLabels]. */
+    fun previousSets(previous: ExerciseEntry?): List<SetEntry?> {
         var warmup = 0
         var work = 0
         return sets.map { set ->
             val ordinal = if (set.isWarmup) ++warmup else ++work
-            PreviousSets.matching(previous, set.isWarmup, ordinal)?.let { PreviousSets.label(it, exercise.modality, unit, labels) }
+            PreviousSets.matching(previous, set.isWarmup, ordinal)
         }
     }
 
@@ -992,7 +999,6 @@ internal fun SessionEditorScreen(
         if (ended != null) onEnded(ended) else onDone()
         return
     }
-    val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = palette.volt, unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant)
     val startedAt = state.startedAtMs
 
     Column(Modifier.fillMaxSize()) {
@@ -1056,7 +1062,7 @@ internal fun SessionEditorScreen(
             }
             itemsIndexed(state.exercises, key = { _, e -> e.exercise.id }) { exerciseIndex, draft ->
                 ExerciseCard(
-                    exerciseIndex, draft, state.unit, model, fieldColors,
+                    exerciseIndex, draft, state.unit, model,
                     state.targets[draft.exercise.id], state.hints[draft.exercise.id], state.notes[draft.exercise.id],
                     reason = state.reasons[draft.exercise.id],
                     seeded = draft.exercise.id in state.seeded,
@@ -1483,7 +1489,7 @@ private fun DayChoice(label: String, selected: Boolean, accent: Color, onClick: 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ExerciseCard(
-    exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel, fieldColors: androidx.compose.material3.TextFieldColors,
+    exerciseIndex: Int, draft: ExerciseDraft, unit: WeightUnit, model: SessionEditorModel,
     target: PlanTarget? = null, hint: Progression.Hint? = null, programNote: String? = null, seeded: Boolean = false,
     /** Why the program day has this exercise as it does: a focus added it, a caution swapped it in or asks for care. */
     reason: SlotReason? = null,
@@ -1512,19 +1518,43 @@ private fun ExerciseCard(
     val palette = GainsColors.palette
     val modality = draft.exercise.modality
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val reduce = LocalReduceMotion.current
     val warmups = draft.warmups
     val labels = draft.labels
-    val previousLabels = draft.previousLabels(previous, unit, unitLabels())
+    val previousSets = draft.previousSets(previous)
+    val unitLabels = unitLabels()
+    val previousLabels = previousSets.map { set -> set?.let { PreviousSets.label(it, modality, unit, unitLabels) } }
     val name = draft.exercise.displayName()
+    // A ticked work set that beats one of the lift's standing records takes a trophy in place of its
+    // number the moment it is ticked, as Hevy stamps a medal on the set; the card's head says so too.
+    val records = draft.sets.mapIndexed { i, set ->
+        set.done && !set.isWarmup && standing != null && set.toSet(i, unit)?.let { Records.beats(it, modality, standing) } == true
+    }
+    val workSets = draft.workSets
+    val workDone = workSets.count { it.done }
+    val allDone = workSets.isNotEmpty() && workDone == workSets.size
+    /** Folded to its head, for a lift that is finished or not reached yet; kept per lift while the screen lives. */
+    var expanded by rememberSaveable(draft.exercise.id) { mutableStateOf(true) }
     GainsCard(modifier.fillMaxWidth().padding(bottom = 12.dp), contentPadding = Dp16.Tight) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            ExerciseTile(draft.exercise, name, onClick = onShowDemo)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(name, style = MaterialTheme.typography.titleMedium)
+                Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(4.dp))
                 // A FlowRow: "3 sets of 8–12" and "For your glutes" wrap whole rather than squeeze.
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Every work set ticked: the lift is done, said at its head so a folded card still shows it.
+                    AnimatedVisibility(allDone, enter = popIn(reduce, from = 0.6f), exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT))) {
+                        Pill(stringResource(Res.string.done), palette.progress, filled = true, icon = { Icon(Icons.Default.Check, null, tint = it, modifier = Modifier.size(14.dp)) })
+                    }
+                    AnimatedVisibility(records.any { it }, enter = popIn(reduce, from = 0.6f), exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT))) {
+                        Pill(stringResource(Res.string.exercise_record), palette.progress, icon = { TrophyIcon(size = 14.dp, color = it) })
+                    }
                     if (target != null) Pill(setsText(target.target, target.lastSetAmrap, modality == Modality.ISOMETRIC), palette.volt)
                     if (reason is SlotReason.Focus) Tag(reason.area.forYour())
-                    Tag(modality.label())
+                    // How a lift is logged is said only when it is not the usual weight and reps, as in the picker.
+                    if (modality != Modality.WEIGHTED) Tag(modality.label())
                     if (draft.exercise.isDumbbell) Tag(stringResource(Res.string.per_dumbbell))
                 }
             }
@@ -1539,135 +1569,174 @@ private fun ExerciseCard(
                 onMoveDown = { model.moveExercise(exerciseIndex, 1) },
                 onRemove = { model.removeExercise(exerciseIndex) },
             )
+            CardIconButton(
+                if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                stringResource(if (expanded) Res.string.hide_sets else Res.string.show_sets), muted,
+            ) { expanded = !expanded }
         }
-        // Why it is here and how to do it with the lifter's cautions in mind: the swap, then the cue.
-        val why = when (reason) {
-            is SlotReason.Focus -> reason.careful?.cue(draft.exercise.id)
-            else -> slotReasonText(reason, draft.exercise.id, emptyMap(), cue = true)
-        }
-        if (why != null) {
-            Spacer(Modifier.height(4.dp))
-            Text(why, style = MaterialTheme.typography.bodySmall)
-        }
-        if (hint != null) {
-            Spacer(Modifier.height(4.dp))
-            Text(hintText(hint, unit), style = MaterialTheme.typography.bodySmall, color = palette.volt)
-        }
-        // A planned lift never done before: nothing to go on, so say how to choose the weight.
-        if (target != null && hint == null && previous == null && modality == Modality.WEIGHTED) {
-            Spacer(Modifier.height(4.dp))
-            Text(stringResource(Res.string.first_time_weight), style = MaterialTheme.typography.bodySmall, color = muted)
-        }
-        if (seeded) {
-            // The weights came from a session that never attempted this scheme: one tap declines them.
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    when (source) {
-                        Progression.Source.DIFFERENT_SCHEME -> stringResource(Res.string.weights_from_other_scheme)
-                        else -> stringResource(Res.string.weights_from_free_sessions)
-                    },
-                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = muted,
-                )
-                TextButton(onClick = { model.startBlank(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.start_blank), color = if (editable) palette.volt else disabledColor()) }
-            }
-        }
-        if (programNote != null) {
-            Spacer(Modifier.height(4.dp))
-            Text(slotNoteText(programNote), style = MaterialTheme.typography.bodySmall, color = muted)
-        }
-        if (tier != null) {
-            Text(
-                restLineText(restRangeText(tier.restSeconds), if (warmups.isNotEmpty()) warmupRestText() else null),
-                style = MaterialTheme.typography.bodySmall, color = muted,
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        if (previousSources != null) {
-            PreviousSourceRow(previousSources, previousLatest) { model.showLatestPrevious(exerciseIndex, it) }
+        if (!expanded && workSets.isNotEmpty() && !allDone) {
             Spacer(Modifier.height(8.dp))
+            Text(stringResource(Res.string.sets_done_of, workDone, workSets.size), style = MaterialTheme.typography.bodySmall, color = muted)
         }
-        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.column_set), Modifier.width(LABEL_WIDTH), style = MaterialTheme.typography.labelSmall, color = muted)
-            Header(stringResource(Res.string.column_prev), Modifier.width(PREVIOUS_WIDTH))
-            when (modality) {
-                Modality.WEIGHTED, Modality.BODYWEIGHT -> { Header(unit.label()); Header(stringResource(Res.string.column_reps)) }
-                Modality.ISOMETRIC -> { Header(stringResource(Res.string.column_time)); Header(unit.label()) }
-                Modality.CARDIO -> { Header(stringResource(Res.string.column_km)); Header(stringResource(Res.string.column_seconds)) }
+        AnimatedVisibility(
+            expanded,
+            enter = if (reduce) EnterTransition.None else fadeIn(tween(Motion.STANDARD)) + androidx.compose.animation.expandVertically(tween(Motion.STANDARD)),
+            exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.EXIT)) + androidx.compose.animation.shrinkVertically(tween(Motion.EXIT)),
+        ) {
+          Column {
+            // Why it is here and how to do it with the lifter's cautions in mind: the swap, then the cue.
+            val why = when (reason) {
+                is SlotReason.Focus -> reason.careful?.cue(draft.exercise.id)
+                else -> slotReasonText(reason, draft.exercise.id, emptyMap(), cue = true)
             }
-            // Room for the check and the remove control on each row, so the column heads sit over the cells.
-            Spacer(Modifier.width(CHECK_HIT + REMOVE_HIT))
-        }
-        if (warmups.isNotEmpty()) {
-            // Warm-ups are numbered W1, W2… and drawn muted, so the work sets stay 1–5 and read as the workout.
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Tag(stringResource(Res.string.warm_up))
-                Spacer(Modifier.width(8.dp))
-                Text(if (warmupsCollapsed) stringResource(Res.string.n_hidden, warmups.size) else setsText(warmups.size), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted)
-                // Icons rather than words, so the row stays one line: add one more, fold or unfold, remove them all.
-                CardIconButton(Icons.Default.Add, stringResource(Res.string.add_warm_up), muted, editable) { model.addWarmup(exerciseIndex) }
-                CardIconButton(
-                    if (warmupsCollapsed) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                    if (warmupsCollapsed) stringResource(Res.string.show_warm_ups) else stringResource(Res.string.hide_warm_ups), muted,
-                ) { model.toggleWarmups(exerciseIndex) }
-                CardIconButton(Icons.Default.Delete, stringResource(Res.string.remove_warm_ups), muted, editable) { model.removeWarmups(exerciseIndex) }
+            if (why != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(why, style = MaterialTheme.typography.bodySmall)
             }
-        }
-        for ((setIndex, set) in draft.sets.withIndex()) {
-            val label = labels[setIndex]
-            if (set.isWarmup && warmupsCollapsed) continue
-            // A ticked row keeps its place in the table: the number and the check turn green and the cells take a tint,
-            // so a glance shows how far the workout has got without the row turning into a card of its own.
-            val done = set.done
-            // A ticked work set that beats one of the lift's standing records takes a star in place of
-            // its number, the moment it is ticked, as Hevy stamps a medal on the set. Warm-ups never do.
-            val record = done && !set.isWarmup && standing != null && set.toSet(setIndex, unit)?.let { Records.beats(it, modality, standing) } == true
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
-                val labelColor by animateColorAsState(
-                    when { done -> palette.volt; set.isWarmup -> muted; else -> MaterialTheme.colorScheme.onSurface },
-                    Motion.standard(), label = "set-label",
-                )
-                val recordDescription = setRecordText(label)
-                if (record) {
-                    Box(Modifier.width(LABEL_WIDTH).semantics { contentDescription = recordDescription }, contentAlignment = Alignment.CenterStart) {
-                        RecordMedal(size = 18.dp)
-                    }
-                } else {
-                    Text(
-                        label, Modifier.width(LABEL_WIDTH),
-                        style = if (set.isWarmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
-                        color = labelColor,
-                    )
-                }
-                PreviousCell(previousLabels[setIndex], label)
-                // The keyboard's action key moves from the first field to the second, then closes the keyboard.
-                when (modality) {
-                    Modality.WEIGHTED, Modality.BODYWEIGHT -> {
-                        WeightCell(set.weight, done, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
-                        SetCell(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, Modifier.weight(1f), done, set.isWarmup, editable, KeyboardType.Number)
-                    }
-                    Modality.ISOMETRIC -> {
-                        HoldCell(set.seconds, done, set.isWarmup, editable, Modifier.weight(1f), label) { onPickHold(setIndex) }
-                        WeightCell(set.weight, done, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
-                    }
-                    Modality.CARDIO -> {
-                        SetCell(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, Modifier.weight(1f), done, set.isWarmup, editable, KeyboardType.Decimal, ImeAction.Next)
-                        SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), done, set.isWarmup, editable, KeyboardType.Number)
-                    }
-                }
+            if (hint != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(hintText(hint, unit), style = MaterialTheme.typography.bodySmall, color = palette.volt)
+            }
+            // A planned lift never done before: nothing to go on, so say how to choose the weight.
+            if (target != null && hint == null && previous == null && modality == Modality.WEIGHTED) {
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(Res.string.first_time_weight), style = MaterialTheme.typography.bodySmall, color = muted)
+            }
+            if (seeded) {
+                // The weights came from a session that never attempted this scheme: one tap declines them.
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        when (source) {
+                            Progression.Source.DIFFERENT_SCHEME -> stringResource(Res.string.weights_from_other_scheme)
+                            else -> stringResource(Res.string.weights_from_free_sessions)
+                        },
+                        Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = muted,
+                    )
+                    TextButton(onClick = { model.startBlank(exerciseIndex) }, enabled = editable) { Text(stringResource(Res.string.start_blank), color = if (editable) palette.volt else disabledColor()) }
+                }
+            }
+            if (programNote != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(slotNoteText(programNote), style = MaterialTheme.typography.bodySmall, color = muted)
+            }
+            if (tier != null) {
+                Text(
+                    restLineText(restRangeText(tier.restSeconds), if (warmups.isNotEmpty()) warmupRestText() else null),
+                    style = MaterialTheme.typography.bodySmall, color = muted,
+                )
+            }
+            NoteLine(draft.note, editable) { model.setNote(exerciseIndex, it) }
+            if (previousSources != null) {
+                PreviousSourceRow(previousSources, previousLatest) { model.showLatestPrevious(exerciseIndex, it) }
+                Spacer(Modifier.height(8.dp))
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = ROW_PADDING), horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically) {
+                Header(stringResource(Res.string.column_set), Modifier.width(LABEL_WIDTH))
+                Header(stringResource(Res.string.column_prev), Modifier.width(PREVIOUS_WIDTH))
+                when (modality) {
+                    Modality.WEIGHTED, Modality.BODYWEIGHT -> { Header(unit.label()); Header(stringResource(Res.string.column_reps)) }
+                    Modality.ISOMETRIC -> { Header(stringResource(Res.string.column_time)); Header(unit.label()) }
+                    Modality.CARDIO -> { Header(stringResource(Res.string.column_km)); Header(stringResource(Res.string.column_seconds)) }
+                }
+                // Room for the check on each row, so the column heads sit over the cells.
+                Spacer(Modifier.width(CHECK_HIT))
+            }
+            if (warmups.isNotEmpty()) {
+                // Warm-ups are numbered W1, W2… and drawn muted, so the work sets stay 1–5 and read as the workout.
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Tag(stringResource(Res.string.warm_up))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (warmupsCollapsed) stringResource(Res.string.n_hidden, warmups.size) else setsText(warmups.size), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = muted)
+                    // Icons rather than words, so the row stays one line: add one more, fold or unfold, remove them all.
+                    CardIconButton(Icons.Default.Add, stringResource(Res.string.add_warm_up), muted, editable) { model.addWarmup(exerciseIndex) }
+                    CardIconButton(
+                        if (warmupsCollapsed) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                        if (warmupsCollapsed) stringResource(Res.string.show_warm_ups) else stringResource(Res.string.hide_warm_ups), muted,
+                    ) { model.toggleWarmups(exerciseIndex) }
+                    CardIconButton(Icons.Default.Delete, stringResource(Res.string.remove_warm_ups), muted, editable) { model.removeWarmups(exerciseIndex) }
+                }
+            }
+            for ((setIndex, set) in draft.sets.withIndex()) {
+                val label = labels[setIndex]
+                if (set.isWarmup && warmupsCollapsed) continue
+                // A ticked row keeps its place in the table: the whole row takes the green tint and the check fills,
+                // so a glance down the card shows how far the workout has got.
+                val done = set.done
+                val trend = if (!done) null else previousSets[setIndex]?.let { last -> set.toSet(setIndex, unit)?.let { PreviousSets.trend(it, last, modality) } }
+                val rowFill by animateColorAsState(rowFill(done, editable), Motion.standard(), label = "set-row")
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 8.dp).clip(RowShape).background(rowFill).padding(horizontal = ROW_PADDING, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SetBadge(label, set.isWarmup, done, records[setIndex], editable) { model.removeSet(exerciseIndex, setIndex) }
+                    PreviousCell(previousLabels[setIndex], label, trend)
+                    // The keyboard's action key moves from the first field to the second, then closes the keyboard.
+                    when (modality) {
+                        Modality.WEIGHTED, Modality.BODYWEIGHT -> {
+                            WeightCell(set.weight, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
+                            SetCell(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Number)
+                        }
+                        Modality.ISOMETRIC -> {
+                            HoldCell(set.seconds, set.isWarmup, editable, Modifier.weight(1f), label) { onPickHold(setIndex) }
+                            WeightCell(set.weight, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
+                        }
+                        Modality.CARDIO -> {
+                            SetCell(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Decimal, ImeAction.Next)
+                            SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Number)
+                        }
+                    }
                     DoneCheck(
                         done = done, enabled = editable && (done || set.hasValues), label = label,
                         onClick = { model.toggleDone(exerciseIndex, setIndex) },
                     )
-                    RemoveSetButton(label, editable) { model.removeSet(exerciseIndex, setIndex) }
                 }
             }
+            HorizontalDivider(Modifier.padding(top = 16.dp, bottom = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            SecondaryButton("+ " + stringResource(Res.string.add_set), { model.addSet(exerciseIndex) }, Modifier.fillMaxWidth(), compact = true, enabled = editable)
+          }
         }
-        AddSetBar(editable) { model.addSet(exerciseIndex) }
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            draft.note, { model.setNote(exerciseIndex, it) }, placeholder = { Text(stringResource(Res.string.note)) }, singleLine = true, enabled = editable,
-            modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = MaterialTheme.shapes.medium,
+    }
+}
+
+/**
+ * The card's picture: the exercise's start position where Everkinetic draws it, in the colour of
+ * the muscles it trains, as the picker's rows show it; its initials otherwise. A tap opens "How to do it".
+ */
+@Composable
+private fun ExerciseTile(exercise: Exercise, name: String, onClick: () -> Unit) {
+    val primary = exercise.muscleGroups.maxByOrNull { it.weight }?.group
+    val color = muscleColor(primary)
+    val description = stringResource(Res.string.how_to_do_it)
+    Box(
+        Modifier.size(TILE_SIZE).clip(MaterialTheme.shapes.medium).background(color.copy(alpha = 0.14f))
+            .clickable(onClick = onClick).semantics { role = Role.Button; contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (hasThumbnail(exercise.id)) ExerciseThumbnail(exercise.id, color)
+        else Text(muscleInitials(primary, name), style = MaterialTheme.typography.titleMedium, color = color)
+    }
+}
+
+/** The card's note: a pencil and a borderless line, "Add a note…" until something is written. */
+@Composable
+private fun NoteLine(note: String, enabled: Boolean, onChange: (String) -> Unit) {
+    val palette = GainsColors.palette
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val placeholder = stringResource(Res.string.add_a_note)
+    Row(Modifier.fillMaxWidth().height(CELL_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Edit, null, tint = if (enabled) muted else disabledColor(), modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(12.dp))
+        BasicTextField(
+            note, onChange, Modifier.weight(1f).semantics { contentDescription = placeholder }, enabled = enabled, singleLine = true,
+            textStyle = MaterialTheme.typography.bodyMedium.copy(color = cellText(muted = false, enabled = enabled)),
+            cursorBrush = SolidColor(palette.volt),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            decorationBox = { inner ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (note.isEmpty()) Text(placeholder, style = MaterialTheme.typography.bodyMedium, color = if (enabled) muted else disabledColor())
+                    inner()
+                }
+            },
         )
     }
 }
@@ -1735,17 +1804,25 @@ private fun ExerciseMenu(
     }
 }
 
-/* The set table: a 28 dp number column, a 56 dp "last time" column, two equal cells, then a check and a remove control of fixed width. */
-private val LABEL_WIDTH = 28.dp
-private val PREVIOUS_WIDTH = 56.dp
+/*
+ * The set table: each row a rounded strip with a 32 dp number badge, a 76 dp "last time" column,
+ * two equal cells and the check, inset 8 from the strip's ends.
+ */
+private val LABEL_WIDTH = 32.dp
+private val PREVIOUS_WIDTH = 76.dp
 private val CELL_GAP = 8.dp
 private val CELL_HEIGHT = 44.dp
-private val CellShape = RoundedCornerShape(12.dp)
-/** Tap targets of the two controls at the end of a row; what is drawn inside is smaller. */
-private val CHECK_HIT = 36.dp
-private val REMOVE_HIT = 32.dp
-private val ADD_SET_HEIGHT = 36.dp
-private val CHECK_SIZE = 28.dp
+private val ROW_PADDING = 8.dp
+private val CellShape = RoundedCornerShape(10.dp)
+private val RowShape = RoundedCornerShape(14.dp)
+/** The exercise's picture at the head of its card. */
+private val TILE_SIZE = 56.dp
+/** Tap target of the check at the end of a row; the circle drawn inside is smaller. */
+private val CHECK_HIT = 44.dp
+private val CHECK_SIZE = 32.dp
+/** The ring around a ticked check, in the accent's tint. */
+private val CHECK_RING = 4.dp
+private val TREND_DOT = 8.dp
 
 /** How far a control fades while the plan waits for Start: Material's disabled content alpha. */
 private const val DISABLED_ALPHA = 0.38f
@@ -1754,11 +1831,18 @@ private const val DISABLED_ALPHA = 0.38f
 @Composable
 private fun disabledColor(): Color = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
 
-/** The fill of a set cell: a quiet container, tinted with the accent once the set is ticked, and faded while disabled. */
+/** A set row's strip: a step up from the card, the accent's tint once the set is ticked, faded while disabled. */
 @Composable
-private fun cellFill(done: Boolean, enabled: Boolean = true): Color {
-    val fill = if (done) GainsColors.palette.volt.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHighest
+private fun rowFill(done: Boolean, enabled: Boolean): Color {
+    val fill = if (done) GainsColors.palette.volt.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHigh
     return if (enabled) fill else fill.copy(alpha = fill.alpha * DISABLED_ALPHA)
+}
+
+/** The fill of a set cell: the card's own colour, so the cells read as boxes set into the row's strip. */
+@Composable
+private fun cellFill(enabled: Boolean = true): Color {
+    val fill = MaterialTheme.colorScheme.surfaceContainer
+    return if (enabled) fill else fill.copy(alpha = DISABLED_ALPHA)
 }
 
 /** The text colour of a set cell: muted for a warm-up, and faded while disabled. */
@@ -1775,13 +1859,13 @@ private fun cellText(muted: Boolean, enabled: Boolean): Color {
  */
 @Composable
 private fun SetCell(
-    value: String, onChange: (String) -> Unit, modifier: Modifier, done: Boolean, muted: Boolean, enabled: Boolean,
+    value: String, onChange: (String) -> Unit, modifier: Modifier, muted: Boolean, enabled: Boolean,
     keyboardType: KeyboardType, imeAction: ImeAction = ImeAction.Done,
 ) {
     val palette = GainsColors.palette
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val fill by animateColorAsState(cellFill(done, enabled), Motion.standard(), label = "cell")
+    val fill by animateColorAsState(cellFill(enabled), Motion.standard(), label = "cell")
     val text by animateColorAsState(cellText(muted, enabled), Motion.standard(), label = "cell-text")
     val border by animateColorAsState(if (focused) palette.volt else Color.Transparent, Motion.press(), label = "cell-focus")
     BasicTextField(
@@ -1793,7 +1877,7 @@ private fun SetCell(
             Box(
                 Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(fill)
                     .border(1.5.dp, border, CellShape)
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 // The dash stands in for an empty cell until the caret takes its place.
@@ -1806,29 +1890,77 @@ private fun SetCell(
 
 /** The weight cell: the same box as a typed cell, but tapping it opens the weight chooser. Disabled, it is faded and inert. */
 @Composable
-private fun WeightCell(value: String, done: Boolean, muted: Boolean, enabled: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) =
-    ChosenCell(value, weightForSetText(setLabel, value.ifEmpty { null }), done, muted, enabled, modifier, onClick)
+private fun WeightCell(value: String, muted: Boolean, enabled: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) =
+    ChosenCell(value, weightForSetText(setLabel, value.ifEmpty { null }), muted, enabled, modifier, onClick)
 
 /** An isometric set's hold, "45 s" or "1:30": tapping it opens the minutes and seconds wheels rather than a keypad. */
 @Composable
-private fun HoldCell(seconds: String, done: Boolean, muted: Boolean, enabled: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) {
+private fun HoldCell(seconds: String, muted: Boolean, enabled: Boolean, modifier: Modifier, setLabel: String, onClick: () -> Unit) {
     val shown = seconds.toIntOrNull()?.takeIf { it > 0 }?.let { Format.seconds(it, unitLabels()) } ?: ""
-    ChosenCell(shown, holdForSetText(setLabel, shown.ifEmpty { null }), done, muted, enabled, modifier, onClick)
+    ChosenCell(shown, holdForSetText(setLabel, shown.ifEmpty { null }), muted, enabled, modifier, onClick)
 }
 
 /** A set cell whose value is chosen on wheels in a sheet: the same box as a typed cell, showing [value] or the dash. */
 @Composable
-private fun ChosenCell(value: String, description: String, done: Boolean, muted: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val fill by animateColorAsState(cellFill(done, enabled), Motion.standard(), label = "cell")
+private fun ChosenCell(value: String, description: String, muted: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val fill by animateColorAsState(cellFill(enabled), Motion.standard(), label = "cell")
     val text by animateColorAsState(cellText(muted, enabled), Motion.standard(), label = "cell-text")
     Box(
         modifier.height(CELL_HEIGHT).clip(CellShape).background(fill).clickable(enabled = enabled, onClick = onClick)
             .semantics { role = Role.Button; contentDescription = description }
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (value.isEmpty()) CellPlaceholder(enabled)
         else Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1, color = text)
+    }
+}
+
+/**
+ * The set's number at the start of its row, in a small box like a cell's; a trophy in a ring in its
+ * place once the ticked set beats a record. A tap opens what can be done to the set, which today is
+ * removing it.
+ */
+@Composable
+private fun SetBadge(label: String, warmup: Boolean, done: Boolean, record: Boolean, enabled: Boolean, onRemove: () -> Unit) {
+    val palette = GainsColors.palette
+    val reduce = LocalReduceMotion.current
+    var open by remember { mutableStateOf(false) }
+    val options = stringResource(Res.string.set_options, label)
+    val description = if (record) "${setRecordText(label)}. $options" else options
+    val labelColor by animateColorAsState(
+        when { done -> palette.volt; warmup -> MaterialTheme.colorScheme.onSurfaceVariant; else -> MaterialTheme.colorScheme.onSurface },
+        Motion.standard(), label = "set-label",
+    )
+    Box {
+        Box(
+            Modifier.size(LABEL_WIDTH, CELL_HEIGHT).clip(CellShape).clickable(enabled = enabled) { open = true }
+                .semantics { role = Role.Button; contentDescription = description },
+            contentAlignment = Alignment.Center,
+        ) {
+            AnimatedContent(record, transitionSpec = { popIn(reduce, from = 0.4f) togetherWith fadeOut(tween(Motion.PRESS)) }, label = "set-badge") { isRecord ->
+                if (isRecord) {
+                    Box(
+                        Modifier.size(LABEL_WIDTH).clip(CircleShape).background(palette.volt.copy(alpha = 0.14f)).border(1.5.dp, palette.volt, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { TrophyIcon(size = 18.dp) }
+                } else {
+                    Box(Modifier.size(LABEL_WIDTH).clip(CellShape).background(cellFill(enabled)), contentAlignment = Alignment.Center) {
+                        Text(
+                            label, style = if (warmup) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
+                            color = if (enabled) labelColor else disabledColor(), maxLines = 1, softWrap = false,
+                        )
+                    }
+                }
+            }
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = MaterialTheme.shapes.medium) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.remove_set, label), color = palette.coral) },
+                leadingIcon = { Icon(Icons.Default.Delete, null, tint = palette.coral, modifier = Modifier.size(18.dp)) },
+                onClick = { open = false; onRemove() },
+            )
+        }
     }
 }
 
@@ -1870,20 +2002,38 @@ private fun pastSessionText(past: PastSession): String {
 
 /**
  * What the same set was last session, read-only and muted so the typed cells stay the focus:
- * "60×5", or the dash when last time had no such set or the exercise is new.
+ * "60×5", or the dash when last time had no such set or the exercise is new. Once the set is
+ * ticked a dot beside it says how it went against that: green for more, yellow for the same, red
+ * for less.
  */
 @Composable
-private fun PreviousCell(label: String?, setLabel: String) {
-    val description = previousSetText(setLabel, label)
-    Box(
+private fun PreviousCell(label: String?, setLabel: String, trend: PreviousSets.Trend?) {
+    val palette = GainsColors.palette
+    val reduce = LocalReduceMotion.current
+    val trendText = when (trend) {
+        PreviousSets.Trend.UP -> stringResource(Res.string.vs_last_up)
+        PreviousSets.Trend.SAME -> stringResource(Res.string.vs_last_same)
+        PreviousSets.Trend.DOWN -> stringResource(Res.string.vs_last_down)
+        null -> null
+    }
+    val description = listOfNotNull(previousSetText(setLabel, label), trendText).joinToString(", ")
+    Row(
         Modifier.width(PREVIOUS_WIDTH).height(CELL_HEIGHT).semantics { contentDescription = description },
-        contentAlignment = Alignment.Center,
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
         if (label == null) CellPlaceholder()
         else Text(
-            label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
+        AnimatedVisibility(trend != null, enter = popIn(reduce, from = 0.2f), exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.PRESS))) {
+            val color = when (trend) {
+                PreviousSets.Trend.UP -> palette.progress
+                PreviousSets.Trend.SAME -> palette.stall
+                else -> palette.regression
+            }
+            Box(Modifier.padding(start = 4.dp).size(TREND_DOT).clip(CircleShape).background(color))
+        }
     }
 }
 
@@ -1893,20 +2043,24 @@ private fun CellPlaceholder(enabled: Boolean = true) {
 }
 
 /**
- * The tick at the end of a set row, Liftoff-style: an outlined circle until the set is done, then a
- * filled one with a check. Tapping toggles it either way; it is dimmed while the row is empty or the
- * workout has not started.
+ * The tick at the end of a set row: a filled circle with a faint check that says "tap me" until the
+ * set is done, then the accent with a ring of its tint around it. Tapping toggles it either way; it
+ * is dimmed while the row is empty or the workout has not started.
  */
 @Composable
 private fun DoneCheck(done: Boolean, enabled: Boolean, label: String, onClick: () -> Unit) {
     val palette = GainsColors.palette
-    val outline = MaterialTheme.colorScheme.outline
     val description = setDoneText(label, done)
     val reduce = LocalReduceMotion.current
     // The most repeated tap of a workout, so it answers at once: the circle fills and gives a small
-    // pop, the check springs in. Unticking just eases back.
-    val fill by animateColorAsState(if (done) palette.volt else Color.Transparent, Motion.press(), label = "check")
-    val ring by animateColorAsState(if (done) palette.volt else outline.copy(alpha = if (enabled) 1f else DISABLED_ALPHA), Motion.press(), label = "check-ring")
+    // pop, the ring grows in. Unticking just eases back.
+    val idle = cellFill(enabled)
+    val fill by animateColorAsState(if (done) palette.volt else idle, Motion.press(), label = "check")
+    val ring by animateColorAsState(if (done) palette.volt.copy(alpha = 0.3f) else Color.Transparent, Motion.press(), label = "check-ring")
+    val tick by animateColorAsState(
+        if (done) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.6f else 0.6f * DISABLED_ALPHA),
+        Motion.press(), label = "check-tick",
+    )
     val scale = remember { Animatable(1f) }
     val popSpec = Motion.pop<Float>()
     var wasDone by remember { mutableStateOf(done) }
@@ -1920,28 +2074,12 @@ private fun DoneCheck(done: Boolean, enabled: Boolean, label: String, onClick: (
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.size(CHECK_SIZE).scale(scale.value).clip(CircleShape)
-                .background(fill)
-                .border(1.5.dp, ring, CircleShape),
+            Modifier.size(CHECK_SIZE + CHECK_RING * 2).scale(scale.value).clip(CircleShape).background(ring).padding(CHECK_RING)
+                .clip(CircleShape).background(fill),
             contentAlignment = Alignment.Center,
         ) {
-            AnimatedVisibility(done, enter = popIn(reduce, from = 0.4f), exit = if (reduce) ExitTransition.None else fadeOut(tween(Motion.PRESS))) {
-                Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
-            }
+            Icon(Icons.Default.Check, null, tint = tick, modifier = Modifier.size(20.dp))
         }
-    }
-}
-
-/** A quiet × that removes the row, the same height as the check so the two sit on one line; faded and inert while disabled. */
-@Composable
-private fun RemoveSetButton(label: String, enabled: Boolean, onClick: () -> Unit) {
-    val description = stringResource(Res.string.remove_set, label)
-    Box(
-        Modifier.size(REMOVE_HIT, CELL_HEIGHT).clip(CellShape).clickable(enabled = enabled, onClick = onClick)
-            .semantics { contentDescription = description },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.7f else DISABLED_ALPHA), modifier = Modifier.size(16.dp))
     }
 }
 
@@ -1961,25 +2099,8 @@ private fun CardIconButton(icon: ImageVector, description: String, tint: Color, 
             Modifier.size(CHECK_HIT).clip(CellShape).clickable(enabled = enabled, onClick = onClick)
                 .semantics { role = Role.Button; contentDescription = description },
             contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, tint = if (enabled) tint else disabledColor(), modifier = Modifier.size(20.dp)) }
+        ) { Icon(icon, null, tint = if (enabled) tint else disabledColor(), modifier = Modifier.size(22.dp)) }
     }
-}
-
-/**
- * Add set, as a + across the foot of the table: a row-shaped button in the accent where the next
- * set will go, so it reads as "one more row" without a word.
- */
-@Composable
-private fun AddSetBar(enabled: Boolean, onClick: () -> Unit) {
-    val palette = GainsColors.palette
-    val description = stringResource(Res.string.add_set)
-    Box(
-        Modifier.fillMaxWidth().padding(top = 4.dp).height(ADD_SET_HEIGHT).clip(CellShape)
-            .background(if (enabled) palette.volt.copy(alpha = 0.12f) else cellFill(done = false, enabled = false))
-            .clickable(enabled = enabled, onClick = onClick)
-            .semantics { role = Role.Button; contentDescription = description },
-        contentAlignment = Alignment.Center,
-    ) { Icon(Icons.Default.Add, null, tint = if (enabled) palette.volt else disabledColor(), modifier = Modifier.size(22.dp)) }
 }
 
 @Composable

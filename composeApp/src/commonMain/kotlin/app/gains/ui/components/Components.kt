@@ -155,14 +155,23 @@ internal fun SectionHeader(text: String, modifier: Modifier = Modifier, action: 
 
 /** Small rounded label: kind tags, statuses. */
 @Composable
-internal fun Pill(text: String, color: Color, modifier: Modifier = Modifier, filled: Boolean = false, onClick: (() -> Unit)? = null) {
+internal fun Pill(
+    text: String, color: Color, modifier: Modifier = Modifier, filled: Boolean = false,
+    /** A small mark before the label (a tick, a trophy), drawn in the label's colour. */
+    icon: (@Composable (tint: Color) -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
+) {
     // A pill that turns on (a chosen chip, "Active") eases into it rather than blinking.
     val background by animateColorAsState(if (filled) color else color.copy(alpha = 0.14f), Motion.standard(), label = "pill")
     val content by animateColorAsState(if (filled) MaterialTheme.colorScheme.onPrimary else color, Motion.standard(), label = "pill-text")
     // A pill that can be tapped takes a 48 dp target around itself, so the small label is still easy to hit.
     val target = if (onClick != null) Modifier.overhangingTouchTarget().clickable(onClick = onClick) else Modifier
     Box(modifier.then(target), contentAlignment = Alignment.Center) {
-        Box(Modifier.clip(CircleShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp)) {
+        Row(Modifier.clip(CircleShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                icon(content)
+                Spacer(Modifier.width(4.dp))
+            }
             Text(text, style = MaterialTheme.typography.labelSmall, color = content, maxLines = 1, softWrap = false)
         }
     }
@@ -328,10 +337,11 @@ internal fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier
 }
 
 @Composable
-internal fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
+internal fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, compact: Boolean = false, enabled: Boolean = true) {
     Button(
         onClick = onClick,
         modifier = modifier.height(if (compact) CompactButtonHeight else ButtonHeight),
+        enabled = enabled,
         shape = if (compact) MaterialTheme.shapes.small else MaterialTheme.shapes.medium,
         contentPadding = ButtonPadding(compact),
         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest, contentColor = MaterialTheme.colorScheme.onSurface),
