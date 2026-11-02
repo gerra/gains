@@ -26,7 +26,7 @@ androidx-credentials = "1.6.0"
 googleid = "1.2.1"
 # Sign in with Apple on Android (item 11): the Custom Tab the server's web flow opens in.
 androidx-browser = "1.10.0"
-ktor = "3.6.0"
+ktor = "3.6.1"
 kotlinx-serialization = "1.11.0"
 java-jwt = "4.6.1"
 jwks-rsa = "0.24.1"
