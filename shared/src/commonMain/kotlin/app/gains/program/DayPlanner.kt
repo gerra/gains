@@ -53,19 +53,33 @@ data class PlanOptions(val barKg: Double = Gzclp.DEFAULT_BAR_KG, val warmups: Bo
  * has its own history that history wins outright.
  */
 object DayPlanner {
-    fun plan(program: Program, day: ProgramDay, snapshot: TrainingSnapshot, unit: WeightUnit, options: PlanOptions = PlanOptions()): DayPlan {
+    /**
+     * [comebacks] are the lifter's answers after breaks ([Comeback.decode]) and [easing] the one in
+     * force today ([Comeback.active]), if any: the loaded lifts then start lighter and climb back (see
+     * [suggestion]).
+     */
+    fun plan(
+        program: Program, day: ProgramDay, snapshot: TrainingSnapshot, unit: WeightUnit, options: PlanOptions = PlanOptions(),
+        easing: Comeback.Answer? = null, comebacks: List<Comeback.Answer> = listOfNotNull(easing),
+    ): DayPlan {
         val planned = day.slots.mapNotNull { slot ->
             val exercise = snapshot.exercisesById[slot.exerciseId] ?: return@mapNotNull null
             val ownHistory = recentSessions(snapshot, slot.exerciseId, Int.MAX_VALUE) { onSameScheme(program, slot, it) }
             val own = ownHistory.firstOrNull()
             var source: Progression.Source? = null
             val s = if (own != null) {
-                val earlier = ownHistory.drop(1).asReversed().map { it.entry(slot.exerciseId) }
-                Progression.suggest(slot, exercise, own.entry(slot.exerciseId), unit, earlier)
+                suggestion(slot, exercise, ownHistory, unit, easing.takeIf { exercise.modality == Modality.WEIGHTED }, comebacks)
             } else {
                 val recent = recentSessions(snapshot, slot.exerciseId, Gzclp.RECENT_SESSIONS)
                 source = recent.firstOrNull()?.let { if (it.program == null) Progression.Source.FREE_SESSION else Progression.Source.DIFFERENT_SCHEME }
-                Progression.start(slot, exercise, recent.map { it.entry(slot.exerciseId) }, unit, source ?: Progression.Source.FREE_SESSION)
+                val start = Progression.start(slot, exercise, recent.map { it.entry(slot.exerciseId) }, unit, source ?: Progression.Source.FREE_SESSION)
+                // A slot's first session, borrowing a weight from before the break: that weight eases too.
+                val weight = start.weightKg
+                val last = recent.firstOrNull()
+                if (easing != null && exercise.modality == Modality.WEIGHTED && weight != null && last != null && last.timestamp <= easing.after) {
+                    val light = Comeback.weight(weight, Comeback.startFraction(easing.awayDays), Gzclp.increment(slot, unit), unit)
+                    start.copy(weightKg = light, hint = Progression.Hint.EaseBack(Progression.lastTimeOf(last.entry(slot.exerciseId), exercise), light, weight, easing.awayDays))
+                } else start
             }
             val tier = Gzclp.tierOf(slot)
             val isometric = exercise.modality == Modality.ISOMETRIC
@@ -87,6 +101,44 @@ object DayPlanner {
             )
         }
         return DayPlan(day, planned)
+    }
+
+    /**
+     * The suggestion for a slot with history of its own, [ownHistory] (newest first), eased after a
+     * break when [easing] is given.
+     *
+     * The weight to come back to is what the rule would have asked for the first session after the
+     * break, capped at what was lifted last before it: back to 60 kg, not to the 62.5 kg the rule
+     * would have tried next. Its sets and reps (a stage ladder's stage) stay as the rule had them. The
+     * first [Comeback.RAMP_SESSIONS] sessions back climb to that weight; then the rule reads the last
+     * session as usual.
+     *
+     * The lighter sessions after every break in [comebacks], other than the very last session, are
+     * left out of what the rule reads: they were light on purpose, so a missed rep at 90% does not
+     * move a stage ladder on a stage, now or in any later replay.
+     */
+    private fun suggestion(
+        slot: ExerciseSlot, exercise: Exercise, ownHistory: List<Session>, unit: WeightUnit,
+        easing: Comeback.Answer?, comebacks: List<Comeback.Answer>,
+    ): Progression.Suggestion {
+        fun suggest(history: List<Session>) =
+            Progression.suggest(slot, exercise, history.first().entry(slot.exerciseId), unit, history.drop(1).asReversed().map { it.entry(slot.exerciseId) })
+        val light = comebacks.flatMap { Comeback.lightSessions(ownHistory, slot.exerciseId, it) }.toSet() - ownHistory.first().id
+        val history = ownHistory.filter { it.id !in light }
+        if (easing == null) return suggest(history)
+        val pre = history.filter { it.timestamp <= easing.after }
+        if (pre.isEmpty()) return suggest(history)
+        val before = suggest(pre)
+        val referenceKg = listOfNotNull(Comeback.topKg(pre.first().entry(slot.exerciseId)), before.weightKg).minOrNull()
+            ?.takeIf { it > 0.0 } ?: return suggest(history)
+        // Counted from the whole history: a light session is still a session back.
+        val back = ownHistory.filter { it.timestamp > easing.after }
+        val reached = back.any { (Comeback.topKg(it.entry(slot.exerciseId)) ?: 0.0) >= referenceKg }
+        val fraction = Comeback.fraction(easing.awayDays, back.size)
+        if (fraction == null || reached) return suggest(history)
+        val weight = Comeback.weight(referenceKg, fraction, Gzclp.increment(slot, unit), unit)
+        val last = Progression.lastTimeOf(ownHistory.first().entry(slot.exerciseId), exercise)
+        return before.copy(weightKg = weight, hint = Progression.Hint.EaseBack(last, weight, referenceKg, easing.awayDays))
     }
 
     /** Most recent entry for the exercise from any session. */

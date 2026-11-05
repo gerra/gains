@@ -47,6 +47,9 @@ import app.gains.data.BodyweightRepository
 import app.gains.data.DatabaseDriverFactory
 import app.gains.data.DesktopDriverFactory
 import app.gains.data.ProgramRepository
+import app.gains.data.SettingsRepository
+import app.gains.data.ThemeMode
+import app.gains.data.AppLanguage
 import app.gains.di.initKoin
 import app.gains.domain.BodyweightEntry
 import app.gains.domain.Experience
@@ -63,7 +66,9 @@ import app.gains.ui.charts.BodyMapModel
 import app.gains.ui.components.GainsLogo
 import app.gains.ui.components.HoldPickerSheet
 import app.gains.ui.components.StreakCard
+import app.gains.ui.screens.ComebackCard
 import app.gains.ui.screens.ExercisePickerSheet
+import app.gains.program.Comeback
 import app.gains.ui.theme.GainsTheme
 import app.gains.ui.inject
 import kotlinx.coroutines.runBlocking
@@ -762,16 +767,120 @@ class ScreenshotTest {
     }
 
     /**
+     * Back after 16 days off: GZCLP's next day opens with the offer to ease back in, then with the
+     * lighter plan once it is taken. Dark and light in English, and dark in Russian, each from a fresh
+     * database: the main walk above has trained yesterday, so it never sees a break.
+     */
+    @Test
+    fun captureEasingBackIn() {
+        class Variant(val offer: String, val plan: String, val light: Boolean, val language: String?)
+        val variants = listOf(
+            Variant("22-ease-back", "22b-ease-back-plan", light = false, language = null),
+            Variant("22c-ease-back-light", "22d-ease-back-plan-light", light = true, language = null),
+            Variant("22e-ease-back-ru", "22f-ease-back-plan-ru", light = false, language = "ru"),
+        )
+        for (variant in variants) {
+            val light = variant.light
+            val language = variant.language
+            applyAppLanguage(language)
+            try {
+                runDesktopComposeUiTest(width = 960, height = 1720) {
+                    val dbFile = File.createTempFile("gains-comeback", ".db").apply { delete(); deleteOnExit() }
+                    stopKoin()
+                    val reporter = RecordingReporter()
+                    initKoin(module {
+                        single<DatabaseDriverFactory> { DesktopDriverFactory(dbFile) }
+                        single<ErrorReporter> { reporter }
+                    })
+                    runBlocking {
+                        inject<AccountRepository>().continueAsGuest()
+                        val programs = inject<ProgramRepository>()
+                        programs.markOnboardingDone()
+                        programs.setProfile(GoalProfile(Goal.GET_STRONGER, Experience.BEGINNER, 3))
+                        programs.setActive("gzclp")
+                        if (light) inject<SettingsRepository>().setThemeMode(ThemeMode.LIGHT)
+                        // The app applies the stored language as it starts, over the one set for the test.
+                        if (language == "ru") inject<SettingsRepository>().setLanguage(AppLanguage.RUSSIAN)
+                        val service = inject<ImportService>()
+                        service.commit(service.preview(listOf(CsvFile("liftoff-export.csv", endingDaysAgo(sampleCsv.readText(), 16)))), emptySet())
+                    }
+                    mainClock.autoAdvance = false
+                    setContent {
+                        CompositionLocalProvider(LocalDensity provides Density(2f)) {
+                            App(filePicker = CsvFilePicker { it(emptyList()) }, photoPicker = PhotoPicker { it(standInPhoto()) })
+                        }
+                    }
+                    fun settle(millis: Long = 1_200) = repeat((millis / 16).toInt()) { mainClock.advanceTimeByFrame() }
+                    fun await(matcher: SemanticsMatcher) {
+                        val until = System.currentTimeMillis() + 60_000
+                        while (onAllNodes(matcher).fetchSemanticsNodes().isEmpty()) {
+                            check(System.currentTimeMillis() < until) { "Timed out waiting for ${matcher.description}" }
+                            mainClock.advanceTimeByFrame()
+                        }
+                    }
+                    fun shot(file: String) {
+                        settle()
+                        ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(outDir, "$file.png"))
+                        println("screenshot: $file")
+                    }
+                    val ru = language == "ru"
+                    val start = hasText(if (ru) "Начать: A1" else "Start A1") and hasClickAction()
+                    await(start)
+                    settle()
+                    onAllNodes(start).onFirst().performClick()
+                    await(hasText(if (ru) "16 дней без тренировок" else "16 days since your last workout"))
+                    shot(variant.offer)
+                    onNode(hasText(if (ru) "Вернуться плавно" else "Ease back in") and hasClickAction()).performClick()
+                    await(hasText(if (ru) "после перерыва" else "back after 16 days", substring = true))
+                    shot(variant.plan)
+                    reporter.assertNone()
+                }
+            } finally {
+                applyAppLanguage(null)
+            }
+        }
+    }
+
+    /** The offer on its own in Russian at 390 dp, the narrowest phone the words are checked at: its two answers wrap. */
+    @Test
+    fun captureTheComebackCardNarrow() {
+        applyAppLanguage("ru")
+        try {
+            runDesktopComposeUiTest(width = 780, height = 640) {
+                mainClock.autoAdvance = false
+                setContent {
+                    CompositionLocalProvider(LocalDensity provides Density(2f)) {
+                        GainsTheme(darkTheme = true) {
+                            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                                Column(Modifier.padding(20.dp)) {
+                                    ComebackCard(Comeback.Gap(kotlinx.datetime.LocalDateTime(2026, 10, 20, 18, 0), 16), onEase = {}, onCarryOn = {})
+                                }
+                            }
+                        }
+                    }
+                }
+                repeat(60) { mainClock.advanceTimeByFrame() }
+                ImageIO.write(onAllNodes(isRoot()).onFirst().captureToImage().toAwtImage(), "png", File(outDir, "22g-ease-back-ru-390.png"))
+            }
+        } finally {
+            applyAppLanguage(null)
+        }
+    }
+
+    private fun endingYesterday(csv: String): String = endingDaysAgo(csv, 1)
+
+    /**
      * The sample export ends whenever it was generated, which after a few weeks is a lifter who has
      * stopped training: every picture would show an empty week and a streak of zero. Each row is
-     * moved forward by the same number of days so the history ends yesterday, which leaves the shape
-     * of the eight months exactly as it was and makes the screenshots look like a log in use.
+     * moved forward by the same number of days so the history ends [days] ago (yesterday for the main
+     * walk), which leaves the shape of the eight months exactly as it was and makes the screenshots
+     * look like a log in use.
      */
-    private fun endingYesterday(csv: String): String {
+    private fun endingDaysAgo(csv: String, days: Int): String {
         val rows = csv.lines()
         fun dateOf(row: String) = row.take(10).takeIf { it.length == 10 && it[4] == '-' }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
         val last = rows.drop(1).mapNotNull(::dateOf).maxOrNull() ?: return csv
-        val shift = last.daysUntil(Dates.today().minusDays(1))
+        val shift = last.daysUntil(Dates.today().minusDays(days))
         if (shift == 0) return csv
         return rows.joinToString("\n") { row ->
             val date = dateOf(row) ?: return@joinToString row

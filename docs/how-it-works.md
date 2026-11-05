@@ -64,7 +64,7 @@ with their thresholds gathered in `InsightThresholds`. The defaults:
 | Insight | Rule |
 |---------|------|
 | **Progress** | Best performance in the last 30 days beats the best of the 12 weeks before that window by at least 2.5%. |
-| **Regression** | Best performance in the last 30 days is at least 5% below the best of the 12 weeks before that window. Older bests are ignored, so a months-old record does not flag a lift forever. Weighted lifts compare Epley e1RM, bodyweight lifts reps, holds seconds, cardio distance. |
+| **Regression** | Best performance in the last 30 days is at least 5% below the best of the 12 weeks before that window. Older bests are ignored, so a months-old record does not flag a lift forever. Weighted lifts compare Epley e1RM, bodyweight lifts reps, holds seconds, cardio distance. Not reported for a lift trained only since the lifter chose to ease back in after a break ([`Comeback.kt`](../shared/src/commonMain/kotlin/app/gains/program/Comeback.kt)), while that lasts (six weeks): it is lighter on purpose. |
 | **Stall** | Top working weight unchanged for 6+ weeks with at least 4 sessions in that time, and the lift was trained in the last 4 weeks. Not reported when a regression already is. |
 | **Neglected lift** | Trained 4+ times in a 12-week span, then absent for 4+ weeks. |
 | **Neglected muscle** | Averaged 8+ working sets a week over the previous 8 weeks, now under 4 a week over the last 2. |

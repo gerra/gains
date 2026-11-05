@@ -54,6 +54,15 @@ The long version of the list in the [README](../README.md).
   ~65 kg → T2 start 40 kg`). Once a tier has its own sessions, its ladder takes over.
   Whatever the workout, every set row carries a `PREV` column with the same-numbered set of the
   exercise's last session (`60×5`), so each set can be judged against last time while it is typed.
+- **Easing back in after a break.** Open a new workout ten or more days after the last one (off
+  sick, on holiday) and the editor asks once: **Ease back in**, or **Pick up where I left off**.
+  Easing starts each loaded lift lighter (90% after up to three weeks away, 85% up to five, 80%
+  beyond, rounded down to the plates) and climbs back over its next three sessions to the weight
+  lifted before the break: `Last: 60 kg × 5,5,5 → back after 16 days: 52.5 kg today, building to
+  60 kg`. Then the program's rule takes over. The lighter sessions never count as missed reps, so a
+  GZCLP lift keeps its stage; their sets get no red "less than last time" dot, and "What's moving"
+  does not flag them as a regression. A lift added to a free workout starts from its last sets
+  before the break, lighter. The answer syncs, so every device plans the same workout.
 - **Warm-ups and rest.** Tiered days pre-fill warm-up sets (T1: empty bar, 40/60/80%; T2: bar
   and 60%; T3: one light set on cables and machines), labelled `W1, W2…` so the work sets stay
   1–5. They are stored as warm-ups and never count towards volume, records or progression, can
@@ -243,6 +252,10 @@ tab, so the pictures cannot drift from the code.
     <td align="center"><img src="screenshots/35b-day-fitted-extras-en.png" alt="A workout with the extras for the focus areas" width="230"><br><sub>For your glutes</sub></td>
     <td align="center"><img src="screenshots/37-gzclp-knees-en.png" alt="A squat swapped for a box squat for the knees" width="230"><br><sub>A gentler swap, and why</sub></td>
     <td align="center"><img src="screenshots/36b-focus-and-health-guides-en.png" alt="Guidance for what to be careful with" width="230"><br><sub>How to train with it</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/22-ease-back.png" alt="After 16 days off, the offer to ease back in" width="230"><br><sub>Back after a break</sub></td>
+    <td align="center"><img src="screenshots/22b-ease-back-plan.png" alt="The plan, lighter, building back to the weight before the break" width="230"><br><sub>Easing back in</sub></td>
   </tr>
 </table>
 

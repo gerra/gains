@@ -98,6 +98,9 @@ internal fun hintText(hint: Progression.Hint, unit: WeightUnit): String {
             val at = hint.weightKg?.let { stringResource(Res.string.at_weight, w(it)) } ?: ""
             stringResource(Res.string.hint_start, last, hint.source.label(), hint.target.label, at)
         }
+        is Progression.Hint.EaseBack ->
+            if (hint.weightKg >= hint.toKg) stringResource(Res.string.hint_ease_back_there, last, daysText(hint.awayDays), w(hint.weightKg))
+            else stringResource(Res.string.hint_ease_back, last, daysText(hint.awayDays), w(hint.weightKg), w(hint.toKg))
     }
 }
 

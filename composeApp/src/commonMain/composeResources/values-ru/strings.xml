@@ -518,6 +518,12 @@
     <string name="hint_estimate">%1$s → расч. 1ПМ ~%2$s → старт %3$s %4$s%5$s</string>
     <string name="cap_kept_under"> (ниже %1$s)</string>
     <string name="hint_start">%1$s (%2$s) → начни с %3$s%4$s</string>
+    <string name="hint_ease_back">%1$s → после перерыва (%2$s): сегодня %3$s, дальше до %4$s</string>
+    <string name="hint_ease_back_there">%1$s → после перерыва (%2$s): %3$s, как было до него</string>
+    <string name="comeback_title">%1$s без тренировок</string>
+    <string name="comeback_body">Вернуться плавно: каждое упражнение начнётся с веса полегче и за три тренировки вернётся к прежнему.</string>
+    <string name="ease_back_in">Вернуться плавно</string>
+    <string name="pick_up_where_left_off">Продолжить как было</string>
     <string name="at_weight"> на %1$s</string>
     <string name="describe_linear">Добавляй %1$s каждую тренировку, где выполнены все подходы. Не вышли повторы — вес повторяется.</string>
     <string name="describe_double">Повторы растут с %1$d до %2$d на одном весе. Когда все подходы доходят до %2$d, %3$s.</string>

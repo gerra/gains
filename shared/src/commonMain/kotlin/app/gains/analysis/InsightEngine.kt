@@ -106,7 +106,12 @@ data class ConsistencyStats(
 
 /** Pure functions: sessions + exercises in, ordered insights out. No I/O, no clocks, no words: the UI words each [InsightDetail]. */
 class InsightEngine(private val thresholds: InsightThresholds = InsightThresholds()) {
-    fun generate(sessions: List<Session>, exercises: List<Exercise>, today: LocalDate): List<Insight> {
+    /**
+     * [easingSince] is the day the lifter chose to ease back in after a break, while that is in force
+     * (see [app.gains.program.Comeback]): a lift trained only since then is lighter on purpose, so it
+     * is not flagged as a regression.
+     */
+    fun generate(sessions: List<Session>, exercises: List<Exercise>, today: LocalDate, easingSince: LocalDate? = null): List<Insight> {
         if (sessions.isEmpty()) return emptyList()
         val byId = exercises.associateBy { it.id }
         val sorted = sessions.sortedBy { it.timestamp }
@@ -117,6 +122,9 @@ class InsightEngine(private val thresholds: InsightThresholds = InsightThreshold
         val histories = trained.associateWith { ExerciseAnalysis.history(sorted, it) }
 
         for ((exercise, history) in histories) {
+            val easing = easingSince != null &&
+                history.filter { it.best != null && it.date >= today.minusDays(thresholds.regressionWindowDays) }.all { it.date >= easingSince }
+            if (easing) continue
             regression(exercise, history, today)?.let { insights.add(it); regressed.add(exercise.id) }
         }
         for ((exercise, history) in histories) {
