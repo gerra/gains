@@ -518,6 +518,12 @@
     <string name="hint_estimate">%1$s → est. 1RM ~%2$s → %3$s start %4$s%5$s</string>
     <string name="cap_kept_under"> (kept under %1$s)</string>
     <string name="hint_start">%1$s (%2$s) → start %3$s%4$s</string>
+    <string name="hint_ease_back">%1$s → back after %2$s: %3$s today, building to %4$s</string>
+    <string name="hint_ease_back_there">%1$s → back after %2$s: %3$s, where you left off</string>
+    <string name="comeback_title">%1$s since your last workout</string>
+    <string name="comeback_body">Ease back in: each lift starts lighter and climbs back to where you left off over its next three sessions.</string>
+    <string name="ease_back_in">Ease back in</string>
+    <string name="pick_up_where_left_off">Pick up where I left off</string>
     <string name="at_weight"> at %1$s</string>
     <string name="describe_linear">Add %1$s every session you hit every set. Miss the reps and the weight repeats.</string>
     <string name="describe_double">Reps climb from %1$d to %2$d at one weight. Once every set reaches %2$d, %3$s.</string>

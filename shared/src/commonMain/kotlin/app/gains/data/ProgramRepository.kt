@@ -13,6 +13,7 @@ import app.gains.domain.Program
 import app.gains.domain.ProgramDay
 import app.gains.domain.ProgramState
 import app.gains.domain.RepTarget
+import app.gains.program.Comeback
 import app.gains.program.Tailor
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -94,6 +95,13 @@ class ProgramRepository(
     /** When each program was last started over, by id. One never started over counts every session logged from it. */
     fun observeStarts(): Flow<Map<String, LocalDateTime>> = settings.observe(KEY_PROGRAM_STARTS).map { decodeStarts(it) }
 
+    /** The answers to "ease back in?" after each break, oldest first ([Comeback]). Synced, so every device plans the same workout. */
+    fun observeComebacks(): Flow<List<Comeback.Answer>> = settings.observe(KEY_COMEBACKS).map { Comeback.decode(it) }
+
+    /** Records the answer about one break, in place of any earlier answer about it. */
+    suspend fun answerComeback(answer: Comeback.Answer) =
+        settings.set(KEY_COMEBACKS, Comeback.encode(Comeback.answering(observeComebacks().first(), answer)))
+
     fun observeProfile(): Flow<GoalProfile?> = settings.observe(KEY_GOAL_PROFILE).map { GoalProfile.decode(it) }
 
     /** True once the user has finished or skipped onboarding. Emits false while the key is absent. */
@@ -161,6 +169,7 @@ class ProgramRepository(
         const val KEY_ONBOARDING = "onboarding_done"
         const val KEY_PROGRAM_STARTS = "program_starts"
         const val KEY_FOCUS = "focus_areas"
+        const val KEY_COMEBACKS = "comebacks"
         /** Not in [app.gains.sync.SyncedSettings]: health stays on the device. */
         const val KEY_CAUTIONS = "cautions"
 

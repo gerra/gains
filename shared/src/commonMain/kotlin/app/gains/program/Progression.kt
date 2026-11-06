@@ -41,6 +41,11 @@ object Progression {
         data class Estimate(override val last: LastTime, val e1rmKg: Double, val addedLoad: Boolean, val tier: Gzclp.Tier, val startKg: Double?, val cappedBelowKg: Double?) : Hint
         /** A slot's first session outside a tier: start [target] at [weightKg], borrowed from [source]. */
         data class Start(override val last: LastTime, val source: Source, val target: SetsReps, val weightKg: Double?) : Hint
+        /**
+         * Easing back in after a break of [awayDays] (see [Comeback]): [weightKg] today, building back to
+         * [toKg], the weight from before the break. The two are equal on the last session of the ramp.
+         */
+        data class EaseBack(override val last: LastTime, val weightKg: Double, val toKg: Double, val awayDays: Int) : Hint
     }
 
     data class Suggestion(
@@ -176,6 +181,12 @@ object Progression {
 
         val weight = lastWeight.takeIf { loaded }
         return Suggestion(weight, slot.sets, slot.reps.prefillReps, Hint.Start(lastTime, source, slot.target, weight), slot.target)
+    }
+
+    /** [entry] as a hint opens, "Last: 60 kg × 5,5,5", read the way [suggest] reads it. */
+    internal fun lastTimeOf(entry: ExerciseEntry, exercise: Exercise): LastTime {
+        val sets = entry.workingSets.ifEmpty { entry.sets }
+        return lastTime(exercise.modality == Modality.WEIGHTED, sets.mapNotNull { it.weightKg }.maxOrNull(), sets.map { it.reps ?: it.seconds ?: 0 })
     }
 
     /** "60 kg × 5,5,5" for a loaded lift, "+10 kg × 8,8,8" for a bodyweight lift with added load, "8,8,8" otherwise. */

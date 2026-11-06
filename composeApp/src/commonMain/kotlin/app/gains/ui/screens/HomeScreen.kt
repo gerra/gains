@@ -1,5 +1,6 @@
 package app.gains.ui.screens
 
+import app.gains.program.Comeback
 import androidx.compose.animation.AnimatedContent
 import app.gains.ui.components.RollingText
 import app.gains.ui.theme.LocalReduceMotion
@@ -129,11 +130,11 @@ internal class HomeModel(
         settings.observeUnit(),
         programs.observeState(),
         sessions.observeProgramLinks(),
-        combine(settings.observeStreakReminder(), settings.observeTrophies()) { reminder, trophies -> reminder to trophies },
-    ) { snapshot, unit, programState, links, (reminder, trophies) ->
-        Inputs(snapshot, unit, programState, links, reminder, trophies)
+        combine(settings.observeStreakReminder(), settings.observeTrophies(), programs.observeComebacks()) { reminder, trophies, comebacks -> Triple(reminder, trophies, comebacks) },
+    ) { snapshot, unit, programState, links, (reminder, trophies, comebacks) ->
+        Inputs(snapshot, unit, programState, links, reminder, trophies, comebacks)
     }
-        .mapLatest { (snapshot, unit, programState, links, reminder, trophies) ->
+        .mapLatest { (snapshot, unit, programState, links, reminder, trophies, comebacks) ->
             withContext(Dispatchers.Default) {
                 val today = Dates.today()
                 val weekStart = Dates.weekStart(today)
@@ -155,7 +156,11 @@ internal class HomeModel(
                     lastSessionId = snapshot.sessions.maxByOrNull { it.timestamp }?.id,
                     streak = StreakEngine.compute(snapshot.sessions, today, programState.weeklyGoal),
                     reminderAnswered = reminder != null,
-                    insights = GoalTuning.rank(InsightEngine(GoalTuning.thresholds(goal)).generate(snapshot.sessions, snapshot.exercises, today), goal),
+                    // Lifts easing back in after a break are lighter on purpose, not slipping.
+                    insights = GoalTuning.rank(
+                        InsightEngine(GoalTuning.thresholds(goal)).generate(snapshot.sessions, snapshot.exercises, today, easingSince = Comeback.active(comebacks, today)?.on),
+                        goal,
+                    ),
                     unit = unit,
                     profile = programState.profile,
                     activeProgram = active,
@@ -179,6 +184,7 @@ internal class HomeModel(
         val links: List<app.gains.domain.ProgramLink>,
         val reminder: Boolean?,
         val trophies: Boolean,
+        val comebacks: List<Comeback.Answer>,
     )
 }
 

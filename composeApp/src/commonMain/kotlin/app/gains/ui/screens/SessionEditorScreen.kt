@@ -129,6 +129,7 @@ import app.gains.domain.SetEntry
 import app.gains.domain.SetsReps
 import app.gains.domain.SlotReason
 import app.gains.domain.WeightUnit
+import app.gains.program.Comeback
 import app.gains.program.DayPlanner
 import app.gains.program.Gzclp
 import app.gains.program.PlanOptions
@@ -331,6 +332,8 @@ internal data class EditorState(
     val longSessionMinutes: Int? = null,
     /** Where this workout falls in its program's rotation, as Home words it ("Week 2 of 4 · Cycle 1"); null outside a longer rotation. */
     val programPosition: Rotation.Position? = null,
+    /** A break since the last workout, not yet answered: the editor offers to ease back in (see [Comeback]). */
+    val comeback: Comeback.Gap? = null,
 ) {
     val programDayOption: ProgramDayOption? get() = programDay?.let { ref -> programDays.firstOrNull { it.ref == ref } }
 
@@ -427,6 +430,9 @@ internal class SessionEditorModel(
         val links: List<ProgramLink> = emptyList(),
         /** When each program was last started over, by id; see [Rotation.run]. */
         val starts: Map<String, LocalDateTime> = emptyMap(),
+        /** The answers after each break, and the one easing lifts today: set again when the lifter answers. */
+        var comebacks: List<Comeback.Answer> = emptyList(),
+        var easing: Comeback.Answer? = null,
     ) {
         fun dayName(day: ProgramDay): String = dayNames[day.id] ?: day.name
 
@@ -441,6 +447,17 @@ internal class SessionEditorModel(
             val before = Rotation.run(program, links, starts[program.id])
                 .filter { editing == null || (it.sessionId != editing.id && it.timestamp < editing.timestamp) }
             return Rotation.position(program, before)
+        }
+
+        /**
+         * The sets a lift added outside the program's plan starts with while easing back in: last time's
+         * sets before the break, lighter, with the hint that says so. Null when it does not ease.
+         */
+        fun freeEase(exercise: Exercise): Pair<List<SetDraft>, Progression.Hint>? {
+            val easing = easing ?: return null
+            val ease = Comeback.freeCard(snapshot, exercise, easing, unit) ?: return null
+            val weight = Format.weightValue(ease.weightKg, unit)
+            return ease.reps.map { SetDraft(weight = weight, reps = it.takeIf { r -> r > 0 }?.toString() ?: "") } to ease.hint
         }
 
         /** The exercise's last session before this workout, for the PREV column; null when it has never been trained. */
@@ -497,9 +514,14 @@ internal class SessionEditorModel(
             val programList = programs.observePrograms().first()
             val dayOptions = programList.flatMap { p -> val programName = p.resolvedName(texts); p.days.map { ProgramDayOption(ProgramDayRef(p.id, it.id), programName, it.resolvedName(texts)) } }
             val titles = Titles(texts.get(Res.string.log_workout), texts.get(Res.string.edit_workout), texts.get(Res.string.workout))
+            val today = Dates.today()
+            val comebacks = programs.observeComebacks().first()
             val ctx = Context(
                 snapshot, unit, planOptions, programList, dayOptions, titles, dayOptions.associate { it.ref.dayId to it.dayName }, editing = existing,
                 cautions = programs.observeCautions().first(), links = sessions.observeProgramLinks().first(), starts = programs.observeState().first().starts,
+                comebacks = comebacks,
+                // A logged workout being changed is not planned, so nothing in it eases.
+                easing = if (existing == null) Comeback.active(comebacks, today) else null,
             )
             context = ctx
             val stored = if (live && existing == null) liveSessions.load() else null
@@ -521,7 +543,10 @@ internal class SessionEditorModel(
                 programDay != null -> planned(ctx, programDay).copy(timed = live)
                 live -> fresh(ctx).copy(title = ctx.titles.workout, timed = true)
                 else -> fresh(ctx).copy(title = ctx.titles.logWorkout)
-            }.withPrevious(ctx).withPosition(ctx)
+            }.withPrevious(ctx).withPosition(ctx).let { s ->
+                // Asked when a new workout is opened after a break; a workout already running was planned before.
+                if (s.isNew && !s.isRunning) s.copy(comeback = Comeback.gap(snapshot.sessions, today, comebacks)) else s
+            }
             if (live) persistWhileRunning()
             if (existing != null) followStoredSummary(existing.id)
         }
@@ -560,7 +585,7 @@ internal class SessionEditorModel(
         if (ref == null) return base
         val program = ctx.programs.firstOrNull { it.id == ref.programId }
         val day = program?.day(ref.dayId) ?: return base
-        val plan = DayPlanner.plan(program, day, ctx.snapshot, ctx.unit, ctx.planOptions)
+        val plan = DayPlanner.plan(program, day, ctx.snapshot, ctx.unit, ctx.planOptions, easing = ctx.easing, comebacks = ctx.comebacks)
         return base.copy(
             programDay = ref, title = ctx.dayName(day),
             exercises = plan.exercises.map { pe ->
@@ -651,8 +676,10 @@ internal class SessionEditorModel(
         else {
             val previous = context?.previousFor(exercise.id)
             val sources = context?.previousSources(exercise.id, s.programDay)
+            val ease = context?.freeEase(exercise)
             s.copy(
-                exercises = s.exercises + ExerciseDraft(exercise, listOf(SetDraft())),
+                exercises = s.exercises + ExerciseDraft(exercise, ease?.first ?: listOf(SetDraft())),
+                hints = if (ease != null) s.hints + (exercise.id to ease.second) else s.hints,
                 previous = if (previous != null) s.previous + (exercise.id to previous) else s.previous,
                 previousSources = if (sources != null) s.previousSources + (exercise.id to sources) else s.previousSources,
             )
@@ -660,6 +687,47 @@ internal class SessionEditorModel(
     }
 
     fun addExercises(picked: List<Exercise>) = picked.forEach { addExercise(it) }
+
+    /**
+     * The answer to the offer after a break: [ease] to start the lifts lighter and climb back, or
+     * not, to carry on as before. Either is stored so the offer is not made again. Easing re-plans
+     * only the cards still as they were planned or added: what was typed or ticked stays.
+     */
+    fun answerComeback(ease: Boolean) {
+        val ctx = context ?: return
+        val gap = _state.value.comeback ?: return
+        val answer = Comeback.Answer(gap.after, gap.days, Dates.today(), ease)
+        val asPlanned = _state.value.programDay?.let { planned(ctx, it) }
+        ctx.comebacks = Comeback.answering(ctx.comebacks, answer)
+        ctx.easing = if (ease) answer else null
+        update { s -> (if (ease) s.easedBackIn(ctx, asPlanned) else s).copy(comeback = null) }
+        scope.launchAction { programs.answerComeback(answer) }
+    }
+
+    /**
+     * [EditorState] with its untouched cards planned again now that the lifts ease (see
+     * [answerComeback]); [asPlanned] is the plan as it was before, to tell untouched cards apart.
+     */
+    private fun EditorState.easedBackIn(ctx: Context, asPlanned: EditorState?): EditorState {
+        val plan = programDay?.let { planned(ctx, it) }
+        var hints = hints
+        val exercises = exercises.map { draft ->
+            val id = draft.exercise.id
+            if (draft.sets.any { it.done }) return@map draft
+            val planned = plan?.exercises?.firstOrNull { it.exercise.id == id }
+            if (planned != null) {
+                if (asPlanned?.exercises?.firstOrNull { it.exercise.id == id }?.sets != draft.sets) return@map draft
+                hints = plan.hints[id]?.let { hints + (id to it) } ?: (hints - id)
+                return@map draft.copy(sets = planned.sets)
+            }
+            // Outside the plan: only a card still as it was added, one empty set, is filled in.
+            val ease = ctx.freeEase(draft.exercise)
+            if (ease == null || draft.sets.any { it.hasValues }) return@map draft
+            hints = hints + (id to ease.second)
+            draft.copy(sets = ease.first)
+        }
+        return copy(exercises = exercises, hints = hints)
+    }
 
     /** A custom exercise made from the picker's search box (the form stored it): listed so the picker can tick it. */
     fun exerciseMade(exercise: Exercise) = update { it.copy(catalogue = (it.catalogue + exercise).distinctBy { e -> e.id }.sortedBy { e -> e.name }) }
@@ -1052,6 +1120,10 @@ internal fun SessionEditorScreen(
                         Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable { guideOpen = true }.padding(vertical = 12.dp),
                         style = MaterialTheme.typography.bodySmall,
                     )
+                }
+                state.comeback?.let { gap ->
+                    Spacer(Modifier.height(12.dp))
+                    ComebackCard(gap, onEase = { model.answerComeback(true) }, onCarryOn = { model.answerComeback(false) })
                 }
                 SectionHeader(stringResource(Res.string.exercises_section), action = {
                     TextButton(onClick = { pickerOpen = true }, enabled = state.editable) { Text(stringResource(Res.string.plus_add_exercise), color = if (state.editable) palette.volt else disabledColor()) }
@@ -1486,6 +1558,29 @@ private fun DayChoice(label: String, selected: Boolean, accent: Color, onClick: 
     }
 }
 
+/**
+ * The offer after a break of [gap]'s days: ease back in, or carry on as before. Answered once; the
+ * plan below changes in place when the lifts ease. The two answers wrap onto two lines where they
+ * do not fit side by side (Russian at 390 dp).
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+internal fun ComebackCard(gap: Comeback.Gap, onEase: () -> Unit, onCarryOn: () -> Unit) {
+    GainsCard(Modifier.fillMaxWidth()) {
+        Text(stringResource(Res.string.comeback_title, daysText(gap.days)), style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(stringResource(Res.string.comeback_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(12.dp))
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
+            SecondaryButton(stringResource(Res.string.ease_back_in), onEase, compact = true)
+            TextButton(onClick = onCarryOn) { Text(stringResource(Res.string.pick_up_where_left_off), color = GainsColors.palette.volt, maxLines = 1) }
+        }
+    }
+}
+
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ExerciseCard(
@@ -1663,6 +1758,8 @@ private fun ExerciseCard(
                 // so a glance down the card shows how far the workout has got.
                 val done = set.done
                 val trend = if (!done) null else previousSets[setIndex]?.let { last -> set.toSet(setIndex, unit)?.let { PreviousSets.trend(it, last, modality) } }
+                    // Lighter than before the break on purpose: that is not a slip.
+                    ?.takeUnless { it == PreviousSets.Trend.DOWN && hint is Progression.Hint.EaseBack }
                 val rowFill by animateColorAsState(rowFill(done, editable), Motion.standard(), label = "set-row")
                 Row(
                     Modifier.fillMaxWidth().padding(top = 8.dp).clip(RowShape).background(rowFill).padding(horizontal = ROW_PADDING, vertical = 4.dp),
