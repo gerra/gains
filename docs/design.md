@@ -14,7 +14,7 @@ Where it lives:
 |---|---|
 | Colours, type scale, shapes | `composeApp/src/commonMain/kotlin/app/gains/ui/theme/Theme.kt` |
 | Motion timings | `ui/theme/Motion.kt` |
-| Shared components | `ui/components/Components.kt` (cards, buttons, pills, tags, tiles, chips), `Streak.kt`, `Badges.kt`, `Pickers.kt` |
+| Shared components | `ui/components/Components.kt` (cards, buttons, pills, tags, tiles, chips), `Streak.kt`, `Badges.kt`, `Pickers.kt`, `NumberPad.kt` |
 | Top bar, tabs, Start bar, workout bar | `ui/nav/AppChrome.kt`, laid out in `ui/nav/AppFrame.kt` |
 | The mark | `ui/components/Logo.kt`, plus the icon files listed under [The mark](#the-mark) |
 | Fonts | `composeApp/src/commonMain/composeResources/font/`, licences in `files/licenses/` |
@@ -149,6 +149,7 @@ Reach for these before writing a new one.
 | A key / value line | `KeyValueRow` | |
 | A figure that changes | `RollingText` | A plain `Text` |
 | A set's weight, or how long a hold lasted | A cell that opens `WeightPickerSheet` / `HoldPickerSheet`: wheels, with jump chips (plates; ±5 and ±15 s) | A keypad over the set rows |
+| A set's reps, a cardio set's distance and seconds | A `NumberPadField` cell typed on the app's `NumberPad`, never the system keyboard | A text field |
 | An exercise in a workout | The workout's exercise card: the exercise's drawing in a 56 dp tile (a tap opens "How to do it"), its name, `Done` (filled) and `Record` pills once earned, then ⋯ and a chevron that folds it to its head | |
 | An offer the lifter answers once (ease back in after a break) | A `GainsCard` above what it changes: a 17 sp title saying what happened ("16 days since your last workout"), a line on what the offer does, then a compact `SecondaryButton` for it and a green `TextButton` to decline, wrapping onto two lines when they don't fit | A dialog in the way of the plan |
 | A set in a workout | A rounded strip (`surfaceContainerHigh`, green tint once ticked) holding the number in a small box, last time's set, the cells in the card's colour and a 32 dp check; a record set's number becomes a trophy in a green ring. A tap on the number offers Remove | A × on every row |
@@ -157,6 +158,15 @@ Beside last time's set, a ticked set takes a dot that says how it went against i
 signal colours: green for more (a loaded set by its Epley estimate), yellow for the same, red for
 less. Nothing when the two can't be compared (a warm-up, cardio, more load for fewer reps on a
 bodyweight lift), and no red while easing back in after a break, when less is the plan.
+
+The number pad rises from the foot of the workout screen while a typed cell is focused, under the
+clock so the rest stays in sight, and the tabs fold away for it as a system keyboard would cover
+them. It is a `surfaceContainer` panel with a sheet's top corners: digits in a phone's order on
+48 dp raised keys (`surfaceContainerHighest`, 10 dp corners), and down the right the key that puts
+it away (a chevron), −1, +1 and Next, which walks the card's typed cells and reads Done on the last.
+Next is the pad's one filled key, in the primary colour. The point key shows only for a distance. A
+focused cell takes the green edge; its value sits on the green tint until the first key replaces it,
+as a selection would, and after that a still green caret marks where the next digit goes.
 
 The bars along the bottom, above the tabs: `StartBar` on Home when a program has a next day,
 `LiveSessionBar` while a workout runs (it replaces the Start bar), and the workout screen's Ready
@@ -251,6 +261,11 @@ the same rules, translated to the web:
 ## Log
 
 Newest first. One line per change to the rules, with the reason.
+
+- **2026-11-15** Reps (and a cardio set's distance and seconds) are typed on the app's own `NumberPad` rather than the
+  system keyboard: iOS's numeric keypad had no key to put it away, it covered the clock, and the app could not tell it
+  was up. The pad sits under the clock with the rest in sight, has a hide key, ±1 for the rep more or less than planned
+  and a Next that walks the set table, and the tabs fold away while it is up.
 
 - **2026-11-05** The offer to ease back in after a break is a card above the workout's plan, answered with a compact
   `SecondaryButton` or a green text button (the screen's one `PrimaryButton` stays Start or Save), and the plan changes

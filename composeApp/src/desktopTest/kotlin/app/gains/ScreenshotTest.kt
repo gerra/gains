@@ -462,6 +462,15 @@ class ScreenshotTest {
         scrollIntoView(hasContentDescription("Set 1 done"))
         settle(1_000)
         shot("14-program-day")
+        // Reps go in on the app's own pad, under the clock so the rest stays in sight; the tabs fold away for it.
+        val nextReps = hasContentDescription("Reps for set 2,", substring = true) and hasClickAction()
+        scrollIntoView(nextReps)
+        onAllNodes(nextReps).onFirst().performClick()
+        require(hasContentDescription("Hide keyboard"))
+        settle(1_000)
+        shot("14a-number-pad")
+        onNode(hasContentDescription("Hide keyboard") and hasClickAction()).performClick()
+        settle(1_000)
         // The weight of a set is picked on a wheel rather than typed.
         onAllNodes(hasContentDescription("Weight for set 1,", substring = true) and hasClickAction()).onFirst().performClick()
         require(text("No weight"))

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +24,7 @@ import app.gains.domain.LiveSession
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.PhotoPicker
 import app.gains.root.UpNext
+import app.gains.ui.components.LocalNumberPadOpen
 import app.gains.ui.components.dismissKeyboardOnTap
 import app.gains.ui.screens.SyncUi
 import app.gains.ui.screens.needsAttention
@@ -66,7 +68,11 @@ internal fun AppFrame(
                 onRetry = onRetrySync,
             )
         }
-        ScreenStack(navigator, Modifier.weight(1f)) { entry -> ScreenContent(entry, navigator, filePicker, photoPicker, stateHolder) }
+        // A screen's number pad (the workout's reps) takes the tabs' place while it is up, as a system keyboard would cover them.
+        val padOpen = remember { mutableStateOf(false) }
+        CompositionLocalProvider(LocalNumberPadOpen provides padOpen) {
+            ScreenStack(navigator, Modifier.weight(1f)) { entry -> ScreenContent(entry, navigator, filePicker, photoPicker, stateHolder) }
+        }
         // The bar rises in when a workout starts and folds away when it ends, rather than shoving the tabs.
         // The workout it last showed, so the bar can still be drawn while it folds away after the workout ends.
         var lastLive by remember { mutableStateOf(live) }
@@ -93,6 +99,10 @@ internal fun AppFrame(
                 StartBar(next, onStart = { navigator.push(Screen.EditSession(null, next.ref, live = true)) })
             }
         }
-        BottomNav(navigator)
+        AnimatedVisibility(
+            visible = !padOpen.value,
+            enter = if (reduceMotion) EnterTransition.None else expandVertically(tween(Motion.STANDARD)) + fadeIn(tween(Motion.STANDARD)),
+            exit = if (reduceMotion) ExitTransition.None else shrinkVertically(tween(Motion.STANDARD)) + fadeOut(tween(Motion.EXIT)),
+        ) { BottomNav(navigator) }
     }
 }

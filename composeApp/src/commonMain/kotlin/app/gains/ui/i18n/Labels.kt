@@ -443,6 +443,15 @@ internal fun weightForSetText(set: String, value: String?): String = stringResou
 internal fun holdForSetText(set: String, value: String?): String = stringResource(Res.string.hold_for_set, set, value ?: stringResource(Res.string.none_value))
 
 @Composable
+internal fun repsForSetText(set: String, value: String?): String = stringResource(Res.string.reps_for_set, set, value ?: stringResource(Res.string.none_value))
+
+@Composable
+internal fun secondsForSetText(set: String, value: String?): String = stringResource(Res.string.seconds_for_set, set, value ?: stringResource(Res.string.none_value))
+
+@Composable
+internal fun distanceForSetText(set: String, value: String?): String = stringResource(Res.string.distance_for_set, set, value ?: stringResource(Res.string.none_value))
+
+@Composable
 internal fun previousSetText(set: String, value: String?): String = stringResource(Res.string.previous_set, set, value ?: stringResource(Res.string.none_value))
 
 /** "Compare with T1 · 9 Oct, selected": a chip that picks which session the PREV column reads. */
