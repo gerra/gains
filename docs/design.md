@@ -151,7 +151,7 @@ Reach for these before writing a new one.
 | A set's weight, or how long a hold lasted | A cell that opens `WeightPickerSheet` / `HoldPickerSheet`: wheels, with jump chips (plates; ±5 and ±15 s) | A keypad over the set rows |
 | An exercise in a workout | The workout's exercise card: the exercise's drawing in a 56 dp tile (a tap opens "How to do it"), its name, `Done` (filled) and `Record` pills once earned, then ⋯ and a chevron that folds it to its head | |
 | An offer the lifter answers once (ease back in after a break) | A `GainsCard` above what it changes: a 17 sp title saying what happened ("16 days since your last workout"), a line on what the offer does, then a compact `SecondaryButton` for it and a green `TextButton` to decline, wrapping onto two lines when they don't fit | A dialog in the way of the plan |
-| A set in a workout | A rounded strip (`surfaceContainerHigh`, green tint once ticked) holding the number in a small box, last time's set, the cells in the card's colour and a 32 dp check; a record set's number becomes a trophy in a green ring. A tap on the number offers Remove | A × on every row |
+| A set in a workout | A rounded strip (`surfaceContainerHigh`, green tint once ticked) holding the number in a small box, last time's set, the cells in the card's colour and a 32 dp check; a record set's number becomes a trophy in a green ring. A tap on the number offers Remove, and so does a swipe to the left: red with "Remove" shows behind the row only while it is dragged, and it takes 40 % of the row or a flick to go | A × on every row |
 
 Beside last time's set, a ticked set takes a dot that says how it went against it, in the
 signal colours: green for more (a loaded set by its Epley estimate), yellow for the same, red for
@@ -251,6 +251,9 @@ the same rules, translated to the web:
 ## Log
 
 Newest first. One line per change to the rules, with the reason.
+
+- **2026-11-15** A set row also goes with a swipe to the left (red behind it, "Remove"), as well as from the menu on its
+  number: a tester could not find how to remove one set once the × left the rows.
 
 - **2026-11-05** The offer to ease back in after a break is a card above the workout's plan, answered with a compact
   `SecondaryButton` or a green text button (the screen's one `PrimaryButton` stays Start or Save), and the plan changes
