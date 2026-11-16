@@ -37,6 +37,7 @@ import app.gains.sync.SyncController
 import app.gains.sync.SyncEngine
 import app.gains.sync.SyncStore
 import app.gains.ui.i18n.InLanguage
+import app.gains.ui.i18n.localName
 import app.gains.ui.i18n.rememberTexts
 import app.gains.ui.inject
 import app.gains.ui.nav.AppFrame
@@ -48,6 +49,7 @@ import app.gains.ui.screens.observeSyncUi
 import app.gains.ui.theme.GainsTheme
 import app.gains.ui.theme.LocalReduceMotion
 import app.gains.ui.theme.isDark
+import app.gains.watch.WatchLink
 
 /**
  * Root of the shared UI: the look it is drawn in, the language it is worded in, and [AppBody] with
@@ -162,7 +164,11 @@ private fun AppBody(
     val liveSessions = graph.liveSessions
     val live by liveSessions.observe().collectAsState(initial = null)
     // Keep the platform's tray in step with it, and answer the notice's taps on "resume" and "skip rest".
-    val notices = remember { LiveSessionNotices(liveSessions, notifier, navigator) }
+    // The Apple Watch's ticks and rest buttons go the same way (docs/watch.md).
+    val notices = remember {
+        val watch = WatchLink(liveSessions, sessions, graph.exercises, graph.settings, programs, names = { it.localName() })
+        LiveSessionNotices(liveSessions, notifier, navigator, watch = watch)
+    }
     LaunchedEffect(Unit) { notices.run() }
     // The streak reminders, re-worded when the texts change.
     val reminders = remember { StreakReminders(sessions, programs, graph.settings, nudges) }

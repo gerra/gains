@@ -51,21 +51,28 @@ import platform.posix.memcpy
 
 private var koinStarted = false
 
+/**
+ * The dependency graph, made once per process: by the first screen, or earlier by [prepareWatch]
+ * when the watch wakes the app in the background with no screen to come.
+ */
+private fun startKoinOnce() {
+    if (koinStarted) return
+    initKoin(
+        module {
+            single<DatabaseDriverFactory> { IosDriverFactory() }
+            // Loaded after the shared module, so these replace its guest-only defaults.
+            single { iosAuthConfig() }
+            single<IdentityProvider> { IosIdentityProvider(get(), get()) }
+            single<TokenVault> { KeychainTokenVault() }
+        },
+    )
+    koinStarted = true
+    requestSyncOnForeground()
+}
+
 /** Entry point used by the SwiftUI wrapper in iosApp. */
 fun MainViewController(): UIViewController {
-    if (!koinStarted) {
-        initKoin(
-            module {
-                single<DatabaseDriverFactory> { IosDriverFactory() }
-                // Loaded after the shared module, so these replace its guest-only defaults.
-                single { iosAuthConfig() }
-                single<IdentityProvider> { IosIdentityProvider(get(), get()) }
-                single<TokenVault> { KeychainTokenVault() }
-            },
-        )
-        koinStarted = true
-        requestSyncOnForeground()
-    }
+    startKoinOnce()
     return ComposeUIViewController {
         App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier, photoPicker = IosPhotoPicker(), nudges = IosNudgeScheduler)
     }
@@ -104,6 +111,15 @@ private fun iosAuthConfig(): AuthConfig {
  * notification that cold starts the app reaches [IosLiveSessionNotifier] and opens the workout.
  */
 fun prepareLiveSessionNotices() = IosLiveSessionNotifier.install()
+
+/**
+ * Called from the Swift app delegate as the app finishes launching: starts the Apple Watch link
+ * (docs/watch.md), so a tick sent from the watch is taken even when it is what woke the app.
+ */
+fun prepareWatch() {
+    startKoinOnce()
+    IosWatchBridge.install()
+}
 
 /** Reads files on the IO dispatcher so the main thread never blocks on disk or the file provider. */
 private val fileReads = CoroutineScope(Dispatchers.IO)

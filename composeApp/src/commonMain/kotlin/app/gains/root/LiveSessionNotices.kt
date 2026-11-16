@@ -11,8 +11,12 @@ import app.gains.ui.nav.Navigator
 import app.gains.ui.nav.Screen
 import app.gains.ui.nowMs
 import app.gains.ui.screens.SessionEditorModel
+import app.gains.watch.WatchCommand
+import app.gains.watch.WatchCommands
+import app.gains.watch.WatchLink
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -31,6 +35,10 @@ import kotlinx.coroutines.launch
  * [now] is the wall clock a rest's end is measured against; tests pass virtual time. [skipRestIn]
  * asks the editor an entry holds, if any, to skip the rest and says whether it did: only the editor
  * running the workout takes it, and a past workout's may be open too.
+ *
+ * The Apple Watch's commands ([watchCommands], docs/watch.md) are carried out the same way as a
+ * skip: by the editor running the workout when one is on the stack ([applyWatchIn]), otherwise on
+ * the stored workout through [watch].
  */
 internal class LiveSessionNotices(
     private val liveSessions: LiveSessionRepository,
@@ -40,6 +48,9 @@ internal class LiveSessionNotices(
     private val skips: NoticeRequests = SkipRestRequests,
     private val now: () -> Long = ::nowMs,
     private val skipRestIn: (NavEntry) -> Boolean = { it.peek(SessionEditorModel::class)?.skipRest() == true },
+    private val watch: WatchLink? = null,
+    private val watchCommands: Flow<WatchCommand> = WatchCommands.commands,
+    private val applyWatchIn: (NavEntry, WatchCommand) -> Boolean = { entry, command -> entry.peek(SessionEditorModel::class)?.applyWatch(command) == true },
 ) {
     /** Mirrors the workout into the notice and answers its buttons until cancelled. */
     suspend fun run(): Unit = coroutineScope {
@@ -47,6 +58,8 @@ internal class LiveSessionNotices(
         // A request that comes while the one before is still being carried out replaces it.
         launch { resumes.pending.filter { it != 0 }.collectLatest { resume() } }
         launch { skips.pending.filter { it != 0 }.collectLatest { skipRest() } }
+        // In order, one at a time: two quick ticks from the watch must both land.
+        if (watch != null) launch { watchCommands.collect { command -> if (navigator.stack.none { applyWatchIn(it, command) }) watch.apply(command) } }
     }
 
     /**

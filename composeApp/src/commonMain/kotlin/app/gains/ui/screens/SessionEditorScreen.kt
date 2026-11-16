@@ -179,6 +179,8 @@ import app.gains.ui.reportingHandler
 import app.gains.ui.nowMs
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
+import app.gains.watch.WatchCommand
+import app.gains.watch.WatchPlan
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -805,10 +807,7 @@ internal class SessionEditorModel(
         val set = exercise.sets[setIndex]
         if (!set.done && !set.hasValues) return@edit s
         val done = !set.done
-        val seconds = when {
-            set.isWarmup -> Gzclp.WARMUP_REST.first
-            else -> s.tiers[exercise.exercise.id]?.restTimerSeconds ?: Gzclp.DEFAULT_REST_SECONDS
-        }
+        val seconds = WatchPlan.restSeconds(s.tiers[exercise.exercise.id], set.isWarmup)
         s.copy(
             exercises = s.exercises.mapIndexed { i, e ->
                 if (i != exerciseIndex) e else e.copy(sets = e.sets.mapIndexed { j, d -> if (j == setIndex) d.copy(done = done) else d })
@@ -828,6 +827,28 @@ internal class SessionEditorModel(
         val s = _state.value
         if (!live || finished || !s.isRunning || s.conflict != null) return false
         dismissRest()
+        return true
+    }
+
+    /**
+     * A tick, an undo or a change to the rest from the Apple Watch (docs/watch.md). True when the
+     * workout runs in this editor, which then carries it out exactly as the database path would
+     * ([WatchPlan.apply]) and writes it out with the next persist; false when the running workout
+     * is not this editor's, so the caller applies it to the database instead. A command that does
+     * not fit (a set already ticked, a lift since removed) is taken and ignored.
+     */
+    fun applyWatch(command: WatchCommand): Boolean {
+        val s = _state.value
+        if (!live || finished || !s.isRunning || s.conflict != null) return false
+        edit { current ->
+            val session = current.toLive() ?: return@edit current
+            val changed = WatchPlan.apply(session, command, nowMs()) { id, warmup -> WatchPlan.restSeconds(current.tiers[id], warmup) }
+                ?: return@edit current
+            current.copy(
+                exercises = current.exercises.mapIndexed { i, e -> e.copy(sets = changed.exercises[i].sets) },
+                restTimer = changed.rest,
+            )
+        }
         return true
     }
     fun setNote(index: Int, note: String) = edit { it.copy(exercises = it.exercises.mapIndexed { i, e -> if (i == index) e.copy(note = note) else e }) }

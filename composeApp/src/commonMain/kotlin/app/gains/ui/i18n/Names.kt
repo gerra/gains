@@ -7,6 +7,7 @@ import app.gains.domain.ProgramDay
 import app.gains.resources.Res
 import app.gains.resources.allStringResources
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 
 /*
@@ -46,6 +47,8 @@ internal fun ProgramDay.displayName(): String = dayKey(this)?.let { stringResour
 internal fun slotNoteText(note: String): String = slotNoteKey(note)?.let { stringResource(it) } ?: note
 
 internal suspend fun Exercise.resolvedName(texts: Texts): String = exerciseKey(this)?.let { texts.get(it) } ?: name
+/** In the platform's current language, which the app's own choice is put in force on: for code with no composition to ask, like the watch link. */
+internal suspend fun Exercise.localName(): String = exerciseKey(this)?.let { getString(it) } ?: name
 internal suspend fun Program.resolvedName(texts: Texts): String = programKey(this)?.let { texts.get(it) } ?: name
 internal suspend fun ProgramDay.resolvedName(texts: Texts): String = dayKey(this)?.let { texts.get(it) } ?: name
 

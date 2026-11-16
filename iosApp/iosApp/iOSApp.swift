@@ -7,6 +7,8 @@ import ComposeApp
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         MainViewControllerKt.prepareLiveSessionNotices()
+        // The Apple Watch link, before the first view: the watch may have woken the app to deliver a tick.
+        MainViewControllerKt.prepareWatch()
         return true
     }
 }
