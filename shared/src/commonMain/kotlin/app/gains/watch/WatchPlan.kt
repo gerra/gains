@@ -17,12 +17,14 @@ object WatchPlan {
     /**
      * [session] as the watch draws it. [exercises] gives each lift's modality and dumbbell flag and
      * [names] its name in the phone's language; a lift missing from them still shows, by its id.
+     * [restSeconds] is the rest after a set of a lift, as [apply] takes it.
      */
     fun workout(
         session: LiveSession,
         unit: WeightUnit,
         exercises: Map<String, Exercise>,
         names: Map<String, String>,
+        restSeconds: (exerciseId: String, warmup: Boolean) -> Int = { _, warmup -> restSeconds(null, warmup) },
     ): WatchWorkout {
         val list = session.exercises.map { e ->
             val exercise = exercises[e.exerciseId]
@@ -31,7 +33,7 @@ object WatchPlan {
                 name = names[e.exerciseId] ?: exercise?.name ?: e.exerciseId,
                 kind = kindOf(exercise?.modality, e.sets),
                 perDumbbell = exercise?.isDumbbell == true,
-                sets = e.sets.withLabels().map { (label, s) -> WatchSet(label, s.weight, s.reps, s.seconds, s.distanceKm, s.isWarmup, s.done) },
+                sets = e.sets.withLabels().map { (label, s) -> WatchSet(label, s.weight, s.reps, s.seconds, s.distanceKm, s.isWarmup, s.done, restSeconds(e.exerciseId, s.isWarmup)) },
             )
         }
         val order = session.exercises.map { e -> e.sets.map { it.done } }

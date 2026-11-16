@@ -8,5 +8,13 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- HealthKit, only so a workout started here can open the Apple Watch app into it
+	     (HKHealthStore.startWatchApp, docs/watch.md). The iPhone app reads and writes no health
+	     data; the watch app does that under its own permission. The App ID needs the HealthKit
+	     capability and the App Store profile must include it (docs/testflight.md). -->
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+	<key>com.apple.developer.healthkit.access</key>
+	<array/>
 </dict>
 </plist>

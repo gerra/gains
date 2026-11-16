@@ -38,6 +38,13 @@
 	     Read by iosAuthConfig() in MainViewController.kt; anything but YES keeps the form hidden. -->
 	<key>GainsPasswordSignIn</key>
 	<string>$(GAINS_PASSWORD_SIGN_IN)</string>
+	<!-- HealthKit is linked so a workout started here opens the Apple Watch app (docs/watch.md).
+	     The iPhone app asks for no health data itself; App Store Connect wants the purpose
+	     strings whenever HealthKit is linked. -->
+	<key>NSHealthShareUsageDescription</key>
+	<string>Gains reads your heart rate and the energy you burn during a workout to show them on your Apple Watch.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Gains saves the workouts you track on your Apple Watch to Health, so they count towards your Activity rings.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<!-- Export compliance: a signed-in account syncs to api.gains.gerra.sh over HTTPS, using only

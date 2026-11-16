@@ -45,6 +45,7 @@ class WatchPlanTest {
         assertEquals(listOf("W1", "1", "2"), w.exercises[0].sets.map { it.label })
         assertEquals(2, w.done)
         assertEquals(5, w.total)
+        assertEquals(listOf(Gzclp.WARMUP_REST.first, 90, 90), w.exercises[0].sets.map { it.rest })
         assertEquals(WatchSetRef(0, 2), w.current)
         assertEquals(WatchSetRef(1, 0), w.next)
     }

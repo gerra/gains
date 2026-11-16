@@ -52,7 +52,8 @@ internal class WatchLink(
                 live?.let { session ->
                     val byId = list.associateBy { it.id }
                     val inWorkout = session.exercises.mapNotNull { byId[it.exerciseId] }
-                    WatchPlan.workout(session, unit, byId, inWorkout.associate { it.id to names(it) })
+                    val tiers = tiers(session)
+                    WatchPlan.workout(session, unit, byId, inWorkout.associate { it.id to names(it) }) { id, warmup -> WatchPlan.restSeconds(tiers[id], warmup) }
                 }
             }
             .distinctUntilChanged()

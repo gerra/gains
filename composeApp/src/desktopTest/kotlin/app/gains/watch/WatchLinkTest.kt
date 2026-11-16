@@ -92,6 +92,9 @@ class WatchLinkTest {
         assertEquals(WatchSetRef(0, 1), sent.current)
         assertEquals(WatchSetRef(1, 0), sent.next)
         assertEquals(1 to 3, sent.done to sent.total)
+        // GZCLP A1: squat is the T1, bench the T2; a warm-up rests half a minute.
+        assertEquals(listOf(30, 180), sent.exercises[0].sets.map { it.rest })
+        assertEquals(listOf(120), sent.exercises[1].sets.map { it.rest })
     }
 
     @Test

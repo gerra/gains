@@ -98,6 +98,11 @@ data class WatchSet(
     val distanceKm: String = "",
     val warmup: Boolean = false,
     val done: Boolean = false,
+    /**
+     * The rest, in seconds, that ticking this set starts: the watch starts it at once, before the
+     * phone has answered, so a tick out of the phone's reach still counts down the right time.
+     */
+    val rest: Int = 0,
 )
 
 /** A set by its place: the exercise's index in [WatchWorkout.exercises] and the set's within it. */
