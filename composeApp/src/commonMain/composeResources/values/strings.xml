@@ -665,6 +665,13 @@
     <string name="logged_twice_stored">%1$s · logged twice (already stored)</string>
     <string name="weight_for_set">Weight for set %1$s, %2$s</string>
     <string name="hold_for_set">Hold for set %1$s, %2$s</string>
+    <string name="hide_keyboard">Hide keyboard</string>
+    <string name="one_less">One less</string>
+    <string name="one_more">One more</string>
+    <string name="erase">Erase</string>
+    <string name="reps_for_set">Reps for set %1$s, %2$s</string>
+    <string name="seconds_for_set">Seconds for set %1$s, %2$s</string>
+    <string name="distance_for_set">Distance for set %1$s, %2$s</string>
     <string name="previous_set">Previous set %1$s, %2$s</string>
     <string name="prev_from">Prev from</string>
     <string name="free_workout_short">Free</string>

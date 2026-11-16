@@ -155,7 +155,9 @@ after a UI change.
 `release/<major>.<minor>` off `main` and [Release](../.github/workflows/release.yml) uploads it
 through the [TestFlight workflow](../.github/workflows/testflight.yml), which archives the iOS app
 on a macOS runner and sends it to App Store Connect, then tags the build, publishes it as a
-GitHub release and opens the pull request back to `main`.
+GitHub release and opens the pull request back to `main`. Once a week,
+[External testing](../.github/workflows/external-testing.yml) sends the newest build to the
+external TestFlight group and submits it for Beta App Review.
 [docs/testflight.md](testflight.md#releases-through-the-day) covers the schedule, the secrets and
 the manual route through Xcode.
 
