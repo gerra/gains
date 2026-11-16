@@ -19,6 +19,10 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasClickAction
+import app.gains.ui.components.NUMBER_PAD_TAG
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -462,6 +466,34 @@ class ScreenshotTest {
         scrollIntoView(hasContentDescription("Set 1 done"))
         settle(1_000)
         shot("14-program-day")
+        // Reps go in on the app's own pad, under the clock so the rest stays in sight; the tabs fold away for it.
+        val nextReps = hasContentDescription("Reps for set 2,", substring = true) and hasClickAction()
+        scrollIntoView(nextReps)
+        val planned = onAllNodes(nextReps).onFirst().fetchSemanticsNode().config[SemanticsProperties.ContentDescription].first().substringAfterLast(", ")
+        fun padKey(label: String) = onAllNodes((hasText(label) or hasContentDescription(label)) and hasClickAction() and hasAnyAncestor(hasTestTag(NUMBER_PAD_TAG))).onFirst()
+        clip("number-pad") {
+            // The pad rises under the clock as the tabs fold; the planned reps read as selected, so the first key
+            // replaces them, ±1 steps them, Next walks on down the table and the chevron puts it all away.
+            hold(400)
+            onAllNodes(nextReps).onFirst().performClick()
+            hold(900)
+            if (!recordingClips) shot("14a-number-pad")
+            padKey("8").performClick(); hold(500)
+            padKey("One more").performClick(); hold(500)
+            padKey("Erase").performClick(); hold(400)
+            // Back to what was planned, so the rest of the walk sees the workout as it was.
+            for (digit in planned) { padKey(digit.toString()).performClick(); hold(400) }
+            padKey("Next").performClick(); hold(800)
+            padKey("Hide keyboard").performClick(); hold(900)
+        }
+        if (recordingClips) {
+            // The still is taken outside the clip, so a recorded run has it too.
+            onAllNodes(nextReps).onFirst().performClick()
+            require(hasContentDescription("Hide keyboard"))
+            shot("14a-number-pad")
+            onNode(hasContentDescription("Hide keyboard") and hasClickAction()).performClick()
+        }
+        settle(1_000)
         // The weight of a set is picked on a wheel rather than typed.
         onAllNodes(hasContentDescription("Weight for set 1,", substring = true) and hasClickAction()).onFirst().performClick()
         require(text("No weight"))

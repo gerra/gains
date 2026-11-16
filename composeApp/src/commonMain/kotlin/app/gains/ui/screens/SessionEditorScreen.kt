@@ -25,7 +25,6 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -95,6 +94,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
@@ -104,7 +104,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -157,6 +156,9 @@ import app.gains.ui.components.DurationPickerSheet
 import app.gains.ui.components.DurationWheels
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.HoldPickerSheet
+import app.gains.ui.components.NumberPad
+import app.gains.ui.components.NumberPadField
+import app.gains.ui.components.NumberPadState
 import app.gains.ui.components.Pill
 import app.gains.ui.components.Tag
 import app.gains.ui.components.PrimaryButton
@@ -1074,6 +1076,8 @@ internal fun SessionEditorScreen(
     /** The isometric set whose hold chooser is open, the same way. */
     var holdTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var guideOpen by remember { mutableStateOf(false) }
+    /** The field the number pad types into, if one is focused. */
+    val pad = remember { NumberPadState() }
     if (state.loading) return
     if (state.saved) {
         val ended = state.endedId
@@ -1165,6 +1169,7 @@ internal fun SessionEditorScreen(
                     onChangeExercise = { replaceTarget = exerciseIndex },
                     onShowDemo = { demoTarget = exerciseIndex },
                     onEditExercise = { editTarget = draft.exercise },
+                    pad = pad,
                     // A moved card slides to its new place rather than jumping, so the eye can follow it.
                     modifier = Modifier.animateItem(),
                 )
@@ -1203,6 +1208,8 @@ internal fun SessionEditorScreen(
                 EditorHeader.NONE -> {}
             }
         }
+        // Under the clock, so the rest stays in sight while the reps go in; the frame folds the tabs away for it.
+        NumberPad(pad)
     }
 
     if (pickerOpen) ExercisePickerSheet(
@@ -1621,6 +1628,8 @@ private fun ExerciseCard(
     onShowDemo: () -> Unit = {},
     /** Opens the form for the card's exercise; only the lifter's own exercises offer it. */
     onEditExercise: () -> Unit = {},
+    /** The workout's number pad, which types the reps, seconds and distance in place of the system keyboard. */
+    pad: NumberPadState = remember { NumberPadState() },
     modifier: Modifier = Modifier,
 ) {
     val palette = GainsColors.palette
@@ -1764,6 +1773,16 @@ private fun ExerciseCard(
                     CardIconButton(Icons.Default.Delete, stringResource(Res.string.remove_warm_ups), muted, editable) { model.removeWarmups(exerciseIndex) }
                 }
             }
+            // The pad's Next walks the card's typed cells in reading order, row by row, past folded warm-ups;
+            // from the last one it reads Done and puts the pad away.
+            val typedOrder = draft.sets.indices.filter { !(draft.sets[it].isWarmup && warmupsCollapsed) }
+                .flatMap { i -> typedFields(modality).map { i to it } }
+            val requesters = remember { mutableMapOf<Pair<Int, TypedField>, FocusRequester>() }
+            fun requester(setIndex: Int, field: TypedField) = requesters.getOrPut(setIndex to field) { FocusRequester() }
+            fun nextAfter(setIndex: Int, field: TypedField): (() -> Unit)? {
+                val next = typedOrder.getOrNull(typedOrder.indexOf(setIndex to field) + 1) ?: return null
+                return { requester(next.first, next.second).requestFocus() }
+            }
             for ((setIndex, set) in draft.sets.withIndex()) {
                 val label = labels[setIndex]
                 if (set.isWarmup && warmupsCollapsed) continue
@@ -1784,19 +1803,31 @@ private fun ExerciseCard(
                         ) {
                             SetBadge(label, set.isWarmup, done, records[setIndex], editable) { model.removeSet(exerciseIndex, setIndex) }
                             PreviousCell(previousLabels[setIndex], label, trend)
-                            // The keyboard's action key moves from the first field to the second, then closes the keyboard.
+                            // Typed on the app's pad: Next moves on to the next typed cell of the card, then puts the pad away.
                             when (modality) {
                                 Modality.WEIGHTED, Modality.BODYWEIGHT -> {
                                     WeightCell(set.weight, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
-                                    SetCell(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Number)
+                                    SetCell(
+                                        set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, Modifier.weight(1f), set.isWarmup, editable,
+                                        pad, repsForSetText(label, set.reps.ifEmpty { null }), TypedField.REPS.maxLength,
+                                        requester(setIndex, TypedField.REPS), nextAfter(setIndex, TypedField.REPS),
+                                    )
                                 }
                                 Modality.ISOMETRIC -> {
                                     HoldCell(set.seconds, set.isWarmup, editable, Modifier.weight(1f), label) { onPickHold(setIndex) }
                                     WeightCell(set.weight, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
                                 }
                                 Modality.CARDIO -> {
-                                    SetCell(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Decimal, ImeAction.Next)
-                                    SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Number)
+                                    SetCell(
+                                        set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, Modifier.weight(1f), set.isWarmup, editable,
+                                        pad, distanceForSetText(label, set.distanceKm.ifEmpty { null }), TypedField.DISTANCE.maxLength,
+                                        requester(setIndex, TypedField.DISTANCE), nextAfter(setIndex, TypedField.DISTANCE), decimal = true,
+                                    )
+                                    SetCell(
+                                        set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), set.isWarmup, editable,
+                                        pad, secondsForSetText(label, set.seconds.ifEmpty { null }), TypedField.SECONDS.maxLength,
+                                        requester(setIndex, TypedField.SECONDS), nextAfter(setIndex, TypedField.SECONDS),
+                                    )
                                 }
                             }
                             DoneCheck(
@@ -1968,41 +1999,63 @@ private fun cellText(muted: Boolean, enabled: Boolean): Color {
     return if (enabled) color else color.copy(alpha = DISABLED_ALPHA)
 }
 
+/** The cells of a set row typed on the pad, with how many characters each takes. */
+private enum class TypedField(val maxLength: Int) { REPS(3), DISTANCE(6), SECONDS(5) }
+
+/** The typed cells of a row of [modality], left to right; weight and hold are chosen on wheels instead. */
+private fun typedFields(modality: Modality): List<TypedField> = when (modality) {
+    Modality.WEIGHTED, Modality.BODYWEIGHT -> listOf(TypedField.REPS)
+    Modality.ISOMETRIC -> emptyList()
+    Modality.CARDIO -> listOf(TypedField.DISTANCE, TypedField.SECONDS)
+}
+
 /**
  * One typed cell of a set row: reps, seconds or distance. A compact filled box rather than an
- * outlined text field, so five rows fit a screen and the columns line up with their headings.
+ * outlined text field, so five rows fit a screen and the columns line up with their headings. It is
+ * typed on the workout's [NumberPad], not the system keyboard: focused, it takes the accent's edge,
+ * and its value sits on the accent's tint until the first key replaces it, as a selection would.
  * Disabled, it shows its value faded and takes no focus.
  */
 @Composable
 private fun SetCell(
     value: String, onChange: (String) -> Unit, modifier: Modifier, muted: Boolean, enabled: Boolean,
-    keyboardType: KeyboardType, imeAction: ImeAction = ImeAction.Done,
+    pad: NumberPadState, description: String, maxLength: Int, focusRequester: FocusRequester, onNext: (() -> Unit)?,
+    decimal: Boolean = false,
 ) {
     val palette = GainsColors.palette
-    val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
     val fill by animateColorAsState(cellFill(enabled), Motion.standard(), label = "cell")
     val text by animateColorAsState(cellText(muted, enabled), Motion.standard(), label = "cell-text")
-    val border by animateColorAsState(if (focused) palette.volt else Color.Transparent, Motion.press(), label = "cell-focus")
-    BasicTextField(
-        value, onChange, modifier = modifier, enabled = enabled, singleLine = true, interactionSource = interaction,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
-        textStyle = MaterialTheme.typography.titleMedium.copy(color = text, textAlign = TextAlign.Center),
-        cursorBrush = SolidColor(palette.volt),
-        decorationBox = { inner ->
-            Box(
-                Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(fill)
-                    .border(1.5.dp, border, CellShape)
-                    .padding(horizontal = 4.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                // The dash stands in for an empty cell until the caret takes its place.
-                if (value.isEmpty() && !focused) CellPlaceholder(enabled)
-                inner()
+    NumberPadField(
+        value, onChange, pad, description, modifier, enabled = enabled, decimal = decimal, maxLength = maxLength,
+        focusRequester = focusRequester, onNext = onNext,
+    ) { focused, selected ->
+        val border by animateColorAsState(if (focused) palette.volt else Color.Transparent, Motion.press(), label = "cell-focus")
+        val selection by animateColorAsState(if (focused && selected && value.isNotEmpty()) palette.volt.copy(alpha = 0.24f) else Color.Transparent, Motion.press(), label = "cell-selection")
+        Box(
+            Modifier.fillMaxWidth().height(CELL_HEIGHT).clip(CellShape).background(fill)
+                .border(1.5.dp, border, CellShape)
+                .padding(horizontal = 4.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                // The dash stands in for an empty cell until it is opened.
+                value.isEmpty() && !focused -> CellPlaceholder(enabled)
+                else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        value, Modifier.clip(SelectionShape).background(selection).padding(horizontal = 2.dp),
+                        style = MaterialTheme.typography.titleMedium, color = text, maxLines = 1,
+                    )
+                    // A still caret where the next digit goes, once typing has begun; nothing here blinks.
+                    if (focused && (!selected || value.isEmpty())) Box(Modifier.size(CARET_WIDTH, CARET_HEIGHT).background(palette.volt))
+                }
             }
-        },
-    )
+        }
+    }
 }
+
+private val SelectionShape = RoundedCornerShape(4.dp)
+private val CARET_WIDTH = 2.dp
+private val CARET_HEIGHT = 20.dp
 
 /** The weight cell: the same box as a typed cell, but tapping it opens the weight chooser. Disabled, it is faded and inert. */
 @Composable
