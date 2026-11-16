@@ -7,6 +7,8 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,6 +21,9 @@ import app.gains.ui.theme.popIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.horizontalScroll
@@ -75,9 +80,14 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -85,7 +95,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -1761,31 +1774,37 @@ private fun ExerciseCard(
                     // Lighter than before the break on purpose: that is not a slip.
                     ?.takeUnless { it == PreviousSets.Trend.DOWN && hint is Progression.Hint.EaseBack }
                 val rowFill by animateColorAsState(rowFill(done, editable), Motion.standard(), label = "set-row")
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 8.dp).clip(RowShape).background(rowFill).padding(horizontal = ROW_PADDING, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SetBadge(label, set.isWarmup, done, records[setIndex], editable) { model.removeSet(exerciseIndex, setIndex) }
-                    PreviousCell(previousLabels[setIndex], label, trend)
-                    // The keyboard's action key moves from the first field to the second, then closes the keyboard.
-                    when (modality) {
-                        Modality.WEIGHTED, Modality.BODYWEIGHT -> {
-                            WeightCell(set.weight, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
-                            SetCell(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Number)
-                        }
-                        Modality.ISOMETRIC -> {
-                            HoldCell(set.seconds, set.isWarmup, editable, Modifier.weight(1f), label) { onPickHold(setIndex) }
-                            WeightCell(set.weight, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
-                        }
-                        Modality.CARDIO -> {
-                            SetCell(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Decimal, ImeAction.Next)
-                            SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Number)
+                // Keyed by how many sets there are as well as the row, so once one is swiped away the
+                // row that moves up into its place starts settled rather than inheriting the swipe.
+                key(setIndex, draft.sets.size) {
+                    SwipeToRemove(editable, { model.removeSet(exerciseIndex, setIndex) }, Modifier.padding(top = 8.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth().clip(RowShape).background(rowFill).padding(horizontal = ROW_PADDING, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(CELL_GAP), verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            SetBadge(label, set.isWarmup, done, records[setIndex], editable) { model.removeSet(exerciseIndex, setIndex) }
+                            PreviousCell(previousLabels[setIndex], label, trend)
+                            // The keyboard's action key moves from the first field to the second, then closes the keyboard.
+                            when (modality) {
+                                Modality.WEIGHTED, Modality.BODYWEIGHT -> {
+                                    WeightCell(set.weight, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
+                                    SetCell(set.reps, { model.updateSet(exerciseIndex, setIndex, set.copy(reps = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Number)
+                                }
+                                Modality.ISOMETRIC -> {
+                                    HoldCell(set.seconds, set.isWarmup, editable, Modifier.weight(1f), label) { onPickHold(setIndex) }
+                                    WeightCell(set.weight, set.isWarmup, editable, Modifier.weight(1f), label) { onPickWeight(setIndex) }
+                                }
+                                Modality.CARDIO -> {
+                                    SetCell(set.distanceKm, { model.updateSet(exerciseIndex, setIndex, set.copy(distanceKm = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Decimal, ImeAction.Next)
+                                    SetCell(set.seconds, { model.updateSet(exerciseIndex, setIndex, set.copy(seconds = it)) }, Modifier.weight(1f), set.isWarmup, editable, KeyboardType.Number)
+                                }
+                            }
+                            DoneCheck(
+                                done = done, enabled = editable && (done || set.hasValues), label = label,
+                                onClick = { model.toggleDone(exerciseIndex, setIndex) },
+                            )
                         }
                     }
-                    DoneCheck(
-                        done = done, enabled = editable && (done || set.hasValues), label = label,
-                        onClick = { model.toggleDone(exerciseIndex, setIndex) },
-                    )
                 }
             }
             HorizontalDivider(Modifier.padding(top = 16.dp, bottom = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
@@ -2018,6 +2037,57 @@ private fun ChosenCell(value: String, description: String, muted: Boolean, enabl
  * place once the ticked set beats a record. A tap opens what can be done to the set, which today is
  * removing it.
  */
+/**
+ * A set row that a swipe to the left takes away, the quick way to the Remove on the set number's
+ * menu. Red shows behind the row only while it is dragged (a ticked row's green is see-through).
+ * Like the swipe back, it goes when let go past [REMOVE_FRACTION] of the row or flicked left, and
+ * springs back otherwise: a slow brush while scrolling must not cost a set, so Material's
+ * SwipeToDismissBox, which takes any release over 125 dp/s for a flick, is not used.
+ */
+@Composable
+private fun SwipeToRemove(enabled: Boolean, onRemove: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val reduce = LocalReduceMotion.current
+    val currentOnRemove by rememberUpdatedState(onRemove)
+    val offset = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    var width by remember { mutableIntStateOf(0) }
+    val dragging by remember { derivedStateOf { offset.value < 0f } }
+    val drag = rememberDraggableState { delta -> scope.launch { offset.snapTo((offset.value + delta).coerceIn(-width.toFloat(), 0f)) } }
+    val fling = with(LocalDensity.current) { REMOVE_FLING.toPx() }
+    Box(
+        modifier.onSizeChanged { width = it.width }.draggable(
+            drag, Orientation.Horizontal, enabled = enabled,
+            onDragStopped = { velocity ->
+                val gone = velocity < -fling || (offset.value < -width * REMOVE_FRACTION && velocity < fling)
+                if (gone) {
+                    if (!reduce) offset.animateTo(-width.toFloat(), spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMedium), velocity)
+                    currentOnRemove()
+                } else {
+                    if (reduce) offset.snapTo(0f) else offset.animateTo(0f, spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow), velocity)
+                }
+            },
+        ),
+    ) {
+        if (dragging) {
+            val ink = MaterialTheme.colorScheme.background
+            Row(
+                Modifier.matchParentSize().clip(RowShape).background(GainsColors.palette.coral).padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Default.Delete, null, tint = ink, modifier = Modifier.size(18.dp))
+                Text(stringResource(Res.string.remove), style = MaterialTheme.typography.labelLarge, color = ink)
+            }
+        }
+        // The card's colour under the row, so the red behind it doesn't show through a ticked row's see-through green.
+        Box(Modifier.graphicsLayer { translationX = offset.value }.clip(RowShape).background(MaterialTheme.colorScheme.surfaceContainer)) { content() }
+    }
+}
+
+/** How far across its own width a set row is dragged before letting go removes it. */
+private const val REMOVE_FRACTION = 0.4f
+/** A flick left this fast removes a set however short the drag; the same as the swipe back's. */
+private val REMOVE_FLING = 500.dp
+
 @Composable
 private fun SetBadge(label: String, warmup: Boolean, done: Boolean, record: Boolean, enabled: Boolean, onRemove: () -> Unit) {
     val palette = GainsColors.palette
