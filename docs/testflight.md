@@ -153,16 +153,18 @@ use it when present.
 ## External testers once a week
 
 The external group (**Friends & Family**) gets one build a week from the
-[External testing workflow](../.github/workflows/external-testing.yml), Thursdays at 05:17 UTC:
+[External testing workflow](../.github/workflows/external-testing.yml), Mondays at 06:00 UTC. The public link
+(https://testflight.apple.com/join/T4dqvPW7) joins this group, so it is what everyone who joined
+through the link gets:
 
 1. It takes the newest build on App Store Connect that has finished processing and has not
-   expired. That is normally the last release round of Wednesday.
+   expired. That is normally the last release round of Sunday.
 2. It writes the build's **What to Test** from the commits between the build the group had
    before and this one, read from their `testflight/<version>/<build>` tags. Commits that never
    reach the app are left out, using the same list as the release cut. The first round, or a
    build without a tag, names only the version.
 3. It adds the build to the group and submits it for **Beta App Review**. Testers get it once
-   Apple approves it, usually within a day, so it reaches them by Friday. The run summary gives
+   Apple approves it, usually within a day, so it reaches them by Tuesday. The run summary gives
    the review state.
 
 A build that is already in the group is not added again, so a second run in the same week only
@@ -183,8 +185,8 @@ crash) and an optional **What to Test** note that replaces the generated list.
 - To use a group other than *Friends & Family*, set the repository variable
   `TESTFLIGHT_EXTERNAL_GROUP` (**Settings > Secrets and variables > Actions > Variables**) to
   its name exactly as App Store Connect shows it.
-- Another day or time: change the `cron` line in the workflow. It runs in UTC; keep it a few
-  hours after 23:00 so the last upload of the day has been processed.
+- Another day or time: change the `cron` line in the workflow. It runs in UTC (06:00 UTC is
+  07:00 in London during summer time); keep it a few hours after 23:00 so the last upload of the day has been processed.
 - **Test Information** (the beta description, feedback email and review contact; see
   [One-time setup](#one-time-setup)) must be filled in, or Beta App Review refuses the
   submission.
