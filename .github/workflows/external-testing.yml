@@ -1,0 +1,53 @@
+name: External testing
+
+# Once a week, sends the newest build on TestFlight to the external group (Friends & Family
+# unless the TESTFLIGHT_EXTERNAL_GROUP repository variable names another) and submits it for
+# Beta App Review. Its "What to Test" lists the changes since the group's previous build. The
+# release rounds upload up to eight versions a day, each of which would need a review of its
+# own for an external group; internal testers keep getting all of them.
+#
+# Thursdays at 05:17 UTC: well after the last upload of the day (23:00) has been processed,
+# and a review usually takes under a day, so testers have it by Friday. "Run workflow" sends
+# one now, optionally a chosen build with a note of its own.
+#
+# How it fits with the release rounds: docs/testflight.md#external-testers-once-a-week
+on:
+  schedule:
+    - cron: "17 5 * * 4"
+  workflow_dispatch:
+    inputs:
+      build:
+        description: "Build number to send. Defaults to the newest processed build."
+        required: false
+        type: string
+      what_to_test:
+        description: "What to Test note. Defaults to the changes since the group's last build."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-testing
+  cancel-in-progress: false
+
+jobs:
+  send:
+    name: Send to external testers
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The testflight/<version>/<build> tags, for the list of changes.
+          fetch-depth: 0
+      - name: Add the build to the group and submit it for review
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+          GROUP: ${{ vars.TESTFLIGHT_EXTERNAL_GROUP }}
+          BUILD: ${{ inputs.build }}
+          WHAT_TO_TEST: ${{ inputs.what_to_test }}
+        run: python3 tools/beta.py distribute
