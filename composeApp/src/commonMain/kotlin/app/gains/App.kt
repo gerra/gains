@@ -23,9 +23,11 @@ import app.gains.data.ThemeMode
 import app.gains.platform.CsvFilePicker
 import app.gains.platform.IncomingFiles
 import app.gains.platform.LiveSessionNotifier
+import app.gains.platform.LocalWatchPairing
 import app.gains.platform.NudgeScheduler
 import app.gains.platform.PhotoPicker
 import app.gains.platform.ResumeRequests
+import app.gains.platform.WatchPairing
 import app.gains.platform.systemReducesMotion
 import app.gains.root.LiveSessionNotices
 import app.gains.root.RootGate
@@ -71,6 +73,9 @@ import app.gains.watch.WatchLink
  * [systemBars] is composed with whether the app is drawn dark, so a platform that draws the app
  * under its own status and navigation bars (Android 15 and later) can colour their icons to match
  * the app's theme rather than the device's.
+ *
+ * [watch] says whether an Apple Watch is paired and has Gains, for Settings and a workout to say
+ * how to get it there (docs/watch.md).
  */
 @Composable
 internal fun App(
@@ -80,6 +85,7 @@ internal fun App(
     photoPicker: PhotoPicker = PhotoPicker.None,
     nudges: NudgeScheduler = NudgeScheduler.None,
     systemBars: @Composable (dark: Boolean) -> Unit = {},
+    watch: WatchPairing = WatchPairing.None,
 ) {
     val graph = remember { RootGraph(inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject(), inject()) }
     val settings = graph.settings
@@ -91,7 +97,7 @@ internal fun App(
     val dark = settings.observeThemeMode().collectAsState(ThemeMode.DARK).value.isDark()
     val reduceMotion = remember { systemReducesMotion() }
     systemBars(dark)
-    GainsTheme(darkTheme = dark) { CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
+    GainsTheme(darkTheme = dark) { CompositionLocalProvider(LocalReduceMotion provides reduceMotion, LocalWatchPairing provides watch) {
         // Surface sets the content colour for every Text below it and paints the background.
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
             // Everything below is worded in the chosen language, or in the device's where none has

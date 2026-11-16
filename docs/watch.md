@@ -32,6 +32,32 @@ Between workouts the watch says that none is running, and that the last one was 
 The watch app speaks English and Russian, in the watch's own language; the lift names and the
 workout's title come from the phone, in the app's language there.
 
+## Connecting a watch
+
+There is nothing to pair in Gains: the watch app talks to the iPhone its watch is paired with.
+What the lifter has to do is get the watch app onto the watch, and the phone says how only to
+someone with a watch, following Apple's guidance for companion apps: say it where it helps, once,
+and never block anything on it.
+
+- **No watch paired** (or Android, or the desktop): nothing about the watch is shown anywhere.
+- **Paired, Gains not on it:** Settings has an **Apple Watch** card with the three steps (open the
+  Watch app on the iPhone, Install next to Gains under Available Apps, start a workout here), an
+  **Open the Watch app** button and the tip that **Automatic App Install** (Watch app, General)
+  puts apps on the watch by themselves. A timed workout also shows a card, once: what the watch
+  would do for this workout, **Open the Watch app** and **Not now**. "Not now" is stored
+  (`watch_nudge_dismissed` in the settings table) and the card never comes back; Settings keeps the
+  steps.
+- **Gains on the watch:** Settings says **Connected** and what happens next. Starting a workout
+  opens the watch app by itself, so there is nothing else to learn.
+
+The status comes from WatchConnectivity (`isPaired`, `isWatchAppInstalled`), refreshed when the
+session activates and whenever the watch's state changes, so the card turns to Connected as soon
+as the install finishes, even with Settings open. **Open the Watch app** uses the Watch app's
+`itms-watchs://` URL, which Apple does not document; the steps are always spelled out beside it in
+case it stops working. On the watch, HealthKit asks for its permission when the first workout
+starts there, with the reasons in `iosApp/GainsWatch/Info.plist`; declining keeps everything but
+the heart rate and the Health workout.
+
 ## How it works
 
 ```
@@ -83,6 +109,8 @@ could misread it. Unknown fields are ignored on both sides.
 | The phone's half (mirror, database path, command bus) | `composeApp/src/commonMain/kotlin/app/gains/watch/WatchLink.kt` |
 | WatchConnectivity and HealthKit on the iPhone | `composeApp/src/iosMain/kotlin/app/gains/IosWatchBridge.kt` |
 | The watch app (SwiftUI, watchOS 10) | `iosApp/GainsWatch/`, target and scheme `GainsWatch` |
+| Paired and installed, for the screens | `composeApp/.../platform/WatchPairing.kt`, set by `IosWatchBridge` |
+| Settings' card and the workout's offer | `composeApp/.../ui/screens/WatchConnect.kt`; screenshots `23-apple-watch*` |
 
 The watch app is embedded in the iPhone app (`Embed Watch Content`), so building or archiving the
 `iosApp` scheme builds it too, and the iOS workflow's simulator build checks it. To run it, pick

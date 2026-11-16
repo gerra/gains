@@ -5,6 +5,8 @@ import app.gains.data.LiveSessionRepository
 import app.gains.data.ProgramRepository
 import app.gains.data.SessionRepository
 import app.gains.data.SettingsRepository
+import app.gains.platform.WatchPairing
+import app.gains.platform.WatchStatus
 import app.gains.ui.i18n.localName
 import app.gains.ui.nowMs
 import app.gains.watch.WatchCommands
@@ -15,14 +17,18 @@ import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.koin.mp.KoinPlatform
 import platform.Foundation.NSError
+import platform.Foundation.NSURL
 import platform.HealthKit.HKHealthStore
 import platform.HealthKit.HKWorkoutActivityTypeTraditionalStrengthTraining
 import platform.HealthKit.HKWorkoutConfiguration
 import platform.HealthKit.HKWorkoutSessionLocationTypeIndoor
 import platform.HealthKit.startWatchAppWithWorkoutConfiguration
+import platform.UIKit.UIApplication
 import platform.WatchConnectivity.WCSession
 import platform.WatchConnectivity.WCSessionActivationStateActivated
 import platform.WatchConnectivity.WCSessionDelegateProtocol
@@ -44,7 +50,7 @@ import platform.darwin.NSObject
  * change produces goes back to the watch as any other would.
  */
 @OptIn(ExperimentalForeignApi::class)
-internal object IosWatchBridge {
+internal object IosWatchBridge : WatchPairing {
     private const val STATE = "state"
     private const val COMMAND = "command"
     private const val HELLO = "hello"
@@ -62,6 +68,29 @@ internal object IosWatchBridge {
     private var launchedFor: Long? = null
 
     private val session: WCSession? get() = if (WCSession.isSupported()) WCSession.defaultSession else null
+
+    private val _status = MutableStateFlow(WatchStatus.NONE)
+    /** Paired and installed as WatchConnectivity last said; nothing until the session has activated. */
+    override val status: StateFlow<WatchStatus> = _status
+
+    /**
+     * The iPhone's Watch app, where Gains is installed on the watch from Available Apps. Its URL
+     * scheme is not documented by Apple, so the screens always spell the steps out as well.
+     */
+    override fun openWatchApp(): Boolean {
+        val url = NSURL.URLWithString("itms-watchs://") ?: return false
+        UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any>(), completionHandler = null)
+        return true
+    }
+
+    private fun refreshStatus() {
+        val session = session
+        _status.value = when {
+            session == null || session.activationState != WCSessionActivationStateActivated || !session.paired -> WatchStatus.NONE
+            session.watchAppInstalled -> WatchStatus.INSTALLED
+            else -> WatchStatus.NOT_INSTALLED
+        }
+    }
 
     fun install() {
         val session = session ?: return
@@ -127,13 +156,14 @@ internal object IosWatchBridge {
     }
 
     private class Delegate : NSObject(), WCSessionDelegateProtocol {
-        override fun session(session: WCSession, activationDidCompleteWithState: Long, error: NSError?) = onMain { send() }
+        override fun session(session: WCSession, activationDidCompleteWithState: Long, error: NSError?) = onMain { refreshStatus(); send() }
 
         // Called on iOS when the lifter switches to another watch; activating again picks up the new one.
         override fun sessionDidBecomeInactive(session: WCSession) = Unit
         override fun sessionDidDeactivate(session: WCSession) = session.activateSession()
 
-        override fun sessionWatchStateDidChange(session: WCSession) = onMain { send() }
+        /** Paired, unpaired, Gains installed or removed: the screens' status, and the state for a newly installed app. */
+        override fun sessionWatchStateDidChange(session: WCSession) = onMain { refreshStatus(); send() }
         override fun sessionReachabilityDidChange(session: WCSession) = onMain { send() }
 
         @ObjCSignatureOverride

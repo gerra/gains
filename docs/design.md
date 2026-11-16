@@ -252,6 +252,12 @@ the same rules, translated to the web:
 
 Newest first. One line per change to the rules, with the reason.
 
+- **2026-11-16** The Apple Watch app (`iosApp/GainsWatch`, SwiftUI) takes the dark theme's colours:
+  chalk text, `onSurfaceVariant` grey, green for done, blue for rest, the workout clock and rest in
+  rounded tabular figures. On the phone, getting it onto the watch uses the existing pieces: a
+  `GainsCard` with numbered steps in Settings, and a once-only card in a workout with a compact
+  `SecondaryButton` and a green "Not now" (screenshots `23-apple-watch*`).
+
 - **2026-11-15** A set row also goes with a swipe to the left (red behind it, "Remove"), as well as from the menu on its
   number: a tester could not find how to remove one set once the × left the rows.
 

@@ -51,6 +51,8 @@ import app.gains.sync.SyncController
 import app.gains.sync.SyncEngine
 import app.gains.sync.SyncStore
 import app.gains.ErrorReporter
+import app.gains.platform.LocalWatchPairing
+import app.gains.platform.WatchStatus
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChipRow
 import app.gains.ui.components.Dp16
@@ -245,6 +247,8 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmDeleteAccount by remember { mutableStateOf(false) }
     val palette = GainsColors.palette
+    val watch = LocalWatchPairing.current
+    val watchStatus by watch.status.collectAsState()
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
         item {
@@ -332,6 +336,11 @@ internal fun SettingsScreen(onOpenPrograms: () -> Unit = {}, onOpenOnboarding: (
                 Text(stringResource(Res.string.focus_and_health_blurb), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 PlanFitLine(state.focus, state.cautions, onOpenFocus)
+            }
+            // Only with a paired watch: where Gains stands on it, and until it is there, how to put it there.
+            if (watchStatus != WatchStatus.NONE) {
+                SectionHeader(stringResource(Res.string.apple_watch))
+                WatchSettingsCard(watchStatus, onOpenWatchApp = { watch.openWatchApp() })
             }
             SectionHeader(stringResource(Res.string.appearance))
             GainsCard(Modifier.fillMaxWidth()) {

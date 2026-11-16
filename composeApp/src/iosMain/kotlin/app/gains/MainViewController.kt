@@ -74,7 +74,7 @@ private fun startKoinOnce() {
 fun MainViewController(): UIViewController {
     startKoinOnce()
     return ComposeUIViewController {
-        App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier, photoPicker = IosPhotoPicker(), nudges = IosNudgeScheduler)
+        App(filePicker = IosFilePicker(), notifier = IosLiveSessionNotifier, photoPicker = IosPhotoPicker(), nudges = IosNudgeScheduler, watch = IosWatchBridge)
     }
 }
 

@@ -1455,4 +1455,19 @@
     <string name="more_programs">Ещё программы (%1$d)</string>
     <string name="more_programs_blurb_beginner">Для опытных: больше веса, больше дней, больше цифр.</string>
     <string name="more_programs_blurb">Остальные встроенные программы: под твои ответы они подходят меньше.</string>
+    <!-- The Apple Watch: Settings' card and a workout's once-only offer (docs/watch.md). -->
+    <string name="apple_watch">Apple Watch</string>
+    <string name="watch_connected">Подключены</string>
+    <string name="watch_connected_body">Gains есть на ваших часах. Начните тренировку здесь, и она откроется на запястье: время, обратный отсчёт отдыха, отметка подхода одним касанием и что дальше.</string>
+    <string name="watch_get_title">Установите Gains на Apple Watch</string>
+    <string name="watch_get_body">Часы показывают тренировку прямо во время подходов: время, обратный отсчёт отдыха, отметку подхода одним касанием и что дальше. Это займёт минуту.</string>
+    <string name="watch_step_open">Откройте приложение Watch на этом iPhone.</string>
+    <string name="watch_step_install">Пролистайте до доступных приложений и нажмите «Установить» рядом с Gains.</string>
+    <string name="watch_step_start">Начните тренировку здесь — Gains сам откроется на часах.</string>
+    <string name="watch_open_watch_app">Открыть приложение Watch</string>
+    <string name="watch_auto_install_tip">Чтобы приложения сами появлялись на часах, включите автоматическую установку в приложении Watch, в разделе «Основные».</string>
+    <string name="watch_nudge_title">Ведите эту тренировку с запястья</string>
+    <string name="watch_nudge_body">У Gains есть приложение для Apple Watch: время, обратный отсчёт отдыха и отметка подхода одним касанием. Установите его из приложения Watch на этом iPhone.</string>
+    <string name="watch_nudge_later">Это есть и в настройках, в разделе Apple Watch.</string>
+    <string name="not_now">Не сейчас</string>
 </resources>

@@ -149,6 +149,8 @@ import app.gains.program.PlanOptions
 import app.gains.program.Progression
 import app.gains.program.Rotation
 import app.gains.ErrorReporter
+import app.gains.platform.LocalWatchPairing
+import app.gains.platform.WatchStatus
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChooserRow
 import app.gains.ui.components.DatePickerSheet
@@ -1095,6 +1097,9 @@ internal fun SessionEditorScreen(
     /** The isometric set whose hold chooser is open, the same way. */
     var holdTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var guideOpen by remember { mutableStateOf(false) }
+    val watch = LocalWatchPairing.current
+    val watchStatus by watch.status.collectAsState()
+    val watchNudge = rememberWatchNudge()
     if (state.loading) return
     if (state.saved) {
         val ended = state.endedId
@@ -1158,6 +1163,11 @@ internal fun SessionEditorScreen(
                 state.comeback?.let { gap ->
                     Spacer(Modifier.height(12.dp))
                     ComebackCard(gap, onEase = { model.answerComeback(true) }, onCarryOn = { model.answerComeback(false) })
+                }
+                // A timed workout is when the watch would help: offered once while it is paired without Gains on it.
+                if (state.timed && watchStatus == WatchStatus.NOT_INSTALLED && watchNudge.shown) {
+                    Spacer(Modifier.height(12.dp))
+                    WatchNudgeCard(onOpenWatchApp = { watch.openWatchApp() }, onNotNow = watchNudge.dismiss)
                 }
                 SectionHeader(stringResource(Res.string.exercises_section), action = {
                     TextButton(onClick = { pickerOpen = true }, enabled = state.editable) { Text(stringResource(Res.string.plus_add_exercise), color = if (state.editable) palette.volt else disabledColor()) }
