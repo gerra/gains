@@ -62,10 +62,10 @@ final class HealthWorkout: NSObject, ObservableObject {
         }
     }
 
-    private func start(at date: Date, for startedAtMs: Int64?, configuration: HKWorkoutConfiguration = HealthWorkout.configuration) async {
+    private func start(at date: Date, for startedAtMs: Int64?, configuration: HKWorkoutConfiguration? = nil) async {
         guard HKHealthStore.isHealthDataAvailable(), session == nil else { return }
         guard await authorized() else { return }
-        guard session == nil, let session = try? HKWorkoutSession(healthStore: store, configuration: configuration) else { return }
+        guard session == nil, let session = try? HKWorkoutSession(healthStore: store, configuration: configuration ?? HealthWorkout.configuration) else { return }
         adopt(session, for: startedAtMs)
         // A workout started on the phone a moment ago counts from then, not from when the watch caught up.
         let start = min(date, Date())

@@ -4,7 +4,7 @@ import Foundation
 // shared/src/commonMain/kotlin/app/gains/watch/WatchProtocol.kt (docs/watch.md). The phone sends a
 // WatchState as JSON whenever the workout changes; the watch sends a WatchCommand as JSON when the
 // lifter ticks a set, undoes one, or skips or stretches the rest. Field names are the protocol:
-// change one there and here together. docs/watch-protocol/ holds an example of each message.
+// change one there and here together.
 
 struct WatchState: Codable, Equatable {
     var version: Int

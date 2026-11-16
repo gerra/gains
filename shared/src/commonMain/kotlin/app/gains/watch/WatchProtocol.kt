@@ -11,8 +11,7 @@ import kotlinx.serialization.json.Json
  * inside WatchConnectivity's dictionaries, so the Swift side decodes them with plain Codable
  * structs (iosApp/GainsWatch/WatchProtocol.swift). Field names are part of the protocol: rename
  * one here and there together, and bump [WatchState.VERSION] when an old watch could misread
- * the new shape. `protocol/watch/` holds an example of each message that both sides are tested
- * against.
+ * the new shape.
  */
 
 /** Everything the watch shows, as of [sentAtMs]. */
