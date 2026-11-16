@@ -3,9 +3,10 @@ name: External testing
 # Once a week, sends the newest build on TestFlight to the external group (Friends & Family
 # unless the TESTFLIGHT_EXTERNAL_GROUP repository variable names another) and submits it for
 # Beta App Review. The public link (README, tools/release.py) joins that group, so this is
-# the build everyone who joined through it gets. Its "What to Test" lists the changes since the group's previous build. The
-# release rounds upload up to eight versions a day, each of which would need a review of its
-# own for an external group; internal testers keep getting all of them.
+# the build everyone who joined through it gets. Its "What to Test" lists the changes since
+# the group's previous build. The release rounds upload up to eight versions a day, each of
+# which would need a review of its own for an external group; internal testers keep getting
+# all of them.
 #
 # Mondays at 06:00 UTC: well after Sunday's last upload (23:00) has been processed, and a
 # review usually takes under a day, so testers have it by Tuesday. "Run workflow" sends
