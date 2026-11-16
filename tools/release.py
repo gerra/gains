@@ -336,7 +336,8 @@ def release_notes(version, build, sha, previous, changes=None):
         TESTFLIGHT_BUTTON,
         "",
         f"Gains **{version}** (build {build}) went to TestFlight from {sha[:7]}. "
-        f"To install it, open **{TESTFLIGHT_LINK}** on your iPhone.",
+        f"To install it, open **{TESTFLIGHT_LINK}** on your iPhone; testers who join "
+        "through the link get the newest build every Monday.",
     ]
     if previous and changes:
         lines += ["", f"## Changes since Gains {previous}", "", changes]

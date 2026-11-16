@@ -8,6 +8,7 @@ How a commit becomes a build that testers can install. The short version lives i
 - [Upload from Xcode](#upload-from-xcode)
 - [Upload from the command line](#upload-from-the-command-line)
 - [Releases through the day](#releases-through-the-day)
+- [External testers once a week](#external-testers-once-a-week)
 - [Upload from GitHub Actions](#upload-from-github-actions)
 - [Upload from Xcode Cloud](#upload-from-xcode-cloud)
 - [Adding testers](#adding-testers)
@@ -131,9 +132,8 @@ python3 -m unittest discover -s tools -p 'test_*.py'
 **Eight versions a day and external testers.** Every cut is a new `MARKETING_VERSION`, and the
 first build of a version for an external group goes through Beta App Review (see
 [Adding testers](#adding-testers)). Internal testing takes every build immediately, so this
-cadence suits an internal group; pointing an external group at all eight cuts means eight
-reviews a day. Give external testers a slower lane — a group that gets only the versions worth
-reviewing — or keep them on internal testing.
+cadence suits an internal group; pointing an external group at all eight cuts would mean eight
+reviews a day. External testers get the slower lane described next.
 
 GitHub runs schedules in UTC and can start them a few minutes late when its queue is busy, and
 the top of the hour is its busiest moment; the hour between a cut and its release absorbs that.
@@ -149,6 +149,51 @@ request instead, add a `RELEASE_TOKEN` secret: a
 [fine-grained personal access token](https://github.com/settings/personal-access-tokens)
 for this repository with *Contents* and *Pull requests* set to read and write. Both workflows
 use it when present.
+
+## External testers once a week
+
+The external group (**Friends & Family**) gets one build a week from the
+[External testing workflow](../.github/workflows/external-testing.yml), Mondays at 06:00 UTC. The public link
+(https://testflight.apple.com/join/T4dqvPW7) joins this group, so it is what everyone who joined
+through the link gets:
+
+1. It takes the newest build on App Store Connect that has finished processing and has not
+   expired. That is normally the last release round of Sunday.
+2. It writes the build's **What to Test** from the commits between the build the group had
+   before and this one, read from their `testflight/<version>/<build>` tags. Commits that never
+   reach the app are left out, using the same list as the release cut. The first round, or a
+   build without a tag, names only the version.
+3. It adds the build to the group and submits it for **Beta App Review**. Testers get it once
+   Apple approves it, usually within a day, so it reaches them by Tuesday. The run summary gives
+   the review state.
+
+A build that is already in the group is not added again, so a second run in the same week only
+checks the review. Nothing is pushed or tagged; the group's builds in App Store Connect are
+the record.
+
+**Run it by hand** from **Actions > External testing > Run workflow** to send a build now. It
+takes an optional **build** number (send an older build, for example one that did not
+crash) and an optional **What to Test** note that replaces the generated list.
+
+**Settings.**
+
+- It uses the three App Store Connect secrets of the
+  [upload](#upload-from-github-actions) (`APP_STORE_CONNECT_API_KEY_ID`,
+  `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_P8_BASE64`), so there is nothing
+  new to add. Submitting for Beta App Review needs a key with the **App Manager** (or
+  **Admin**) role; if the run stops with a 403, create such a key and update those secrets.
+- To use a group other than *Friends & Family*, set the repository variable
+  `TESTFLIGHT_EXTERNAL_GROUP` (**Settings > Secrets and variables > Actions > Variables**) to
+  its name exactly as App Store Connect shows it.
+- Another day or time: change the `cron` line in the workflow. It runs in UTC (06:00 UTC is
+  07:00 in London during summer time); keep it a few hours after 23:00 so the last upload of the day has been processed.
+- **Test Information** (the beta description, feedback email and review contact; see
+  [One-time setup](#one-time-setup)) must be filled in, or Beta App Review refuses the
+  submission.
+
+The logic lives in [`tools/beta.py`](../tools/beta.py), which calls the App Store Connect API
+with the standard library and `openssl`, like `tools/play.py` does for Google Play. Its tests
+are in `tools/test_beta.py`.
 
 ## Upload from Xcode
 
@@ -291,7 +336,8 @@ counter, or let one of the three be the only uploader.
   Add testers by email, or enable the **Public Link** and paste it into the README under
   [Join the beta](../README.md#join-the-beta). The first build for an external group goes
   through Beta App Review (usually a day); later builds with the same version skip it unless
-  Apple asks.
+  Apple asks. The [weekly round](#external-testers-once-a-week) adds a build to the group and
+  submits it, so no clicks are needed after the group exists.
 - Builds expire 90 days after upload; a new upload resets the clock for testers. TestFlight
   shows the **What to Test** notes entered per build, so write a line or two.
 

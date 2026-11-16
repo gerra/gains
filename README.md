@@ -46,11 +46,12 @@ All of it, with every screenshot: [docs/features.md](docs/features.md).
 ### Join the beta
 
 Install [TestFlight](https://apps.apple.com/app/testflight/id899247664) (iOS 16+) and open
-**https://testflight.apple.com/join/T4dqvPW7** on your iPhone. The newest build is the
-[latest release](https://github.com/gerra/gains/releases/latest).
+**https://testflight.apple.com/join/T4dqvPW7** on your iPhone. A new build arrives every
+Monday, once Apple's beta review has passed it (usually within a day).
 
-Builds ship from `main` every two hours through the day: [docs/testflight.md](docs/testflight.md),
-and the same rounds send the Android build to Play's closed test: [docs/play.md](docs/play.md).
+Builds ship from `main` to TestFlight's internal testers every two hours through the day, and
+the newest of them goes to the beta every Monday: [docs/testflight.md](docs/testflight.md). The
+same rounds send the Android build to Play's closed test: [docs/play.md](docs/play.md).
 
 ## Build from source
 
