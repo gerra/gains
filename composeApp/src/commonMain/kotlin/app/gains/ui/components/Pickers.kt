@@ -78,6 +78,7 @@ import org.jetbrains.compose.resources.stringResource
 import app.gains.ui.theme.GainsColors
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -146,9 +147,19 @@ internal fun WheelPicker(
         }
     }
     LaunchedEffect(current) {
-        if (!state.isScrollInProgress && centred != null && centred != current) {
+        // A turn still under way for an earlier value is the wheel's own scroll, not the user's: two
+        // quick +2.5 taps from 60 send the quarters wheel to .50 and straight back to .00. Skipping it
+        // would leave the wheel stopped part-way, and that row would come back as a pick (65.5).
+        if (turning || (!state.isScrollInProgress && centred != null && centred != current)) {
             turning = true
-            try { state.animateScrollToItem(current) } finally { turning = false }
+            try {
+                state.animateScrollToItem(current)
+            } finally {
+                // Cancelled because the value changed again: the next turn takes over and the flag
+                // stays up, so no row is picked in between. A finger grabbing the wheel stops the turn
+                // without cancelling this effect, and the flag drops so the drag picks as usual.
+                if (isActive) turning = false
+            }
         }
     }
 
