@@ -38,6 +38,27 @@ class WheelPickerLiveTest {
     }
 
     @Test
+    fun aSecondJumpMidTurnLandsOnItsOwnValue() = runDesktopComposeUiTest(400, 600) {
+        // The quarters wheel on two quick +2.5 taps from 60: it starts turning to .50, and the second
+        // tap sends it back to .00 before it gets there. It must land on .00 and pick nothing.
+        val quarters = listOf(".00", ".25", ".50", ".75")
+        var value by mutableStateOf(0)
+        val picks = mutableListOf<Int>()
+        setContent { WheelPicker(quarters, value, { picks += it; value = it }, Modifier.width(96.dp)) }
+        waitForIdle()
+
+        mainClock.autoAdvance = false
+        value = 2
+        repeat(4) { mainClock.advanceTimeByFrame() }
+        value = 0
+        mainClock.autoAdvance = true
+        waitForIdle()
+
+        assertEquals(0, value)
+        assertEquals(emptyList(), picks)
+    }
+
+    @Test
     fun aDragPicksBeforeTheSnapSettles() = runDesktopComposeUiTest(400, 600) {
         var value by mutableStateOf(30)
         setContent { WheelPicker(labels, value, { value = it }, Modifier.width(96.dp).testTag("wheel")) }
