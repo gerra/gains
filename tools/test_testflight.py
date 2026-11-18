@@ -87,6 +87,7 @@ class ArchiveTest(unittest.TestCase):
         "MARKETING_VERSION": "1.9",
         "BUNDLE_ID": "app.gains.Gains",
         "PROFILE_NAME": "Gains App Store",
+        "WATCH_PROFILE_NAME": "Gains Watch App Store",
         "TEAM_ID": "V5Y8M5GKZ6",
     }
 
@@ -97,7 +98,35 @@ class ArchiveTest(unittest.TestCase):
         self.assertEqual(testflight.SCHEME, flag(command, "-scheme"))
         self.assertEqual("Release", flag(command, "-configuration"))
         self.assertIn("CURRENT_PROJECT_VERSION=57", command)
-        self.assertIn("PROVISIONING_PROFILE_SPECIFIER=Gains App Store", command)
+        # Each target gets its own profile through the setting its PROVISIONING_PROFILE_SPECIFIER reads.
+        self.assertIn("GAINS_APP_PROFILE=Gains App Store", command)
+        self.assertIn("GAINS_WATCH_PROFILE=Gains Watch App Store", command)
+        self.assertEqual([], [argument for argument in command if str(argument).startswith("PROVISIONING_PROFILE_SPECIFIER=")])
+
+    def test_each_target_reads_its_profile_from_its_own_setting(self):
+        project = (ROOT / testflight.PROJECT / "project.pbxproj").read_text()
+        self.assertEqual(2, project.count('PROVISIONING_PROFILE_SPECIFIER = "$(GAINS_APP_PROFILE)";'))
+        self.assertEqual(2, project.count('PROVISIONING_PROFILE_SPECIFIER = "$(GAINS_WATCH_PROFILE)";'))
+        self.assertEqual(2, project.count('PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID)' + testflight.WATCH_BUNDLE_SUFFIX + '";'))
+
+    def test_the_upload_signs_the_app_and_the_watch_app(self):
+        written = {}
+        with mock.patch.object(testflight.gha, "temp", lambda name: pathlib.Path("/nonexistent") / name), \
+                mock.patch.object(testflight.gha, "secret", lambda name: "secret"), \
+                mock.patch.object(testflight.gha, "summary", lambda *args, **kwargs: None), \
+                mock.patch.object(pathlib.Path, "write_bytes", lambda path, data: written.__setitem__(path.name, data)):
+            recorded("upload", self.ENVIRONMENT)
+        options = testflight.plistlib.loads(written["ExportOptions.plist"])
+        self.assertEqual(
+            {"app.gains.Gains": "Gains App Store", "app.gains.Gains.watchkitapp": "Gains Watch App Store"},
+            options["provisioningProfiles"],
+        )
+
+    def test_both_profiles_are_secrets_the_workflow_passes(self):
+        workflow = TESTFLIGHT_WORKFLOW.read_text()
+        self.assertIn("IOS_WATCH_APP_STORE_PROFILE_BASE64", testflight.SECRETS)
+        for secret in testflight.SECRETS:
+            self.assertIn(f"{secret}: ${{{{ secrets.{secret} }}}}", workflow)
 
 
 class WorkflowTest(unittest.TestCase):

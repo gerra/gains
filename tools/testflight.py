@@ -7,7 +7,8 @@ One command per step of that workflow, in the order it runs them:
   check-secrets    Fail early, with a clear message, when a secret is missing.
   settings         Read TEAM_ID, BUNDLE_ID and MARKETING_VERSION out of Config.xcconfig.
   install-signing  Put the distribution certificate in a throwaway keychain and the
-                   App Store profile where Xcode looks for it.
+                   App Store profiles (the iPhone app's and the Apple Watch app's) where
+                   Xcode looks for them.
   install-api-key  Write the App Store Connect API key the upload authenticates with.
   archive          xcodebuild archive, signed manually with that certificate and profile.
   upload           xcodebuild -exportArchive, sending the build to App Store Connect.
@@ -47,7 +48,16 @@ SECRETS = [
     "IOS_DISTRIBUTION_CERT_P12_BASE64",
     "IOS_DISTRIBUTION_CERT_PASSWORD",
     "IOS_APP_STORE_PROFILE_BASE64",
+    "IOS_WATCH_APP_STORE_PROFILE_BASE64",
 ]
+
+# The Apple Watch app ships inside the iPhone app under its own bundle id, signed with its own
+# profile (docs/watch.md). Each target of the project reads its profile's name from one of these
+# build settings (PROVISIONING_PROFILE_SPECIFIER in project.pbxproj), so the archive can hand each
+# its own; PROVISIONING_PROFILE_SPECIFIER itself on the command line would give both the same one.
+APP_PROFILE_SETTING = "GAINS_APP_PROFILE"
+WATCH_PROFILE_SETTING = "GAINS_WATCH_PROFILE"
+WATCH_BUNDLE_SUFFIX = ".watchkitapp"
 
 # Where Xcode looks for provisioning profiles; both, because the location moved.
 PROFILE_DIRS = [
@@ -124,7 +134,6 @@ def install_signing(args):
     keychain = keychain_path()
     password = str(uuid.uuid4())
     certificate = decode_secret("IOS_DISTRIBUTION_CERT_P12_BASE64", gha.temp("distribution.p12"))
-    profile = decode_secret("IOS_APP_STORE_PROFILE_BASE64", gha.temp("appstore.mobileprovision"))
 
     # A throwaway keychain holding only the distribution certificate.
     gha.run("security", "create-keychain", "-p", password, keychain, show=False)
@@ -144,19 +153,27 @@ def install_signing(args):
     gha.run("security", "list-keychain", "-d", "user", "-s", keychain, "login.keychain-db")
     gha.run("security", "find-identity", "-v", "-p", "codesigning", keychain)
 
-    # Install the App Store profile where Xcode looks for it and remember its name. The
-    # profile is CMS-signed; `security cms -D` unwraps the plist inside it.
-    details_path = gha.temp("profile.plist")
+    app = install_profile("IOS_APP_STORE_PROFILE_BASE64", "appstore")
+    watch = install_profile("IOS_WATCH_APP_STORE_PROFILE_BASE64", "watch-appstore")
+    gha.export(PROFILE_NAME=app, WATCH_PROFILE_NAME=watch)
+    certificate.unlink()
+
+
+def install_profile(secret, name):
+    """Install one App Store profile where Xcode looks for it and return its name.
+
+    The profile is CMS-signed; `security cms -D` unwraps the plist inside it.
+    """
+    profile = decode_secret(secret, gha.temp(f"{name}.mobileprovision"))
+    details_path = gha.temp(f"{name}.plist")
     with open(details_path, "wb") as handle:
         gha.run("security", "cms", "-D", "-i", profile, stdout=handle)
     details = plistlib.loads(details_path.read_bytes())
     for directory in PROFILE_DIRS:
         directory.mkdir(parents=True, exist_ok=True)
         shutil.copy(profile, directory / f"{details['UUID']}.mobileprovision")
-
-    gha.export(PROFILE_NAME=details["Name"])
     print(f"Installed profile '{details['Name']}' ({details['UUID']})")
-    certificate.unlink()
+    return details["Name"]
 
 
 def install_api_key(args):
@@ -167,7 +184,8 @@ def archive(args):
     build = os.environ["BUILD_NUMBER"]
     print(
         f"Archiving Gains {os.environ['MARKETING_VERSION']} ({build}) for "
-        f"{os.environ['BUNDLE_ID']} with profile '{os.environ['PROFILE_NAME']}'"
+        f"{os.environ['BUNDLE_ID']} with profile '{os.environ['PROFILE_NAME']}', "
+        f"its watch app with '{os.environ['WATCH_PROFILE_NAME']}'"
     )
     gha.run(
         "xcodebuild", "archive",
@@ -179,7 +197,8 @@ def archive(args):
         "CODE_SIGN_STYLE=Manual",
         "CODE_SIGN_IDENTITY=Apple Distribution",
         f"DEVELOPMENT_TEAM={os.environ['TEAM_ID']}",
-        f"PROVISIONING_PROFILE_SPECIFIER={os.environ['PROFILE_NAME']}",
+        f"{APP_PROFILE_SETTING}={os.environ['PROFILE_NAME']}",
+        f"{WATCH_PROFILE_SETTING}={os.environ['WATCH_PROFILE_NAME']}",
         f"CURRENT_PROJECT_VERSION={build}",
         cwd=ROOT,
     )
@@ -200,7 +219,10 @@ def upload(args):
                 "teamID": os.environ["TEAM_ID"],
                 "signingStyle": "manual",
                 "signingCertificate": "Apple Distribution",
-                "provisioningProfiles": {os.environ["BUNDLE_ID"]: os.environ["PROFILE_NAME"]},
+                "provisioningProfiles": {
+                    os.environ["BUNDLE_ID"]: os.environ["PROFILE_NAME"],
+                    os.environ["BUNDLE_ID"] + WATCH_BUNDLE_SUFFIX: os.environ["WATCH_PROFILE_NAME"],
+                },
                 "uploadSymbols": True,
             }
         )
@@ -241,7 +263,9 @@ def simulator_build_command():
     CODE_SIGNING_ALLOWED=NO skips signing, so the entitlements are still processed but no
     certificate, profile or team is needed. ARCHS=arm64 builds the one slice the Apple
     Silicon runner would run: the Kotlin side has no x86_64 simulator slice to link, since
-    Compose Multiplatform 1.11 dropped the iosX64 target (docs/launch-plan.md, item 27).
+    Compose Multiplatform 1.11 dropped the iosX64 target (docs/launch-plan.md, item 27). The
+    scheme builds the Apple Watch app too, for the watchOS Simulator, since the iPhone app
+    embeds it.
     """
     return [
         "xcodebuild", "build",

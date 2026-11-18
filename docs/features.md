@@ -90,6 +90,13 @@ The long version of the list in the [README](../README.md).
   start time and how long the workout has run, and a rest becomes a scheduled **Rest over**
   notification that iOS delivers when the countdown ends. The desktop has a tray icon with the
   same **Skip rest** in its menu. Each is cleared when the session is ended or discarded.
+  **Apple Watch:** starting a workout on the iPhone opens Gains on the watch, which shows the
+  workout clock, the set to do with its weight and reps on the Digital Crown and a **Done**
+  button, the rest counting down in a ring with **+30 s** and **Skip** and a tap on the wrist when
+  it ends, and the set that comes next; a second page lists every set to tick or untick. Ticks
+  show at once and reach the phone even when it is out of reach for a while. A Health workout runs
+  alongside, with the heart rate on the wrist, saved to Health when the workout is stored:
+  [docs/watch.md](watch.md).
   **Log past workout** still logs a session by date, time and duration.
 - **A summary when you finish.** Ending a session opens what it came to: how long it took, on the
   wheels in case the clock was wrong; your last body weight filled in, ready to be recorded against

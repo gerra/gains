@@ -262,6 +262,11 @@ the same rules, translated to the web:
 
 Newest first. One line per change to the rules, with the reason.
 
+- **2026-11-16** The Apple Watch app (`iosApp/GainsWatch`, SwiftUI) takes the dark theme's colours:
+  chalk text, `onSurfaceVariant` grey, green for done, blue for rest, the workout clock and rest in
+  rounded tabular figures. On the phone, getting it onto the watch uses the existing pieces: a
+  `GainsCard` with numbered steps in Settings, and a once-only card in a workout with a compact
+  `SecondaryButton` and a green "Not now" (screenshots `23-apple-watch*`).
 - **2026-11-15** Reps (and a cardio set's distance and seconds) are typed on the app's own `NumberPad` rather than the
   system keyboard: iOS's numeric keypad had no key to put it away, it covered the clock, and the app could not tell it
   was up. The pad sits under the clock with the rest in sight, has a hide key, ±1 for the rep more or less than planned

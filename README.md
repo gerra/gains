@@ -33,6 +33,7 @@ Website, privacy policy and support: **https://gains.gerra.sh**
 - **Programs** like Full-body basics, GZCLP, 5/3/1 for Beginners and Reddit PPL, pre-filled from your last session.
 - **Fitted to you**: pick up to two areas to work on more (glutes, abs, arms…) and anything to be careful with (knees, lower back, pregnancy…); exercises are added, or swapped for gentler ones, and each says why.
 - **Timed workouts** with a rest timer, and a summary with a photo when you finish.
+- **Apple Watch**: the workout clock, the rest counting down, a tap to tick the set and what's next, on the wrist ([docs/watch.md](docs/watch.md)).
 - **Charts**: estimated 1RM, weekly volume on a body map, bodyweight.
 - **Week streaks** that survive a rest week.
 - **Records, a score and achievements**: every record the workout set, named exactly; a score you can add up yourself; six ladders earned by training alone.

@@ -148,6 +148,8 @@ import app.gains.program.PlanOptions
 import app.gains.program.Progression
 import app.gains.program.Rotation
 import app.gains.ErrorReporter
+import app.gains.platform.LocalWatchPairing
+import app.gains.platform.WatchStatus
 import app.gains.ui.ScreenModel
 import app.gains.ui.components.ChooserRow
 import app.gains.ui.components.DatePickerSheet
@@ -181,6 +183,8 @@ import app.gains.ui.reportingHandler
 import app.gains.ui.nowMs
 import app.gains.ui.rememberScreenModel
 import app.gains.ui.theme.GainsColors
+import app.gains.watch.WatchCommand
+import app.gains.watch.WatchPlan
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -807,10 +811,7 @@ internal class SessionEditorModel(
         val set = exercise.sets[setIndex]
         if (!set.done && !set.hasValues) return@edit s
         val done = !set.done
-        val seconds = when {
-            set.isWarmup -> Gzclp.WARMUP_REST.first
-            else -> s.tiers[exercise.exercise.id]?.restTimerSeconds ?: Gzclp.DEFAULT_REST_SECONDS
-        }
+        val seconds = WatchPlan.restSeconds(s.tiers[exercise.exercise.id], set.isWarmup)
         s.copy(
             exercises = s.exercises.mapIndexed { i, e ->
                 if (i != exerciseIndex) e else e.copy(sets = e.sets.mapIndexed { j, d -> if (j == setIndex) d.copy(done = done) else d })
@@ -830,6 +831,28 @@ internal class SessionEditorModel(
         val s = _state.value
         if (!live || finished || !s.isRunning || s.conflict != null) return false
         dismissRest()
+        return true
+    }
+
+    /**
+     * A tick, an undo or a change to the rest from the Apple Watch (docs/watch.md). True when the
+     * workout runs in this editor, which then carries it out exactly as the database path would
+     * ([WatchPlan.apply]) and writes it out with the next persist; false when the running workout
+     * is not this editor's, so the caller applies it to the database instead. A command that does
+     * not fit (a set already ticked, a lift since removed) is taken and ignored.
+     */
+    fun applyWatch(command: WatchCommand): Boolean {
+        val s = _state.value
+        if (!live || finished || !s.isRunning || s.conflict != null) return false
+        edit { current ->
+            val session = current.toLive() ?: return@edit current
+            val changed = WatchPlan.apply(session, command, nowMs()) { id, warmup -> WatchPlan.restSeconds(current.tiers[id], warmup) }
+                ?: return@edit current
+            current.copy(
+                exercises = current.exercises.mapIndexed { i, e -> e.copy(sets = changed.exercises[i].sets) },
+                restTimer = changed.rest,
+            )
+        }
         return true
     }
     fun setNote(index: Int, note: String) = edit { it.copy(exercises = it.exercises.mapIndexed { i, e -> if (i == index) e.copy(note = note) else e }) }
@@ -1076,6 +1099,9 @@ internal fun SessionEditorScreen(
     /** The isometric set whose hold chooser is open, the same way. */
     var holdTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var guideOpen by remember { mutableStateOf(false) }
+    val watch = LocalWatchPairing.current
+    val watchStatus by watch.status.collectAsState()
+    val watchNudge = rememberWatchNudge()
     /** The field the number pad types into, if one is focused. */
     val pad = remember { NumberPadState() }
     if (state.loading) return
@@ -1141,6 +1167,11 @@ internal fun SessionEditorScreen(
                 state.comeback?.let { gap ->
                     Spacer(Modifier.height(12.dp))
                     ComebackCard(gap, onEase = { model.answerComeback(true) }, onCarryOn = { model.answerComeback(false) })
+                }
+                // A timed workout is when the watch would help: offered once while it is paired without Gains on it.
+                if (state.timed && watchStatus == WatchStatus.NOT_INSTALLED && watchNudge.shown) {
+                    Spacer(Modifier.height(12.dp))
+                    WatchNudgeCard(onOpenWatchApp = { watch.openWatchApp() }, onNotNow = watchNudge.dismiss)
                 }
                 SectionHeader(stringResource(Res.string.exercises_section), action = {
                     TextButton(onClick = { pickerOpen = true }, enabled = state.editable) { Text(stringResource(Res.string.plus_add_exercise), color = if (state.editable) palette.volt else disabledColor()) }

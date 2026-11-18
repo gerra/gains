@@ -1400,4 +1400,19 @@
     <string name="more_programs">More programs (%1$d)</string>
     <string name="more_programs_blurb_beginner">For experienced lifters: heavier weights, more days, more numbers.</string>
     <string name="more_programs_blurb">The other built-in programs, a less close fit for your answers.</string>
+    <!-- The Apple Watch: Settings' card and a workout's once-only offer (docs/watch.md). -->
+    <string name="apple_watch">Apple Watch</string>
+    <string name="watch_connected">Connected</string>
+    <string name="watch_connected_body">Gains is on your watch. Start a workout here and it opens on your wrist: the clock, your rest counting down, a tap to tick each set and what's next.</string>
+    <string name="watch_get_title">Put Gains on your Apple Watch</string>
+    <string name="watch_get_body">Your watch shows the workout as you lift: the clock, your rest counting down, a tap to tick each set and what's next. It takes a minute.</string>
+    <string name="watch_step_open">Open the Watch app on this iPhone.</string>
+    <string name="watch_step_install">Scroll down to Available Apps and tap Install next to Gains.</string>
+    <string name="watch_step_start">Start a workout here. Gains opens on your watch by itself.</string>
+    <string name="watch_open_watch_app">Open the Watch app</string>
+    <string name="watch_auto_install_tip">To have apps go onto your watch by themselves, turn on Automatic App Install in the Watch app, under General.</string>
+    <string name="watch_nudge_title">Track this workout on your wrist</string>
+    <string name="watch_nudge_body">Gains has an Apple Watch app: the clock, your rest counting down and a tap to tick each set. Install it from the Watch app on this iPhone.</string>
+    <string name="watch_nudge_later">It's in Settings too, under Apple Watch.</string>
+    <string name="not_now">Not now</string>
 </resources>

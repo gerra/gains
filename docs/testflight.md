@@ -26,7 +26,8 @@ How a commit becomes a build that testers can install. The short version lives i
 3. **Register the app identifier.** Building to a physical device once with automatic signing
    registers `app.gains.Gains` for the team. Otherwise add it by hand at
    [developer.apple.com > Identifiers](https://developer.apple.com/account/resources/identifiers/list)
-   with no extra capabilities.
+   with the **HealthKit** capability, and `app.gains.Gains.watchkitapp` for the Apple Watch app
+   with HealthKit too ([docs/watch.md](watch.md#one-time-setup-in-the-apple-developer-account)).
 4. **Create the App Store Connect record.** [App Store Connect > Apps](https://appstoreconnect.apple.com/apps)
    > **+** > **New App**: platform iOS, name *Gains*, primary language, bundle id
    `app.gains.Gains`, any SKU (for example `gains-ios`). Nothing else has to be filled in for
@@ -252,18 +253,19 @@ with a build number). The workflow run number becomes the build number, so nothi
 `Config.xcconfig` has to change. Uploads are serialized by a concurrency group, so two runs
 started back to back queue the second build instead of colliding.
 
-Add these six secrets under **Settings > Secrets and variables > Actions**:
+Add these seven secrets under **Settings > Secrets and variables > Actions**:
 
 | Secret | What it is | How to get it |
 |--------|------------|---------------|
 | `IOS_DISTRIBUTION_CERT_P12_BASE64` | The Apple Distribution certificate with its private key | Keychain Access > My Certificates > right-click *Apple Distribution: …* > **Export** as `.p12` with a password. Then `base64 -i cert.p12 \| pbcopy`. |
 | `IOS_DISTRIBUTION_CERT_PASSWORD` | The password chosen during that export | |
 | `IOS_APP_STORE_PROFILE_BASE64` | An **App Store Connect** distribution provisioning profile for `app.gains.Gains` | [developer.apple.com > Profiles](https://developer.apple.com/account/resources/profiles/list) > **+** > *App Store Connect* > pick the app id and the distribution certificate > name it (e.g. *Gains App Store*) > download. Then `base64 -i Gains_App_Store.mobileprovision \| pbcopy`. |
+| `IOS_WATCH_APP_STORE_PROFILE_BASE64` | The same for the Apple Watch app, `app.gains.Gains.watchkitapp` | As above, for the watch App ID (it needs the **HealthKit** capability, as does `app.gains.Gains`): [docs/watch.md](watch.md#one-time-setup-in-the-apple-developer-account). Name it e.g. *Gains Watch App Store*. |
 | `APP_STORE_CONNECT_API_KEY_ID` | Key ID of an App Store Connect API key | [App Store Connect > Users and Access > Integrations > App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api) > **Team Keys** > **+**. Role **App Manager** (or **Developer**). |
 | `APP_STORE_CONNECT_API_ISSUER_ID` | The Issuer ID shown at the top of that page | |
 | `APP_STORE_CONNECT_API_KEY_P8_BASE64` | The `.p8` private key of that API key | Download it right after creating the key; Apple offers it only once. Then `base64 -i AuthKey_XXXXXXXXXX.p8 \| pbcopy`. |
 
-The certificate and profile expire after a year; renew them and update the two secrets when
+The certificate and profiles expire after a year; renew them and update their secrets when
 the workflow starts failing at the archive step. Everything is installed into a throwaway
 keychain and removed at the end of the run.
 

@@ -7,13 +7,57 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3B8780FD24364B7CF8C1E037 /* GainsWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA72BAB745FFFE54539B0A39 /* GainsWatchApp.swift */; };
+		A174B74E040C4A44E7593601 /* WatchProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48137026F77BB0AC172A7D9D /* WatchProtocol.swift */; };
+		4EACCA564F79737678F5F24E /* WorkoutPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769E5A1E1F765441B22A7FA8 /* WorkoutPlan.swift */; };
+		FE8630F172497B6634745F8B /* WorkoutStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAD43A71C75A90AB72BA371D /* WorkoutStore.swift */; };
+		F0E2DF9C9004248921C19FDE /* HealthWorkout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 953243258085AD1BD785540B /* HealthWorkout.swift */; };
+		2139D4E85249DFB7C83384A2 /* WorkoutViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4B62367A2B82096035667C /* WorkoutViews.swift */; };
+		A3C8DA76960DA0136967DEA6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 005B9B3E1807AAD157AADF2C /* Assets.xcassets */; };
+		C434DFE6ED02CBE08AC2B38A /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 018ADD9C8FC76C4372204961 /* Localizable.xcstrings */; };
+		1573742F08283A14EF4D0086 /* GainsWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 53022B5274A29EC1EA7DC9F7 /* GainsWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1A40B90C7E8844F48DB0A227 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122CB644AC9849C7845AE9A7 /* ContentView.swift */; };
 		7C1E2D3A4B5C6D7E8F9A0B1C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D2F3E4A5B6C7D8E9FA0B1C2 /* Assets.xcassets */; };
 		A1B2C3D4E5F60718293A4B5C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* PrivacyInfo.xcprivacy */; };
 		F6A5F7933FD0450692911CD3 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC735ADC88494CDFB83E94D6 /* iOSApp.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		F4937CD11C6B1C418976AFEE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BB5AD272FF4E44F9862BF44E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 87254EE6ADDCDE5369FAFF32;
+			remoteInfo = GainsWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0C45550203ACC1319D4851AC /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				1573742F08283A14EF4D0086 /* GainsWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		EA72BAB745FFFE54539B0A39 /* GainsWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainsWatchApp.swift; sourceTree = "<group>"; };
+		48137026F77BB0AC172A7D9D /* WatchProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchProtocol.swift; sourceTree = "<group>"; };
+		769E5A1E1F765441B22A7FA8 /* WorkoutPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPlan.swift; sourceTree = "<group>"; };
+		CAD43A71C75A90AB72BA371D /* WorkoutStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStore.swift; sourceTree = "<group>"; };
+		953243258085AD1BD785540B /* HealthWorkout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthWorkout.swift; sourceTree = "<group>"; };
+		5B4B62367A2B82096035667C /* WorkoutViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutViews.swift; sourceTree = "<group>"; };
+		BF143EF25DABBDB1A8CA5BBD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D1E1B8774B7E513C35225E16 /* GainsWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GainsWatch.entitlements; sourceTree = "<group>"; };
+		005B9B3E1807AAD157AADF2C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		018ADD9C8FC76C4372204961 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		53022B5274A29EC1EA7DC9F7 /* GainsWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GainsWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		122CB644AC9849C7845AE9A7 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3499E407BE3142D882C516DE /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		5EE831CA06674C458816A360 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -25,6 +69,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		DFFF2E83C3BD5560F092C098 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2D0E938BA9E9447F95EBBB6F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -35,6 +86,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1EC1CEAF68D59B77486CF16D /* GainsWatch */ = {
+			isa = PBXGroup;
+			children = (
+				EA72BAB745FFFE54539B0A39 /* GainsWatchApp.swift */,
+				48137026F77BB0AC172A7D9D /* WatchProtocol.swift */,
+				769E5A1E1F765441B22A7FA8 /* WorkoutPlan.swift */,
+				CAD43A71C75A90AB72BA371D /* WorkoutStore.swift */,
+				953243258085AD1BD785540B /* HealthWorkout.swift */,
+				5B4B62367A2B82096035667C /* WorkoutViews.swift */,
+				005B9B3E1807AAD157AADF2C /* Assets.xcassets */,
+				018ADD9C8FC76C4372204961 /* Localizable.xcstrings */,
+				BF143EF25DABBDB1A8CA5BBD /* Info.plist */,
+				D1E1B8774B7E513C35225E16 /* GainsWatch.entitlements */,
+			);
+			path = GainsWatch;
+			sourceTree = "<group>";
+		};
 		44D1EB64611045EC8535800A /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
@@ -52,6 +120,7 @@
 			isa = PBXGroup;
 			children = (
 				6A6FFE7D7607407EB9A33E45 /* Gains.app */,
+				53022B5274A29EC1EA7DC9F7 /* GainsWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -60,6 +129,7 @@
 			isa = PBXGroup;
 			children = (
 				44D1EB64611045EC8535800A /* iosApp */,
+				1EC1CEAF68D59B77486CF16D /* GainsWatch */,
 				91C85B50D61A4B08B9B27F23 /* Configuration */,
 				64525F1FE9FC4C0F90C61D35 /* Products */,
 			);
@@ -76,6 +146,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		87254EE6ADDCDE5369FAFF32 /* GainsWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D1A0CA9057F71D3BC45C8B18 /* Build configuration list for PBXNativeTarget "GainsWatch" */;
+			buildPhases = (
+				12671B8B82E0BD885BD96B47 /* Sources */,
+				DFFF2E83C3BD5560F092C098 /* Frameworks */,
+				E3AF376DB1866E746C321230 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GainsWatch;
+			productName = GainsWatch;
+			productReference = 53022B5274A29EC1EA7DC9F7 /* GainsWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 		79F9ED646BA74BE981D43BD8 /* iosApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 49D6ACAC14DA45C4BC2EF0C7 /* Build configuration list for PBXNativeTarget "iosApp" */;
@@ -84,10 +171,12 @@
 				5B70411DF81E41C4A7602EA6 /* Sources */,
 				2D0E938BA9E9447F95EBBB6F /* Frameworks */,
 				22017DF38B63475CB3D1795F /* Resources */,
+				0C45550203ACC1319D4851AC /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				FF71131B0B6A2BCF593FECF2 /* PBXTargetDependency */,
 			);
 			name = iosApp;
 			productName = iosApp;
@@ -107,6 +196,9 @@
 					79F9ED646BA74BE981D43BD8 = {
 						CreatedOnToolsVersion = 15.0;
 					};
+					87254EE6ADDCDE5369FAFF32 = {
+						CreatedOnToolsVersion = 15.0;
+					};
 				};
 			};
 			buildConfigurationList = 08211EE989414074B46A3F53 /* Build configuration list for PBXProject "iosApp" */;
@@ -116,6 +208,7 @@
 			knownRegions = (
 				en,
 				Base,
+				ru,
 			);
 			mainGroup = 6D2D7EE0315D4DF48EB31799;
 			productRefGroup = 64525F1FE9FC4C0F90C61D35 /* Products */;
@@ -123,11 +216,21 @@
 			projectRoot = "";
 			targets = (
 				79F9ED646BA74BE981D43BD8 /* iosApp */,
+				87254EE6ADDCDE5369FAFF32 /* GainsWatch */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		E3AF376DB1866E746C321230 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A3C8DA76960DA0136967DEA6 /* Assets.xcassets in Resources */,
+				C434DFE6ED02CBE08AC2B38A /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		22017DF38B63475CB3D1795F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -162,6 +265,19 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		12671B8B82E0BD885BD96B47 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3B8780FD24364B7CF8C1E037 /* GainsWatchApp.swift in Sources */,
+				A174B74E040C4A44E7593601 /* WatchProtocol.swift in Sources */,
+				4EACCA564F79737678F5F24E /* WorkoutPlan.swift in Sources */,
+				FE8630F172497B6634745F8B /* WorkoutStore.swift in Sources */,
+				F0E2DF9C9004248921C19FDE /* HealthWorkout.swift in Sources */,
+				2139D4E85249DFB7C83384A2 /* WorkoutViews.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5B70411DF81E41C4A7602EA6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -173,7 +289,71 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		FF71131B0B6A2BCF593FECF2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 87254EE6ADDCDE5369FAFF32 /* GainsWatch */;
+			targetProxy = F4937CD11C6B1C418976AFEE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		A0E9F8800902AC5243329D47 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = GainsWatch/GainsWatch.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "$(TEAM_ID)";
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = GainsWatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID).watchkitapp";
+				PRODUCT_NAME = GainsWatch;
+				PROVISIONING_PROFILE_SPECIFIER = "$(GAINS_WATCH_PROFILE)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		63189534602590858C2E851E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = GainsWatch/GainsWatch.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "$(TEAM_ID)";
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = GainsWatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID).watchkitapp";
+				PRODUCT_NAME = GainsWatch;
+				PROVISIONING_PROFILE_SPECIFIER = "$(GAINS_WATCH_PROFILE)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 		24877E1976684EC59CA0195A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3499E407BE3142D882C516DE /* Config.xcconfig */;
@@ -252,6 +432,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID)";
 				PRODUCT_NAME = "$(APP_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "$(GAINS_APP_PROFILE)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -283,6 +464,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID)";
 				PRODUCT_NAME = "$(APP_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "$(GAINS_APP_PROFILE)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -291,6 +473,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		D1A0CA9057F71D3BC45C8B18 /* Build configuration list for PBXNativeTarget "GainsWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A0E9F8800902AC5243329D47 /* Debug */,
+				63189534602590858C2E851E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		08211EE989414074B46A3F53 /* Build configuration list for PBXProject "iosApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
