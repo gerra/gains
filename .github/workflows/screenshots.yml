@@ -47,11 +47,13 @@ jobs:
           done
           rm -rf frames
       # The App Store screenshots and the site's pictures are these same renders of the sample export,
-      # in a phone and under a headline drawn by the script, so neither ever shows anyone's real
-      # training (docs/launch-plan.md, item 39). site/index.html names them and gives their sizes.
+      # in Apple's iPhone 17 Pro bezel and under a headline drawn by the script, so neither ever shows
+      # anyone's real training (docs/launch-plan.md, item 39). The script downloads the bezel from
+      # Apple and unpacks it with 7-Zip; it is never committed. site/index.html gives the sizes.
       - name: Store screenshots and site images
         run: |
           python3 -c 'import PIL' 2>/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q python3-pil; }
+          command -v 7z >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q 7zip; }
           [ -f /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf ] || { sudo apt-get update -q && sudo apt-get install -y -q fonts-dejavu-core; }
           python3 tools/store_screenshots.py
       - name: Show test report on failure

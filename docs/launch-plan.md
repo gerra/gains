@@ -1785,6 +1785,9 @@ make this more than adding a file:
      in a drawn phone with a status bar), five of them at 600 wide as the site's shots, and the
      Lifts screen in the phone alone as the hero, so the site's pictures follow the app.
      Uploading `docs/store` to App Store Connect in place of the old ones is the owner's.
+     *Later (2026-11-18):* the drawn phone gave way to Apple's iPhone 17 Pro product bezel, which
+     the script downloads from Apple at run time and never commits (its license forbids
+     redistribution), with the app rendered at the 17 Pro's own size.
    - **History. Owner decides.** The repository is public, so the export and the fixtures are
      already in its history, and in any clone or fork. Deleting them from `main` doesn't remove
      them from past commits. The options:

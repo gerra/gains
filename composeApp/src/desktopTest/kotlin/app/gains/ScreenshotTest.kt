@@ -92,6 +92,14 @@ import kotlin.math.sin
 import kotlin.test.Test
 
 /**
+ * The walk's window: an iPhone 17 Pro (402 × 874 pt, 3×) less its 62 pt status bar and 34 pt home
+ * indicator, which the app pads for on iOS and tools/store_screenshots.py draws back around the render.
+ */
+private const val PHONE_DENSITY = 3f
+private const val PHONE_WIDTH_PX = 402 * 3
+private const val PHONE_HEIGHT_PX = (874 - 62 - 34) * 3
+
+/**
  * Drives the whole app headlessly (sign-in, import, every tab) and saves a PNG of each screen.
  * The images end up in `build/screenshots` by default; the Screenshots workflow passes
  * `-Pgains.screenshotDir=docs/screenshots` to refresh the ones shown in the README.
@@ -109,7 +117,7 @@ class ScreenshotTest {
     private val animationDir = System.getProperty("gains.animationDir")?.let { File(it).apply { mkdirs() } }
 
     @Test
-    fun captureEveryScreen() = runDesktopComposeUiTest(width = 960, height = 1720) {
+    fun captureEveryScreen() = runDesktopComposeUiTest(width = PHONE_WIDTH_PX, height = PHONE_HEIGHT_PX) {
         val dbFile = File.createTempFile("gains-screenshots", ".db").apply { delete(); deleteOnExit() }
         stopKoin()
         // Walking every screen is also a run of every model's actions: none of them may fail unseen.
@@ -125,9 +133,10 @@ class ScreenshotTest {
         // lookup, which never happens while anything animates.
         mainClock.autoAdvance = false
 
-        // 480×860 dp at 2× density: the same layout as the desktop window, at retina resolution.
+        // An iPhone 17 Pro's screen between its status bar and home indicator, at its own 3× density,
+        // so tools/store_screenshots.py can put these renders in Apple's bezel as they are.
         setContent {
-            CompositionLocalProvider(LocalDensity provides Density(2f)) {
+            CompositionLocalProvider(LocalDensity provides Density(PHONE_DENSITY)) {
                 App(
                     filePicker = CsvFilePicker { onResult -> onResult(emptyList()) },
                     // No photo library on a headless runner: the summary's picker gets a drawn stand-in.

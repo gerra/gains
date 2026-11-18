@@ -3,22 +3,33 @@
 
 Run by the Screenshots workflow after ScreenshotTest, from the repository root:
 
-  python3 tools/store_screenshots.py      (needs Pillow: pip install pillow, or apt python3-pil)
+  python3 tools/store_screenshots.py      (needs Pillow, and 7-Zip to unpack Apple's bezel)
 
 It reads docs/screenshots (the app rendered from samples/liftoff-export.csv) and writes:
 
   docs/store/*.png       App Store screenshots, 1290 × 2796 (the 6.7" and 6.9" iPhone size):
-                         a headline, a green glow and the screen in a phone with a status bar.
+                         a headline, a green glow and the screen in an iPhone 17 Pro.
   site/img/shot-*.webp   Five of them at 600 wide, for the site's "A look inside".
   site/img/hero.webp     The Lifts screen in the phone alone, on a transparent background.
 
-Everything here is drawn by this script, the phone and its status bar included, so the pictures
-are Gains' own and show only the sample export (docs/launch-plan.md, item 39). The type is the
-app's own, from composeApp's resources: Oswald for the headline, Onest for the line under it.
+The phone is Apple's own product bezel (developer.apple.com/design/resources), which Apple's
+marketing guidelines ask for in place of a drawn one and which must be used as it is: no tilt,
+crop, shadow or reflection. Its license doesn't allow the bezel itself to be redistributed, so it
+is never committed: the first run downloads Apple's disk image into build/bezel and unpacks the
+one PNG used. Set GAINS_BEZEL to a PNG of the bezel to skip the download.
+
+ScreenshotTest renders the iPhone 17 Pro's screen less its status bar and home indicator
+(402 × 778 pt at 3×); this script draws those back around the render: the time, full signal,
+full Wi-Fi and a full battery, as the guidelines ask. The renders show only the sample export
+(docs/launch-plan.md, item 39). The type is the app's own, from composeApp's resources: Oswald
+for the headline, Onest for the line under it and the clock.
 """
 
+import os
 import pathlib
+import subprocess
 import sys
+import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RENDERS = ROOT / "docs/screenshots"
@@ -48,19 +59,27 @@ SITE_WIDTH = 600
 BACKGROUND = (18, 20, 22)          # the app's dark background (Theme.kt, Graphite)
 VOLT = (98, 217, 154)              # GainsColors volt, dark theme: the progress green
 MUTED = (167, 172, 179)            # GainsColors muted
-FRAME = (34, 38, 43)
-FRAME_EDGE = (58, 64, 71)
 WHITE = (242, 240, 235)            # Chalk
 
 FONT_DIR = ROOT / "composeApp/src/commonMain/composeResources/font"
 BOLD = FONT_DIR / "oswald_semibold.ttf"
 REGULAR = FONT_DIR / "onest_regular.ttf"
+SEMIBOLD = FONT_DIR / "onest_semibold.ttf"
 
 MARGIN = 96           # left edge of the headline
-HEADLINE_TOP = 200
-PHONE_TOP = 660
-PHONE_WIDTH = 1060    # outside of the frame
-SS = 3                # drawn this many times larger, then scaled down: smooth edges
+HEADLINE_TOP = 170
+PHONE_TOP = 690
+PHONE_WIDTH = 980     # the bezel's width on the store screenshot; it stands 2004 tall, 102 px off the bottom
+SS = 4                # the status bar is drawn this many times larger, then scaled down: smooth edges
+
+# Apple's iPhone 17 bezels and the one used. The PNG's screen opening is the 17 Pro's 1206 × 2622.
+BEZEL_URL = "https://devimages-cdn.apple.com/design/resources/download/Bezel-iPhone-17.dmg"
+BEZEL_MEMBER = "Bezel-iPhone-17/PNG/iPhone 17 Pro/iPhone 17 Pro - Silver - Portrait.png"
+BEZEL_CACHE = ROOT / "build/bezel"
+SCALE = 3             # pixels per point on the 17 Pro
+SCREEN_W, SCREEN_H = 402 * SCALE, 874 * SCALE
+STATUS_BAR = 62 * SCALE          # the top safe area, which ScreenshotTest leaves out of the render
+HOME_INDICATOR = 34 * SCALE      # the bottom one
 
 
 def font(path, size):
@@ -77,65 +96,144 @@ def fitted(path, size, text, width):
         size -= 2
 
 
-def phone(render):
-    """`render` on the screen of a phone, with a status bar above it. RGBA, PHONE_WIDTH wide."""
+def bezel_path():
+    """Apple's bezel PNG: $GAINS_BEZEL, or downloaded once into build/bezel and unpacked with 7-Zip."""
+    if os.environ.get("GAINS_BEZEL"):
+        return pathlib.Path(os.environ["GAINS_BEZEL"])
+    png = BEZEL_CACHE / BEZEL_MEMBER
+    if png.exists():
+        return png
+    BEZEL_CACHE.mkdir(parents=True, exist_ok=True)
+    dmg = BEZEL_CACHE / "bezel.dmg"
+    if not dmg.exists():
+        print(f"downloading {BEZEL_URL}")
+        urllib.request.urlretrieve(BEZEL_URL, dmg)
+    subprocess.run(["7z", "x", "-y", f"-o{BEZEL_CACHE}", str(dmg), BEZEL_MEMBER],
+                   check=True, stdout=subprocess.DEVNULL)
+    if not png.exists():
+        sys.exit(f"{BEZEL_MEMBER} is not in {BEZEL_URL}")
+    return png
+
+
+class Bezel:
+    """The bezel and where its screen is: the transparent opening around the middle of the PNG."""
+
+    def __init__(self, path):
+        from PIL import Image, ImageDraw
+
+        self.image = Image.open(path).convert("RGBA")
+        w, h = self.image.size
+        # The opening is the transparent region joined to the middle; everything outside the phone is
+        # transparent too, but the frame keeps it apart. Flood it to find the opening and its mask.
+        alpha = self.image.getchannel("A").point(lambda a: 255 if a > 0 else 0)
+        ImageDraw.floodfill(alpha, (w // 2, h // 2), 128)
+        self.mask = alpha.point(lambda a: 255 if a == 128 else 0)
+        x0, y0, x1, y1 = self.mask.getbbox()
+        if (x1 - x0, y1 - y0) != (SCREEN_W, SCREEN_H):
+            sys.exit(f"the bezel's screen is {x1 - x0} × {y1 - y0}, not the 17 Pro's {SCREEN_W} × {SCREEN_H}")
+        self.origin = (x0, y0)
+        # The Dynamic Island is the opaque shape at the top of the opening; the status bar centres on it.
+        # Walk out from the middle of the screen's top, across and down, to the island's edges.
+        top = self.mask.crop((x0, y0, x1, y0 + STATUS_BAR))
+        mid = SCREEN_W // 2
+        rows = [y for y in range(STATUS_BAR) if top.getpixel((mid, y)) == 0]
+        if not rows:
+            sys.exit("found no Dynamic Island at the top of the bezel's screen")
+        y = (rows[0] + rows[-1]) // 2
+        left = right = mid
+        while left > 0 and top.getpixel((left - 1, y)) == 0:
+            left -= 1
+        while right < SCREEN_W - 1 and top.getpixel((right + 1, y)) == 0:
+            right += 1
+        self.island = (left, rows[0], right, rows[-1])
+
+
+def status_bar(color, island):
+    """The status bar at 9:41 with full signal, Wi-Fi and battery, in `color`: RGBA, SCREEN_W × STATUS_BAR.
+
+    Laid out as iOS lays it out on the 17 Pro: the time centred in the space left of the Dynamic
+    Island, the three indicators centred in the space right of it, both on the island's middle.
+    """
     from PIL import Image, ImageDraw
 
-    bezel = 30
-    w = PHONE_WIDTH - 2 * bezel                   # the screen
-    shown = render.convert("RGB").resize((w, round(render.height * w / render.width)), Image.LANCZOS)
-    bar = round(0.137 * w)                        # 54 pt of a 393 pt wide iPhone
-    h = bar + shown.height
-    pw, ph = PHONE_WIDTH, h + 2 * bezel
-    outer = round(0.155 * w)
-    inner = outer - bezel
+    def s(v):                          # points to pixels on the supersampled layer
+        return round(v * SCALE * SS)
 
-    def s(v):
-        return round(v * SS)
+    layer = Image.new("L", (SCREEN_W * SS, STATUS_BAR * SS), 0)
+    d = ImageDraw.Draw(layer)
+    il, it, ir, ib = island            # in pixels on the screen
+    mid = (it + ib) / 2 / SCALE        # in points from the top of the screen
+    left_centre, right_centre = il / 2 / SCALE, (ir + SCREEN_W) / 2 / SCALE
 
-    art = Image.new("RGBA", (s(pw), s(ph)), (0, 0, 0, 0))
-    d = ImageDraw.Draw(art)
-    d.rounded_rectangle((0, 0, s(pw) - 1, s(ph) - 1), s(outer), fill=FRAME_EDGE)
-    d.rounded_rectangle((s(3), s(3), s(pw - 3) - 1, s(ph - 3) - 1), s(outer - 3), fill=FRAME)
-    d.rounded_rectangle((s(bezel), s(bezel), s(bezel + w) - 1, s(bezel + h) - 1), s(inner), fill=BACKGROUND + (255,))
+    clock = font(SEMIBOLD, s(17.5))
+    d.text((s(left_centre), s(mid)), "9:41", font=clock, fill=255, anchor="mm")
 
-    # Dynamic Island, then the status bar either side of it: 9:41, signal, Wi-Fi, battery.
-    top = bezel + 0.03 * w
-    island_w, island_h = 0.32 * w, 0.094 * w
-    cx = bezel + w / 2
-    d.rounded_rectangle((s(cx - island_w / 2), s(top), s(cx + island_w / 2), s(top + island_h)), s(island_h / 2), fill=(0, 0, 0, 255))
-    mid = top + island_h / 2
+    # Signal, Wi-Fi and battery: 17 + 6 + 15.5 + 6 + 27.5 points wide.
+    x = right_centre - (17 + 6 + 15.5 + 6 + 27.5) / 2
+    bottom = mid + 5.6
+    for i, bh in enumerate((4.2, 6.6, 9.0, 11.2)):        # four rising bars, all lit
+        bx = x + i * 4.6
+        d.rounded_rectangle((s(bx), s(bottom - bh), s(bx + 3.2), s(bottom)), s(1.0), fill=255)
+    x += 17 + 6
 
-    clock = font(BOLD, s(0.044 * w))
-    d.text((s(bezel + 0.19 * w), s(mid)), "9:41", font=clock, fill=WHITE, anchor="mm")
+    # Wi-Fi: a dot and two arcs fanning up from one point, cut from a 90° wedge.
+    cx, cy = x + 7.75, mid + 5.6
+    wedge = Image.new("L", layer.size, 0)
+    w = ImageDraw.Draw(wedge)
+    for r, fill in ((11.0, 255), (8.7, 0), (7.2, 255), (4.9, 0), (3.4, 255)):
+        w.pieslice((s(cx - r), s(cy - r), s(cx + r), s(cy + r)), 225, 315, fill=fill)
+    layer.paste(255, (0, 0), wedge)
+    x += 15.5 + 6
 
-    x = bezel + 0.705 * w                         # signal: four bars, rising
-    unit = 0.0105 * w
-    for i in range(4):
-        bh = unit * (1.1 + 0.62 * i)
-        d.rounded_rectangle((s(x), s(mid + 1.5 * unit - bh), s(x + unit * 0.95), s(mid + 1.5 * unit)), s(unit * 0.3), fill=WHITE)
-        x += unit * 1.45
-    x += unit * 0.9                               # Wi-Fi: three arcs and a dot, fanning up
-    wx, wy = x + 1.45 * unit, mid + 1.45 * unit
-    for i, r in enumerate((3.0, 2.0)):
-        rr = r * unit
-        d.arc((s(wx - rr), s(wy - rr), s(wx + rr), s(wy + rr)), 225, 315, fill=WHITE, width=s(unit * 0.72))
-    d.pieslice((s(wx - unit), s(wy - unit), s(wx + unit), s(wy + unit)), 225, 315, fill=WHITE)
-    x = wx + 3.0 * unit + unit * 0.9              # battery: outline, charge, nub
-    bw, bh = 4.4 * unit, 2.2 * unit
-    d.rounded_rectangle((s(x), s(mid - bh / 2), s(x + bw), s(mid + bh / 2)), s(unit * 0.7), outline=WHITE + (140,), width=s(unit * 0.2))
-    pad = unit * 0.38
-    d.rounded_rectangle((s(x + pad), s(mid - bh / 2 + pad), s(x + bw - pad), s(mid + bh / 2 - pad)), s(unit * 0.4), fill=WHITE)
-    d.rounded_rectangle((s(x + bw + unit * 0.25), s(mid - unit * 0.4), s(x + bw + unit * 0.6), s(mid + unit * 0.4)), s(unit * 0.2), fill=WHITE + (140,))
+    # Battery: the outline at 35 %, a full charge inside it and the cap on the right.
+    top, bh, bw = mid - 6.25, 12.5, 25.0
+    outline = Image.new("L", layer.size, 0)
+    o = ImageDraw.Draw(outline)
+    o.rounded_rectangle((s(x), s(top), s(x + bw), s(top + bh)), s(4.0), outline=90, width=s(1.1))
+    o.rounded_rectangle((s(x + bw + 1.2), s(mid - 2.2), s(x + bw + 2.6), s(mid + 2.2)), s(0.8), fill=90)
+    layer.paste(outline, (0, 0), outline)
+    d.rounded_rectangle((s(x + 2.1), s(top + 2.1), s(x + bw - 2.1), s(top + bh - 2.1)), s(2.2), fill=255)
 
-    frame = art.resize((pw, ph), Image.LANCZOS)
+    layer = layer.resize((SCREEN_W, STATUS_BAR), Image.LANCZOS)
+    out = Image.new("RGBA", layer.size, color + (0,))
+    out.putalpha(layer)
+    return out
 
-    # The render fills the screen below the bar, its bottom corners rounded with the screen's.
-    mask = Image.new("L", (s(pw), s(ph)), 0)
-    ImageDraw.Draw(mask).rounded_rectangle((s(bezel), s(bezel), s(bezel + w) - 1, s(bezel + h) - 1), s(inner), fill=255)
-    mask = mask.resize((pw, ph), Image.LANCZOS).crop((bezel, bezel + bar, bezel + w, bezel + h))
-    frame.paste(shown, (bezel, bezel + bar), mask)
-    return frame
+
+def screen(render, island):
+    """`render` as the 17 Pro's whole screen: the status bar above it and the home indicator below."""
+    from PIL import Image, ImageDraw
+
+    render = render.convert("RGB")
+    if render.size != (SCREEN_W, SCREEN_H - STATUS_BAR - HOME_INDICATOR):
+        sys.exit(f"a render is {render.width} × {render.height}: ScreenshotTest should render the 17 Pro's "
+                 f"{SCREEN_W} × {SCREEN_H - STATUS_BAR - HOME_INDICATOR} (402 × 778 pt at 3×)")
+    # The app pads its top bar and its tabs clear of the system's, so the safe areas show its background.
+    background = render.getpixel((2, 2))
+    ink = (255, 255, 255) if sum(background) < 384 else (0, 0, 0)
+    out = Image.new("RGBA", (SCREEN_W, SCREEN_H), background + (255,))
+    out.paste(render, (0, STATUS_BAR))
+    out.alpha_composite(status_bar(ink, island))
+    # The home indicator: 139 × 5 pt, 8 pt off the bottom.
+    pill = Image.new("L", (SCREEN_W * SS, HOME_INDICATOR * SS), 0)
+    pw, ph, gap = 139 * SCALE * SS, 5 * SCALE * SS, 8 * SCALE * SS
+    left, top = (pill.width - pw) // 2, pill.height - gap - ph
+    ImageDraw.Draw(pill).rounded_rectangle((left, top, left + pw, top + ph), ph // 2, fill=255)
+    pill = pill.resize((SCREEN_W, HOME_INDICATOR), Image.LANCZOS)
+    out.paste(ink + (255,), (0, SCREEN_H - HOME_INDICATOR), pill)
+    return out
+
+
+def phone(render, bezel):
+    """`render` on the screen of Apple's iPhone 17 Pro bezel, the bezel as Apple draws it. RGBA."""
+    from PIL import Image
+
+    art = Image.new("RGBA", bezel.image.size, (0, 0, 0, 0))
+    shown = screen(render, bezel.island)
+    x0, y0 = bezel.origin
+    art.paste(shown, (x0, y0), bezel.mask.crop((x0, y0, x0 + SCREEN_W, y0 + SCREEN_H)))
+    art.alpha_composite(bezel.image)
+    return art
 
 
 def glow(size, center, radius, color, strength):
@@ -152,7 +250,7 @@ def glow(size, center, radius, color, strength):
     return out
 
 
-def store_shot(render, white, volt, subtitle):
+def store_shot(render, bezel, white, volt, subtitle):
     from PIL import Image, ImageDraw
 
     canvas = Image.new("RGBA", (WIDTH, HEIGHT), BACKGROUND + (255,))
@@ -166,7 +264,8 @@ def store_shot(render, white, volt, subtitle):
     small = fitted(REGULAR, 46, subtitle, text_width)
     d.text((MARGIN, HEADLINE_TOP + 2 * line + 64), subtitle, font=small, fill=MUTED)
 
-    device = phone(render)
+    device = phone(render, bezel)
+    device = device.resize((PHONE_WIDTH, round(device.height * PHONE_WIDTH / device.width)), Image.LANCZOS)
     canvas.alpha_composite(device, ((WIDTH - device.width) // 2, PHONE_TOP))
     return canvas.convert("RGB")
 
@@ -174,18 +273,19 @@ def store_shot(render, white, volt, subtitle):
 def main():
     from PIL import Image
 
-    for path in (BOLD, REGULAR):
+    for path in (BOLD, REGULAR, SEMIBOLD):
         if not path.exists():
             sys.exit(f"{path} is missing")
+    bezel = Bezel(bezel_path())
     STORE.mkdir(parents=True, exist_ok=True)
     for name, render, white, volt, subtitle, site in SHOTS:
-        shot = store_shot(Image.open(RENDERS / f"{render}.png"), white, volt, subtitle)
+        shot = store_shot(Image.open(RENDERS / f"{render}.png"), bezel, white, volt, subtitle)
         shot.save(STORE / f"{name}.png", optimize=True)
         if site:
             small = shot.resize((SITE_WIDTH, round(HEIGHT * SITE_WIDTH / WIDTH)), Image.LANCZOS)
             small.save(SITE_IMG / f"{site}.webp", quality=82, method=6)
         print(f"{name}: {render}" + (f", {site}" if site else ""))
-    hero = phone(Image.open(RENDERS / f"{HERO_RENDER}.png"))
+    hero = phone(Image.open(RENDERS / f"{HERO_RENDER}.png"), bezel)
     hero = hero.resize((SITE_WIDTH, round(hero.height * SITE_WIDTH / hero.width)), Image.LANCZOS)
     hero.save(SITE_IMG / "hero.webp", quality=85, method=6)
     print(f"hero: {HERO_RENDER}, {hero.width} × {hero.height}")
