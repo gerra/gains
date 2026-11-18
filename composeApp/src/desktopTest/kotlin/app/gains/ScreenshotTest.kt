@@ -92,12 +92,13 @@ import kotlin.math.sin
 import kotlin.test.Test
 
 /**
- * The walk's window: an iPhone 17 Pro (402 × 874 pt, 3×) less its 62 pt status bar and 34 pt home
- * indicator, which the app pads for on iOS and tools/store_screenshots.py draws back around the render.
+ * The walk's window: an iPhone 17 Pro Max (440 × 956 pt, 3×) less its 62 pt status bar and 34 pt
+ * home indicator, which the app pads for on iOS and tools/store_screenshots.py draws back around the
+ * render. That leaves 440 × 860 dp, the height Home's fold is kept to (docs/design.md).
  */
 private const val PHONE_DENSITY = 3f
-private const val PHONE_WIDTH_PX = 402 * 3
-private const val PHONE_HEIGHT_PX = (874 - 62 - 34) * 3
+private const val PHONE_WIDTH_PX = 440 * 3
+private const val PHONE_HEIGHT_PX = (956 - 62 - 34) * 3
 
 /**
  * Drives the whole app headlessly (sign-in, import, every tab) and saves a PNG of each screen.
@@ -133,7 +134,7 @@ class ScreenshotTest {
         // lookup, which never happens while anything animates.
         mainClock.autoAdvance = false
 
-        // An iPhone 17 Pro's screen between its status bar and home indicator, at its own 3× density,
+        // An iPhone 17 Pro Max's screen between its status bar and home indicator, at its own 3× density,
         // so tools/store_screenshots.py can put these renders in Apple's bezel as they are.
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(PHONE_DENSITY)) {

@@ -8,7 +8,7 @@ Run by the Screenshots workflow after ScreenshotTest, from the repository root:
 It reads docs/screenshots (the app rendered from samples/liftoff-export.csv) and writes:
 
   docs/store/*.png       App Store screenshots, 1290 × 2796 (the 6.7" and 6.9" iPhone size):
-                         a headline, a green glow and the screen in an iPhone 17 Pro.
+                         a headline, a green glow and the screen in an iPhone 17 Pro Max.
   site/img/shot-*.webp   Five of them at 600 wide, for the site's "A look inside".
   site/img/hero.webp     The Lifts screen in the phone alone, on a transparent background.
 
@@ -18,8 +18,8 @@ crop, shadow or reflection. Its license doesn't allow the bezel itself to be red
 is never committed: the first run downloads Apple's disk image into build/bezel and unpacks the
 one PNG used. Set GAINS_BEZEL to a PNG of the bezel to skip the download.
 
-ScreenshotTest renders the iPhone 17 Pro's screen less its status bar and home indicator
-(402 × 778 pt at 3×); this script draws those back around the render: the time, full signal,
+ScreenshotTest renders the iPhone 17 Pro Max's screen less its status bar and home indicator
+(440 × 860 pt at 3×); this script draws those back around the render: the time, full signal,
 full Wi-Fi and a full battery, as the guidelines ask. The renders show only the sample export
 (docs/launch-plan.md, item 39). The type is the app's own, from composeApp's resources: Oswald
 for the headline, Onest for the line under it and the clock.
@@ -66,18 +66,23 @@ BOLD = FONT_DIR / "oswald_semibold.ttf"
 REGULAR = FONT_DIR / "onest_regular.ttf"
 SEMIBOLD = FONT_DIR / "onest_semibold.ttf"
 
+# The store screenshot, top to bottom: the headline's capitals CAP_TOP from the top, the subtitle
+# SUBTITLE_GAP below the headline's baseline, the phone PHONE_GAP below the subtitle's descenders,
+# and the phone's foot BOTTOM_GAP from the bottom. The phone takes the height that leaves.
 MARGIN = 96           # left edge of the headline
-HEADLINE_TOP = 170
-PHONE_TOP = 690
-PHONE_WIDTH = 980     # the bezel's width on the store screenshot; it stands 2004 tall, 102 px off the bottom
+CAP_TOP = 150
+SUBTITLE_GAP = 72
+PHONE_GAP = 104
+BOTTOM_GAP = 96
 SS = 4                # the status bar is drawn this many times larger, then scaled down: smooth edges
 
-# Apple's iPhone 17 bezels and the one used. The PNG's screen opening is the 17 Pro's 1206 × 2622.
+# Apple's iPhone 17 bezels and the one used: the Pro Max, the 6.9" phone the store size is for.
+# The PNG's screen opening is its 1320 × 2868.
 BEZEL_URL = "https://devimages-cdn.apple.com/design/resources/download/Bezel-iPhone-17.dmg"
-BEZEL_MEMBER = "Bezel-iPhone-17/PNG/iPhone 17 Pro/iPhone 17 Pro - Silver - Portrait.png"
+BEZEL_MEMBER = "Bezel-iPhone-17/PNG/iPhone 17 Pro Max/iPhone 17 Pro Max - Silver - Portrait.png"
 BEZEL_CACHE = ROOT / "build/bezel"
-SCALE = 3             # pixels per point on the 17 Pro
-SCREEN_W, SCREEN_H = 402 * SCALE, 874 * SCALE
+SCALE = 3             # pixels per point on the 17 Pro Max
+SCREEN_W, SCREEN_H = 440 * SCALE, 956 * SCALE
 STATUS_BAR = 62 * SCALE          # the top safe area, which ScreenshotTest leaves out of the render
 HOME_INDICATOR = 34 * SCALE      # the bottom one
 
@@ -130,7 +135,7 @@ class Bezel:
         self.mask = alpha.point(lambda a: 255 if a == 128 else 0)
         x0, y0, x1, y1 = self.mask.getbbox()
         if (x1 - x0, y1 - y0) != (SCREEN_W, SCREEN_H):
-            sys.exit(f"the bezel's screen is {x1 - x0} × {y1 - y0}, not the 17 Pro's {SCREEN_W} × {SCREEN_H}")
+            sys.exit(f"the bezel's screen is {x1 - x0} × {y1 - y0}, not the 17 Pro Max's {SCREEN_W} × {SCREEN_H}")
         self.origin = (x0, y0)
         # The Dynamic Island is the opaque shape at the top of the opening; the status bar centres on it.
         # Walk out from the middle of the screen's top, across and down, to the island's edges.
@@ -151,7 +156,7 @@ class Bezel:
 def status_bar(color, island):
     """The status bar at 9:41 with full signal, Wi-Fi and battery, in `color`: RGBA, SCREEN_W × STATUS_BAR.
 
-    Laid out as iOS lays it out on the 17 Pro: the time centred in the space left of the Dynamic
+    Laid out as iOS lays it out on the 17 Pro Max: the time centred in the space left of the Dynamic
     Island, the three indicators centred in the space right of it, both on the island's middle.
     """
     from PIL import Image, ImageDraw
@@ -201,13 +206,13 @@ def status_bar(color, island):
 
 
 def screen(render, island):
-    """`render` as the 17 Pro's whole screen: the status bar above it and the home indicator below."""
+    """`render` as the 17 Pro Max's whole screen: the status bar above it and the home indicator below."""
     from PIL import Image, ImageDraw
 
     render = render.convert("RGB")
     if render.size != (SCREEN_W, SCREEN_H - STATUS_BAR - HOME_INDICATOR):
-        sys.exit(f"a render is {render.width} × {render.height}: ScreenshotTest should render the 17 Pro's "
-                 f"{SCREEN_W} × {SCREEN_H - STATUS_BAR - HOME_INDICATOR} (402 × 778 pt at 3×)")
+        sys.exit(f"a render is {render.width} × {render.height}: ScreenshotTest should render the 17 Pro Max's "
+                 f"{SCREEN_W} × {SCREEN_H - STATUS_BAR - HOME_INDICATOR} (440 × 860 pt at 3×)")
     # The app pads its top bar and its tabs clear of the system's, so the safe areas show its background.
     background = render.getpixel((2, 2))
     ink = (255, 255, 255) if sum(background) < 384 else (0, 0, 0)
@@ -225,7 +230,7 @@ def screen(render, island):
 
 
 def phone(render, bezel):
-    """`render` on the screen of Apple's iPhone 17 Pro bezel, the bezel as Apple draws it. RGBA."""
+    """`render` on the screen of Apple's iPhone 17 Pro Max bezel, the bezel as Apple draws it. RGBA."""
     from PIL import Image
 
     art = Image.new("RGBA", bezel.image.size, (0, 0, 0, 0))
@@ -253,20 +258,28 @@ def glow(size, center, radius, color, strength):
 def store_shot(render, bezel, white, volt, subtitle):
     from PIL import Image, ImageDraw
 
-    canvas = Image.new("RGBA", (WIDTH, HEIGHT), BACKGROUND + (255,))
-    canvas.alpha_composite(glow(canvas.size, (WIDTH * 0.45, PHONE_TOP - 60), 820, VOLT, 0.17))
-    d = ImageDraw.Draw(canvas)
     text_width = WIDTH - 2 * MARGIN
     headline = fitted(BOLD, 150, max(white, volt, key=len), text_width)
-    line = round(headline.size * 1.1)
-    d.text((MARGIN, HEADLINE_TOP), white, font=headline, fill=WHITE)
-    d.text((MARGIN, HEADLINE_TOP + line), volt, font=headline, fill=VOLT)
     small = fitted(REGULAR, 46, subtitle, text_width)
-    d.text((MARGIN, HEADLINE_TOP + 2 * line + 64), subtitle, font=small, fill=MUTED)
+    line = round(headline.size * 1.1)
+    # Placed by the fonts' metrics, not each line's ink, so every screenshot lines up the same way.
+    cap = headline.getbbox("H")[1]                # from the top of a line to the top of its capitals
+    ascent = headline.getmetrics()[0]             # from the top of a line to its baseline
+    top = CAP_TOP - cap
+    sub_top = top + line + ascent + SUBTITLE_GAP - small.getbbox("x")[1]
+    phone_top = sub_top + sum(small.getmetrics()) + PHONE_GAP
+    phone_height = HEIGHT - BOTTOM_GAP - phone_top
+
+    canvas = Image.new("RGBA", (WIDTH, HEIGHT), BACKGROUND + (255,))
+    canvas.alpha_composite(glow(canvas.size, (WIDTH * 0.45, phone_top - 60), 820, VOLT, 0.17))
+    d = ImageDraw.Draw(canvas)
+    d.text((MARGIN, top), white, font=headline, fill=WHITE)
+    d.text((MARGIN, top + line), volt, font=headline, fill=VOLT)
+    d.text((MARGIN, sub_top), subtitle, font=small, fill=MUTED)
 
     device = phone(render, bezel)
-    device = device.resize((PHONE_WIDTH, round(device.height * PHONE_WIDTH / device.width)), Image.LANCZOS)
-    canvas.alpha_composite(device, ((WIDTH - device.width) // 2, PHONE_TOP))
+    device = device.resize((round(device.width * phone_height / device.height), phone_height), Image.LANCZOS)
+    canvas.alpha_composite(device, ((WIDTH - device.width) // 2, phone_top))
     return canvas.convert("RGB")
 
 

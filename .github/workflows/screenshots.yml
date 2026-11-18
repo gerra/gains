@@ -47,7 +47,7 @@ jobs:
           done
           rm -rf frames
       # The App Store screenshots and the site's pictures are these same renders of the sample export,
-      # in Apple's iPhone 17 Pro bezel and under a headline drawn by the script, so neither ever shows
+      # in Apple's iPhone 17 Pro Max bezel and under a headline drawn by the script, so neither ever shows
       # anyone's real training (docs/launch-plan.md, item 39). The script downloads the bezel from
       # Apple and unpacks it with 7-Zip; it is never committed. site/index.html gives the sizes.
       - name: Store screenshots and site images

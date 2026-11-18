@@ -189,8 +189,8 @@ skipping a rest is an × and the rest's bar runs along the card's foot.
   scales a card to 98.5 %, the tab and chip pill slide, a "done" moment pops (a set ticked, a
   workout logged, an answer picked), charts and meters draw in. Nothing loops except the welcome
   card's trend, the at-risk ring and the exercise demos. Everything is a cut under reduced motion.
-- **Home's fold.** On a phone (the screenshot test's iPhone 17 Pro, 402 × 778 dp between the status
-  bar and the home indicator) Home shows the start of "What's moving" without scrolling. If a
+- **Home's fold.** On a phone (the screenshot test's iPhone 17 Pro Max, 440 × 860 dp between the
+  status bar and the home indicator) Home shows the start of "What's moving" without scrolling. If a
   change pushes it down, move something below it rather than squeezing the type.
 
 ## Words
@@ -231,7 +231,7 @@ Changing the mark means changing all of them.
    test makes on something below the fold misses: scroll to it or click it through its semantics.
 3. For anything with new words, look at it in Russian.
 4. `python3 tools/store_screenshots.py` remakes the store and site pictures from the screenshots,
-   in Apple's iPhone 17 Pro bezel (downloaded into `build/bezel` on the first run, never committed);
+   in Apple's iPhone 17 Pro Max bezel (downloaded into `build/bezel` on the first run, never committed);
    the Screenshots workflow does both after a merge.
 
 ## The website
@@ -263,10 +263,10 @@ the same rules, translated to the web:
 
 Newest first. One line per change to the rules, with the reason.
 
-- **2026-11-18** The store screenshots and the site's phone use Apple's iPhone 17 Pro bezel instead
+- **2026-11-18** The store screenshots and the site's phone use Apple's iPhone 17 Pro Max bezel instead
   of a drawn phone, which looked fake and which Apple's marketing guidelines don't allow. The
-  screenshot test renders at the 17 Pro's size (402 × 778 dp at 3×, the screen less its safe
-  areas) in place of 480 × 860 dp, and the script draws iOS's status bar and home indicator back.
+  screenshot test renders at the 17 Pro Max's size (440 × 860 dp at 3×, the screen less its
+  safe areas) in place of 480 × 860 dp, and the script draws iOS's status bar and home indicator back.
 
 - **2026-11-16** The Apple Watch app (`iosApp/GainsWatch`, SwiftUI) takes the dark theme's colours:
   chalk text, `onSurfaceVariant` grey, green for done, blue for rest, the workout clock and rest in
