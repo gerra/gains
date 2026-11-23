@@ -184,6 +184,9 @@ skipping a rest is an × and the rest's bar runs along the card's foot.
   tappable `Pill` takes a 48 dp target around its small label that overhangs into the space
   around it rather than taking room in the layout, so a row of them sits 12 below the text above.
   A press dips the pill to 94 % as a card dips; no ripple, which lit the square target around it and stayed there.
+- **Ripples show a press only.** The theme turns off Material's hover and focus layers
+  (`PressOnlyRipple`): on a phone they stayed on whatever was last tapped, a grey box over a sheet's
+  grab handle or a chip.
 - **Depth** (`Modifier.surfaceDepth`): on the light theme a soft shadow tinted with the ink colour
   (never plain grey); on the dark one, where a shadow can't show, a chalk edge at 5 %. Filled
   buttons carry a faint inner highlight on their top half.
@@ -269,7 +272,8 @@ Newest first. One line per change to the rules, with the reason.
   workout has no note of its own, and a clock at the end of that line opens the lift's notes: the default to
   change and every note written before, newest first (screenshot `14c-exercise-notes`). A tester wrote the same
   note every workout and could not find what they wrote last time. A tappable `Pill` dips when pressed instead of
-  rippling: the ripple lit a grey square around "T2 · 15 Nov" and left it there after the tap.
+  rippling: the ripple lit a grey square around "T2 · 15 Nov" and left it there after the tap. For the same reason
+  every ripple now shows only a press, with no hover or focus layer, which left a box on a sheet's grab handle.
 
 - **2026-11-18** The store screenshots and the site's phone use Apple's iPhone 17 Pro Max bezel instead
   of a drawn phone, which looked fake and which Apple's marketing guidelines don't allow. The

@@ -2,7 +2,11 @@ package app.gains.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ripple.RippleAlpha
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RippleConfiguration
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -222,6 +226,7 @@ internal fun ThemeMode.isDark(): Boolean = when (this) {
     ThemeMode.SYSTEM -> isSystemInDarkTheme()
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun GainsTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val palette = if (darkTheme) DarkPalette else LightPalette
@@ -230,10 +235,20 @@ internal fun GainsTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Co
             colorScheme = if (darkTheme) DarkScheme else LightScheme,
             typography = gainsTypography(),
             shapes = GainsShapes,
-            content = content,
-        )
+        ) {
+            CompositionLocalProvider(LocalRippleConfiguration provides PressOnlyRipple, content = content)
+        }
     }
 }
+
+/**
+ * A ripple shows a press and nothing else. Material's hover and focus layers stayed on whatever was
+ * last tapped (a sheet's grab handle, a chip), a grey box with no meaning on a touch screen.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+private val PressOnlyRipple = RippleConfiguration(
+    rippleAlpha = RippleAlpha(draggedAlpha = 0.16f, focusedAlpha = 0f, hoveredAlpha = 0f, pressedAlpha = 0.1f),
+)
 
 internal object GainsColors {
     val palette: GainsPalette @Composable get() = LocalGainsPalette.current
