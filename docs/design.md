@@ -183,12 +183,12 @@ skipping a rest is an × and the rest's bar runs along the card's foot.
 - **Tap targets** are at least 44 pt: buttons 48 (compact 44), top-bar icons 44, chips 44. A
   tappable `Pill` takes a 48 dp target around its small label that overhangs into the space
   around it rather than taking room in the layout, so a row of them sits 12 below the text above.
-  Its press shows on the pill alone, clipped to its shape, never on the square target around it.
+  A press dips the pill to 94 % as a card dips; no ripple, which lit the square target around it and stayed there.
 - **Depth** (`Modifier.surfaceDepth`): on the light theme a soft shadow tinted with the ink colour
   (never plain grey); on the dark one, where a shadow can't show, a chalk edge at 5 %. Filled
   buttons carry a faint inner highlight on their top half.
 - **Motion** says what just changed and is never decoration (`Motion.kt` has the timings): a press
-  scales a card to 98.5 %, the tab and chip pill slide, a "done" moment pops (a set ticked, a
+  scales a card to 98.5 % and a pill to 94 %, the tab and chip pill slide, a "done" moment pops (a set ticked, a
   workout logged, an answer picked), charts and meters draw in. Nothing loops except the welcome
   card's trend, the at-risk ring and the exercise demos. Everything is a cut under reduced motion.
 - **Home's fold.** On a phone (the screenshot test's iPhone 17 Pro Max, 440 × 860 dp between the
@@ -268,8 +268,8 @@ Newest first. One line per change to the rules, with the reason.
 - **2026-11-23** A lift keeps a default note ("Seat on 4"), shown muted in its card's note line whenever the
   workout has no note of its own, and a clock at the end of that line opens the lift's notes: the default to
   change and every note written before, newest first (screenshot `14c-exercise-notes`). A tester wrote the same
-  note every workout and could not find what they wrote last time. A tappable `Pill`'s press is clipped to the
-  pill: it lit a grey square around "T2 · 15 Nov".
+  note every workout and could not find what they wrote last time. A tappable `Pill` dips when pressed instead of
+  rippling: the ripple lit a grey square around "T2 · 15 Nov" and left it there after the tap.
 
 - **2026-11-18** The store screenshots and the site's phone use Apple's iPhone 17 Pro Max bezel instead
   of a drawn phone, which looked fake and which Apple's marketing guidelines don't allow. The
