@@ -152,6 +152,7 @@ Reach for these before writing a new one.
 | A set's reps, a cardio set's distance and seconds | A `NumberPadField` cell typed on the app's `NumberPad`, never the system keyboard | A text field |
 | An exercise in a workout | The workout's exercise card: the exercise's drawing in a 56 dp tile (a tap opens "How to do it"), its name, `Done` (filled) and `Record` pills once earned, then ⋯ and a chevron that folds it to its head | |
 | An offer the lifter answers once (ease back in after a break) | A `GainsCard` above what it changes: a 17 sp title saying what happened ("16 days since your last workout"), a line on what the offer does, then a compact `SecondaryButton` for it and a green `TextButton` to decline, wrapping onto two lines when they don't fit | A dialog in the way of the plan |
+| A lift's note in a workout | The card's note line: a pencil, the workout's own note or, while it has none, the exercise's default note in `onSurfaceVariant`, and a clock (`NotesHistoryIcon`) at its end that opens `ExerciseNotesSheet`: the default note to change, then every note written before, newest first, each under its date | A note field per set, or the default note copied into every workout |
 | A set in a workout | A rounded strip (`surfaceContainerHigh`, green tint once ticked) holding the number in a small box, last time's set, the cells in the card's colour and a 32 dp check; a record set's number becomes a trophy in a green ring. A tap on the number offers Remove, and so does a swipe to the left: red with "Remove" shows behind the row only while it is dragged, and it takes 40 % of the row or a flick to go | A × on every row |
 
 Beside last time's set, a ticked set takes a dot that says how it went against it, in the
@@ -182,6 +183,7 @@ skipping a rest is an × and the rest's bar runs along the card's foot.
 - **Tap targets** are at least 44 pt: buttons 48 (compact 44), top-bar icons 44, chips 44. A
   tappable `Pill` takes a 48 dp target around its small label that overhangs into the space
   around it rather than taking room in the layout, so a row of them sits 12 below the text above.
+  Its press shows on the pill alone, clipped to its shape, never on the square target around it.
 - **Depth** (`Modifier.surfaceDepth`): on the light theme a soft shadow tinted with the ink colour
   (never plain grey); on the dark one, where a shadow can't show, a chalk edge at 5 %. Filled
   buttons carry a faint inner highlight on their top half.
@@ -262,6 +264,12 @@ the same rules, translated to the web:
 ## Log
 
 Newest first. One line per change to the rules, with the reason.
+
+- **2026-11-23** A lift keeps a default note ("Seat on 4"), shown muted in its card's note line whenever the
+  workout has no note of its own, and a clock at the end of that line opens the lift's notes: the default to
+  change and every note written before, newest first (screenshot `14c-exercise-notes`). A tester wrote the same
+  note every workout and could not find what they wrote last time. A tappable `Pill`'s press is clipped to the
+  pill: it lit a grey square around "T2 · 15 Nov".
 
 - **2026-11-18** The store screenshots and the site's phone use Apple's iPhone 17 Pro Max bezel instead
   of a drawn phone, which looked fake and which Apple's marketing guidelines don't allow. The

@@ -447,6 +447,13 @@
     <string name="add_set">Add set</string>
     <string name="set_options">Set %1$s options</string>
     <string name="add_a_note">Add a note…</string>
+    <string name="exercise_notes">Notes on this exercise</string>
+    <string name="notes_on">Notes on %1$s</string>
+    <string name="default_note">Default note</string>
+    <string name="default_note_explainer">Shown on the card whenever a workout has no note of its own.</string>
+    <string name="default_note_placeholder">Seat on 4, grip a finger wider</string>
+    <string name="past_notes">Past notes</string>
+    <string name="no_past_notes">No notes yet. What you write in a workout shows here, newest first.</string>
     <string name="exercise_record">Record</string>
     <string name="hide_sets">Hide sets</string>
     <string name="show_sets">Show sets</string>

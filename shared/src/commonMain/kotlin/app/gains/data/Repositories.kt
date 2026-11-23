@@ -2,6 +2,7 @@ package app.gains.data
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.gains.analysis.ExerciseNotes
 import app.gains.catalogue.ExerciseCatalogue
 import app.gains.catalogue.NameNormalizer
 import app.gains.db.GainsDatabase
@@ -351,6 +352,17 @@ class SettingsRepository(
 
     suspend fun setTrophies(on: Boolean) = withContext(io) { q.upsert(KEY_TROPHIES, if (on) "1" else "0") }
 
+    /** Each exercise's standing note, by exercise id ([ExerciseNotes]); synced, as the lifter's own words. */
+    fun observeExerciseNotes(): Flow<Map<String, String>> = observe(KEY_EXERCISE_NOTES).map { ExerciseNotes.decode(it) }
+
+    /** Sets the standing note of [exerciseId]; a blank one removes it. */
+    suspend fun setExerciseNote(exerciseId: String, note: String) = withContext(io) {
+        db.transaction {
+            val notes = ExerciseNotes.decode(q.selectValue(KEY_EXERCISE_NOTES).executeAsOneOrNull())
+            q.upsert(KEY_EXERCISE_NOTES, ExerciseNotes.encode(ExerciseNotes.withNote(notes, exerciseId, note)))
+        }
+    }
+
     companion object {
         const val KEY_UNIT = "weight_unit"
         const val KEY_THEME = "theme_mode"
@@ -359,6 +371,7 @@ class SettingsRepository(
         const val KEY_AUTO_WARMUPS = "auto_warmups"
         const val KEY_STREAK_REMINDER = "streak_reminder"
         const val KEY_TROPHIES = "trophies"
+        const val KEY_EXERCISE_NOTES = "exercise_notes"
     }
 }
 

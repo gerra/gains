@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -109,6 +110,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gains.analysis.Dates
+import app.gains.analysis.ExerciseNotes
 import app.gains.analysis.Format
 import app.gains.analysis.PreviousSets
 import app.gains.analysis.RecordHolder
@@ -194,11 +196,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
@@ -426,13 +430,22 @@ internal class SessionEditorModel(
     private val texts: Texts,
     private val sessions: SessionRepository,
     private val liveSessions: LiveSessionRepository,
-    settings: SettingsRepository,
+    private val settings: SettingsRepository,
     trainingData: TrainingData,
     private val programs: ProgramRepository,
     reporter: ErrorReporter,
 ) : ScreenModel(reporter) {
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state
+
+    /** Each exercise's default note, shown on its card while the workout's own note is empty. */
+    val defaultNotes: StateFlow<Map<String, String>> = settings.observeExerciseNotes().stateIn(scope, SharingStarted.Eagerly, emptyMap())
+
+    /** The notes written on [exerciseId] in workouts before this one, newest first. */
+    fun pastNotes(exerciseId: String): List<ExerciseNotes.Past> = context?.pastNotes?.get(exerciseId).orEmpty()
+
+    /** Keeps [note] as the default note of [exerciseId]; a blank one removes it. */
+    fun setDefaultNote(exerciseId: String, note: String) = scope.launchAction { settings.setExerciseNote(exerciseId, note) }
 
     /** What the planner and the restore need, kept for a resume after the conflict dialog. */
     /** The editor's fixed titles, read from the resources once when the model starts. */
@@ -505,6 +518,9 @@ internal class SessionEditorModel(
                 scheme = slot?.let { Gzclp.tierOf(it)?.label ?: it.targetLabel }, free = session.program == null,
             )
         }
+
+        /** Every lift's notes from other workouts, newest first, for its card's notes sheet. */
+        val pastNotes: Map<String, List<ExerciseNotes.Past>> by lazy { ExerciseNotes.byExercise(snapshot.sessions, editing?.id) }
 
         /** Every lift's standing records before this workout, so a set can be starred as it is ticked. */
         val standing: Map<String, Map<RecordKind, RecordHolder>> by lazy {
@@ -1080,8 +1096,11 @@ internal fun SessionEditorScreen(
     val texts = rememberTexts()
     val model = rememberScreenModel(sessionId, programDay, live) { SessionEditorModel(sessionId, programDay, live, texts, inject(), inject(), inject(), inject(), inject(), inject()) }
     val state by model.state.collectAsState()
+    val defaultNotes by model.defaultNotes.collectAsState()
     val palette = GainsColors.palette
     var pickerOpen by remember { mutableStateOf(false) }
+    /** The exercise whose notes sheet is open: its default note and the notes of past workouts. */
+    var notesTarget by remember { mutableStateOf<Exercise?>(null) }
     /** The exercise whose "Change exercise" picker is open: its index in the workout. */
     var replaceTarget by remember { mutableStateOf<Int?>(null) }
     /** Index of the exercise whose demo sheet is open. */
@@ -1200,6 +1219,8 @@ internal fun SessionEditorScreen(
                     onChangeExercise = { replaceTarget = exerciseIndex },
                     onShowDemo = { demoTarget = exerciseIndex },
                     onEditExercise = { editTarget = draft.exercise },
+                    defaultNote = defaultNotes[draft.exercise.id],
+                    onShowNotes = { notesTarget = draft.exercise },
                     pad = pad,
                     // A moved card slides to its new place rather than jumping, so the eye can follow it.
                     modifier = Modifier.animateItem(),
@@ -1264,6 +1285,13 @@ internal fun SessionEditorScreen(
             onDismiss = { replaceTarget = null },
             single = true,
             title = stringResource(Res.string.replace_named, current.exercise.displayName()),
+        )
+    }
+    notesTarget?.let { exercise ->
+        ExerciseNotesSheet(
+            exercise, defaultNotes[exercise.id].orEmpty(), remember(exercise.id) { model.pastNotes(exercise.id) },
+            onSaveDefault = { model.setDefaultNote(exercise.id, it) },
+            onDismiss = { notesTarget = null },
         )
     }
     demoTarget?.let { index ->
@@ -1659,6 +1687,10 @@ private fun ExerciseCard(
     onShowDemo: () -> Unit = {},
     /** Opens the form for the card's exercise; only the lifter's own exercises offer it. */
     onEditExercise: () -> Unit = {},
+    /** The exercise's default note, shown in the note line while this workout's note is empty. */
+    defaultNote: String? = null,
+    /** Opens the exercise's notes: its default note and what was written in past workouts. */
+    onShowNotes: () -> Unit = {},
     /** The workout's number pad, which types the reps, seconds and distance in place of the system keyboard. */
     pad: NumberPadState = remember { NumberPadState() },
     modifier: Modifier = Modifier,
@@ -1773,7 +1805,7 @@ private fun ExerciseCard(
                     style = MaterialTheme.typography.bodySmall, color = muted,
                 )
             }
-            NoteLine(draft.note, editable) { model.setNote(exerciseIndex, it) }
+            NoteLine(draft.note, defaultNote, editable, onShowNotes) { model.setNote(exerciseIndex, it) }
             if (previousSources != null) {
                 PreviousSourceRow(previousSources, previousLatest) { model.showLatestPrevious(exerciseIndex, it) }
                 Spacer(Modifier.height(8.dp))
@@ -1895,27 +1927,34 @@ private fun ExerciseTile(exercise: Exercise, name: String, onClick: () -> Unit) 
     }
 }
 
-/** The card's note: a pencil and a borderless line, "Add a note…" until something is written. */
+/**
+ * The card's note: a pencil and a borderless line, "Add a note…" until something is written, or the
+ * exercise's default note in its place, muted, while this workout has none of its own. The clock at
+ * the end opens the exercise's notes: the default note to change and every note written before.
+ */
 @Composable
-private fun NoteLine(note: String, enabled: Boolean, onChange: (String) -> Unit) {
+private fun NoteLine(note: String, defaultNote: String?, enabled: Boolean, onShowNotes: () -> Unit, onChange: (String) -> Unit) {
     val palette = GainsColors.palette
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val placeholder = stringResource(Res.string.add_a_note)
-    Row(Modifier.fillMaxWidth().height(CELL_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
+    val shown = defaultNote?.takeIf { it.isNotBlank() } ?: placeholder
+    Row(Modifier.fillMaxWidth().heightIn(min = CELL_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Default.Edit, null, tint = if (enabled) muted else disabledColor(), modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(12.dp))
         BasicTextField(
-            note, onChange, Modifier.weight(1f).semantics { contentDescription = placeholder }, enabled = enabled, singleLine = true,
+            note, onChange, Modifier.weight(1f).padding(vertical = 8.dp).semantics { contentDescription = placeholder }, enabled = enabled, singleLine = true,
             textStyle = MaterialTheme.typography.bodyMedium.copy(color = cellText(muted = false, enabled = enabled)),
             cursorBrush = SolidColor(palette.volt),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
-                    if (note.isEmpty()) Text(placeholder, style = MaterialTheme.typography.bodyMedium, color = if (enabled) muted else disabledColor())
+                    if (note.isEmpty()) Text(shown, style = MaterialTheme.typography.bodyMedium, color = if (enabled) muted else disabledColor(), maxLines = 3, overflow = TextOverflow.Ellipsis)
                     inner()
                 }
             },
         )
+        // Reading old notes and setting the default change nothing in this workout, so they stay open before Start.
+        CardIconButton(NotesHistoryIcon, stringResource(Res.string.exercise_notes), muted, onClick = onShowNotes)
     }
 }
 

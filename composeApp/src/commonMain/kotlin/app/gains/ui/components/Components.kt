@@ -10,6 +10,7 @@ import androidx.compose.animation.core.rememberTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +33,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -165,9 +167,12 @@ internal fun Pill(
     val background by animateColorAsState(if (filled) color else color.copy(alpha = 0.14f), Motion.standard(), label = "pill")
     val content by animateColorAsState(if (filled) MaterialTheme.colorScheme.onPrimary else color, Motion.standard(), label = "pill-text")
     // A pill that can be tapped takes a 48 dp target around itself, so the small label is still easy to hit.
-    val target = if (onClick != null) Modifier.overhangingTouchTarget().clickable(onClick = onClick) else Modifier
+    // The press shows on the pill alone: drawn on the target, it lit a grey square around the label.
+    val interactions = remember { MutableInteractionSource() }
+    val target = if (onClick != null) Modifier.overhangingTouchTarget().clickable(interactions, indication = null, onClick = onClick) else Modifier
+    val press = if (onClick != null) Modifier.indication(interactions, ripple()) else Modifier
     Box(modifier.then(target), contentAlignment = Alignment.Center) {
-        Row(Modifier.clip(CircleShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.clip(CircleShape).background(background).then(press).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
                 icon(content)
                 Spacer(Modifier.width(4.dp))
