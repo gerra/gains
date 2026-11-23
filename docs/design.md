@@ -167,6 +167,8 @@ it away (a chevron), −1, +1 and Next, which walks the card's typed cells and r
 Next is the pad's one filled key, in the primary colour. The point key shows only for a distance. A
 focused cell takes the green edge; its value sits on the green tint until the first key replaces it,
 as a selection would, and after that a still green caret marks where the next digit goes.
+Opening a sheet (a weight, a hold, a date) puts the pad or the system keyboard away for good: the
+screen under it gives up focus (`ReleaseFocusBehind`), so nothing comes back when the sheet goes.
 
 The bars along the bottom, above the tabs: `StartBar` on Home when a program has a next day,
 `LiveSessionBar` while a workout runs (it replaces the Start bar), and the workout screen's Ready
@@ -263,6 +265,8 @@ the same rules, translated to the web:
 
 Newest first. One line per change to the rules, with the reason.
 
+- **2026-11-23** Opening a bottom sheet drops the focus of the screen under it, as a tap off a field does: a
+  note left focused under the weight sheet took the system keyboard back when the sheet was tapped away.
 - **2026-11-18** The store screenshots and the site's phone use Apple's iPhone 17 Pro Max bezel instead
   of a drawn phone, which looked fake and which Apple's marketing guidelines don't allow. The
   screenshot test renders at the 17 Pro Max's size (440 × 860 dp at 3×, the screen less its

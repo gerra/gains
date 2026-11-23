@@ -12,9 +12,11 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -56,7 +58,9 @@ import kotlin.test.assertTrue
 /**
  * The workout's own number pad: what its keys do to a value, and, in a logged squat's set table,
  * that a reps cell opens it, the first digit replaces the planned reps, Next walks the table, and
- * the hide key and Done put it away. Rendered dark, light and in Russian on a 390 dp phone.
+ * the hide key and Done put it away; and that a weight sheet takes the focus from the card's note,
+ * so the keyboard can't come back to it when the sheet is tapped away. Rendered dark, light and in
+ * Russian on a 390 dp phone.
  */
 @OptIn(ExperimentalTestApi::class)
 class NumberPadTest {
@@ -185,6 +189,21 @@ class NumberPadTest {
         key("Hide keyboard").performClick()
         waitForIdle()
         assertFalse(padShown())
+    }
+
+    @Test
+    fun aWeightSheetTakesTheFocusFromTheNote() = editor { _ ->
+        val note = hasContentDescription("Add a note…") and hasSetTextAction()
+        val weight = hasContentDescription("Weight for set 1", substring = true) and hasClickAction()
+        await(note)
+        onAllNodes(note).onFirst().performClick()
+        waitForIdle()
+        onAllNodes(note).onFirst().assertIsFocused()
+        // The tap on the cell is the cell's, so nothing else drops the note's focus: the sheet has to,
+        // or iOS and Android hand the keyboard back to the note as the sheet goes.
+        onAllNodes(weight).onFirst().performClick()
+        waitForIdle()
+        onAllNodes(note).onFirst().assertIsNotFocused()
     }
 
     private fun shot(name: String, dark: Boolean, language: String?, setDescription: String) = editor(dark, language) { _ ->

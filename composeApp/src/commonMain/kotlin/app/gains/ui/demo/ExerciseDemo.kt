@@ -59,6 +59,7 @@ import app.gains.resources.demo_of
 import app.gains.resources.demo_start_end
 import app.gains.resources.watch_video
 import app.gains.resources.watch_video_note
+import app.gains.ui.components.ReleaseFocusBehind
 import app.gains.ui.components.Dp16
 import app.gains.ui.components.GainsCard
 import app.gains.ui.components.SecondaryButton
@@ -89,6 +90,7 @@ internal fun ExerciseDemoCard(exercise: Exercise, modifier: Modifier = Modifier)
 internal fun ExerciseDemoSheet(exercise: Exercise, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    ReleaseFocusBehind()
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,

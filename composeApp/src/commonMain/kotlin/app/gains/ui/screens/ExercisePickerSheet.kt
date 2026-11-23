@@ -1,6 +1,7 @@
 package app.gains.ui.screens
 
 import app.gains.ui.theme.Motion
+import app.gains.ui.components.ReleaseFocusBehind
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -130,6 +131,7 @@ internal fun ExercisePickerSheet(
         selected = if (id in selected) selected - id else selected + id
     }
 
+    ReleaseFocusBehind()
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,

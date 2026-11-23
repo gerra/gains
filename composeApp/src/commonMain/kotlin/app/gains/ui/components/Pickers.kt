@@ -222,6 +222,7 @@ internal fun PickerSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    ReleaseFocusBehind()
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
