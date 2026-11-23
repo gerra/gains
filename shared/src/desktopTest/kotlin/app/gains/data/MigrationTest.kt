@@ -115,6 +115,9 @@ class MigrationTest {
         // The answers after a break sync too.
         db.settingsQueries.upsert("comebacks", "2026-01-01T10:00|16|2026-01-17|1")
         assertEquals(listOf("comebacks", "focus_areas", "program_starts"), db.syncQueries.selectChanges().executeAsList().filter { it.kind == "setting" }.map { it.id }.sorted())
-        assertTrue(GainsDatabase.Schema.version >= 10)
+        // So do the standing notes on each exercise.
+        db.settingsQueries.upsert("exercise_notes", "{\"bench\":\"Seat on 4\"}")
+        assertEquals(listOf("comebacks", "exercise_notes", "focus_areas", "program_starts"), db.syncQueries.selectChanges().executeAsList().filter { it.kind == "setting" }.map { it.id }.sorted())
+        assertTrue(GainsDatabase.Schema.version >= 11)
     }
 }

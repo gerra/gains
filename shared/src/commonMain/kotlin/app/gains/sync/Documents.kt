@@ -44,6 +44,7 @@ object SyncedSettings {
         ProgramRepository.KEY_PROGRAM_STARTS,
         ProgramRepository.KEY_FOCUS,
         ProgramRepository.KEY_COMEBACKS,
+        SettingsRepository.KEY_EXERCISE_NOTES,
     )
 }
 

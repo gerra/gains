@@ -165,9 +165,14 @@ internal fun Pill(
     val background by animateColorAsState(if (filled) color else color.copy(alpha = 0.14f), Motion.standard(), label = "pill")
     val content by animateColorAsState(if (filled) MaterialTheme.colorScheme.onPrimary else color, Motion.standard(), label = "pill-text")
     // A pill that can be tapped takes a 48 dp target around itself, so the small label is still easy to hit.
-    val target = if (onClick != null) Modifier.overhangingTouchTarget().clickable(onClick = onClick) else Modifier
+    // A press dips the pill as it does a card, and leaves nothing behind: a ripple drew its press, hover
+    // and focus on the square target and stayed as a grey box around the label after the tap.
+    val interactions = remember { MutableInteractionSource() }
+    val pressed by interactions.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.94f else 1f, Motion.press(), label = "pill-press")
+    val target = if (onClick != null) Modifier.overhangingTouchTarget().clickable(interactions, indication = null, onClick = onClick) else Modifier
     Box(modifier.then(target), contentAlignment = Alignment.Center) {
-        Row(Modifier.clip(CircleShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.scale(scale).clip(CircleShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
                 icon(content)
                 Spacer(Modifier.width(4.dp))

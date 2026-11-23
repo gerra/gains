@@ -447,6 +447,13 @@
     <string name="add_set">Добавить подход</string>
     <string name="set_options">Подход %1$s: действия</string>
     <string name="add_a_note">Добавить заметку…</string>
+    <string name="exercise_notes">Заметки к упражнению</string>
+    <string name="notes_on">Заметки: %1$s</string>
+    <string name="default_note">Заметка по умолчанию</string>
+    <string name="default_note_explainer">Видна на карточке, если в тренировке нет своей заметки.</string>
+    <string name="default_note_placeholder">Сиденье на 4, хват на палец шире</string>
+    <string name="past_notes">Прошлые заметки</string>
+    <string name="no_past_notes">Заметок пока нет. Здесь появятся заметки из тренировок, сначала новые.</string>
     <string name="exercise_record">Рекорд</string>
     <string name="hide_sets">Свернуть подходы</string>
     <string name="show_sets">Показать подходы</string>

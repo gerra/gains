@@ -511,6 +511,18 @@ class ScreenshotTest {
         shot("14b-weight-picker")
         onNode(hasText("Done") and hasClickAction()).performClick()
         settle(1_500)
+        // A lift's notes open from the clock at the end of its note line: a default note, shown on the card
+        // whenever a workout has no note of its own, over every note written before, newest first.
+        val notesButton = hasContentDescription("Notes on this exercise") and hasClickAction()
+        scrollIntoView(notesButton)
+        onAllNodes(notesButton).onFirst().performClick()
+        require(text("Past notes"))
+        onNode(hasContentDescription("Default note") and hasSetTextAction()).performTextInput("Seat on 4, grip a finger wider")
+        settle(1_000)
+        shot("14c-exercise-notes")
+        onNode(hasText("Done") and hasClickAction()).performClick()
+        settle(1_500)
+        require(text("Seat on 4, grip a finger wider"))
         require(hasText("End") and hasClickAction())
         // Leaving with Back keeps the workout running; every other screen shows it above the tabs.
         onNode(hasContentDescription("Back") and hasClickAction()).performClick()
